@@ -1,9 +1,9 @@
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::task::{Task, TaskEventEmitter, TaskPriority};
 use async_trait::async_trait;
-use std::sync::Arc;
-use multipool::pool::modes::PriorityWorkStealingMode;
 use multipool::pool::ThreadPool;
+use multipool::pool::modes::PriorityWorkStealingMode;
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::sync::broadcast;
 use typed_builder::TypedBuilder;
@@ -21,9 +21,7 @@ impl From<DefaultTaskDispatcherConfig> for Arc<DefaultTaskDispatcher> {
             .enable_priority()
             .num_threads(config.workers)
             .build();
-        Arc::new(DefaultTaskDispatcher {
-            pool
-        })
+        Arc::new(DefaultTaskDispatcher { pool })
     }
 }
 
@@ -33,9 +31,7 @@ pub struct DefaultTaskDispatcher {
 
 impl DefaultTaskDispatcher {
     pub fn default_configs() -> Arc<Self> {
-        DefaultTaskDispatcher::builder()
-            .workers(16)
-            .build()
+        DefaultTaskDispatcher::builder().workers(16).build()
     }
 
     pub fn builder() -> DefaultTaskDispatcherConfigBuilder {
@@ -60,23 +56,26 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
             TaskPriority::LOW => 400,
         };
 
-
         let idx_clone = idx.clone();
         let task_clone = task.clone();
         let sender_clone = sender.clone();
         let emitter_clone = emitter.clone();
-        self.pool.spawn_with_priority(move || {
-            let idx_clone = idx.clone();
-            let task_clone = task.clone();
-            let sender_clone = sender.clone();
-            let emitter_clone = emitter.clone();
-            async move {
-                task_clone.clone()
-                    .overlap_policy
-                    .handle(task_clone.clone(), emitter_clone)
-                    .await;
-                sender_clone.send((task_clone, idx_clone)).unwrap();
-            }
-        }, target_priority);
+        self.pool.spawn_with_priority(
+            move || {
+                let idx_clone = idx.clone();
+                let task_clone = task.clone();
+                let sender_clone = sender.clone();
+                let emitter_clone = emitter.clone();
+                async move {
+                    task_clone
+                        .clone()
+                        .overlap_policy
+                        .handle(task_clone.clone(), emitter_clone)
+                        .await;
+                    sender_clone.send((task_clone, idx_clone)).unwrap();
+                }
+            },
+            target_priority,
+        );
     }
 }
