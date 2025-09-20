@@ -1,8 +1,8 @@
 use crate::task::{Task, TaskErrorHandler, TaskEventEmitter};
 use arc_swap::ArcSwapOption;
+use async_trait::async_trait;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use async_trait::async_trait;
 use tokio::task::JoinHandle;
 
 /// [`ScheduleStrategy`] defines how the task behaves when being overlapped by the same instance

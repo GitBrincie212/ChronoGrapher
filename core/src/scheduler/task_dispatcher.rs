@@ -1,7 +1,7 @@
 pub mod default;
 
-use std::ops::Deref;
 pub use default::*;
+use std::ops::Deref;
 
 use crate::task::{Task, TaskEventEmitter};
 use async_trait::async_trait;
@@ -31,8 +31,11 @@ impl<TD: SchedulerTaskDispatcher + ?Sized> SchedulerTaskDispatcher for Arc<TD> {
         sender: Arc<Sender<(Arc<Task>, usize)>>,
         emitter: Arc<TaskEventEmitter>,
         task: Arc<Task>,
-        idx: usize
+        idx: usize,
     ) {
-        self.as_ref().clone().dispatch(sender, emitter, task, idx).await
+        self.as_ref()
+            .clone()
+            .dispatch(sender, emitter, task, idx)
+            .await
     }
 }

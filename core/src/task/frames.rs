@@ -67,7 +67,11 @@ pub trait TaskFrame: Send + Sync {
 
 #[async_trait]
 impl<F: TaskFrame + ?Sized> TaskFrame for Arc<F> {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata + Send + Sync>, emitter: Arc<TaskEventEmitter>) -> Result<(), TaskError> {
+    async fn execute(
+        &self,
+        metadata: Arc<dyn TaskMetadata + Send + Sync>,
+        emitter: Arc<TaskEventEmitter>,
+    ) -> Result<(), TaskError> {
         self.as_ref().execute(metadata, emitter).await
     }
 
