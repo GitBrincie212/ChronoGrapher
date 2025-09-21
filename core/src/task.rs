@@ -12,48 +12,135 @@ pub use frames::*;
 pub use metadata::*;
 pub use priority::*;
 
-use crate::scheduling_strats::{ScheduleStrategy, SequentialSchedulingPolicy};
+use crate::scheduling_strats::*;
 use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
+
+#[allow(unused_imports)]
+use crate::scheduler::Scheduler;
 
 /*
     Quite a similar situation to ConditionalTaskFrame, tho this time I can save one builder and a
     from trait implementation, reducing the code and making it more maintainable
 */
 
+/// Task Config is simply used as a builder to construct [`Task`], <br />
+/// it isn't meant to be used by itself, you may refer to [`Task::builder`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task<E>))]
 pub struct TaskConfig<E: TaskExtension> {
+    /// The task extension (via [`TaskExtension`], it allows one to define additional fields to the
+    /// task than it currently has). By default, there is no extension point defined, you may supply
+    /// your own depending on the circumstances
+    ///
+    /// # See Also
+    /// - [`TaskExtension`]
     extension: E,
 
+    /// The [`TaskMetadata`], it is the <u>**State**</u> of the task and is a reactive container, allowing
+    /// the outside parties to listen to fields changing via [`ObserverField`], making it a very powerful
+    /// system. Multiple listeners can be attached per field. For triggering an action by changing
+    /// multiple fields, multiple listeners will need to be attached per field, and these listeners
+    /// will need their own state and based on it either do nothing or execute a specific logic
+    ///
+    /// # Default Value
+    /// By default, the value uses [`DefaultTaskMetadata`], which is an implementation of [`TaskMetadata],
+    /// hosting the minimum number of fields that define a metadata container
+    ///
+    /// # See Also
+    /// - [`TaskMetadata`]
+    /// - [`ObserverField`]
+    /// - [`DefaultTaskMetadata`]
     #[builder(
         default = Arc::new(DefaultTaskMetadata::new()),
         setter(transform = |s: impl TaskMetadata + 'static| Arc::new(s) as Arc<dyn TaskMetadata>)
     )]
     metadata: Arc<dyn TaskMetadata>,
 
+    /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
+    /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
+    /// generally prioritize it over others. Priorities are separated to multiple tiers which are further
+    /// explained in [`TaskPriority`] on what each variant serves
+    ///
+    /// # Default Value
+    /// By default, every task is [`TaskPriority::MODERATE`]
+    ///
+    /// # See Also
+    /// - [`TaskPriority`]
     #[builder(default = TaskPriority::MODERATE)]
     priority: TaskPriority,
 
+    /// [`TaskFrame`] is the <u>**Main Logic Part Of The Task**</u>, this is where the logic lives in.
+    /// It is an essential part of the system (as without it, a task is useless), more information
+    /// can be viewed on the [`TaskFrame`] documentation on what its capabilities truly are
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`ExecutionTaskFrame`]
+    /// - [`RetriableTaskFrame`]
+    /// - [`TimeoutTaskFrame`]
+    /// - [`FallbackTaskFrame`]
+    /// - [`DependencyTaskFrame`]
     #[builder(setter(transform = |s: impl TaskFrame + 'static| Arc::new(s) as Arc<dyn TaskFrame>))]
     frame: Arc<dyn TaskFrame>,
 
+    /// [`TaskSchedule`] defines <u>**When The Task Should Run**</u>, when a scheduler requests a
+    /// ``reschedule``, the [`TaskSchedule`] computes the next point of time to execute the task, there
+    /// are various default implementations which can be seen. This is also an essential part
+    /// (as without it, the scheduler never knows when to run a task), for more information check the
+    /// [`TaskSchedule`] documentation
+    ///
+    /// # See Also
+    /// - [`TaskSchedule`]
+    /// - [`Scheduler`]
+    /// - [`TaskScheduleCalendar`]
+    /// - [`TaskScheduleCron`]
+    /// - [`TaskScheduleImmediate`]
+    /// - [`TaskScheduleInterval`]
     #[builder(setter(transform = |s: impl TaskSchedule + 'static| Arc::new(s) as Arc<dyn TaskSchedule>))]
     schedule: Arc<dyn TaskSchedule>,
 
+    /// [`TaskErrorHandler`] is the part which <u>**Handles Gracefully Any Errors / Failures That Happen
+    /// Throughout The Task's Lifecycle**</u>. It has access to the error instance and is mostly meant to
+    /// be used in case of cleanups, closing database connections... etc.
+    ///
+    /// # Default Value
+    /// By default, every task has the error handler [`SilentTaskErrorHandler`], which silently ignores
+    /// any error (i.e. Doesn't gracefully handle it), for any demos this is fine, but for any application
+    /// **THIS SHOULD BE AVOIDED AND INSTEAD IDIOMATICALLY HANDLE THE ERROR YOURSELF**
+    ///
+    /// # See Also
+    /// - [`TaskErrorHandler`]
+    /// - [`SilentTaskErrorHandler`]
+    /// - [`PanicTaskErrorHandler`]
     #[builder(
         default = Arc::new(SilentTaskErrorHandler),
         setter(transform = |s: impl TaskErrorHandler + 'static| Arc::new(s) as Arc<dyn TaskErrorHandler>)
     )]
     error_handler: Arc<dyn TaskErrorHandler>,
 
+    /// [`ScheduleStrategy`] is the part where <u>**It Controls How The Rescheduling Happens And How The Same
+    /// Tasks Overlap With Each Other**</u>. There are various implementations, each suited for their own use
+    /// case which are documented thoroughly on [`ScheduleStrategy`]
+    ///
+    /// # Default Value
+    /// By default, every task uses the [`SequentialSchedulingPolicy`], which executes a task first
+    /// then reschedules that task. This means no matter what, there will **NEVER** be a scenario
+    /// where the same task overlaps itself
+    ///
+    /// # See Also
+    /// - [`ScheduleStrategy`]
+    /// - [`SequentialSchedulingPolicy`]
+    /// - [`ConcurrentSchedulingPolicy`]
+    /// - [`CancelPreviousSchedulingPolicy`]
+    /// - [`CancelCurrentSchedulingPolicy`]
     #[builder(
         default = Arc::new(SequentialSchedulingPolicy),
         setter(transform = |s: impl ScheduleStrategy + 'static| Arc::new(s) as Arc<dyn ScheduleStrategy>)
     )]
-    overlap_policy: Arc<dyn ScheduleStrategy>,
+    schedule_strategy: Arc<dyn ScheduleStrategy>,
 }
 
 impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
@@ -63,7 +150,7 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
             frame: config.frame,
             schedule: config.schedule,
             error_handler: config.error_handler,
-            overlap_policy: config.overlap_policy,
+            overlap_policy: config.schedule_strategy,
             priority: config.priority,
             extension: Arc::new(config.extension),
         }
@@ -77,9 +164,9 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
 ///
 /// - **[`TaskMetadata`]** The <u>State</u>, by default (the parameter is optional to define)
 ///   it contains information such as the run-count, the maximum runs allowed, the last time the task
-///   was executed... etc. The task metadata can be exposed in the form of [`ExposedTaskMetadata`],
-///   giving an immutable version of it, typically this metadata is exposed to the task frame, the error
-///   handler and this exposed version can be used outside via [`Task::metadata`]
+///   was executed... etc. The task metadata is also reactive, as most fields are [`ObserverField`],
+///   allowing the developers to listen in various fields for changes made to them. Any outside parties
+///   can access it via using [`Task::metadata`]
 ///
 /// - **[`TaskFrame`]** The <u>What</u> of the task, the logic part of the task. When executed, task
 ///   frames get the exposed metadata and an event emitter for task events (lifecycle or local events,
@@ -98,16 +185,21 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
 ///   a context object hosting the exposed metadata and the error. It is meant to return nothing, just
 ///   handle the error the task gave away
 ///
-/// - **[`ScheduleStrategy`]** Defines how it is scheduled and how it handles task overlapping
-///   behavior. By default, (the parameter is optional to define), it runs sequentially. i.e. The task
-///   only reschedules once it is fully finished
+/// - **[`ScheduleStrategy`]** Defines how the scheduler should handle the rescheduling of a task and
+///   how it handles task overlapping behavior. By default, (the parameter is optional to define),
+///   it runs sequentially. i.e. The task only reschedules once it is fully finished
 /// ---
 ///
 /// In order to actually use the task, the developer must register it in a [`Scheduler`], could be
 /// the default implementation of the scheduler or a custom-made, regardless, the task object is useless
 /// without registration of it
 ///
-/// # See
+/// # Trait Implementation(s)
+/// [`Task`] implements debug, which is displayed in the form of a tuple struct containing debug
+/// label. By default, it is a random UUID, which may be gibberish when debugging, as such it is
+/// advised to provide a name for the task to identify it easily
+///
+/// # See Also
 /// - [`TaskFrame`]
 /// - [`TaskMetadata`]
 /// - [`ExposedTaskMetadata`]
@@ -116,7 +208,6 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
 /// - [`TaskSchedule`]
 /// - [`ScheduleStrategy`]
 /// - [`TaskErrorHandler`]
-#[derive(Clone)]
 pub struct Task<E: TaskExtension = ()> {
     pub(crate) metadata: Arc<dyn TaskMetadata>,
     pub(crate) frame: Arc<dyn TaskFrame>,
@@ -139,14 +230,39 @@ impl Debug for Task<()> {
 /// task, without having to deal with metadata management while getting guaranteed type safety.
 /// By default, a [`Task`] does not require a task extension, as such this is mostly for third
 /// party integrations
+///
+/// # See Also
+/// - [`Task`]
 pub trait TaskExtension: Send + Sync {}
 impl TaskExtension for () {}
 
 type DefaultExtensiveBuilder = TaskConfigBuilder<(), (((),), (), (), (), (), (), ())>;
 
 impl Task {
-    /// Creates a simple task from a schedule and an interval. Mostly used as a convenient method
-    /// for simple enough tasks that don't need any of the other composite parts
+    /// A simple constructor that creates a simple task from a task schedule and a task frame.
+    /// Mostly used as a convenient method for simple enough tasks that don't need any of the other
+    /// composite parts. Otherwise, the [`Task::builder`] may be preferred over.
+    ///
+    /// # Arguments
+    /// - **schedule** The task schedule, it is used for computing when the task should run.
+    /// - **task** The task frame, it is the logic part of the task.
+    ///
+    /// # Returns
+    /// The [`Task`] built from these 2 arguments, with the remaining fields being default values
+    ///
+    /// # Example
+    /// ```ignore
+    /// use chronographer_core::task::Task;
+    /// use chronographer_core::schedule::TaskScheduleImmediate;
+    /// use chronographer_core::task::frames::ExecutionTaskFrame;
+    ///
+    /// Task::define(
+    ///     TaskScheduleImmediate,
+    ///     ExecutionTaskFrame::new(|_| async {
+    ///         todo!()
+    ///     })
+    /// );
+    /// ```
     pub fn define(schedule: impl TaskSchedule + 'static, task: impl TaskFrame + 'static) -> Self {
         Self {
             frame: Arc::new(task),
@@ -160,26 +276,77 @@ impl Task {
     }
 
     /// Creates a task builder without an extension point required, this is mostly a
-    /// convenience method and is identical to:
+    /// convenience method and is identical to doing:
     /// ```ignore
-    /// # use chronographer_core::task::Task;
+    /// use chronographer_core::task::Task;
     ///
     /// Task::extend_builder()
     ///     .extension(())
     /// ```
+    ///
+    /// # Example
+    /// ```ignore
+    /// use chronographer_core::task::{
+    ///     ExecutionTaskFrame, PanicTaskErrorHandler,
+    ///     Task, TaskScheduleImmediate
+    /// };
+    ///
+    /// Task::builder()
+    ///     .schedule(TaskScheduleImmediate)
+    ///     .frame(ExecutionTaskFrame::new(|_| async {
+    ///         todo!()
+    ///     }))
+    ///     .error_handler(PanicTaskErrorHandler)
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`Task::define`]
+    /// - [`Task::extend_builder`]
+    /// - [`TaskExtension`]
     pub fn builder() -> DefaultExtensiveBuilder {
         TaskConfig::builder().extension(())
     }
 }
 
 impl<E: TaskExtension> Task<E> {
-    /// Creates a task builder with a required extension point of type `E` [`TaskExtension`]
+    /// Creates a task builder, unlike [`Task::builder`], this builder specifically requires
+    /// the extension point of type `E` [`TaskExtension`]
+    ///
+    /// # Example
+    /// ```ignore
+    /// use chronographer_core::task::{
+    ///     ExecutionTaskFrame, PanicTaskErrorHandler,
+    ///     Task, TaskScheduleImmediate
+    /// };
+    ///
+    /// Task::extend_builder()
+    ///     .extension(...)
+    ///     .schedule(TaskScheduleImmediate)
+    ///     .frame(ExecutionTaskFrame::new(|_| async {
+    ///         todo!()
+    ///     }))
+    ///     .error_handler(PanicTaskErrorHandler)
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskExtension`]
+    /// - [`Task::builder`]
+    /// - [`Task::define`]
     pub fn extend_builder() -> TaskConfigBuilder<E> {
         TaskConfig::builder()
     }
 }
 
 impl<E: TaskExtension> Task<E> {
+    /// Runs the task, handling any metadata throughout by itself as well as calling events
+    /// the error handler. This method can only be used by parts which have access to [`TaskEventEmitter`],
+    /// such as [`Scheduler`], and mostly is an internal one (even if exposed for public use)
+    ///
+    /// # See Also
+    /// - [`TaskEventEmitter`]
+    /// - [`Scheduler`]
     pub async fn run(&self, emitter: Arc<TaskEventEmitter>) -> Result<(), TaskError> {
         self.metadata
             .runs()
@@ -229,7 +396,7 @@ impl<E: TaskExtension> Task<E> {
     }
 
     /// Gets the overlapping policy for outside parties
-    pub fn overlap_policy(&self) -> Arc<dyn ScheduleStrategy> {
+    pub fn schedule_strategy(&self) -> Arc<dyn ScheduleStrategy> {
         self.overlap_policy.clone()
     }
 
