@@ -1,4 +1,4 @@
-<h1 align="center">Chronographer (Scheduling Library)</h1>
+<h1 align="center">Chronographer (Scheduling & Orchestration Library)</h1>
 <img src="./assets/Chronographer Banner.png" alt="Chronographer Banner" />
 
 > [!IMPORTANT]  
