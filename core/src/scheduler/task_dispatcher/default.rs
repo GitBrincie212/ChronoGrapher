@@ -65,7 +65,7 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
                 async move {
                     task_clone
                         .clone()
-                        .overlap_policy
+                        .schedule_strategy()
                         .handle(task_clone.clone(), emitter_clone)
                         .await;
                     sender_clone.send((task_clone, idx_clone)).unwrap();
