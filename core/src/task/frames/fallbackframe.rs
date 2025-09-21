@@ -20,10 +20,10 @@ use std::sync::Arc;
 ///
 /// # Example
 /// ```ignore
-/// use chronolog_core::schedule::TaskScheduleInterval;
-/// use chronolog_core::scheduler::{Scheduler, CHRONOLOG_SCHEDULER};
-/// use chronolog_core::task::executionframe::ExecutionTaskFrame;
-/// use chronolog_core::task::{FallbackTaskFrame, Task};
+/// use chronographer_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+/// use chronographer_core::task::executionframe::ExecutionTaskFrame;
+/// use chronographer_core::task::{FallbackTaskFrame, Task};
 ///
 /// let primary_frame = ExecutionTaskFrame::new(
 ///     |_metadata| async {
@@ -42,7 +42,7 @@ use std::sync::Arc;
 /// let fallback_frame = FallbackTaskFrame::new(primary_frame, secondary_frame);
 ///
 /// let task = Task::define(TaskScheduleInterval::from_secs(1), fallback_frame);
-/// CHRONOLOG_SCHEDULER.schedule_owned(task).await;
+/// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 pub struct FallbackTaskFrame<T: 'static, T2: 'static> {
     primary: T,

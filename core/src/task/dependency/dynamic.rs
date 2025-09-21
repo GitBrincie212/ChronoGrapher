@@ -19,7 +19,7 @@ type DynamicFunction = Arc<dyn Fn() -> Pin<Box<dyn Future<Output = bool> + Send>
 ///
 /// # Example
 /// ```ignore
-/// use chronolog_core::task::dependency::DynamicDependency;
+/// use chronographer_core::task::dependency::DynamicDependency;
 ///
 /// let dependency = DynamicDependency::new(|_| async {
 ///     println!("Bip boop, i compute your value!");

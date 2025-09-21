@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ChronologErrors {
+pub enum ChronographerErrors {
     #[error("`{0}` Failed to successfully execute, the function returned an error: {1:?}")]
     FailedExecution(String, TaskError),
 

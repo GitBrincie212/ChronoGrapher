@@ -39,10 +39,10 @@ pub enum SequentialTaskPolicy {
 /// # Example
 /// ```ignore
 /// use std::sync::Arc;
-/// use chronolog_core::schedule::TaskScheduleInterval;
-/// use chronolog_core::scheduler::{Scheduler, CHRONOLOG_SCHEDULER};
-/// use chronolog_core::task::{ExecutionTaskFrame, Task};
-/// use chronolog_core::task::sequentialframe::SequentialTaskFrame;
+/// use chronographer_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+/// use chronographer_core::task::{ExecutionTaskFrame, Task};
+/// use chronographer_core::task::sequentialframe::SequentialTaskFrame;
 ///
 /// let primary_frame = ExecutionTaskFrame::new(
 ///     |_metadata| async {
@@ -75,7 +75,7 @@ pub enum SequentialTaskPolicy {
 ///
 /// let task = Task::define(TaskScheduleInterval::from_secs_f64(1.25), parallel_frame);
 ///
-/// CHRONOLOG_SCHEDULER.schedule_owned(task).await;
+/// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 pub struct SequentialTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,

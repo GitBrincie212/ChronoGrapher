@@ -7,12 +7,12 @@ export default function PillarsSection() {
                 "w-full text-center text-[3rem] lg:text-6xl xl:text-7xl leading-none h-32 font-extrabold font-[Rubik] text-transparent " +
                 "bg-gradient-to-r from-accent to-secondary bg-text-clip stroke-2 stroke-primary mb-24 select-none"
             } style={{"-webkit-background-clip": "text",}}>
-                The Chronolog Advantage
+                The ChronoGrapher Advantage
             </div>
             <div class={"flex w-full justify-center items-center"}>
                 <div class={"grid grid-cols-2 gap-2 lg:gap-4 xl:gap-x-16 xl:gap-y-4"}>
                     <PillarCardComponent color={"primary"} title={"Designed For Any Scale"} description={
-                        "Whenever you are an individual, small team or a global scale company. Chronolog is " +
+                        "Whenever you are an individual, small team or a global scale company. ChronoGrapher is " +
                         "built for you. Ditching schedulers because of their scalability issues or too much bloat is " +
                         "a thing of the past"
                     } icon={
@@ -22,7 +22,7 @@ export default function PillarsSection() {
                     } />
                     <PillarCardComponent color={"secondary"} title={"Supreme Extensibility"} description={
                         "Tired of working around the limitations of scheduling engines because " +
-                        "they lean into their own way of doing things? We too, as such Chronolog is designed to be " +
+                        "they lean into their own way of doing things? We too, as such ChronoGrapher is designed to be " +
                         "flexible and extensible "
                     } icon={
                         <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 20 20">
@@ -30,7 +30,7 @@ export default function PillarsSection() {
                         </svg>
                     } />
                     <PillarCardComponent color={"warning"} title={"Unmatched Performance"} description={
-                        "Save costs from power consumption up to hundreds of thousands. Chronolog is written in Rust to ensure " +
+                        "Save costs from power consumption up to hundreds of thousands. ChronoGrapher is written in Rust to ensure " +
                         "maximum performance at any time, making it responsive even under heavy workload"
                     } icon={
                         <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24">
@@ -39,7 +39,7 @@ export default function PillarsSection() {
                     } />
                     <PillarCardComponent color={"accent"} title={"Language Agnostic"} description={
                         "Gone are the days of being forced to use one and only programming language for scheduling " +
-                        "logic. Chronolog allows the use of multiple programming language "
+                        "logic. ChronoGrapher allows the use of multiple programming language "
                     } icon={
                         <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24">
                             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 5h14M9 2v3m4 0q-2 8-9 11m2-7q2 4 6 6m1 7l5-11l5 11m-1.4-3h-7.2"/>
@@ -47,14 +47,14 @@ export default function PillarsSection() {
                     } />
                     <PillarCardComponent color={"info"} title={"Composable Architecture"} description={
                         "Instead of thinking tasks as execution logic and schedulers as the logic for scheduling. " +
-                        "Chronolog breaks it up to multiple components, making it composition-based, flexible and adaptable"
+                        "ChronoGrapher breaks it up to multiple components, making it composition-based, flexible and adaptable"
                     } icon={
                         <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 256 256">
                             <path fill="currentColor" d="M218.68 125.46a12 12 0 1 0-21.37-10.92a75.15 75.15 0 0 1-27.66 29.64l-13.5-30.39A44 44 0 0 0 140 37.68V24a12 12 0 0 0-24 0v13.68a44 44 0 0 0-16.15 76.11L53 219.12A12 12 0 0 0 59.13 235a11.9 11.9 0 0 0 4.87 1a12 12 0 0 0 11-7.13l23.67-53.26A99.5 99.5 0 0 0 128 180a102.8 102.8 0 0 0 29.39-4.32L181 228.87a12 12 0 0 0 11 7.13a11.85 11.85 0 0 0 4.86-1a12 12 0 0 0 6.14-15.88l-23.51-52.9a99.4 99.4 0 0 0 39.19-40.76M128 60a20 20 0 1 1-20 20a20 20 0 0 1 20-20m0 96a75.8 75.8 0 0 1-19.52-2.53l13.3-29.92a43.2 43.2 0 0 0 12.44 0l13.33 30A79 79 0 0 1 128 156"/>
                         </svg>
                     } />
                     <PillarCardComponent color={"success"} title={"Free & Open Source"} description={
-                        "Chronolog is not only free forever but also open source. It is made and maintained by " +
+                        "ChronoGrapher is not only free forever but also open source. It is made and maintained by " +
                         "the community. We believe these kinds of projects should always be free to the outer public"
                     } icon={
                         <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 20 20">
@@ -63,14 +63,14 @@ export default function PillarsSection() {
                     } />
                     <PillarCardComponent color={"neutral"} title={"Intuitive API"} description={
                         "No complexity is required to use it (as life intended to be), vast documentation on multiple " +
-                        "topics and best of all, Chronolog offers a clear developer API "
+                        "topics and best of all, ChronoGrapher offers a clear developer API "
                     } icon={
                         <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="-1 -2 24 24">
                             <path fill="currentColor" d="M14 5.714a1.474 1.474 0 0 0 0 2.572l-.502 1.684a1.473 1.473 0 0 0-1.553 2.14l-1.443 1.122A1.473 1.473 0 0 0 8.143 14l-2.304-.006a1.473 1.473 0 0 0-2.352-.765l-1.442-1.131A1.473 1.473 0 0 0 .5 9.968L0 8.278a1.474 1.474 0 0 0 0-2.555l.5-1.69a1.473 1.473 0 0 0 1.545-2.13L3.487.77A1.473 1.473 0 0 0 5.84.005L8.143 0a1.473 1.473 0 0 0 2.358.768l1.444 1.122a1.473 1.473 0 0 0 1.553 2.14zM7 10a3 3 0 1 0 0-6a3 3 0 0 0 0 6m7.393.061a8 8 0 0 0 .545-4.058L16.144 6a1.473 1.473 0 0 0 2.358.768l1.444 1.122a1.473 1.473 0 0 0 1.553 2.14L22 11.714a1.474 1.474 0 0 0 0 2.572l-.502 1.684a1.473 1.473 0 0 0-1.553 2.14l-1.443 1.122a1.473 1.473 0 0 0-2.359.768l-2.304-.006a1.473 1.473 0 0 0-2.352-.765l-1.442-1.131a1.473 1.473 0 0 0-1.545-2.13l-.312-1.056a7.96 7.96 0 0 0 3.821-1.674a3 3 0 1 0 2.384-3.177"/>
                         </svg>
                     } />
                     <PillarCardComponent color={"error"} title={"Millisecond Precision"} description={
-                        "Chronolog also allows for precise millisecond calculations, useful in cases where " +
+                        "ChronoGrapher also allows for precise millisecond calculations, useful in cases where " +
                         "tasks may require higher timing resolution than what most schedulers offer"
                     } icon={
                         <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24">

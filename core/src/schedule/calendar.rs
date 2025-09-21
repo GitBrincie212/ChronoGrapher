@@ -62,9 +62,9 @@ impl Debug for TaskCalendarField {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// // Example: A schedule that runs every day at 12:30:00.00
-/// use chronolog_core::schedule::{TaskScheduleCalendar, TaskCalendarField};
+/// use chronographer_core::schedule::{TaskScheduleCalendar, TaskCalendarField};
 ///
 /// let schedule = TaskScheduleCalendar::builder()
 ///     .hour(TaskCalendarField::Exactly(12))

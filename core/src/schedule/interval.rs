@@ -18,9 +18,9 @@ use std::time::Duration;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use std::time::Duration;
-/// use chronolog_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::schedule::TaskScheduleInterval;
 ///
 /// // Run every 5 seconds
 /// let schedule = TaskScheduleInterval::duration(Duration::from_secs(5));

@@ -1,5 +1,5 @@
 import styles from "../../styles/hero_bg.module.css";
-import ChronologAsset from "../ChronologAsset.tsx";
+import ChronoGrapherAsset from "../ChronographerAsset.tsx";
 
 export default function HeroSection() {
     return (
@@ -13,14 +13,14 @@ export default function HeroSection() {
                         "rounded-xl bg-accent-content/90 flex justify-center items-center p-2 " +
                         "text-transparent stroke-[0.04rem] stroke-accent/80 *:drop-shadow-md *:drop-shadow-accent/50"
                     }>
-                        <ChronologAsset width={"100%"} height={"100%"} />
+                        <ChronoGrapherAsset width={"100%"} height={"100%"} />
                     </div>
                 </div>
                 <h1 class={
                     "text-[5.3rem] leading-[7rem] tracking-wider font-[Sairia_Stencil_One] " +
                     "z-10 bg-text-clip text-transparent inline-block bg-gradient-to-r from-primary " +
                     "to-secondary drop-shadow-[0_0px_35px_var(--color-primary)] -mt-4 select-none"
-                } style={{"-webkit-background-clip": "text"}}>ChronoLog</h1>
+                } style={{"-webkit-background-clip": "text"}}>ChronoGrapher</h1>
                 <div class={"bg-gradient-to-r from-primary to-secondary opacity-30 w-xl h-1 mb-2"}/>
                 <div class={"text-4xl text-secondary/40 font-[Rubik] z-10"}>Enterprise Scheduling Done Right</div>
                 <div class={"flex justify-center gap-6 mt-4"}>
@@ -45,7 +45,7 @@ export default function HeroSection() {
                     </button>
                 </div>
                 <div class={"min-w-96 min-h-96 size-55/100 max-w-[100rem] absolute opacity-30 blur-sm text-transparent stroke-primary/60 stroke-[0.3px]"}>
-                    <ChronologAsset width={"100%"} height={"100%"} />
+                    <ChronoGrapherAsset width={"100%"} height={"100%"} />
                 </div>
             </div>
         </div>

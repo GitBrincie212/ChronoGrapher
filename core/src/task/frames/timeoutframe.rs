@@ -28,11 +28,11 @@ use std::time::Duration;
 /// ```ignore
 /// use std::time::Duration;
 /// use tokio::time::sleep;
-/// use chronolog_core::schedule::TaskScheduleInterval;
-/// use chronolog_core::scheduler::{Scheduler, CHRONOLOG_SCHEDULER};
-/// use chronolog_core::task::timeoutframe::TimeoutTaskFrame;
-/// use chronolog_core::task::executionframe::ExecutionTaskFrame;
-/// use chronolog_core::task::Task;
+/// use chronographer_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+/// use chronographer_core::task::timeoutframe::TimeoutTaskFrame;
+/// use chronographer_core::task::executionframe::ExecutionTaskFrame;
+/// use chronographer_core::task::Task;
 ///
 /// let exec_frame = ExecutionTaskFrame::new(
 ///     |_metadata| async {
@@ -48,7 +48,7 @@ use std::time::Duration;
 /// );
 ///
 /// let task = Task::define(TaskScheduleInterval::from_secs(4), timeout_frame);
-/// CHRONOLOG_SCHEDULER.schedule_owned(task).await;
+/// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 pub struct TimeoutTaskFrame<T: 'static> {
     task: T,

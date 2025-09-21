@@ -9,7 +9,7 @@ use tokio::sync::broadcast::Sender;
 
 /// [`SchedulerTaskDispatcher`] is a trait for implementing a scheduler task dispatcher. It acts as
 /// a central point for when a task wants to execute, on the default implementation, it routes the
-/// task to a thread pool based on its priority. Allowing Chronolog to stay responsive even when
+/// task to a thread pool based on its priority. Allowing ChronoGrapher to stay responsive even when
 /// under heavy task workload
 #[async_trait]
 pub trait SchedulerTaskDispatcher: Send + Sync {

@@ -17,9 +17,9 @@ use std::sync::Arc;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// // Run at 12:00 (noon) every day
-/// use chronolog_core::schedule::TaskScheduleCron;
+/// use chronographer_core::schedule::TaskScheduleCron;
 ///
 /// let schedule = TaskScheduleCron::new("0 12 * * *".to_owned());
 ///

@@ -1,6 +1,6 @@
 Business Source License 1.1
 
-License text copyright (c) 2025 The Chronolog Project.
+License text copyright (c) 2025 The Chronographer Project.
 All rights reserved.
 
 Terms and Conditions
@@ -12,8 +12,8 @@ If you use the Software, you accept this license. If you do not accept the licen
 1. Definitions
 
 - "License" means this Business Source License 1.1.
-- "Licensor" means The Chronolog Project (GitBrincie212).
-- "Software" means the copyrighted work licensed under this License, available at https://github.com/GitBrincie212/Chronolog.
+- "Licensor" means The Chronographer Project (GitBrincie212).
+- "Software" means the copyrighted work licensed under this License, available at https://github.com/GitBrincie212/Chronographer.
 - "Change Date" means the date on which the Licensor publicly announces the first official beta release of the Software (the "Beta Announcement").
 - "Beta Announcement" means a public announcement, made by the Owner (GitBrincie212) on the official website, repository, or communication channel for the Software, designating a specific version of the Software as a "beta", "public beta", or equivalent release candidate version intended for public testing and preview. The announcement must include a version number for the beta release (e.g., "v1.0.0-beta.1").
 - "Change License" means the MIT License, as published by the Open Source Initiative at https://opensource.org/license/mit.

@@ -1,4 +1,4 @@
-use crate::errors::ChronologErrors;
+use crate::errors::ChronographerErrors;
 use crate::task::{
     ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
     TaskStartEvent,
@@ -42,11 +42,11 @@ where
 /// # Example
 /// ```ignore
 /// use std::sync::Arc;
-/// use chronolog_core::schedule::TaskScheduleInterval;
-/// use chronolog_core::scheduler::{Scheduler, CHRONOLOG_SCHEDULER};
-/// use chronolog_core::task::executionframe::ExecutionTaskFrame;
-/// use chronolog_core::task::selectframe::SelectTaskFrame;
-/// use chronolog_core::task::Task;
+/// use chronographer_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+/// use chronographer_core::task::executionframe::ExecutionTaskFrame;
+/// use chronographer_core::task::selectframe::SelectTaskFrame;
+/// use chronographer_core::task::Task;
 ///
 /// // Picks it on the first run
 /// let primary_frame = ExecutionTaskFrame::new(
@@ -85,7 +85,7 @@ where
 ///
 /// let task = Task::define(TaskScheduleInterval::from_secs_f64(3.21), select_frame);
 ///
-/// CHRONOLOG_SCHEDULER.schedule_owned(task).await;
+/// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 pub struct SelectTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
@@ -121,7 +121,7 @@ impl TaskFrame for SelectTaskFrame {
                 .await;
             return frame.execute(metadata, emitter).await;
         }
-        Err(Arc::new(ChronologErrors::TaskIndexOutOfBounds(
+        Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,
             self.tasks.len(),
         )))

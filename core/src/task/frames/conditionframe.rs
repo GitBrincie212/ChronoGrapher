@@ -1,4 +1,4 @@
-use crate::errors::ChronologErrors;
+use crate::errors::ChronographerErrors;
 use crate::task::{
     ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
     TaskStartEvent,
@@ -134,11 +134,11 @@ impl<T: TaskFrame + 'static + Send + Sync> From<NonFallbackConditionalFrameConfi
 /// # Example
 /// ```ignore
 /// use std::sync::Arc;
-/// use chronolog_core::schedule::TaskScheduleInterval;
-/// use chronolog_core::scheduler::{Scheduler, CHRONOLOG_SCHEDULER};
-/// use chronolog_core::task::executionframe::ExecutionTaskFrame;
-/// use chronolog_core::task::conditionframe::ConditionalFrame;
-/// use chronolog_core::task::Task;
+/// use chronographer_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+/// use chronographer_core::task::executionframe::ExecutionTaskFrame;
+/// use chronographer_core::task::conditionframe::ConditionalFrame;
+/// use chronographer_core::task::Task;
 ///
 /// let primary_frame = ExecutionTaskFrame::new(
 ///     |_metadata| async {
@@ -165,7 +165,7 @@ impl<T: TaskFrame + 'static + Send + Sync> From<NonFallbackConditionalFrameConfi
 ///
 /// let task = Task::define(TaskScheduleInterval::from_secs_f64(3.21), conditional_frame);
 ///
-/// CHRONOLOG_SCHEDULER.schedule_owned(task).await;
+/// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 pub struct ConditionalFrame<T: 'static, T2: 'static = ()> {
     task: Arc<T>,
@@ -234,7 +234,7 @@ impl<T: TaskFrame> TaskFrame for ConditionalFrame<T> {
     ) -> Result<(), TaskError> {
         execute_func_impl!(self, emitter, metadata);
         if self.error_on_false {
-            Err(Arc::new(ChronologErrors::TaskConditionFail))
+            Err(Arc::new(ChronographerErrors::TaskConditionFail))
         } else {
             Ok(())
         }
@@ -253,7 +253,7 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
         execute_func_impl!(self, emitter, metadata);
         let result = self.fallback.execute(metadata, emitter).await;
         if self.error_on_false && result.is_ok() {
-            return Err(Arc::new(ChronologErrors::TaskConditionFail));
+            return Err(Arc::new(ChronographerErrors::TaskConditionFail));
         }
         result
     }

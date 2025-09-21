@@ -13,7 +13,7 @@ use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
-pub static CHRONOLOG_SCHEDULER: Lazy<Arc<Scheduler>> =
+pub static CHRONOGRAPHER_SCHEDULER: Lazy<Arc<Scheduler>> =
     Lazy::new(|| Arc::new(Scheduler::builder().build()));
 
 #[derive(TypedBuilder)]

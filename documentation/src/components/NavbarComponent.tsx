@@ -1,4 +1,4 @@
-import ChronologLogo from "./ChronologLogo.tsx";
+import ChronoGrapherAsset from "./ChronographerLogo.tsx";
 import IconButton from "./IconButton.tsx";
 
 export default function NavbarComponent() {
@@ -9,7 +9,7 @@ export default function NavbarComponent() {
             "z-100"
         }>
             <div class={"flex gap-1 md:gap-2 items-center"}>
-                <ChronologLogo />
+                <ChronoGrapherAsset />
                 <label class={"input input-sm md:input-md !outline-none !flex-row-reverse"}>
                     <input type="search" class={"peer"} placeholder="Search" />
                     <div class={"text-xl opacity-30 peer-focus:opacity-100"}>

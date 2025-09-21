@@ -111,8 +111,8 @@ impl From<TaskDependencyConfig> for TaskDependency {
 /// # Example
 /// ```ignore
 /// use std::num::NonZeroU64;
-/// use chronolog_core::task::{ExecutionTaskFrame, Task, TaskScheduleImmediate};
-/// use chronolog_core::task::dependency::{TaskDependency, TaskResolveIdentityOnly};
+/// use chronographer_core::task::{ExecutionTaskFrame, Task, TaskScheduleImmediate};
+/// use chronographer_core::task::dependency::{TaskDependency, TaskResolveIdentityOnly};
 ///
 /// let alpha_task = Task::define(
 ///     TaskScheduleImmediate,

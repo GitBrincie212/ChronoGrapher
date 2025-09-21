@@ -1,5 +1,5 @@
 # Overview & Philosophy
-Chronolog is an unopinionated composable scheduling library built in Rust. Its core philosophy is 
+Chronographer is an unopinionated composable scheduling library built in Rust. Its core philosophy is 
 to provide fundamental scheduling primitives that users can compose into complex workflows, 
 rather than follow the typical path of a monolithic, opinionated framework.
 
@@ -16,7 +16,7 @@ and concurrent core.
 - **Language Agnostic:** The core is designed to be the backbone for future language SDKs and distributed systems.
 
 # Core Abstractions
-There are 2 main systems at play for Chronolog, those being **Tasks** and **Schedulers**, they are broken down
+There are 2 main systems at play for Chronographer, those being **Tasks** and **Schedulers**, they are broken down
 into multiple sub parts which are used in combination to create them. Both are ``struct`` and provide methods to
 use the underlying composites
 
@@ -139,6 +139,6 @@ FallbackTaskFrame::new(
 # Library Splitting
 Instead of forcing everyone to download one single monolithic library, the project is split into
 multiple libraries which all use the ``core``. the ``core`` contains the main traits, type aliases, 
-implementation defined for Chronolog. Other programming language SDKs use the core to provide
-a thin wrapper around the programming language, same goes for the distributed version of chronolog (multiple
+implementation defined for Chronographer. Other programming language SDKs use the core to provide
+a thin wrapper around the programming language, same goes for the distributed version of Chronographer (multiple
 machines) and integrations

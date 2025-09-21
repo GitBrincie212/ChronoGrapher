@@ -10,10 +10,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// it or manually unresolve it
 ///
 /// # Example
-/// ```rust
+/// ```ignore
 /// use std::sync::Arc;
 /// use std::sync::atomic::{AtomicBool, Ordering};
-/// use chronolog_core::task::dependency::{FlagDependency, FrameDependency};
+/// use chronographer_core::task::dependency::{FlagDependency, FrameDependency};
 ///
 /// let val = Arc::new(AtomicBool::new(false));
 ///

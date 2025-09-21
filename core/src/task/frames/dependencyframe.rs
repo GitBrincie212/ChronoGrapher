@@ -1,4 +1,4 @@
-use crate::errors::ChronologErrors;
+use crate::errors::ChronographerErrors;
 use crate::task::dependency::FrameDependency;
 use crate::task::{
     Arc, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
@@ -24,13 +24,13 @@ impl<DFB: DependentFailBehavior> DependentFailBehavior for Arc<DFB> {
 }
 
 /// When dependencies aren't resolved, return an error, more specifically
-/// the ``ChronologErrors::TaskDependenciesUnresolved`` error
+/// the ``ChronographerErrors::TaskDependenciesUnresolved`` error
 pub struct DependentFailureOnFail;
 
 #[async_trait]
 impl DependentFailBehavior for DependentFailureOnFail {
     async fn execute(&self) -> Result<(), TaskError> {
-        Err(Arc::new(ChronologErrors::TaskDependenciesUnresolved))
+        Err(Arc::new(ChronographerErrors::TaskDependenciesUnresolved))
     }
 }
 
@@ -81,11 +81,11 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
 /// # Example
 /// ```ignore
 /// use std::sync::Arc;
-/// use chronolog_core::schedule::TaskScheduleInterval;
-/// use chronolog_core::scheduler::{Scheduler, CHRONOLOG_SCHEDULER};
-/// use chronolog_core::task::executionframe::ExecutionTaskFrame;
-/// use chronolog_core::task::{DependencyTaskFrame, Task};
-/// use chronolog_core::task::dependency::TaskDependency;
+/// use chronographer_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+/// use chronographer_core::task::executionframe::ExecutionTaskFrame;
+/// use chronographer_core::task::{DependencyTaskFrame, Task};
+/// use chronographer_core::task::dependency::TaskDependency;
 ///
 /// let exec_frame1 = ExecutionTaskFrame::new(
 ///     |_metadata| async {
@@ -117,7 +117,7 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
 ///
 /// let task2 = Task::define(TaskScheduleInterval::from_secs(5), dependent_frame2);
 ///
-/// CHRONOLOG_SCHEDULER.schedule(task1.clone()).await;
+/// CHRONOGRAPHER_SCHEDULER.schedule(task1.clone()).await;
 /// ```
 pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,

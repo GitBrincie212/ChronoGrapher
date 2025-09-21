@@ -104,11 +104,11 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
 /// # Example
 /// ```ignore
 /// use std::num::NonZeroU32;
-/// use chronolog_core::schedule::TaskScheduleInterval;
-/// use chronolog_core::scheduler::{Scheduler, CHRONOLOG_SCHEDULER};
-/// use chronolog_core::task::retryframe::RetriableTaskFrame;
-/// use chronolog_core::task::executionframe::ExecutionTaskFrame;
-/// use chronolog_core::task::Task;
+/// use chronographer_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+/// use chronographer_core::task::retryframe::RetriableTaskFrame;
+/// use chronographer_core::task::executionframe::ExecutionTaskFrame;
+/// use chronographer_core::task::Task;
 ///
 /// let exec_frame = ExecutionTaskFrame::new(
 ///     |_metadata| async {
@@ -124,7 +124,7 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
 ///
 /// let task = Task::define(TaskScheduleInterval::from_secs_f64(2.5), retriable_frame);
 ///
-/// CHRONOLOG_SCHEDULER.schedule_owned(task).await;
+/// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 pub struct RetriableTaskFrame<T: 'static, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
     task: Arc<T>,

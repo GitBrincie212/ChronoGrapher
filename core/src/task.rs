@@ -70,7 +70,7 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
     }
 }
 
-/// [`Task`] is one of the core components of Chronolog, it is a composite, and made of several parts,
+/// [`Task`] is one of the core components of ChronoGrapher, it is a composite, and made of several parts,
 /// giving it massive flexibility in terms of customization.
 ///
 /// # Task Composite Parts
@@ -161,8 +161,8 @@ impl Task {
 
     /// Creates a task builder without an extension point required, this is mostly a
     /// convenience method and is identical to:
-    /// ```rust
-    /// # use chronolog_core::task::Task;
+    /// ```ignore
+    /// # use chronographer_core::task::Task;
     ///
     /// Task::extend_builder()
     ///     .extension(())

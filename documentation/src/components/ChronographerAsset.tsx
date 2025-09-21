@@ -1,4 +1,4 @@
-export default function ChronologAsset(props: {
+export default function ChronoGrapherAsset(props: {
     width: string;
     height: string;
 }) {

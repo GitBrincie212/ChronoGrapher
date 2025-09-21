@@ -27,7 +27,7 @@ for everyone.
 
 4. Add the upstream remote to stay synced with the main project repo:
     ```shell
-    git remote add upstream https://github.com/GitBrincie212/Chronolog.git
+    git remote add upstream https://github.com/GitBrincie212/Chronographer.git
     ```
 5. Ensure you have the latest Rust toolchain as the project uses the latest stable Rust. We recommend using 
 [rustup](https://rustup.rs):

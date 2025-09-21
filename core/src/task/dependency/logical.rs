@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// # Example
 /// ```ignore
 /// use std::sync::Arc;
-/// use chronolog_core::task::dependency::{DynamicDependency, LogicalDependency};
+/// use chronographer_core::task::dependency::{DynamicDependency, LogicalDependency};
 ///
 /// let logical = LogicalDependency::and(
 ///     LogicalDependency::not(

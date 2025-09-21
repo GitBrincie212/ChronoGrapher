@@ -1,6 +1,6 @@
-use chronolog_core::clock::AdvanceableScheduleClock;
-use chronolog_core::clock::SchedulerClock;
-use chronolog_core::clock::VirtualClock;
+use chronographer_core::clock::AdvanceableScheduleClock;
+use chronographer_core::clock::SchedulerClock;
+use chronographer_core::clock::VirtualClock;
 use std::time::Duration;
 
 macro_rules! assert_approx {

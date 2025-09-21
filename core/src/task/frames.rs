@@ -91,7 +91,7 @@ impl<F: TaskFrame + ?Sized> TaskFrame for Arc<F> {
 /// ```ignore
 /// use std::num::NonZeroU32;
 /// use std::time::Duration;
-/// use chronolog_core::task::{ExecutionTaskFrame, TaskFrameBuilder};
+/// use chronographer_core::task::{ExecutionTaskFrame, TaskFrameBuilder};
 ///
 /// let simple_frame = ExecutionTaskFrame::new(|_| async {Ok(())});
 ///

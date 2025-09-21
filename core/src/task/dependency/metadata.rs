@@ -33,8 +33,8 @@ where
 /// # Example
 /// ```ignore
 /// use std::sync::Arc;
-/// use chronolog_core::task::{DefaultTaskMetadata, TaskMetadata};
-/// use chronolog_core::task::dependency::{FrameDependency, MetadataDependency};
+/// use chronographer_core::task::{DefaultTaskMetadata, TaskMetadata};
+/// use chronographer_core::task::dependency::{FrameDependency, MetadataDependency};
 ///
 /// // You won't need to create a task metadata container 99% of the time
 /// let metadata = DefaultTaskMetadata::new();

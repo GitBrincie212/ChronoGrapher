@@ -1,4 +1,4 @@
-export default function ChronologLogo() {
+export default function ChronoGrapherLogo() {
     return (
         <div class={
             "text-5xl md:text-6xl text-neutral-content transition-all duration-700 group " +

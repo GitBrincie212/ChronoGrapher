@@ -1,10 +1,10 @@
 [package]
-name = "chronolog"
+name = "chronographer"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
-name = "chronolog_core"
+name = "chronographer_core"
 crate-type = ["rlib"]
 
 [dependencies]
