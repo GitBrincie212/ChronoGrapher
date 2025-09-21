@@ -85,5 +85,15 @@ Ideally you should have sections for:
   - ``# Performance`` for documenting how performant or slow the method is, ideally there should be suggestions
   whenever possible on methods or patterns which are more performant than this implementation as well as explaining
       why its slow **(OPTIONAL)**
+  - ``# Trait Implementation(s)`` Lists the important traits which this struct/enum implements or the extension trait
+  which requests, **(OPTIONAL)**
+  - ``# Variants`` Demonstrates the various variants this enum has, what they are, how do they function, what they 
+  - represent and so on so fourth **(MUST & ENUM ONLY)**
+  - ``# Required Methods`` Lists various methods which are required to be implemented by the developer,
+  it describes what it is supposed do **(HIGH RECOMMEND & TRAIT ONLY)**
+  - ``# Object Safety`` State if the trait is object safe, why it is (or why not) **(HIGH RECOMMEND & TRAIT ONLY)**
+  - ``# (IMPORTANT) Note(s)`` the important is optional, used in case some limitations or undefined behavior may be present,
+  - ``# Default Value`` This explains what default value the field has on the builder (if it has) **(HIGH RECCOMEND & BUILDER ONLY)**
+  this section is used to note specific things (such as limitations, performance issues and so on) **(HIGH RECOMMEND)**
 - Group and sort imports consistently. We recommend using rust-analyzer's "Organize Imports" feature to ensure
 consistency
