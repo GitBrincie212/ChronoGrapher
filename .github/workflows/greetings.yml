@@ -9,8 +9,28 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-    - uses: actions/first-interaction@v1
+    - uses: actions/first-interaction@v3
       with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        issue-message: "Greetingss there newcomer, welcome to the ChronoGrapher project, we will swiftly take a look at your issue and notify you acoordingly"
-        pr-message: "Greetingss there newcomer, welcome to the ChronoGrapher project, we will swiftly take a look at your pull request and notify you acoordingly"
+        # noinspection UndefinedParamsPresent
+        issue-message: |
+          # Greeting New Fellow Programmer!
+          
+          ChronoGrapher is a welcoming place for any person to contribute. Please refer 
+          to the markdown file for [How To Contribute](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CONTRIBUTING.md) 
+          as well as the [Code Of Conduct](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CODE_OF_CONDUCT.md)
+          for more information on what is allowed, whats not, style guidelines... etc.
+          
+          Thanks for being interested to work with the team. We wish you the best of luck in your journey 
+          of contributing to the ChronoGrapher project
+
+        # noinspection UndefinedParamsPresent
+        pr-message: |
+          # Greeting New Fellow Programmer!
+          
+          ChronoGrapher is a welcoming place for any person to contribute. Please refer 
+          to the markdown file for [How To Contribute](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CONTRIBUTING.md) 
+          as well as the [Code Of Conduct](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CODE_OF_CONDUCT.md)
+          for more information on what is allowed, whats not, style guidelines... etc.
+          
+          Thanks for being interested to work with the team. We wish you the best of luck in your journey 
+          of contributing to the ChronoGrapher project
