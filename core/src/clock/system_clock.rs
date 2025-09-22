@@ -1,6 +1,6 @@
-use std::fmt::Debug;
 use crate::clock::SchedulerClock;
 use async_trait::async_trait;
+use std::fmt::Debug;
 use std::time::{Duration, SystemTime};
 
 #[allow(unused_imports)]
@@ -17,7 +17,9 @@ pub struct SystemClock;
 
 impl Debug for SystemClock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SystemClock").field(&SystemTime::now()).finish()
+        f.debug_tuple("SystemClock")
+            .field(&SystemTime::now())
+            .finish()
     }
 }
 
