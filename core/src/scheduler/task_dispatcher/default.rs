@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::task::{Task, TaskEventEmitter, TaskPriority};
 use async_trait::async_trait;
@@ -26,6 +27,12 @@ impl From<DefaultTaskDispatcherConfig> for Arc<DefaultTaskDispatcher> {
 
 pub struct DefaultTaskDispatcher {
     pool: ThreadPool<PriorityWorkStealingMode>,
+}
+
+impl Debug for DefaultTaskDispatcher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DefaultTaskDispatcher").finish()
+    }
 }
 
 impl DefaultTaskDispatcher {

@@ -1,5 +1,6 @@
 pub mod default;
 
+use std::fmt::Debug;
 pub use default::*;
 
 use crate::task::{Task, TaskEventEmitter};
@@ -12,7 +13,7 @@ use tokio::sync::broadcast::Sender;
 /// task to a thread pool based on its priority. Allowing ChronoGrapher to stay responsive even when
 /// under heavy task workload
 #[async_trait]
-pub trait SchedulerTaskDispatcher: Send + Sync {
+pub trait SchedulerTaskDispatcher: Debug + Send + Sync {
     async fn dispatch(
         self: Arc<Self>,
         sender: Arc<Sender<(Arc<Task>, usize)>>,
