@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
+use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
@@ -42,6 +43,21 @@ pub struct EphemeralDefaultTaskStore {
     earliest_sorted: Mutex<BinaryHeap<Reverse<EphemeralScheduledItem>>>,
     tasks: DashMap<usize, Arc<Task>>,
     id: AtomicUsize,
+}
+
+impl Debug for EphemeralDefaultTaskStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(
+            format_args!(
+                "EphemeralDefaultTaskStore [{:?}]",
+                self.earliest_sorted
+                    .blocking_lock()
+                    .iter()
+                    .rev()
+                    .map(|x| x.0.0.clone())
+                    .collect::<Vec<_>>()
+        ))
+    }
 }
 
 impl EphemeralDefaultTaskStore {

@@ -1,5 +1,6 @@
 pub mod ephemeral;
 
+use std::fmt::Debug;
 pub use ephemeral::*;
 
 use crate::clock::SchedulerClock;
@@ -12,7 +13,7 @@ use std::time::SystemTime;
 /// for retrieving the earliest task, storing a task with its task schedule, removing a task via
 /// an index... etc. This mechanism is used for the [`Scheduler`] struct
 #[async_trait]
-pub trait SchedulerTaskStore: Send + Sync {
+pub trait SchedulerTaskStore: Debug + Send + Sync {
     /// Retrieves / Peeks the earliest task, without modifying any internal storage
     async fn retrieve(&self) -> Option<(Arc<Task>, SystemTime, usize)>;
 
