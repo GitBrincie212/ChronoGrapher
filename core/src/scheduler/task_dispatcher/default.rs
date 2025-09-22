@@ -1,9 +1,9 @@
-use std::fmt::Debug;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::task::{Task, TaskEventEmitter, TaskPriority};
 use async_trait::async_trait;
 use multipool::pool::ThreadPool;
 use multipool::pool::modes::PriorityWorkStealingMode;
+use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use typed_builder::TypedBuilder;

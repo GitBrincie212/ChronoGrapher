@@ -1,7 +1,7 @@
 pub mod ephemeral;
 
-use std::fmt::Debug;
 pub use ephemeral::*;
+use std::fmt::Debug;
 
 use crate::clock::SchedulerClock;
 use crate::task::Task;

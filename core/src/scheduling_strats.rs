@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Formatter};
 use crate::task::{Task, TaskEventEmitter};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::task::JoinHandle;
