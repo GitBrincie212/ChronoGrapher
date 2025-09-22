@@ -1,6 +1,7 @@
 pub mod system_clock;
 pub mod virtual_clock;
 
+use std::fmt::Debug;
 use std::sync::Arc;
 pub use system_clock::SystemClock;
 pub use virtual_clock::VirtualClock;
@@ -31,7 +32,7 @@ use std::time::{Duration, SystemTime};
 /// - [`SystemClock`]
 /// - [`AdvanceableScheduleClock`]
 #[async_trait]
-pub trait SchedulerClock: Send + Sync {
+pub trait SchedulerClock: Debug + Send + Sync {
     /// Gets the current time of the clock
     async fn now(&self) -> SystemTime;
 
