@@ -94,7 +94,8 @@ Ideally you should have sections for:
   it describes what it is supposed do **(HIGH RECOMMEND & TRAIT ONLY)**
   - ``# Object Safety`` State if the trait is object safe, why it is (or why not) **(HIGH RECOMMEND & TRAIT ONLY)**
   - ``# (IMPORTANT) Note(s)`` the important is optional, used in case some limitations or undefined behavior may be present,
-  - ``# Default Value`` This explains what default value the field has on the builder (if it has) **(HIGH RECCOMEND & BUILDER ONLY)**
+  - ``# Default Value`` This explains what default value the field has on the builder (if it has) **(HIGH RECOMMEND & BUILDER ONLY)**
+  - ``# Fields`` It is used to describe some of the non-internal fields **(HIGH RECOMMEND & STRUCTS ONLY)**
   this section is used to note specific things (such as limitations, performance issues and so on) **(HIGH RECOMMEND)**
 - Group and sort imports consistently. We recommend using rust-analyzer's "Organize Imports" feature to ensure
 consistency
