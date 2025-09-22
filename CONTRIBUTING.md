@@ -70,7 +70,8 @@ statements for testing to keep the script awake at all times)
 - Once no warnings are shown, use ``cargo fmt`` and commit the changes
 - Document every public method without being too brief or too descriptive, only relevant information should be documented,
 Ideally you should have sections for:
-  - ``# Example`` for example(s) section, list relevant simple examples **(MUST)**
+  - ``# Example`` for example(s) section, list relevant simple examples, it must be used for any complex systems, for
+  simple ones, it can be skipped **(HIGH RECOMMEND)**
   - ``# Panics`` if a method can panic with an error, document how it can panic and optionally how 
   it could be prevented **(MUST)**
   - ``# Errors`` if a method may return an error, it should be documented on what conditions it causes a method
