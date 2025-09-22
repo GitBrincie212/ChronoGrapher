@@ -11,8 +11,7 @@ jobs:
     steps:
     - uses: actions/first-interaction@v3
       with:
-        # noinspection UndefinedParamsPresent
-        issue-message: |
+        issue_message: |
           # Greeting New Fellow Programmer!
           
           ChronoGrapher is a welcoming place for any person to contribute. Please refer 
@@ -23,8 +22,7 @@ jobs:
           Thanks for being interested to work with the team. We wish you the best of luck in your journey 
           of contributing to the ChronoGrapher project
 
-        # noinspection UndefinedParamsPresent
-        pr-message: |
+        pr_message: |
           # Greeting New Fellow Programmer!
           
           ChronoGrapher is a welcoming place for any person to contribute. Please refer 
