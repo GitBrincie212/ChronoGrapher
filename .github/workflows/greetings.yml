@@ -1,0 +1,16 @@
+name: Greetings
+
+on: [pull_request_target, issues]
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+    - uses: actions/first-interaction@v1
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        issue-message: "Greetingss there newcomer, welcome to the ChronoGrapher project, we will swiftly take a look at your issue and notify you acoordingly"
+        pr-message: "Greetingss there newcomer, welcome to the ChronoGrapher project, we will swiftly take a look at your pull request and notify you acoordingly"
