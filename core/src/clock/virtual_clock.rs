@@ -1,10 +1,10 @@
-use std::fmt::{Debug, Formatter};
 use crate::clock::{AdvanceableScheduleClock, SchedulerClock};
+use crate::utils::system_time_to_date_time;
 use async_trait::async_trait;
+use std::fmt::{Debug, Formatter};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Notify;
-use crate::utils::system_time_to_date_time;
 
 /// [`VirtualClock`] is an implementation of the [`SchedulerClock`] trait, it acts as a mock object, allowing
 /// to simulate time without the waiting around. This can especially be useful for unit tests,
@@ -26,9 +26,12 @@ pub struct VirtualClock {
 impl Debug for VirtualClock {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VirtualClock")
-            .field("current_time", &system_time_to_date_time(
-                UNIX_EPOCH + Duration::from_millis(self.current_time.load(Ordering::Relaxed))
-            ))
+            .field(
+                "current_time",
+                &system_time_to_date_time(
+                    UNIX_EPOCH + Duration::from_millis(self.current_time.load(Ordering::Relaxed)),
+                ),
+            )
             .finish()
     }
 }
