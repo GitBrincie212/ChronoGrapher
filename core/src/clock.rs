@@ -74,7 +74,7 @@ pub trait SchedulerClock: Debug + Send + Sync {
 impl<T> SchedulerClock for T
 where
     T: Deref + Send + Sync + Debug,
-    T::Target: SchedulerClock
+    T::Target: SchedulerClock,
 {
     async fn now(&self) -> SystemTime {
         self.deref().now().await
