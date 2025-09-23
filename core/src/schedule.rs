@@ -13,7 +13,9 @@ use chrono::{DateTime, Local};
 use std::error::Error;
 use std::ops::Deref;
 use std::sync::Arc;
-use crate::task::{Task};
+
+#[allow(unused_imports)]
+use crate::task::Task;
 
 /// The [`TaskSchedule`] trait is used to calculate the next point of time given a time instance
 /// where the task will be scheduled to execute. This system is used closely by the [`Scheduler`]
