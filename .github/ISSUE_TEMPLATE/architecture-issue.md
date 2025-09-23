@@ -11,7 +11,7 @@ assignees: ''
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 
 **Why does this area have this architectural problem?**
-A clear and concise description of what you want to happen.
+A clear and concise description of what area is affected
 
 **Describe the solution you'd like**
 A clear and concise description of what you want to happen.
