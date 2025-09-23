@@ -1,28 +1,49 @@
-use crate::task::TaskError;
 use std::fmt::Debug;
 use thiserror::Error;
 
+#[allow(unused_imports)]
+use crate::task::SelectTaskFrame;
+
+#[allow(unused_imports)]
+use crate::task::ConditionalFrame;
+
+#[allow(unused_imports)]
+use crate::task::DependencyTaskFrame;
+
+#[allow(unused_imports)]
+use crate::task::TimeoutTaskFrame;
+
+#[allow(unused_imports)]
+use crate::task::dependencyframe::DependentFailureOnFail;
+
+/// [`ChronographerErrors`] is the main enum that contains all the errors which can be thrown by
+/// ChronoGrapher, it uses under the hood [`thiserror`] to make it as smooth sailing to add more
+/// errors in the future as possible. This enum is private only to the core package itself,
+/// as no other is aware of the existence
 #[derive(Error, Debug)]
 pub enum ChronographerErrors {
-    #[error("`{0}` Failed to successfully execute, the function returned an error: {1:?}")]
-    FailedExecution(String, TaskError),
-
-    #[error("`{0}` was aborted")]
-    TaskAborted(String),
-
+    /// This error is meant to happen when retrieving an index from a container that has a 
+    /// specified length, but the index is out of bounds. In the core package it is mainly caused
+    /// by [`SelectTaskFrame`]
     #[error(
-        "Task frame index `{0}` is out of bounds for SelectFrame with task frame size `{1}` element(s)"
+        "Task frame index `{0}` is out of bounds for `{1}` with task frame size `{2}` element(s)"
     )]
-    TaskIndexOutOfBounds(usize, usize),
+    TaskIndexOutOfBounds(usize, String, usize),
 
+    /// This error is meant to happen when [`ConditionalTaskFrame`] 
+    /// returns true and the flag ``error_on_false`` is set to true
     #[error(
-        "ConditionalTaskFrame returned false with on_error set to true, as such this error returns"
+        "ConditionalTaskFrame returned false with error_on_false set to true, as such this error returns"
     )]
     TaskConditionFail,
 
+    /// This error is meant to happen when dependencies from [`DependencyTaskFrame`]
+    /// aren't resolved with the dependent behavior set to [`DependentFailureOnFail`]
     #[error("Dependencies have not been resolved")]
     TaskDependenciesUnresolved,
 
+    /// This error is meant to happen when a timeout occurs on [`TimeoutTaskFrame`], i.e. 
+    /// if a threshold of time counts down fully to zero but the task frame hasn't completed
     #[error("`{0}` Timed out")]
     TimeoutError(String),
 }
