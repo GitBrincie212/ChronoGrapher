@@ -24,13 +24,15 @@ A clear and concise description of what you expected to happen.
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
 
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+**Desktop (Fill only if it is a systems issue):**
+ - OS: [e.g. MacOS]
+ - RAM: [e.g 16 GB 2400 MHz DDR4]
+ - CPU: [e.g 2.6 GHz 6-Core Intel Core i7]
+ - DISK Space: [e.g 500GB]
 
 ** Anything that could help out narrow the search for the bug (OPTIONAL)**
-Give directions, guidance on where the bug could be to speed up the process of eliminating it and patching the codebase. This is optional and not required
+Gives directions, guidance on where the bug could be to speed up the 
+process of eliminating it and patching the codebase
 
 **Additional context**
 Add any other context about the problem here.
