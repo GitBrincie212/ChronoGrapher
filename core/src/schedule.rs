@@ -65,7 +65,7 @@ pub trait TaskSchedule: Send + Sync {
 impl<T> TaskSchedule for T
 where
     T: Deref + Send + Sync,
-    T::Target: TaskSchedule
+    T::Target: TaskSchedule,
 {
     fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, Arc<dyn Error>> {
         self.deref().next_after(time)
