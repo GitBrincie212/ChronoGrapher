@@ -1,7 +1,7 @@
 pub mod system_clock;
 pub mod virtual_clock;
 
-use std::fmt::{Debug};
+use std::fmt::Debug;
 use std::ops::Deref;
 pub use system_clock::SystemClock;
 pub use virtual_clock::VirtualClock;
@@ -74,7 +74,7 @@ pub trait SchedulerClock: Debug + Send + Sync {
 impl<T> SchedulerClock for T
 where
     T: Deref + Send + Sync + Debug,
-    T::Target: SchedulerClock
+    T::Target: SchedulerClock,
 {
     async fn now(&self) -> SystemTime {
         self.deref().now().await

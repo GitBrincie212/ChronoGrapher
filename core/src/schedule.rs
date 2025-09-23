@@ -9,11 +9,11 @@ pub use crate::schedule::cron::TaskScheduleCron;
 pub use crate::schedule::immediate::TaskScheduleImmediate;
 pub use crate::schedule::interval::TaskScheduleInterval;
 
+use crate::task::Task;
 use chrono::{DateTime, Local};
 use std::error::Error;
 use std::ops::Deref;
 use std::sync::Arc;
-use crate::task::{Task};
 
 /// The [`TaskSchedule`] trait is used to calculate the next point of time given a time instance
 /// where the task will be scheduled to execute. This system is used closely by the [`Scheduler`]
@@ -63,7 +63,7 @@ pub trait TaskSchedule: Send + Sync {
 impl<T> TaskSchedule for T
 where
     T: Deref + Send + Sync,
-    T::Target: TaskSchedule
+    T::Target: TaskSchedule,
 {
     fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, Arc<dyn Error>> {
         self.deref().next_after(time)
