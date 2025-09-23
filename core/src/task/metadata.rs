@@ -62,11 +62,6 @@ impl<T: Send + Sync + 'static> ObserverField<T> {
         self.tap();
     }
 
-    pub(crate) fn update_internal(&self, value: T) {
-        self.value.store(Arc::new(value));
-        self.tap();
-    }
-
     pub fn tap(&self) {
         for listener in self.listeners.iter() {
             let cloned_listener = listener.value().clone();
@@ -146,7 +141,6 @@ impl<T: Send + Sync + Clone + 'static> Clone for ObserverField<T> {
 ///   constructs a UUID per task, can be accessed via [`TaskMetadata::debug_label`]
 pub trait TaskMetadata: Send + Sync {
     fn max_runs(&self) -> Option<NonZeroU64>;
-    fn runs(&self) -> ObserverField<u64>;
     fn last_execution(&self) -> ObserverField<DateTime<Local>>;
     fn debug_label(&self) -> ObserverField<String>;
 }
@@ -155,15 +149,9 @@ impl<M: TaskMetadata + ?Sized> TaskMetadata for Arc<M> {
     fn max_runs(&self) -> Option<NonZeroU64> {
         self.as_ref().max_runs()
     }
-
-    fn runs(&self) -> ObserverField<u64> {
-        self.as_ref().runs()
-    }
-
     fn last_execution(&self) -> ObserverField<DateTime<Local>> {
         self.as_ref().last_execution()
     }
-
     fn debug_label(&self) -> ObserverField<String> {
         self.as_ref().debug_label()
     }
@@ -180,7 +168,6 @@ impl<M: TaskMetadata + ?Sized> TaskMetadata for Arc<M> {
 /// - [`DefaultTaskMetadataExposed`]
 pub struct DefaultTaskMetadata {
     pub(crate) max_runs: Option<NonZeroU64>,
-    pub(crate) runs: ObserverField<u64>,
     pub(crate) last_execution: ObserverField<DateTime<Local>>,
     pub(crate) debug_label: ObserverField<String>,
 }
@@ -189,7 +176,6 @@ impl Default for DefaultTaskMetadata {
     fn default() -> Self {
         DefaultTaskMetadata {
             max_runs: None,
-            runs: ObserverField::new(0),
             last_execution: ObserverField::new(Local::now()),
             debug_label: ObserverField::new(Uuid::new_v4().to_string()),
         }
@@ -204,7 +190,6 @@ impl DefaultTaskMetadata {
     pub fn new_with(debug_label: String) -> Self {
         DefaultTaskMetadata {
             max_runs: None,
-            runs: ObserverField::new(0),
             last_execution: ObserverField::new(Local::now()),
             debug_label: ObserverField::new(debug_label),
         }
@@ -215,15 +200,9 @@ impl TaskMetadata for DefaultTaskMetadata {
     fn max_runs(&self) -> Option<NonZeroU64> {
         self.max_runs
     }
-
-    fn runs(&self) -> ObserverField<u64> {
-        self.runs.clone()
-    }
-
     fn last_execution(&self) -> ObserverField<DateTime<Local>> {
         self.last_execution.clone()
     }
-
     fn debug_label(&self) -> ObserverField<String> {
         self.debug_label.clone()
     }

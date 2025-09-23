@@ -14,8 +14,8 @@ pub use priority::*;
 
 use crate::scheduling_strats::*;
 use std::fmt::Debug;
-use std::ops::Add;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
 
 #[allow(unused_imports)]
@@ -153,6 +153,7 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
             overlap_policy: config.schedule_strategy,
             priority: config.priority,
             extension: Arc::new(config.extension),
+            runs: AtomicU64::new(0)
         }
     }
 }
@@ -216,6 +217,7 @@ pub struct Task<E: TaskExtension = ()> {
     pub(crate) overlap_policy: Arc<dyn ScheduleStrategy>,
     pub(crate) priority: TaskPriority,
     pub(crate) extension: Arc<E>,
+    pub(crate) runs: AtomicU64
 }
 
 impl Debug for Task<()> {
@@ -272,6 +274,7 @@ impl Task {
             overlap_policy: Arc::new(SequentialSchedulingPolicy),
             priority: TaskPriority::MODERATE,
             extension: Arc::new(()),
+            runs: AtomicU64::new(0)
         }
     }
 
@@ -348,9 +351,7 @@ impl<E: TaskExtension> Task<E> {
     /// - [`TaskEventEmitter`]
     /// - [`Scheduler`]
     pub async fn run(&self, emitter: Arc<TaskEventEmitter>) -> Result<(), TaskError> {
-        self.metadata
-            .runs()
-            .update_internal(self.metadata.runs().get().add(1u64));
+        self.runs.fetch_add(1, Ordering::Relaxed);
         emitter
             .emit(self.metadata(), self.frame().on_start(), ())
             .await;
@@ -408,5 +409,10 @@ impl<E: TaskExtension> Task<E> {
     /// Gets the priority of a task
     pub fn priority(&self) -> TaskPriority {
         self.priority
+    }
+    
+    /// Gets the number of times the task has run
+    pub fn runs(&self) -> u64 {
+        self.runs.load(Ordering::Relaxed)
     }
 }
