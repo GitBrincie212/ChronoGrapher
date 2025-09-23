@@ -1,8 +1,8 @@
 ---
 name: Feature Request Issue
 about: Suggest an idea for this project to improve the experience
-title: "[FEATURE]"
-labels: ''
+title: "[SUGGEST] My Feature Idea XYZ"
+labels: 'Enhancement'
 assignees: ''
 
 ---
@@ -16,7 +16,7 @@ A clear and concise description of what you want to happen.
 **Describe alternatives you've considered**
 A clear and concise description of any alternative solutions or features you've considered.
 
-**Diagrams / Resources for how it could work (HIGH RECCOMEND)**
+**Diagrams / Resources for how it could work (HIGH RECOMMEND)**
 Provide a couple of screenshots, diagrams or other resources for how such a feature would be pulled off, as images say a thousand words
 
 **Additional context**
