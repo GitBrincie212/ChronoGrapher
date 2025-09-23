@@ -2,7 +2,7 @@
 name: Bug Report Issue
 about: Create a report to help us improve the project and fix any unintended side
   effects
-title: "[BUG]"
+title: "[BUG] My Bug Report XYZ"
 labels: Bug
 assignees: ''
 
