@@ -209,7 +209,7 @@ impl Scheduler {
             let double_notifier_clone = notifier.clone();
             tokio::spawn(async move {
                 while let Ok((task, idx)) = scheduler_receive.lock().await.recv().await {
-                    if let Some(max_runs) = task.metadata.max_runs()
+                    if let Some(max_runs) = task.max_runs
                         && task.runs.load(Ordering::Relaxed) >= max_runs.get()
                     {
                         continue;

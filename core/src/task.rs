@@ -14,6 +14,8 @@ pub use priority::*;
 
 use crate::scheduling_strats::*;
 use std::fmt::Debug;
+use std::num::NonZeroU64;
+use uuid::Uuid;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
@@ -46,15 +48,15 @@ pub struct TaskConfig<E: TaskExtension> {
     /// will need their own state and based on it either do nothing or execute a specific logic
     ///
     /// # Default Value
-    /// By default, the value uses [`DefaultTaskMetadata`], which is an implementation of [`TaskMetadata],
+    /// By default, the value uses [`DynamicTaskMetadata`], which is an implementation of [`TaskMetadata],
     /// hosting the minimum number of fields that define a metadata container
     ///
     /// # See Also
     /// - [`TaskMetadata`]
     /// - [`ObserverField`]
-    /// - [`DefaultTaskMetadata`]
+    /// - [`DynamicTaskMetadata`]
     #[builder(
-        default = Arc::new(DefaultTaskMetadata::new()),
+        default = Arc::new(DynamicTaskMetadata::new()),
         setter(transform = |s: impl TaskMetadata + 'static| Arc::new(s) as Arc<dyn TaskMetadata>)
     )]
     metadata: Arc<dyn TaskMetadata>,
@@ -141,6 +143,26 @@ pub struct TaskConfig<E: TaskExtension> {
         setter(transform = |s: impl ScheduleStrategy + 'static| Arc::new(s) as Arc<dyn ScheduleStrategy>)
     )]
     schedule_strategy: Arc<dyn ScheduleStrategy>,
+
+    /// This part is mostly for debugging, more specifically to identify tasks, you can
+    /// give it your own string (ideally it should be unique)
+    ///
+    /// # Default Value
+    /// By default, every task has a generated UUID string, this may complicate things
+    /// for debugging, as such. It is suggested to **always** fill this field with a unique name
+    /// to save yourself from the time wasted and confusion
+    #[builder(default = Uuid::new_v4().to_string())]
+    debug_label: String,
+
+    /// This part controls the maximum number of runs a task is allowed,
+    /// before being canceled from the scheduler
+    ///
+    /// # Default Value
+    /// By default, every task can run an infinite number of times (i.e. Has as value None), this
+    /// may sometimes be an undesirable behavior to run a task forever, as such this is why this
+    /// parameter exists
+    #[builder(default = None, setter(strip_option))]
+    max_runs: Option<NonZeroU64>
 }
 
 impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
@@ -154,6 +176,8 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
             priority: config.priority,
             extension: Arc::new(config.extension),
             runs: AtomicU64::new(0),
+            debug_label: config.debug_label,
+            max_runs: config.max_runs,
         }
     }
 }
@@ -218,12 +242,14 @@ pub struct Task<E: TaskExtension = ()> {
     pub(crate) priority: TaskPriority,
     pub(crate) extension: Arc<E>,
     pub(crate) runs: AtomicU64,
+    pub(crate) debug_label: String,
+    pub(crate) max_runs: Option<NonZeroU64>,
 }
 
 impl Debug for Task<()> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Task")
-            .field(&self.metadata.debug_label())
+            .field(&self.debug_label)
             .finish()
     }
 }
@@ -238,7 +264,7 @@ impl Debug for Task<()> {
 pub trait TaskExtension: Send + Sync {}
 impl TaskExtension for () {}
 
-type DefaultExtensiveBuilder = TaskConfigBuilder<(), (((),), (), (), (), (), (), ())>;
+type DefaultExtensiveBuilder = TaskConfigBuilder<(), (((),), (), (), (), (), (), (), (), ())>;
 
 impl Task {
     /// A simple constructor that creates a simple task from a task schedule and a task frame.
@@ -268,13 +294,15 @@ impl Task {
     pub fn define(schedule: impl TaskSchedule + 'static, task: impl TaskFrame + 'static) -> Self {
         Self {
             frame: Arc::new(task),
-            metadata: Arc::new(DefaultTaskMetadata::new()),
+            metadata: Arc::new(DynamicTaskMetadata::new()),
             schedule: Arc::new(schedule),
             error_handler: Arc::new(SilentTaskErrorHandler),
             overlap_policy: Arc::new(SequentialSchedulingPolicy),
             priority: TaskPriority::MODERATE,
             extension: Arc::new(()),
             runs: AtomicU64::new(0),
+            debug_label: Uuid::new_v4().to_string(),
+            max_runs: None,
         }
     }
 
@@ -414,5 +442,10 @@ impl<E: TaskExtension> Task<E> {
     /// Gets the number of times the task has run
     pub fn runs(&self) -> u64 {
         self.runs.load(Ordering::Relaxed)
+    }
+
+    /// Gets the maximum number of times the task can run (``None`` for infinite times)
+    pub fn max_runs(&self) -> &Option<NonZeroU64> {
+        &self.max_runs
     }
 }
