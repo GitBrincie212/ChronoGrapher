@@ -59,12 +59,6 @@ impl VirtualClock {
 
 #[async_trait]
 impl AdvanceableScheduleClock for VirtualClock {
-    async fn advance(&self, duration: Duration) {
-        self.current_time
-            .fetch_add(duration.as_millis() as u64, Ordering::Relaxed);
-        self.notify.notify_waiters();
-    }
-
     async fn advance_to(&self, to: SystemTime) {
         let to_millis = to
             .duration_since(SystemTime::UNIX_EPOCH)
