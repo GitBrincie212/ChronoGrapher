@@ -50,6 +50,9 @@ mod tests {
         let target = UNIX_EPOCH + Duration::from_secs(19);
         clock.advance_to(target).await;
         assert_approx!(clock.now().await, target, EPSILON);
+        let target = UNIX_EPOCH + Duration::from_secs(235);
+        clock.advance_to(target).await;
+        assert_approx!(clock.now().await, target, EPSILON);
     }
 
     #[tokio::test]
