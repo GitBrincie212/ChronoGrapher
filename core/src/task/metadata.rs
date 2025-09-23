@@ -1,11 +1,15 @@
+use std::any::Any;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
-use chrono::{DateTime, Local};
 use dashmap::DashMap;
 use std::fmt::{Debug, Display, Formatter};
-use std::num::NonZeroU64;
 use std::sync::Arc;
 use uuid::Uuid;
+use crate::task::TaskError;
+
+#[allow(unused_imports)]
+use std::collections::HashMap;
+use crate::errors::ChronographerErrors;
 
 /// [`ObserverFieldListener`] is the mechanism that drives the reactivity of [`ObserverField`],
 /// where it reacts to any changes made to the value
@@ -57,7 +61,7 @@ impl<T: Send + Sync + 'static> ObserverField<T> {
         self.listeners.remove(id);
     }
 
-    pub fn update(&mut self, value: T) {
+    pub fn update(&self, value: T) {
         self.value.store(Arc::new(value));
         self.tap();
     }
@@ -109,7 +113,7 @@ impl<T: Send + Sync + Ord + 'static> Ord for ObserverField<T> {
     }
 }
 
-impl<T: Send + Sync + Clone + 'static> Clone for ObserverField<T> {
+impl<T: Send + Sync + Clone> Clone for ObserverField<T> {
     fn clone(&self) -> Self {
         ObserverField {
             value: ArcSwap::from(self.value.load_full()),
@@ -118,92 +122,90 @@ impl<T: Send + Sync + Clone + 'static> Clone for ObserverField<T> {
     }
 }
 
-/// [`TaskMetadata`] is a container hosting all metadata-related information in which one can
-/// modify and read from it. It contains common internal metadata such as run count and
-/// last execution time (handled by the scheduling logic) as well as non-internal metadata,
-/// i.e. Debug label and maximum run count (set by the user)
+/// [`TaskMetadata`] is a container hosting all metadata-related information which lives inside a
+/// [`Task`]. Depending on the implementation of this trait, the metadata can have static fields or
+/// dynamic fields or both, all of them being reactive to any change made. One can also supply the
+/// generic ``V`` with a value of their choice for type safety
 ///
-/// [`TaskMetadata`] can be handed as a reference. Providing immutability. For mutable fields, consider
-/// using [`ObserverField`] to observe the changes of the field and react appropriately. If a field
-/// is meant to be internal, it is advised to make it ``&mut`` even if not modifying the struct
+/// When one implements the trait, one can also simply add their own public fields (idiomatically
+/// they should be ``ObserverField<T>`` fields) to the mix to provide compile-time safety
 ///
-/// By default, task metadata contains:
-/// - **Maximum runs**, the maximum runs this task can run before stopping the rescheduling (by default
-///   it is set to run for infinite times), accessed via [`TaskMetadata::max_runs`]
+/// # Required Method(s)
+/// Primarily [`TaskMetadata`] requires three of them, those being:
+/// - [`TaskMetadata::field`] Accesses a dynamic field and returns an ``Optional<ObserverField<V>>``
+/// where its ``None`` if not found and ``Some(ObserverField<V>)`` if found
 ///
-/// - **Run Count**, the number of times this task has run throughout its lifetime,
-///   accessed via [`TaskMetadata::runs`]
+/// - [`TaskMetadata::add_field`] Adds a new dynamic field to the metadata with its own key string
+/// and an initial value. If a field already exists, this should ideally return an error as it doesn't
+/// behave as much as a typical [`HashMap`] where a new field is added while it exists, it gets modified
 ///
-/// - **Last Execution**, the point in which the task was last executed at, if the task hasn't
-///   executed then it returns none, accessed via [`TaskMetadata::last_execution`]
+/// - [`TaskMetadata::remove_field`] Removes the dynamic field based on a ``key`` string,
+/// if the dynamic field doesn't exist based on the key, then it does nothing
 ///
-/// - **Debug Label** a label (can be an ID, a name... etc.) for identifying a task, by default, it
-///   constructs a UUID per task, can be accessed via [`TaskMetadata::debug_label`]
-pub trait TaskMetadata: Send + Sync {
-    fn max_runs(&self) -> Option<NonZeroU64>;
-    fn last_execution(&self) -> ObserverField<DateTime<Local>>;
-    fn debug_label(&self) -> ObserverField<String>;
-}
-
-impl<M: TaskMetadata + ?Sized> TaskMetadata for Arc<M> {
-    fn max_runs(&self) -> Option<NonZeroU64> {
-        self.as_ref().max_runs()
-    }
-    fn last_execution(&self) -> ObserverField<DateTime<Local>> {
-        self.as_ref().last_execution()
-    }
-    fn debug_label(&self) -> ObserverField<String> {
-        self.as_ref().debug_label()
-    }
-}
-
-/// A default implementation of the [`TaskMetadata`], it contains the bare minimum information
-/// to describe a [`TaskMetadata`], this is used for internally tracking state of the task.
-/// Unless one wishes to track more state in task metadata, this container is the go-to default
-/// option (which is why [`Task`] doesn't require the supply of metadata)
+/// - [`TaskMetadata::exists`] Checks whenever a field based on a ``key`` exists and returns
+/// a boolean value indicating so, true for if it exists and false otherwise
 ///
-/// # See
+/// # Trait Implementation(s)
+/// In ChronoGrapher, there is only one implementation out there of the trait [`TaskMetadata`],
+/// and that is [`DynamicTaskMetadata`] which acts as a wrapper around ``DashMap`` and allows for only
+/// dynamic fields
+///
+/// # See Also
 /// - [`Task`]
-/// - [`TaskMetadata`]
-/// - [`DefaultTaskMetadataExposed`]
-pub struct DefaultTaskMetadata {
-    pub(crate) max_runs: Option<NonZeroU64>,
-    pub(crate) last_execution: ObserverField<DateTime<Local>>,
-    pub(crate) debug_label: ObserverField<String>,
+pub trait TaskMetadata<V: Send + Sync + 'static = &'static (dyn Any + Send + Sync)>: Send + Sync
+where
+    ObserverField<V>: Clone
+{
+    fn field(&self, key: &str) -> Option<ObserverField<V>>;
+    fn add_field(&self, key: &str, value: V) -> Result<(), TaskError>;
+    fn remove_field(&self, key: &str);
+    fn exists(&self, key: &str) -> bool;
 }
 
-impl Default for DefaultTaskMetadata {
+#[derive(Clone, Debug)]
+pub struct DynamicTaskMetadata<V: Send + Sync + 'static>(DashMap<String, ObserverField<V>>)
+where
+    ObserverField<V>: Clone;
+
+impl<V: Send + Sync + 'static> Default for DynamicTaskMetadata<V>
+where
+    ObserverField<V>: Clone
+{
     fn default() -> Self {
-        DefaultTaskMetadata {
-            max_runs: None,
-            last_execution: ObserverField::new(Local::now()),
-            debug_label: ObserverField::new(Uuid::new_v4().to_string()),
-        }
+        Self::new()
     }
 }
 
-impl DefaultTaskMetadata {
+impl<V: Send + Sync + 'static> DynamicTaskMetadata<V>
+where
+    ObserverField<V>: Clone
+{
     pub fn new() -> Self {
-        Self::new_with(Uuid::new_v4().to_string())
-    }
-
-    pub fn new_with(debug_label: String) -> Self {
-        DefaultTaskMetadata {
-            max_runs: None,
-            last_execution: ObserverField::new(Local::now()),
-            debug_label: ObserverField::new(debug_label),
-        }
+        Self(DashMap::new())
     }
 }
 
-impl TaskMetadata for DefaultTaskMetadata {
-    fn max_runs(&self) -> Option<NonZeroU64> {
-        self.max_runs
+impl<V: Send + Sync + 'static> TaskMetadata<V> for DynamicTaskMetadata<V>
+where
+    ObserverField<V>: Clone
+{
+    fn field(&self, key: &str) -> Option<ObserverField<V>> {
+        self.0.get(key).map(|x| x.value().clone())
     }
-    fn last_execution(&self) -> ObserverField<DateTime<Local>> {
-        self.last_execution.clone()
+
+    fn add_field(&self, key: &str, value: V) -> Result<(), TaskError> {
+        if self.0.contains_key(key) {
+            return Err(Arc::new(ChronographerErrors::DynamicFieldAlreadyExists(key.to_string())))
+        }
+        self.0.insert(key.to_string(), ObserverField::new(value));
+        Ok(())
     }
-    fn debug_label(&self) -> ObserverField<String> {
-        self.debug_label.clone()
+
+    fn remove_field(&self, key: &str) {
+        self.0.remove(key);
+    }
+
+    fn exists(&self, key: &str) -> bool {
+        self.0.contains_key(key)
     }
 }
