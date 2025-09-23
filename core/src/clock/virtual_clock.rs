@@ -64,7 +64,7 @@ impl AdvanceableScheduleClock for VirtualClock {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-        self.current_time.fetch_add(to_millis, Ordering::Relaxed);
+        self.current_time.store(to_millis, Ordering::Relaxed);
         self.notify.notify_waiters();
     }
 }
