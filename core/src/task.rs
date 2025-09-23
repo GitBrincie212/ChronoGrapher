@@ -153,7 +153,7 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
             overlap_policy: config.schedule_strategy,
             priority: config.priority,
             extension: Arc::new(config.extension),
-            runs: AtomicU64::new(0)
+            runs: AtomicU64::new(0),
         }
     }
 }
@@ -217,7 +217,7 @@ pub struct Task<E: TaskExtension = ()> {
     pub(crate) overlap_policy: Arc<dyn ScheduleStrategy>,
     pub(crate) priority: TaskPriority,
     pub(crate) extension: Arc<E>,
-    pub(crate) runs: AtomicU64
+    pub(crate) runs: AtomicU64,
 }
 
 impl Debug for Task<()> {
@@ -274,7 +274,7 @@ impl Task {
             overlap_policy: Arc::new(SequentialSchedulingPolicy),
             priority: TaskPriority::MODERATE,
             extension: Arc::new(()),
-            runs: AtomicU64::new(0)
+            runs: AtomicU64::new(0),
         }
     }
 
@@ -410,7 +410,7 @@ impl<E: TaskExtension> Task<E> {
     pub fn priority(&self) -> TaskPriority {
         self.priority
     }
-    
+
     /// Gets the number of times the task has run
     pub fn runs(&self) -> u64 {
         self.runs.load(Ordering::Relaxed)
