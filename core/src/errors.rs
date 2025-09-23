@@ -46,4 +46,9 @@ pub enum ChronographerErrors {
     /// if a threshold of time counts down fully to zero but the task frame hasn't completed
     #[error("`{0}` Timed out")]
     TimeoutError(String),
+
+    /// This error is meant to happen when an insertion happens when a
+    /// field already exists (modifying basically the ObserverField which is non-idiomatic)
+    #[error("`{0}` already exists as a field, grab the observer as opposed to fully modifying")]
+    DynamicFieldAlreadyExists(String)
 }
