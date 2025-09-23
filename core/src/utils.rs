@@ -70,7 +70,7 @@ pub fn system_time_to_date_time(t: SystemTime) -> DateTime<Local> {
     Local.timestamp_opt(sec, nsec).unwrap()
 }
 
-pub fn date_time_to_system_time(dt: DateTime<Local>) -> SystemTime {
+pub fn date_time_to_system_time(dt: DateTime<impl TimeZone>) -> SystemTime {
     let duration_since_epoch = dt.timestamp_nanos_opt().unwrap();
     if duration_since_epoch >= 0 {
         UNIX_EPOCH + Duration::from_nanos(duration_since_epoch as u64)
