@@ -172,7 +172,7 @@ where
     ObserverField<V>: Clone
 {
     fn default() -> Self {
-        Self::new()
+        Self(DashMap::new())
     }
 }
 
