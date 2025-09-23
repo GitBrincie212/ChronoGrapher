@@ -123,6 +123,7 @@ impl TaskFrame for SelectTaskFrame {
         }
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,
+            "SelectTaskFrame".to_owned(),
             self.tasks.len(),
         )))
     }
