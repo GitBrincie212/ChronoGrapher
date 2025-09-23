@@ -22,7 +22,7 @@ use crate::task::dependencyframe::DependentFailureOnFail;
 /// as no other is aware of the existence
 #[derive(Error, Debug)]
 pub enum ChronographerErrors {
-    /// This error is meant to happen when retrieving an index from a container that has a 
+    /// This error is meant to happen when retrieving an index from a container that has a
     /// specified length, but the index is out of bounds. In the core package it is mainly caused
     /// by [`SelectTaskFrame`]
     #[error(
@@ -30,7 +30,7 @@ pub enum ChronographerErrors {
     )]
     TaskIndexOutOfBounds(usize, String, usize),
 
-    /// This error is meant to happen when [`ConditionalTaskFrame`] 
+    /// This error is meant to happen when [`ConditionalTaskFrame`]
     /// returns true and the flag ``error_on_false`` is set to true
     #[error(
         "ConditionalTaskFrame returned false with error_on_false set to true, as such this error returns"
@@ -42,7 +42,7 @@ pub enum ChronographerErrors {
     #[error("Dependencies have not been resolved")]
     TaskDependenciesUnresolved,
 
-    /// This error is meant to happen when a timeout occurs on [`TimeoutTaskFrame`], i.e. 
+    /// This error is meant to happen when a timeout occurs on [`TimeoutTaskFrame`], i.e.
     /// if a threshold of time counts down fully to zero but the task frame hasn't completed
     #[error("`{0}` Timed out")]
     TimeoutError(String),
@@ -50,5 +50,5 @@ pub enum ChronographerErrors {
     /// This error is meant to happen when an insertion happens when a
     /// field already exists (modifying basically the ObserverField which is non-idiomatic)
     #[error("`{0}` already exists as a field, grab the observer as opposed to fully modifying")]
-    DynamicFieldAlreadyExists(String)
+    DynamicFieldAlreadyExists(String),
 }

@@ -1,15 +1,15 @@
-use std::any::Any;
+use crate::task::TaskError;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::task::TaskError;
 
+use crate::errors::ChronographerErrors;
 #[allow(unused_imports)]
 use std::collections::HashMap;
-use crate::errors::ChronographerErrors;
 
 /// [`ObserverFieldListener`] is the mechanism that drives the reactivity of [`ObserverField`],
 /// where it reacts to any changes made to the value
@@ -152,9 +152,10 @@ impl<T: Send + Sync + Clone> Clone for ObserverField<T> {
 ///
 /// # See Also
 /// - [`Task`]
-pub trait TaskMetadata<V: Send + Sync + 'static = &'static (dyn Any + Send + Sync)>: Send + Sync
+pub trait TaskMetadata<V: Send + Sync + 'static = &'static (dyn Any + Send + Sync)>:
+    Send + Sync
 where
-    ObserverField<V>: Clone
+    ObserverField<V>: Clone,
 {
     fn field(&self, key: &str) -> Option<ObserverField<V>>;
     fn add_field(&self, key: &str, value: V) -> Result<(), TaskError>;
@@ -169,7 +170,7 @@ where
 
 impl<V: Send + Sync + 'static> Default for DynamicTaskMetadata<V>
 where
-    ObserverField<V>: Clone
+    ObserverField<V>: Clone,
 {
     fn default() -> Self {
         Self::new()
@@ -178,7 +179,7 @@ where
 
 impl<V: Send + Sync + 'static> DynamicTaskMetadata<V>
 where
-    ObserverField<V>: Clone
+    ObserverField<V>: Clone,
 {
     pub fn new() -> Self {
         Self(DashMap::new())
@@ -187,7 +188,7 @@ where
 
 impl<V: Send + Sync + 'static> TaskMetadata<V> for DynamicTaskMetadata<V>
 where
-    ObserverField<V>: Clone
+    ObserverField<V>: Clone,
 {
     fn field(&self, key: &str) -> Option<ObserverField<V>> {
         self.0.get(key).map(|x| x.value().clone())
@@ -195,7 +196,9 @@ where
 
     fn add_field(&self, key: &str, value: V) -> Result<(), TaskError> {
         if self.0.contains_key(key) {
-            return Err(Arc::new(ChronographerErrors::DynamicFieldAlreadyExists(key.to_string())))
+            return Err(Arc::new(ChronographerErrors::DynamicFieldAlreadyExists(
+                key.to_string(),
+            )));
         }
         self.0.insert(key.to_string(), ObserverField::new(value));
         Ok(())

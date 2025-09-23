@@ -15,10 +15,10 @@ pub use priority::*;
 use crate::scheduling_strats::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
-use uuid::Uuid;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
+use uuid::Uuid;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
@@ -162,7 +162,7 @@ pub struct TaskConfig<E: TaskExtension> {
     /// may sometimes be an undesirable behavior to run a task forever, as such this is why this
     /// parameter exists
     #[builder(default = None, setter(strip_option))]
-    max_runs: Option<NonZeroU64>
+    max_runs: Option<NonZeroU64>,
 }
 
 impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
@@ -248,9 +248,7 @@ pub struct Task<E: TaskExtension = ()> {
 
 impl Debug for Task<()> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Task")
-            .field(&self.debug_label)
-            .finish()
+        f.debug_tuple("Task").field(&self.debug_label).finish()
     }
 }
 
