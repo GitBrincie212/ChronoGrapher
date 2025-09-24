@@ -149,17 +149,17 @@ impl<T: Send + Sync + Clone> Clone for ObserverField<T> {
 /// # Required Method(s)
 /// Primarily [`TaskMetadata`] requires three of them, those being:
 /// - [`TaskMetadata::field`] Accesses a dynamic field and returns an ``Optional<ObserverField<V>>``
-/// where its ``None`` if not found and ``Some(ObserverField<V>)`` if found
+///   where its ``None`` if not found and ``Some(ObserverField<V>)`` if found
 ///
 /// - [`TaskMetadata::add_field`] Adds a new dynamic field to the metadata with its own key string
-/// and an initial value. If a field already exists, this should ideally return an error as it doesn't
-/// behave as much as a typical [`HashMap`] where a new field is added while it exists, it gets modified
+///   and an initial value. If a field already exists, this should ideally return an error as it doesn't
+///   behave as much as a typical [`HashMap`] where a new field is added while it exists, it gets modified
 ///
 /// - [`TaskMetadata::remove_field`] Removes the dynamic field based on a ``key`` string,
-/// if the dynamic field doesn't exist based on the key, then it does nothing
+///   if the dynamic field doesn't exist based on the key, then it does nothing
 ///
 /// - [`TaskMetadata::exists`] Checks whenever a field based on a ``key`` exists and returns
-/// a boolean value indicating so, true for if it exists and false otherwise
+///   a boolean value indicating so, true for if it exists and false otherwise
 ///
 /// # Trait Implementation(s)
 /// In ChronoGrapher, there is only one implementation out there of the trait [`TaskMetadata`],
