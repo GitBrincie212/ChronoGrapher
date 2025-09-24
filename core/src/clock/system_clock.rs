@@ -1,7 +1,7 @@
 use crate::clock::SchedulerClock;
 use async_trait::async_trait;
 use std::fmt::Debug;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 #[allow(unused_imports)]
 use crate::clock::VirtualClock;
@@ -33,14 +33,8 @@ impl SchedulerClock for SystemClock {
         let now = SystemTime::now();
         let duration = match to.duration_since(now) {
             Ok(duration) => duration,
-            Err(diff) => {
-                if diff.duration() <= Duration::from_millis(7) {
-                    return;
-                }
-                panic!(
-                    "Supposed future time is now in the past with a difference of {:?}",
-                    diff.duration()
-                );
+            Err(_) => {
+                return;
             }
         };
 
