@@ -1,18 +1,28 @@
-use crate::task::TaskError;
+use std::any::Any;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use uuid::Uuid;
+use crate::task::TaskError;
 
-use crate::errors::ChronographerErrors;
 #[allow(unused_imports)]
 use std::collections::HashMap;
+use crate::errors::ChronographerErrors;
 
-/// [`ObserverFieldListener`] is the mechanism that drives the reactivity of [`ObserverField`],
-/// where it reacts to any changes made to the value
+/// [`ObserverFieldListener`] is the mechanism that drives the listening of reactivity on the
+/// [`ObserverField`], where it listens to any changes made to the value. This system is used
+/// closely on [`TaskMetadata`] for both static and dynamic fields
+///
+/// # Required Method(s)
+/// When implementing the [`ObserverFieldListener`], one has to implement the [`ObserverFieldListener::listen`]
+/// method which is used for executing logic when a value ``T`` changes. It accepts the value as an
+/// ``Arc<T>`` (keep in mind it is not the [`ObserverField`] but rather the inner value of the [`ObserverField`])
+///
+/// # See Also
+/// - [`ObserverField`]
+/// - [`TaskMetadata`]
 #[async_trait]
 pub trait ObserverFieldListener<T: Send + Sync + 'static>: Send + Sync {
     async fn listen(&self, value: Arc<T>);
@@ -37,7 +47,13 @@ where
 */
 
 /// [`ObserverField`] is a reactive container around a field, it is commonly
-/// used in metadata to ensure listeners react to changes made to the field
+/// used in [`TaskMetadata`] to ensure [`ObserverFieldListener`] react to field changes.
+/// It is a struct which wraps an ``ArcSwap<T>`` where ``T`` is the value to be wrapped
+/// and hosts multiple listeners to listen to that field
+///
+/// # See Also
+/// - [`ObserverFieldListener`]
+/// - [`TaskMetadata`]
 pub struct ObserverField<T: Send + Sync + 'static> {
     value: ArcSwap<T>,
     listeners: Arc<DashMap<Uuid, Arc<dyn ObserverFieldListener<T>>>>,
@@ -124,8 +140,8 @@ impl<T: Send + Sync + Clone> Clone for ObserverField<T> {
 
 /// [`TaskMetadata`] is a container hosting all metadata-related information which lives inside a
 /// [`Task`]. Depending on the implementation of this trait, the metadata can have static fields or
-/// dynamic fields or both, all of them being reactive to any change made. One can also supply the
-/// generic ``V`` with a value of their choice for type safety
+/// dynamic fields or both, all of them being reactive to any change made via [`ObserverField`].
+/// One can also supply the generic ``V`` with a value of their choice for type safety
 ///
 /// When one implements the trait, one can also simply add their own public fields (idiomatically
 /// they should be ``ObserverField<T>`` fields) to the mix to provide compile-time safety
@@ -152,10 +168,11 @@ impl<T: Send + Sync + Clone> Clone for ObserverField<T> {
 ///
 /// # See Also
 /// - [`Task`]
-pub trait TaskMetadata<V: Send + Sync + 'static = &'static (dyn Any + Send + Sync)>:
-    Send + Sync
+/// - [`ObserverField`]
+/// - [`DynamicTaskMetadata`]
+pub trait TaskMetadata<V: Send + Sync + 'static = &'static (dyn Any + Send + Sync)>: Send + Sync
 where
-    ObserverField<V>: Clone,
+    ObserverField<V>: Clone
 {
     fn field(&self, key: &str) -> Option<ObserverField<V>>;
     fn add_field(&self, key: &str, value: V) -> Result<(), TaskError>;
@@ -170,7 +187,7 @@ where
 
 impl<V: Send + Sync + 'static> Default for DynamicTaskMetadata<V>
 where
-    ObserverField<V>: Clone,
+    ObserverField<V>: Clone
 {
     fn default() -> Self {
         Self(DashMap::new())
@@ -179,7 +196,7 @@ where
 
 impl<V: Send + Sync + 'static> DynamicTaskMetadata<V>
 where
-    ObserverField<V>: Clone,
+    ObserverField<V>: Clone
 {
     pub fn new() -> Self {
         Self(DashMap::new())
@@ -188,7 +205,7 @@ where
 
 impl<V: Send + Sync + 'static> TaskMetadata<V> for DynamicTaskMetadata<V>
 where
-    ObserverField<V>: Clone,
+    ObserverField<V>: Clone
 {
     fn field(&self, key: &str) -> Option<ObserverField<V>> {
         self.0.get(key).map(|x| x.value().clone())
@@ -196,9 +213,7 @@ where
 
     fn add_field(&self, key: &str, value: V) -> Result<(), TaskError> {
         if self.0.contains_key(key) {
-            return Err(Arc::new(ChronographerErrors::DynamicFieldAlreadyExists(
-                key.to_string(),
-            )));
+            return Err(Arc::new(ChronographerErrors::DynamicFieldAlreadyExists(key.to_string())))
         }
         self.0.insert(key.to_string(), ObserverField::new(value));
         Ok(())
