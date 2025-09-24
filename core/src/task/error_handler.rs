@@ -7,20 +7,8 @@ use std::sync::Arc;
 /// metadata in which the fields can be accessed via [`TaskErrorContext::error`]
 /// and [`TaskErrorContext::metadata`] respectively
 pub struct TaskErrorContext {
-    pub(crate) error: TaskError,
-    pub(crate) metadata: Arc<dyn TaskMetadata + Send + Sync>,
-}
-
-impl TaskErrorContext {
-    /// Gets the task error
-    pub fn error(&self) -> TaskError {
-        self.error.clone()
-    }
-
-    /// Gets the exposed metadata
-    pub fn metadata(&self) -> Arc<dyn TaskMetadata + Send + Sync> {
-        self.metadata.clone()
-    }
+    pub error: TaskError,
+    pub metadata: Arc<TaskMetadata>,
 }
 
 /// [`TaskErrorHandler`] is a logic part that deals with any errors, it is invoked when a task has
@@ -34,13 +22,13 @@ impl TaskErrorContext {
 /// - [`SilentTaskErrorHandler`]
 #[async_trait]
 pub trait TaskErrorHandler: Send + Sync {
-    async fn on_error(&self, context: TaskErrorContext);
+    async fn on_error(&self, ctx: Arc<TaskErrorContext>);
 }
 
 #[async_trait]
 impl<E: TaskErrorHandler + ?Sized> TaskErrorHandler for Arc<E> {
-    async fn on_error(&self, context: TaskErrorContext) {
-        self.as_ref().on_error(context).await;
+    async fn on_error(&self, ctx: Arc<TaskErrorContext>) {
+        self.as_ref().on_error(ctx).await;
     }
 }
 
@@ -52,8 +40,8 @@ pub struct PanicTaskErrorHandler;
 
 #[async_trait]
 impl TaskErrorHandler for PanicTaskErrorHandler {
-    async fn on_error(&self, context: TaskErrorContext) {
-        panic!("{:?}", context.error);
+    async fn on_error(&self, ctx: Arc<TaskErrorContext>) {
+        panic!("{:?}", ctx.error);
     }
 }
 
@@ -69,5 +57,5 @@ pub struct SilentTaskErrorHandler;
 
 #[async_trait]
 impl TaskErrorHandler for SilentTaskErrorHandler {
-    async fn on_error(&self, _context: TaskErrorContext) {}
+    async fn on_error(&self, _ctx: Arc<TaskErrorContext>) {}
 }
