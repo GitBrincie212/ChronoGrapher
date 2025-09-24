@@ -1,5 +1,5 @@
 use crate::errors::ChronographerErrors;
-use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
+use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
@@ -14,24 +14,24 @@ use typed_builder::TypedBuilder;
 
 #[async_trait]
 pub trait FramePredicateFunc: Send + Sync {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>) -> bool;
+    async fn execute(&self, ctx: Arc<TaskContext>) -> bool;
 }
 
 #[async_trait]
 impl<F, Fut> FramePredicateFunc for F
 where
-    F: Fn(Arc<dyn TaskMetadata>) -> Fut + Send + Sync,
+    F: Fn(Arc<TaskContext>) -> Fut + Send + Sync,
     Fut: Future<Output = bool> + Send,
 {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>) -> bool {
-        self(metadata).await
+    async fn execute(&self, ctx: Arc<TaskContext>) -> bool {
+        self(ctx).await
     }
 }
 
 #[async_trait]
 impl<F: FramePredicateFunc + ?Sized> FramePredicateFunc for Arc<F> {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>) -> bool {
-        self.as_ref().execute(metadata).await
+    async fn execute(&self, ctx: Arc<TaskContext>) -> bool {
+        self.as_ref().execute(ctx).await
     }
 }
 
@@ -186,17 +186,17 @@ impl<T: TaskFrame + 'static + Send + Sync> ConditionalFrame<T> {
 }
 
 macro_rules! execute_func_impl {
-    ($self: expr, $emitter: expr, $metadata: expr) => {
-        let result = $self.predicate.execute($metadata.clone()).await;
+    ($self: expr, $ctx: expr) => {
+        let result = $self.predicate.execute($ctx.metadata.clone()).await;
         if result {
-            $emitter
-                .emit($metadata.clone(), $self.on_true.clone(), $self.task.clone())
+            $ctx.emitter
+                .emit($ctx.metadata.clone(), $self.on_true.clone(), $self.task.clone())
                 .await;
-            return $self.task.execute($metadata.clone(), $emitter).await;
+            return $self.task.execute($ctx).await;
         }
-        $emitter
+        $ctx.emitter
             .emit(
-                $metadata.clone(),
+                $ctx.metadata.clone(),
                 $self.on_false.clone(),
                 $self.fallback.clone(),
             )
@@ -206,12 +206,8 @@ macro_rules! execute_func_impl {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for ConditionalFrame<T> {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
-        execute_func_impl!(self, emitter, metadata);
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+        execute_func_impl!(self, ctx);
         if self.error_on_false {
             Err(Arc::new(ChronographerErrors::TaskConditionFail))
         } else {
@@ -223,13 +219,9 @@ impl<T: TaskFrame> TaskFrame for ConditionalFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
-        execute_func_impl!(self, emitter, metadata);
-        let result = self.fallback.execute(metadata, emitter).await;
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+        execute_func_impl!(self, ctx);
+        let result = self.fallback.execute(ctx).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));
         }

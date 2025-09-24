@@ -1,6 +1,6 @@
 use crate::errors::ChronographerErrors;
 use crate::task::dependency::FrameDependency;
-use crate::task::{Arc, TaskError, TaskEventEmitter, TaskFrame, TaskMetadata};
+use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
@@ -128,11 +128,7 @@ impl<T: TaskFrame> DependencyTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let mut handles: Vec<JoinHandle<bool>> = Vec::new();
 
         for dep in &self.dependencies {
@@ -160,6 +156,6 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             return self.dependent_behaviour.execute().await;
         }
 
-        self.frame.execute(metadata.clone(), emitter).await
+        self.frame.execute(ctx).await
     }
 }

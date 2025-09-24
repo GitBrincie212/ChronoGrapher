@@ -1,5 +1,4 @@
-use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskMetadata};
-use crate::task::{TaskEventEmitter, TaskFrame};
+use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
@@ -167,28 +166,24 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2>
 
 #[async_trait]
 impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: Arc<TaskContext>, ) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
         for retry in 0u32..self.retries.get() {
             if retry != 0 {
-                emitter
+                ctx.emitter
                     .emit(
-                        metadata.clone(),
+                        ctx.metadata.clone(),
                         self.on_retry_start.clone(),
                         self.task.clone(),
                     )
                     .await;
             }
-            let result = self.task.execute(metadata.clone(), emitter.clone()).await;
+            let result = self.task.execute(ctx.clone()).await;
             match result {
                 Ok(_) => {
-                    emitter
+                    ctx.emitter
                         .emit(
-                            metadata.clone(),
+                            ctx.metadata.clone(),
                             self.on_retry_end.clone(),
                             (self.task.clone(), None),
                         )
@@ -197,9 +192,9 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                 }
                 Err(err) => {
                     error = Some(err.clone());
-                    emitter
+                    ctx.emitter
                         .emit(
-                            metadata.clone(),
+                            ctx.metadata.clone(),
                             self.on_retry_end.clone(),
                             (self.task.clone(), error.clone()),
                         )

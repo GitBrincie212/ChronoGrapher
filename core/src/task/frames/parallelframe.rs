@@ -1,5 +1,5 @@
 use crate::policy_match;
-use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
+use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -103,36 +103,31 @@ impl ParallelTaskFrame {
 
 #[async_trait]
 impl TaskFrame for ParallelTaskFrame {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let (result_tx, mut result_rx) = mpsc::unbounded_channel();
 
         match self.tasks.len() {
             0 => {}
             1 => {
                 self.tasks[0]
-                    .execute(metadata.clone(), emitter.clone())
+                    .execute(ctx)
                     .await?
             }
             _ => {
                 std::thread::scope(|s| {
                     for frame in self.tasks.iter() {
                         let frame_clone = frame.clone();
-                        let emitter_clone = emitter.clone();
-                        let metadata_clone = metadata.clone();
+                        let context_clone = ctx.clone();
                         let result_tx = result_tx.clone();
                         let child_start = self.on_child_start.clone();
                         s.spawn(move || {
                             tokio::spawn(async move {
-                                emitter_clone
+                                context_clone.emitter
                                     .clone()
-                                    .emit(metadata_clone.clone(), child_start, frame_clone.clone())
+                                    .emit(context_clone.metadata.clone(), child_start, frame_clone.clone())
                                     .await;
                                 let result = frame_clone
-                                    .execute(metadata_clone, emitter_clone.clone())
+                                    .execute(context_clone)
                                     .await;
                                 let _ = result_tx.send((frame_clone, result));
                             })
@@ -145,7 +140,7 @@ impl TaskFrame for ParallelTaskFrame {
         drop(result_tx);
 
         while let Some((task, result)) = result_rx.recv().await {
-            policy_match!(metadata, emitter, task, self, result, ParallelTaskPolicy);
+            policy_match!(ctx.metadata, ctx.emitter, task, self, result, ParallelTaskPolicy);
         }
 
         Ok(())

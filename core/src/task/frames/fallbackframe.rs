@@ -1,4 +1,4 @@
-use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata, };
+use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -67,26 +67,22 @@ where
     T: TaskFrame + 'static,
     T2: TaskFrame + 'static,
 {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let primary_result = self
             .primary
-            .execute(metadata.clone(), emitter.clone())
+            .execute(ctx.clone())
             .await;
         match primary_result {
             Err(err) => {
-                emitter
+                ctx.emitter
                     .emit(
-                        metadata.clone(),
+                        ctx.metadata.clone(),
                         self.on_fallback.clone(),
                         (self.secondary.clone(), err),
                     )
                     .await;
 
-                self.secondary.execute(metadata, emitter).await
+                self.secondary.execute(ctx).await
             }
             res => res,
         }

@@ -1,4 +1,4 @@
-use crate::task::{Arc, TaskError, TaskEventEmitter, TaskFrame, TaskMetadata};
+use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 
 /// Represents an **execution task frame** that directly hosts and executes a function. This task frame type
@@ -32,7 +32,7 @@ pub struct ExecutionTaskFrame<F: Send + Sync>(F);
 impl<F, Fut> ExecutionTaskFrame<F>
 where
     Fut: Future<Output = Result<(), TaskError>> + Send,
-    F: Fn(Arc<dyn TaskMetadata + Send + Sync>) -> Fut + Send + Sync,
+    F: Fn(Arc<TaskContext>) -> Fut + Send + Sync,
 {
     pub fn new(func: F) -> Self {
         ExecutionTaskFrame(func)
@@ -43,13 +43,9 @@ where
 impl<F, Fut> TaskFrame for ExecutionTaskFrame<F>
 where
     Fut: Future<Output = Result<(), TaskError>> + Send,
-    F: Fn(Arc<dyn TaskMetadata + Send + Sync>) -> Fut + Send + Sync,
+    F: Fn(Arc<TaskContext>) -> Fut + Send + Sync,
 {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        _emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
-        self.0(metadata).await
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+        self.0(ctx).await
     }
 }

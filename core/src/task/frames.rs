@@ -12,7 +12,7 @@ use crate::task::conditionframe::FramePredicateFunc;
 use crate::task::dependency::FrameDependency;
 use crate::task::events::TaskEventEmitter;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{TaskError, TaskMetadata};
+use crate::task::{TaskError, TaskMetadata, TaskPriority, Task};
 use async_trait::async_trait;
 pub use conditionframe::ConditionalFrame;
 pub use dependencyframe::DependencyTaskFrame;
@@ -22,10 +22,34 @@ pub use parallelframe::ParallelTaskFrame;
 pub use retryframe::RetriableTaskFrame;
 pub use selectframe::SelectTaskFrame;
 pub use sequentialframe::SequentialTaskFrame;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 pub use timeoutframe::TimeoutTaskFrame;
+
+#[derive(Clone)]
+pub struct TaskContext {
+    pub metadata: Arc<TaskMetadata>,
+    pub emitter: Arc<TaskEventEmitter>,
+    pub priority: TaskPriority,
+    pub runs: u64,
+    pub debug_label: &'static str,
+    pub max_runs: Option<NonZeroU64>
+}
+
+impl TaskContext {
+    pub fn new(task: &Task, emitter: Arc<TaskEventEmitter>) -> Arc<Self> {
+       Arc::new(Self {
+           metadata: task.metadata,
+           emitter,
+           priority: task.priority,
+           runs: task.runs.load(Ordering::Relaxed),
+           debug_label: task.debug_label.as_str(),
+           max_runs: task.max_runs
+       })
+    }
+}
 
 /// [`TaskFrame`] represents a unit of work which hosts the actual computation logic for the [`Scheduler`]
 /// to invoke, this is a part of the task system. [`TaskFrame`] encapsulates mainly the async execution logic
@@ -55,21 +79,13 @@ pub use timeoutframe::TimeoutTaskFrame;
 #[async_trait]
 pub trait TaskFrame: Send + Sync {
     /// The main execution logic of the task, it is meant as an internal method
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError>;
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError>;
 }
 
 #[async_trait]
 impl<F: TaskFrame + ?Sized> TaskFrame for Arc<F> {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
-        self.as_ref().execute(metadata, emitter).await
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+        self.as_ref().execute(ctx).await
     }
 }
 

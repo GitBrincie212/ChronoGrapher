@@ -1,28 +1,28 @@
 use crate::errors::ChronographerErrors;
-use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
+use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 
 #[async_trait]
 pub trait FrameAccessorFunc: Send + Sync {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>) -> usize;
+    async fn execute(&self, ctx: Arc<TaskContext>) -> usize;
 }
 
 #[async_trait]
 impl<FAF: FrameAccessorFunc + ?Sized> FrameAccessorFunc for Arc<FAF> {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>) -> usize {
-        self.as_ref().execute(metadata).await
+    async fn execute(&self, ctx: Arc<TaskContext>) -> usize {
+        self.as_ref().execute(ctx).await
     }
 }
 
 #[async_trait]
 impl<F, Fut> FrameAccessorFunc for F
 where
-    F: Fn(Arc<dyn TaskMetadata>) -> Fut + Send + Sync,
+    F: Fn(Arc<TaskContext>) -> Fut + Send + Sync,
     Fut: Future<Output = usize> + Send,
 {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>) -> usize {
-        self(metadata).await
+    async fn execute(&self, ctx: Arc<TaskContext>) -> usize {
+        self(ctx).await
     }
 }
 
@@ -102,17 +102,13 @@ impl SelectTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SelectTaskFrame {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
-        let idx = self.accessor.execute(metadata.clone()).await;
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+        let idx = self.accessor.execute(ctx.clone()).await;
         if let Some(frame) = self.tasks.get(idx) {
-            emitter
-                .emit(metadata.clone(), self.on_select.clone(), frame.clone())
+            ctx.emitter
+                .emit(ctx.metadata.clone(), self.on_select.clone(), frame.clone())
                 .await;
-            return frame.execute(metadata, emitter).await;
+            return frame.execute(ctx).await;
         }
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,

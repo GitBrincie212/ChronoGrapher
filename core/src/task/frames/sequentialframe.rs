@@ -1,5 +1,5 @@
 use crate::policy_match;
-use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
+use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -101,18 +101,14 @@ impl SequentialTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SequentialTaskFrame {
-    async fn execute(
-        &self,
-        metadata: Arc<dyn TaskMetadata + Send + Sync>,
-        emitter: Arc<TaskEventEmitter>,
-    ) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         for task in self.tasks.iter() {
-            emitter
+            ctx.emitter
                 .clone()
-                .emit(metadata.clone(), self.on_child_start.clone(), task.clone())
+                .emit(ctx.metadata.clone(), self.on_child_start.clone(), task.clone())
                 .await;
-            let result = task.execute(metadata.clone(), emitter.clone()).await;
-            policy_match!(metadata, emitter, task, self, result, SequentialTaskPolicy);
+            let result = task.execute(ctx).await;
+            policy_match!(ctx.metadata, ctx.emitter, task, self, result, SequentialTaskPolicy);
         }
         Ok(())
     }
