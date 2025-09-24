@@ -43,11 +43,16 @@ pub struct TaskConfig {
     /// By default, the value uses [`TaskMetadata`], which is an implementation of [`TaskMetadata],
     /// hosting the minimum number of fields that define a metadata container
     ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
     /// # See Also
     /// - [`TaskMetadata`]
     /// - [`ObserverField`]
-    #[builder(default = Arc::new(TaskMetadata::new()))]
-    metadata: Arc<TaskMetadata>,
+    #[builder(default = TaskMetadata::new())]
+    metadata: TaskMetadata,
 
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
     /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
@@ -57,6 +62,11 @@ pub struct TaskConfig {
     /// # Default Value
     /// By default, every task is [`TaskPriority::MODERATE`]
     ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
     /// # See Also
     /// - [`TaskPriority`]
     #[builder(default = TaskPriority::MODERATE)]
@@ -65,6 +75,11 @@ pub struct TaskConfig {
     /// [`TaskFrame`] is the <u>**Main Logic Part Of The Task**</u>, this is where the logic lives in.
     /// It is an essential part of the system (as without it, a task is useless), more information
     /// can be viewed on the [`TaskFrame`] documentation on what its capabilities truly are
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
     ///
     /// # See Also
     /// - [`TaskFrame`]
@@ -81,6 +96,11 @@ pub struct TaskConfig {
     /// are various default implementations which can be seen. This is also an essential part
     /// (as without it, the scheduler never knows when to run a task), for more information check the
     /// [`TaskSchedule`] documentation
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
     ///
     /// # See Also
     /// - [`TaskSchedule`]
@@ -101,6 +121,11 @@ pub struct TaskConfig {
     /// any error (i.e. Doesn't gracefully handle it), for any demos this is fine, but for any application
     /// **THIS SHOULD BE AVOIDED AND INSTEAD IDIOMATICALLY HANDLE THE ERROR YOURSELF**
     ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
     /// # See Also
     /// - [`TaskErrorHandler`]
     /// - [`SilentTaskErrorHandler`]
@@ -119,6 +144,11 @@ pub struct TaskConfig {
     /// By default, every task uses the [`SequentialSchedulingPolicy`], which executes a task first
     /// then reschedules that task. This means no matter what, there will **NEVER** be a scenario
     /// where the same task overlaps itself
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
     ///
     /// # See Also
     /// - [`ScheduleStrategy`]
@@ -139,6 +169,11 @@ pub struct TaskConfig {
     /// By default, every task has a generated UUID string, this may complicate things
     /// for debugging, as such. It is suggested to **always** fill this field with a unique name
     /// to save yourself from the time wasted and confusion
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
     #[builder(default = Uuid::new_v4().to_string())]
     debug_label: String,
 
@@ -149,6 +184,11 @@ pub struct TaskConfig {
     /// By default, every task can run an infinite number of times (i.e. Has as value None), this
     /// may sometimes be an undesirable behavior to run a task forever, as such this is why this
     /// parameter exists
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
     #[builder(default = None, setter(strip_option))]
     max_runs: Option<NonZeroU64>,
 }
@@ -156,13 +196,13 @@ pub struct TaskConfig {
 impl From<TaskConfig> for Task {
     fn from(config: TaskConfig) -> Self {
         Task {
-            metadata: config.metadata,
+            metadata: Arc::new(config.metadata),
             frame: config.frame,
             schedule: config.schedule,
             error_handler: config.error_handler,
             overlap_policy: config.schedule_strategy,
             priority: config.priority,
-            runs: AtomicU64::new(0),
+            runs: Arc::new(AtomicU64::new(0)),
             debug_label: config.debug_label,
             max_runs: config.max_runs,
             on_start: TaskEvent::new(),
@@ -174,20 +214,21 @@ impl From<TaskConfig> for Task {
 /// [`Task`] is one of the core components of ChronoGrapher, it is a composite, and made of several parts,
 /// giving it massive flexibility in terms of customization.
 ///
-/// # Task Composite Parts
+/// # Implementation Detail(s)
+/// Task is not just one entity, rather it has many moving parts, many composites, the important
+/// ones are:
 ///
-/// - **[`TaskMetadata`]** The <u>State</u>, by default (the parameter is optional to define)
-///   it contains information such as the run-count, the maximum runs allowed, the last time the task
-///   was executed... etc. The task metadata is also reactive, as most fields are [`ObserverField`],
-///   allowing the developers to listen in various fields for changes made to them. Any outside parties
-///   can access it via using [`Task::metadata`]
+/// - **[`TaskMetadata`]** The <u>Local Task State</u>, it is a reactive container, allowing
+/// the ability to listen to various incoming field changes, it can be modified from any point, it also
+/// allows tracking of dynamic fields, in addition outside parties can also use and modify it via
+/// [`Task::metadata`]
 ///
 /// - **[`TaskFrame`]** The <u>What</u> of the task, the logic part of the task. When executed, task
-///   frames get the exposed metadata and an event emitter for task events (lifecycle or local events,
-///   see [`TaskEvent`] for more context), the emitter can be used to emit their own events. Task frames
+///   frames get a task context which hosts all the information needed, including an event emitter,
+///   metadata, debug label... etc. the emitter can be used to emit their own events. Task frames
 ///   can be decorated with other task frames to form a chain of task frames, allowing for complex
 ///   logic (and policy logic) to be injected to the task without manual writing. There are various
-///   implementations of task frane and the task frame can be accessed via [`Task::frame`]
+///   implementations of task frame and the task frame can be accessed via [`Task::frame`]
 ///
 /// - **[`TaskSchedule`]** The <u>When</u> will the task execute, it is used for calculating the next
 ///   time to invoke this task. This part is useful to the scheduler mostly, tho outside parties can
@@ -197,21 +238,34 @@ impl From<TaskConfig> for Task {
 ///   it doesn't need to be supplied, and it will silently ignore the error, tho ideally in most cases
 ///   it should be supplied for fine-grain error handling. When invoked, the task error handler gets
 ///   a context object hosting the exposed metadata and the error. It is meant to return nothing, just
-///   handle the error the task gave away
+///   handle the error the task gave away, outside parties can access this via [`Task::error_handler`]
 ///
 /// - **[`ScheduleStrategy`]** Defines how the scheduler should handle the rescheduling of a task and
 ///   how it handles task overlapping behavior. By default, (the parameter is optional to define),
-///   it runs sequentially. i.e. The task only reschedules once it is fully finished
-/// ---
+///   it runs sequentially. i.e. The task only reschedules once it is fully finished, outside parties
+///   can access this via [`Task::schedule_strategy`]
 ///
-/// In order to actually use the task, the developer must register it in a [`Scheduler`], could be
-/// the default implementation of the scheduler or a custom-made, regardless, the task object is useless
-/// without registration of it
+/// Other minor parts include a debug label, maximum runs... etc. In order to actually use the task,
+/// the developer must register it in a [`Scheduler`], could be the default implementation of the
+/// scheduler or a custom-made, regardless, the task object is useless without registration of it
+///
+/// # Constructor(s)
+/// There are 2 ways when it comes to creating a [`Task`]. The former is [`Task::define`] which
+/// is used for defining simple tasks that only need a frame and a schedule (the important parts)
+/// and acts as a convenience method, while the latter is [`Task::builder`] which creates a builder,
+/// allowing more customization over individual fields
+///
+/// [`Task`] cannot be constructed like a typical ``struct`` due to the fact it contains
+/// some information that is meant to have a default value and not have the initial value
+/// controlled by the user
 ///
 /// # Trait Implementation(s)
 /// [`Task`] implements debug, which is displayed in the form of a tuple struct containing debug
 /// label. By default, it is a random UUID, which may be gibberish when debugging, as such it is
-/// advised to provide a name for the task to identify it easily
+/// advised to provide a name for the task to identify it easily. [`Task`] also implements clone
+///
+/// # Cloning Semantics
+/// When cloning a [`Task`]
 ///
 /// # See Also
 /// - [`TaskFrame`]
@@ -229,7 +283,7 @@ pub struct Task {
     pub(crate) error_handler: Arc<dyn TaskErrorHandler>,
     pub(crate) overlap_policy: Arc<dyn ScheduleStrategy>,
     pub(crate) priority: TaskPriority,
-    pub(crate) runs: AtomicU64,
+    pub(crate) runs: Arc<AtomicU64>,
     pub(crate) debug_label: String,
     pub(crate) max_runs: Option<NonZeroU64>,
     pub on_start: TaskStartEvent,
@@ -243,13 +297,13 @@ impl Debug for Task {
 }
 
 impl Task {
-    /// A simple constructor that creates a simple task from a task schedule and a task frame.
+    /// A simple constructor that creates a simple [`Task`] from a task schedule and a task frame.
     /// Mostly used as a convenient method for simple enough tasks that don't need any of the other
     /// composite parts. Otherwise, the [`Task::builder`] may be preferred over.
     ///
     /// # Arguments
-    /// - **schedule** The task schedule, it is used for computing when the task should run.
-    /// - **task** The task frame, it is the logic part of the task.
+    /// - **schedule** The [`TaskSchedule`], it is used for computing when the task should run.
+    /// - **task** The [`TaskFrame`], it is the logic part of the task.
     ///
     /// # Returns
     /// The [`Task`] built from these 2 arguments, with the remaining fields being default values
@@ -266,7 +320,14 @@ impl Task {
     ///         todo!()
     ///     })
     /// );
+    ///
     /// ```
+    ///
+    /// # See Also
+    /// - [`Task`]
+    /// - [`Task::builder`]
+    /// - [`TaskFrame`]
+    /// - [`TaskSchedule`]
     pub fn define(schedule: impl TaskSchedule + 'static, task: impl TaskFrame + 'static) -> Self {
         Self {
             frame: Arc::new(task),
@@ -275,7 +336,7 @@ impl Task {
             error_handler: Arc::new(SilentTaskErrorHandler),
             overlap_policy: Arc::new(SequentialSchedulingPolicy),
             priority: TaskPriority::MODERATE,
-            runs: AtomicU64::new(0),
+            runs: Arc::new(AtomicU64::new(0)),
             debug_label: Uuid::new_v4().to_string(),
             max_runs: None,
             on_start: TaskEvent::new(),
@@ -283,14 +344,9 @@ impl Task {
         }
     }
 
-    /// Creates a task builder without an extension point required, this is mostly a
-    /// convenience method and is identical to doing:
-    /// ```ignore
-    /// use chronographer_core::task::Task;
-    ///
-    /// Task::extend_builder()
-    ///     .extension(())
-    /// ```
+    /// Creates a [`Task`] builder used for more customization on the fields. For convenience,
+    /// if your task only consists of [`TaskSchedule`] and [`TaskFrame`] and you don't plan
+    /// to modify any fields apart from the defaults, then [`Task::define`] does a better job
     ///
     /// # Example
     /// ```ignore
@@ -309,14 +365,15 @@ impl Task {
     /// ```
     ///
     /// # See Also
+    /// - [`Task`]
     /// - [`Task::define`]
-    /// - [`Task::extend_builder`]
-    /// - [`TaskExtension`]
+    /// - [`TaskSchedule`]
+    /// - [`TaskFrame`]
     pub fn builder() -> TaskConfigBuilder {
         TaskConfig::builder()
     }
 
-    /// Runs the task, handling any metadata throughout by itself as well as calling events
+    /// Runs the task, handling any data throughout by itself as well as calling events
     /// the error handler. This method can only be used by parts which have access to [`TaskEventEmitter`],
     /// such as [`Scheduler`], and mostly is an internal one (even if exposed for public use)
     ///
@@ -349,32 +406,32 @@ impl Task {
         result
     }
 
-    /// Gets the exposed metadata (immutable) for outside parties
+    /// Gets the [`TaskMetadata`] for outside parties
     pub fn metadata(&self) -> Arc<TaskMetadata> {
         self.metadata.clone()
     }
 
-    /// Gets the frame for outside parties
+    /// Gets the [`TaskFrame`] for outside parties
     pub fn frame(&self) -> Arc<dyn TaskFrame> {
         self.frame.clone()
     }
 
-    /// Gets the schedule for outside parties
+    /// Gets the [`TaskSchedule`] for outside parties
     pub fn schedule(&self) -> Arc<dyn TaskSchedule> {
         self.schedule.clone()
     }
 
-    /// Gets the error handler for outside parties
+    /// Gets the [`TaskErrorHandler`] for outside parties
     pub fn error_handler(&self) -> Arc<dyn TaskErrorHandler> {
         self.error_handler.clone()
     }
 
-    /// Gets the overlapping policy for outside parties
+    /// Gets the [`ScheduleStrategy`] for outside parties
     pub fn schedule_strategy(&self) -> Arc<dyn ScheduleStrategy> {
         self.overlap_policy.clone()
     }
 
-    /// Gets the priority of a task
+    /// Gets the [`TaskPriority`] for a task
     pub fn priority(&self) -> TaskPriority {
         self.priority
     }
