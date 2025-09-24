@@ -1,4 +1,3 @@
-use crate::task::TaskError;
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -7,7 +6,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::errors::ChronographerErrors;
 #[allow(unused_imports)]
 use std::collections::HashMap;
 
@@ -24,7 +22,7 @@ use std::collections::HashMap;
 /// - [`ObserverField`]
 /// - [`TaskMetadata`]
 #[async_trait]
-pub trait ObserverFieldListener<T: Send + Sync + 'static>: Send + Sync {
+pub trait ObserverFieldListener<T: Send + Sync + 'static + ?Sized>: Send + Sync {
     async fn listen(&self, value: Arc<T>);
 }
 
@@ -129,7 +127,7 @@ impl<T: Send + Sync + Ord + 'static> Ord for ObserverField<T> {
     }
 }
 
-impl<T: Send + Sync + Clone> Clone for ObserverField<T> {
+impl<T: Send + Sync> Clone for ObserverField<T> {
     fn clone(&self) -> Self {
         ObserverField {
             value: ArcSwap::from(self.value.load_full()),
@@ -138,95 +136,37 @@ impl<T: Send + Sync + Clone> Clone for ObserverField<T> {
     }
 }
 
-/// [`TaskMetadata`] is a container hosting all metadata-related information which lives inside a
-/// [`Task`]. Depending on the implementation of this trait, the metadata can have static fields or
-/// dynamic fields or both, all of them being reactive to any change made via [`ObserverField`].
-/// One can also supply the generic ``V`` with a value of their choice for type safety
-///
-/// When one implements the trait, one can also simply add their own public fields (idiomatically
-/// they should be ``ObserverField<T>`` fields) to the mix to provide compile-time safety
-///
-/// # Required Method(s)
-/// Primarily [`TaskMetadata`] requires three of them, those being:
-/// - [`TaskMetadata::field`] Accesses a dynamic field and returns an ``Optional<ObserverField<V>>``
-///   where its ``None`` if not found and ``Some(ObserverField<V>)`` if found
-///
-/// - [`TaskMetadata::add_field`] Adds a new dynamic field to the metadata with its own key string
-///   and an initial value. If a field already exists, this should ideally return an error as it doesn't
-///   behave as much as a typical [`HashMap`] where a new field is added while it exists, it gets modified
-///
-/// - [`TaskMetadata::remove_field`] Removes the dynamic field based on a ``key`` string,
-///   if the dynamic field doesn't exist based on the key, then it does nothing
-///
-/// - [`TaskMetadata::exists`] Checks whenever a field based on a ``key`` exists and returns
-///   a boolean value indicating so, true for if it exists and false otherwise
-///
-/// # Trait Implementation(s)
-/// In ChronoGrapher, there is only one implementation out there of the trait [`TaskMetadata`],
-/// and that is [`DynamicTaskMetadata`] which acts as a wrapper around ``DashMap`` and allows for only
-/// dynamic fields
-///
-/// # See Also
-/// - [`Task`]
-/// - [`ObserverField`]
-/// - [`DynamicTaskMetadata`]
-pub trait TaskMetadata<V: Send + Sync + 'static = &'static (dyn Any + Send + Sync)>:
-    Send + Sync
-where
-    ObserverField<V>: Clone,
-{
-    fn field(&self, key: &str) -> Option<ObserverField<V>>;
-    fn add_field(&self, key: &str, value: V) -> Result<(), TaskError>;
-    fn remove_field(&self, key: &str);
-    fn exists(&self, key: &str) -> bool;
-}
-
 #[derive(Clone, Debug)]
-pub struct DynamicTaskMetadata<V: Send + Sync + 'static>(DashMap<String, ObserverField<V>>)
-where
-    ObserverField<V>: Clone;
+pub struct TaskMetadata(DashMap<&'static str, ObserverField<dyn Any + Send + Sync + 'static>>);
 
-impl<V: Send + Sync + 'static> Default for DynamicTaskMetadata<V>
-where
-    ObserverField<V>: Clone,
+impl Default for TaskMetadata
 {
     fn default() -> Self {
         Self(DashMap::new())
     }
 }
 
-impl<V: Send + Sync + 'static> DynamicTaskMetadata<V>
-where
-    ObserverField<V>: Clone,
-{
+impl TaskMetadata {
     pub fn new() -> Self {
         Self(DashMap::new())
     }
-}
 
-impl<V: Send + Sync + 'static> TaskMetadata<V> for DynamicTaskMetadata<V>
-where
-    ObserverField<V>: Clone,
-{
-    fn field(&self, key: &str) -> Option<ObserverField<V>> {
-        self.0.get(key).map(|x| x.value().clone())
+    pub fn get<V: Any + Send + Sync>(&self, key: &str) -> Option<ObserverField<V>> {
+        self.0
+            .get(&key)
+            .and_then(|f| f.value().downcast_ref::<V>())
     }
 
-    fn add_field(&self, key: &str, value: V) -> Result<(), TaskError> {
-        if self.0.contains_key(key) {
-            return Err(Arc::new(ChronographerErrors::DynamicFieldAlreadyExists(
-                key.to_string(),
-            )));
-        }
-        self.0.insert(key.to_string(), ObserverField::new(value));
-        Ok(())
+    pub fn insert<V: Any + Send + Sync>(&self, key: &str, value: V) -> bool {
+        let field = ObserverField::new(Box::new(value));
+        self.0.insert(key, field).is_none()
     }
 
-    fn remove_field(&self, key: &str) {
+    pub fn remove(&self, key: &str) {
         self.0.remove(key);
     }
 
-    fn exists(&self, key: &str) -> bool {
+    pub fn exists(&self, key: &str) -> bool {
         self.0.contains_key(key)
     }
 }

@@ -17,24 +17,24 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// your own struct and implement this trait
 #[async_trait]
 pub trait EventListener<P: Send + Sync>: Send + Sync {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>, payload: Arc<P>);
+    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>);
 }
 
 #[async_trait]
 impl<P, F, Fut> EventListener<P> for F
 where
     P: Send + Sync + 'static,
-    F: Fn(Arc<dyn TaskMetadata>, Arc<P>) -> Fut + Send + Sync + 'static,
+    F: Fn(Arc<TaskMetadata>, Arc<P>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
 {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>, payload: Arc<P>) {
+    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
         self(metadata, payload).await;
     }
 }
 
 #[async_trait]
 impl<P: Send + Sync + 'static, E: EventListener<P> + ?Sized> EventListener<P> for Arc<E> {
-    async fn execute(&self, metadata: Arc<dyn TaskMetadata>, payload: Arc<P>) {
+    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
         self.as_ref().execute(metadata, payload).await;
     }
 }
@@ -92,7 +92,7 @@ impl TaskEventEmitter {
     /// Emits the event, notifying all subscribers / listeners
     pub async fn emit<P: Send + Sync + Clone + 'static>(
         &self,
-        metadata: Arc<dyn TaskMetadata>,
+        metadata: Arc<TaskMetadata>,
         event: Arc<TaskEvent<P>>,
         payload: P,
     ) {
