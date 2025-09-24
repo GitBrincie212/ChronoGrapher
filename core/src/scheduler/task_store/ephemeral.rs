@@ -47,15 +47,14 @@ pub struct EphemeralDefaultTaskStore {
 
 impl Debug for EphemeralDefaultTaskStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(
-            format_args!(
-                "EphemeralDefaultTaskStore [{:?}]",
-                self.earliest_sorted
-                    .blocking_lock()
-                    .iter()
-                    .rev()
-                    .map(|x| x.0.0.clone())
-                    .collect::<Vec<_>>()
+        f.write_fmt(format_args!(
+            "EphemeralDefaultTaskStore [{:?}]",
+            self.earliest_sorted
+                .blocking_lock()
+                .iter()
+                .rev()
+                .map(|x| x.0.0.clone())
+                .collect::<Vec<_>>()
         ))
     }
 }
