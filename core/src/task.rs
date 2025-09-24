@@ -46,7 +46,7 @@ pub struct TaskConfig {
     /// # See Also
     /// - [`TaskMetadata`]
     /// - [`ObserverField`]
-    #[builder(default = DynamicTaskMetadata::new())]
+    #[builder(default = Arc::new(TaskMetadata::new()))]
     metadata: Arc<TaskMetadata>,
 
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
@@ -330,7 +330,7 @@ impl Task {
             .await;
         let result = self
             .frame()
-            .execute(TaskContext::new(self, emitter))
+            .execute(TaskContext::new(self, emitter.clone()))
             .await;
         let err = result.clone().err();
 
@@ -343,7 +343,7 @@ impl Task {
                 error,
                 metadata: self.metadata(),
             };
-            self.error_handler().on_error(error_ctx).await;
+            self.error_handler().on_error(Arc::new(error_ctx)).await;
         }
 
         result

@@ -136,8 +136,7 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct TaskMetadata(DashMap<&'static str, ObserverField<dyn Any + Send + Sync + 'static>>);
+pub struct TaskMetadata(DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>);
 
 impl Default for TaskMetadata
 {
@@ -151,14 +150,13 @@ impl TaskMetadata {
         Self(DashMap::new())
     }
 
-    pub fn get<V: Any + Send + Sync>(&self, key: &str) -> Option<ObserverField<V>> {
-        self.0
-            .get(&key)
-            .and_then(|f| f.value().downcast_ref::<V>())
+    pub fn get(&self, key: &str) -> Option<ObserverField<Box<dyn Any + Send + Sync>>> {
+        Some(self.0.get(key)?.value().clone())
     }
 
-    pub fn insert<V: Any + Send + Sync>(&self, key: &str, value: V) -> bool {
-        let field = ObserverField::new(Box::new(value));
+    pub fn insert(&self, key: String, value: impl Any + Send + Sync) -> bool {
+        let value: Box<dyn Any + Send + Sync> = Box::new(value);
+        let field = ObserverField::new(value);
         self.0.insert(key, field).is_none()
     }
 

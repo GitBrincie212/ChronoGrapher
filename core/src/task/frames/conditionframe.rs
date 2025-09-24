@@ -187,7 +187,7 @@ impl<T: TaskFrame + 'static + Send + Sync> ConditionalFrame<T> {
 
 macro_rules! execute_func_impl {
     ($self: expr, $ctx: expr) => {
-        let result = $self.predicate.execute($ctx.metadata.clone()).await;
+        let result = $self.predicate.execute($ctx.clone()).await;
         if result {
             $ctx.emitter
                 .emit($ctx.metadata.clone(), $self.on_true.clone(), $self.task.clone())

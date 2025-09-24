@@ -34,18 +34,18 @@ pub struct TaskContext {
     pub emitter: Arc<TaskEventEmitter>,
     pub priority: TaskPriority,
     pub runs: u64,
-    pub debug_label: &'static str,
+    pub debug_label: String,
     pub max_runs: Option<NonZeroU64>
 }
 
 impl TaskContext {
     pub fn new(task: &Task, emitter: Arc<TaskEventEmitter>) -> Arc<Self> {
        Arc::new(Self {
-           metadata: task.metadata,
+           metadata: task.metadata.clone(),
            emitter,
            priority: task.priority,
            runs: task.runs.load(Ordering::Relaxed),
-           debug_label: task.debug_label.as_str(),
+           debug_label: task.debug_label.clone(),
            max_runs: task.max_runs
        })
     }

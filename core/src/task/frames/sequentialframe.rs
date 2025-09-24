@@ -107,7 +107,7 @@ impl TaskFrame for SequentialTaskFrame {
                 .clone()
                 .emit(ctx.metadata.clone(), self.on_child_start.clone(), task.clone())
                 .await;
-            let result = task.execute(ctx).await;
+            let result = task.execute(ctx.clone()).await;
             policy_match!(ctx.metadata, ctx.emitter, task, self, result, SequentialTaskPolicy);
         }
         Ok(())

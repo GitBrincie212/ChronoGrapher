@@ -80,7 +80,7 @@ impl<T: Send + Sync> MetadataDependency<T> {
         let cloned_resolver = slf.resolver.clone();
         let cloned_is_resolved = slf.is_resolved.clone();
 
-        slf.field.subscribe(move |v: Arc<T>| {
+        slf.field.subscribe(move |v| {
             let cloned_is_resolved = cloned_is_resolved.clone();
             let cloned_resolver = cloned_resolver.clone();
             async move {

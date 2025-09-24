@@ -110,7 +110,7 @@ impl TaskFrame for ParallelTaskFrame {
             0 => {}
             1 => {
                 self.tasks[0]
-                    .execute(ctx)
+                    .execute(ctx.clone())
                     .await?
             }
             _ => {
