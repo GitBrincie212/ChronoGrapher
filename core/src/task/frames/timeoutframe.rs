@@ -66,11 +66,7 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let result = tokio::time::timeout(
-            self.max_duration,
-            self.task.execute(ctx.clone()),
-        )
-        .await;
+        let result = tokio::time::timeout(self.max_duration, self.task.execute(ctx.clone())).await;
 
         if let Ok(inner) = result {
             return inner;

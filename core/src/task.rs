@@ -166,7 +166,7 @@ impl From<TaskConfig> for Task {
             debug_label: config.debug_label,
             max_runs: config.max_runs,
             on_start: TaskEvent::new(),
-            on_end: TaskEvent::new()
+            on_end: TaskEvent::new(),
         }
     }
 }
@@ -233,7 +233,7 @@ pub struct Task {
     pub(crate) debug_label: String,
     pub(crate) max_runs: Option<NonZeroU64>,
     pub on_start: TaskStartEvent,
-    pub on_end: TaskEndEvent
+    pub on_end: TaskEndEvent,
 }
 
 impl Debug for Task {
@@ -279,7 +279,7 @@ impl Task {
             debug_label: Uuid::new_v4().to_string(),
             max_runs: None,
             on_start: TaskEvent::new(),
-            on_end: TaskEvent::new()
+            on_end: TaskEvent::new(),
         }
     }
 
@@ -328,10 +328,7 @@ impl Task {
         emitter
             .emit(self.metadata(), self.on_start.clone(), ())
             .await;
-        let result = self
-            .frame()
-            .execute(TaskContext::new(self, emitter))
-            .await;
+        let result = self.frame().execute(TaskContext::new(self, emitter)).await;
         let err = result.clone().err();
 
         emitter
