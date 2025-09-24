@@ -12,7 +12,7 @@ use crate::task::conditionframe::FramePredicateFunc;
 use crate::task::dependency::FrameDependency;
 use crate::task::events::TaskEventEmitter;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{TaskEndEvent, TaskError, TaskMetadata, TaskStartEvent};
+use crate::task::{TaskError, TaskMetadata};
 use async_trait::async_trait;
 pub use conditionframe::ConditionalFrame;
 pub use dependencyframe::DependencyTaskFrame;
@@ -60,9 +60,6 @@ pub trait TaskFrame: Send + Sync {
         metadata: Arc<dyn TaskMetadata + Send + Sync>,
         emitter: Arc<TaskEventEmitter>,
     ) -> Result<(), TaskError>;
-
-    fn on_start(&self) -> TaskStartEvent;
-    fn on_end(&self) -> TaskEndEvent;
 }
 
 #[async_trait]
@@ -73,14 +70,6 @@ impl<F: TaskFrame + ?Sized> TaskFrame for Arc<F> {
         emitter: Arc<TaskEventEmitter>,
     ) -> Result<(), TaskError> {
         self.as_ref().execute(metadata, emitter).await
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.as_ref().on_start()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.as_ref().on_end()
     }
 }
 

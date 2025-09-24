@@ -1,7 +1,4 @@
-use crate::task::{
-    ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
-    TaskStartEvent,
-};
+use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata, };
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -47,8 +44,6 @@ use std::sync::Arc;
 pub struct FallbackTaskFrame<T: 'static, T2: 'static> {
     primary: T,
     secondary: Arc<T2>,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
     pub on_fallback: ArcTaskEvent<(Arc<T2>, TaskError)>,
 }
 
@@ -61,8 +56,6 @@ where
         Self {
             primary,
             secondary: Arc::new(secondary),
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             on_fallback: TaskEvent::new(),
         }
     }
@@ -97,13 +90,5 @@ where
             }
             res => res,
         }
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.on_start.clone()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.on_end.clone()
     }
 }

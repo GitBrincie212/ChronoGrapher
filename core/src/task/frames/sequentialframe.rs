@@ -1,8 +1,5 @@
 use crate::policy_match;
-use crate::task::{
-    ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
-    TaskStartEvent,
-};
+use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -80,8 +77,6 @@ pub enum SequentialTaskPolicy {
 pub struct SequentialTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
     policy: SequentialTaskPolicy,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
     pub on_child_start: ArcTaskEvent<Arc<dyn TaskFrame>>,
     pub on_child_end: ArcTaskEvent<(Arc<dyn TaskFrame>, Option<TaskError>)>,
 }
@@ -98,8 +93,6 @@ impl SequentialTaskFrame {
         Self {
             tasks,
             policy: sequential_policy,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             on_child_end: TaskEvent::new(),
             on_child_start: TaskEvent::new(),
         }
@@ -122,13 +115,5 @@ impl TaskFrame for SequentialTaskFrame {
             policy_match!(metadata, emitter, task, self, result, SequentialTaskPolicy);
         }
         Ok(())
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.on_start.clone()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.on_end.clone()
     }
 }

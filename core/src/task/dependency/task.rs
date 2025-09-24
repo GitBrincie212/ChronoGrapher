@@ -79,8 +79,7 @@ impl From<TaskDependencyConfig> for TaskDependency {
 
             async move {
                 task_clone
-                    .frame
-                    .on_end()
+                    .on_end
                     .subscribe(move |_, payload: Arc<Option<TaskError>>| {
                         let counter_clone = counter_clone.clone();
                         let resolve_behavior_clone = resolve_behavior_clone.clone();

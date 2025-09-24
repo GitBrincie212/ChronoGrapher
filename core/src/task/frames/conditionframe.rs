@@ -1,8 +1,5 @@
 use crate::errors::ChronographerErrors;
-use crate::task::{
-    ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
-    TaskStartEvent,
-};
+use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
 use async_trait::async_trait;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
@@ -87,8 +84,6 @@ where
             task: config.task,
             fallback: config.fallback,
             predicate: config.predicate,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             error_on_false: config.error_on_false,
             on_true: TaskEvent::new(),
             on_false: TaskEvent::new(),
@@ -104,8 +99,6 @@ impl<T: TaskFrame + 'static + Send + Sync> From<NonFallbackConditionalFrameConfi
             task: config.task,
             fallback: Arc::new(()),
             predicate: config.predicate,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             error_on_false: config.error_on_false,
             on_true: TaskEvent::new(),
             on_false: TaskEvent::new(),
@@ -171,8 +164,6 @@ pub struct ConditionalFrame<T: 'static, T2: 'static = ()> {
     task: Arc<T>,
     fallback: Arc<T2>,
     predicate: Arc<dyn FramePredicateFunc>,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
     error_on_false: bool,
     pub on_true: ArcTaskEvent<Arc<T>>,
     pub on_false: ArcTaskEvent<Arc<T2>>,
@@ -213,18 +204,6 @@ macro_rules! execute_func_impl {
     };
 }
 
-macro_rules! define_events {
-    () => {
-        fn on_start(&self) -> TaskStartEvent {
-            self.on_start.clone()
-        }
-
-        fn on_end(&self) -> TaskEndEvent {
-            self.on_end.clone()
-        }
-    };
-}
-
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for ConditionalFrame<T> {
     async fn execute(
@@ -240,7 +219,6 @@ impl<T: TaskFrame> TaskFrame for ConditionalFrame<T> {
         }
     }
 
-    define_events!();
 }
 
 #[async_trait]
@@ -257,6 +235,4 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
         }
         result
     }
-
-    define_events!();
 }

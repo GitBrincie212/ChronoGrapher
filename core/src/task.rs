@@ -178,6 +178,8 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
             runs: AtomicU64::new(0),
             debug_label: config.debug_label,
             max_runs: config.max_runs,
+            on_start: TaskEvent::new(),
+            on_end: TaskEvent::new()
         }
     }
 }
@@ -244,6 +246,8 @@ pub struct Task<E: TaskExtension = ()> {
     pub(crate) runs: AtomicU64,
     pub(crate) debug_label: String,
     pub(crate) max_runs: Option<NonZeroU64>,
+    pub on_start: TaskStartEvent,
+    pub on_end: TaskEndEvent
 }
 
 impl Debug for Task<()> {
@@ -301,6 +305,8 @@ impl Task {
             runs: AtomicU64::new(0),
             debug_label: Uuid::new_v4().to_string(),
             max_runs: None,
+            on_start: TaskEvent::new(),
+            on_end: TaskEvent::new()
         }
     }
 
@@ -379,7 +385,7 @@ impl<E: TaskExtension> Task<E> {
     pub async fn run(&self, emitter: Arc<TaskEventEmitter>) -> Result<(), TaskError> {
         self.runs.fetch_add(1, Ordering::Relaxed);
         emitter
-            .emit(self.metadata(), self.frame().on_start(), ())
+            .emit(self.metadata(), self.on_start.clone(), ())
             .await;
         let result = self
             .frame()
@@ -388,7 +394,7 @@ impl<E: TaskExtension> Task<E> {
         let err = result.clone().err();
 
         emitter
-            .emit(self.metadata(), self.frame().on_end(), err.clone())
+            .emit(self.metadata(), self.on_end.clone(), err.clone())
             .await;
 
         if let Some(error) = err {

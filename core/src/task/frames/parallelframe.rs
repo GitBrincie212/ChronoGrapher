@@ -1,8 +1,5 @@
 use crate::policy_match;
-use crate::task::{
-    ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
-    TaskStartEvent,
-};
+use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -82,8 +79,6 @@ pub enum ParallelTaskPolicy {
 pub struct ParallelTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
     policy: ParallelTaskPolicy,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
     pub on_child_start: ArcTaskEvent<Arc<dyn TaskFrame>>,
     pub on_child_end: ArcTaskEvent<(Arc<dyn TaskFrame>, Option<TaskError>)>,
 }
@@ -100,8 +95,6 @@ impl ParallelTaskFrame {
         Self {
             tasks,
             policy: parallel_task_policy,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             on_child_end: TaskEvent::new(),
             on_child_start: TaskEvent::new(),
         }
@@ -156,13 +149,5 @@ impl TaskFrame for ParallelTaskFrame {
         }
 
         Ok(())
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.on_start.clone()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.on_end.clone()
     }
 }

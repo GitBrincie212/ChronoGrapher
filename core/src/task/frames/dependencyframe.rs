@@ -1,9 +1,6 @@
 use crate::errors::ChronographerErrors;
 use crate::task::dependency::FrameDependency;
-use crate::task::{
-    Arc, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
-    TaskStartEvent,
-};
+use crate::task::{Arc, TaskError, TaskEventEmitter, TaskFrame, TaskMetadata};
 use async_trait::async_trait;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
@@ -62,8 +59,6 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
         Self {
             frame: config.task,
             dependencies: config.dependencies,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             dependent_behaviour: config.dependent_behaviour,
         }
     }
@@ -123,8 +118,6 @@ pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,
     dependencies: Vec<Arc<dyn FrameDependency>>,
     dependent_behaviour: Arc<dyn DependentFailBehavior>,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
 }
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
@@ -168,13 +161,5 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
         }
 
         self.frame.execute(metadata.clone(), emitter).await
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.on_start.clone()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.on_end.clone()
     }
 }

@@ -1,7 +1,4 @@
-use crate::task::{
-    Arc, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
-    TaskStartEvent,
-};
+use crate::task::{Arc, TaskError, TaskEventEmitter, TaskFrame, TaskMetadata};
 use async_trait::async_trait;
 
 /// Represents an **execution task frame** that directly hosts and executes a function. This task frame type
@@ -30,11 +27,7 @@ use async_trait::async_trait;
 /// let task = Task::define(TaskScheduleInterval::from_secs(2), task_frame);
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
-pub struct ExecutionTaskFrame<F: Send + Sync> {
-    func: F,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
-}
+pub struct ExecutionTaskFrame<F: Send + Sync>(F);
 
 impl<F, Fut> ExecutionTaskFrame<F>
 where
@@ -42,11 +35,7 @@ where
     F: Fn(Arc<dyn TaskMetadata + Send + Sync>) -> Fut + Send + Sync,
 {
     pub fn new(func: F) -> Self {
-        ExecutionTaskFrame {
-            func,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
-        }
+        ExecutionTaskFrame(func)
     }
 }
 
@@ -61,14 +50,6 @@ where
         metadata: Arc<dyn TaskMetadata + Send + Sync>,
         _emitter: Arc<TaskEventEmitter>,
     ) -> Result<(), TaskError> {
-        (self.func)(metadata).await
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.on_start.clone()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.on_end.clone()
+        self.0(metadata).await
     }
 }

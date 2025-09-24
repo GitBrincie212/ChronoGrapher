@@ -1,7 +1,4 @@
-use crate::task::{
-    ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
-    TaskStartEvent,
-};
+use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
@@ -53,8 +50,6 @@ use std::time::Duration;
 pub struct TimeoutTaskFrame<T: 'static> {
     task: T,
     max_duration: Duration,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
     pub on_timeout: ArcTaskEvent<()>,
 }
 
@@ -63,8 +58,6 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
         TimeoutTaskFrame {
             task,
             max_duration,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             on_timeout: TaskEvent::new(),
         }
     }
@@ -93,13 +86,5 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
             std::io::ErrorKind::TimedOut,
             "Task timed out",
         )))
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.on_start.clone()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.on_end.clone()
     }
 }

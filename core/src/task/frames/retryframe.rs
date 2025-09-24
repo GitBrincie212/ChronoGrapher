@@ -1,4 +1,4 @@
-use crate::task::{ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskMetadata, TaskStartEvent};
+use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskMetadata};
 use crate::task::{TaskEventEmitter, TaskFrame};
 use async_trait::async_trait;
 use std::fmt::Debug;
@@ -129,8 +129,6 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
 pub struct RetriableTaskFrame<T: 'static, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
     task: Arc<T>,
     retries: NonZeroU32,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
     backoff_strat: T2,
     pub on_retry_start: ArcTaskEvent<Arc<T>>,
     pub on_retry_end: ArcTaskEvent<(Arc<T>, Option<TaskError>)>,
@@ -143,8 +141,6 @@ impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
             task: Arc::new(task),
             retries,
             backoff_strat: ConstantBackoffStrategy::new(delay),
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             on_retry_end: TaskEvent::new(),
             on_retry_start: TaskEvent::new(),
         }
@@ -163,8 +159,6 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2>
             task: Arc::new(task),
             retries,
             backoff_strat,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             on_retry_end: TaskEvent::new(),
             on_retry_start: TaskEvent::new(),
         }
@@ -216,13 +210,5 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
             tokio::time::sleep(delay).await;
         }
         Err(error.unwrap())
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.on_start.clone()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.on_end.clone()
     }
 }

@@ -1,8 +1,5 @@
 use crate::errors::ChronographerErrors;
-use crate::task::{
-    ArcTaskEvent, TaskEndEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata,
-    TaskStartEvent,
-};
+use crate::task::{ArcTaskEvent, TaskError, TaskEvent, TaskEventEmitter, TaskFrame, TaskMetadata};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -90,8 +87,6 @@ where
 pub struct SelectTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
     accessor: Arc<dyn FrameAccessorFunc>,
-    on_start: TaskStartEvent,
-    on_end: TaskEndEvent,
     pub on_select: ArcTaskEvent<Arc<dyn TaskFrame>>,
 }
 
@@ -100,8 +95,6 @@ impl SelectTaskFrame {
         Self {
             tasks,
             accessor: Arc::new(accessor),
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             on_select: TaskEvent::new(),
         }
     }
@@ -126,13 +119,5 @@ impl TaskFrame for SelectTaskFrame {
             "SelectTaskFrame".to_owned(),
             self.tasks.len(),
         )))
-    }
-
-    fn on_start(&self) -> TaskStartEvent {
-        self.on_start.clone()
-    }
-
-    fn on_end(&self) -> TaskEndEvent {
-        self.on_end.clone()
     }
 }
