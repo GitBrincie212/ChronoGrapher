@@ -108,11 +108,7 @@ impl TaskFrame for ParallelTaskFrame {
 
         match self.tasks.len() {
             0 => {}
-            1 => {
-                self.tasks[0]
-                    .execute(ctx.clone())
-                    .await?
-            }
+            1 => self.tasks[0].execute(ctx.clone()).await?,
             _ => {
                 std::thread::scope(|s| {
                     for frame in self.tasks.iter() {
@@ -122,13 +118,16 @@ impl TaskFrame for ParallelTaskFrame {
                         let child_start = self.on_child_start.clone();
                         s.spawn(move || {
                             tokio::spawn(async move {
-                                context_clone.emitter
+                                context_clone
+                                    .emitter
                                     .clone()
-                                    .emit(context_clone.metadata.clone(), child_start, frame_clone.clone())
+                                    .emit(
+                                        context_clone.metadata.clone(),
+                                        child_start,
+                                        frame_clone.clone(),
+                                    )
                                     .await;
-                                let result = frame_clone
-                                    .execute(context_clone)
-                                    .await;
+                                let result = frame_clone.execute(context_clone).await;
                                 let _ = result_tx.send((frame_clone, result));
                             })
                         });
@@ -140,7 +139,14 @@ impl TaskFrame for ParallelTaskFrame {
         drop(result_tx);
 
         while let Some((task, result)) = result_rx.recv().await {
-            policy_match!(ctx.metadata, ctx.emitter, task, self, result, ParallelTaskPolicy);
+            policy_match!(
+                ctx.metadata,
+                ctx.emitter,
+                task,
+                self,
+                result,
+                ParallelTaskPolicy
+            );
         }
 
         Ok(())

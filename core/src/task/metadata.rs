@@ -138,8 +138,7 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
 
 pub struct TaskMetadata(DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>);
 
-impl Default for TaskMetadata
-{
+impl Default for TaskMetadata {
     fn default() -> Self {
         Self(DashMap::new())
     }

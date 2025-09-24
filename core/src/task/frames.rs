@@ -12,7 +12,7 @@ use crate::task::conditionframe::FramePredicateFunc;
 use crate::task::dependency::FrameDependency;
 use crate::task::events::TaskEventEmitter;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{TaskError, TaskMetadata, TaskPriority, Task};
+use crate::task::{Task, TaskError, TaskMetadata, TaskPriority};
 use async_trait::async_trait;
 pub use conditionframe::ConditionalFrame;
 pub use dependencyframe::DependencyTaskFrame;
@@ -35,19 +35,19 @@ pub struct TaskContext {
     pub priority: TaskPriority,
     pub runs: u64,
     pub debug_label: String,
-    pub max_runs: Option<NonZeroU64>
+    pub max_runs: Option<NonZeroU64>,
 }
 
 impl TaskContext {
     pub fn new(task: &Task, emitter: Arc<TaskEventEmitter>) -> Arc<Self> {
-       Arc::new(Self {
-           metadata: task.metadata.clone(),
-           emitter,
-           priority: task.priority,
-           runs: task.runs.load(Ordering::Relaxed),
-           debug_label: task.debug_label.clone(),
-           max_runs: task.max_runs
-       })
+        Arc::new(Self {
+            metadata: task.metadata.clone(),
+            emitter,
+            priority: task.priority,
+            runs: task.runs.load(Ordering::Relaxed),
+            debug_label: task.debug_label.clone(),
+            max_runs: task.max_runs,
+        })
     }
 }
 
