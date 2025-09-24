@@ -41,7 +41,7 @@ there, implementing the feature, bug fixes or changes requested on the issue
     ```shell
     cargo test
     ```
-9. Look into the [Styles Guidelines] Section and ensure everything is followed
+9. Look into the [STYLE GUIDELINES](./STYLE%20GUIDELINES.md) document and ensure everything is followed
 10. Commit all your changes (you can commit multiple times without repeating the process 
 for grouping various changes, which is one of the style guidelines)
     ```shell
@@ -63,41 +63,3 @@ link any relevant issues...etc.
 6. Address review feedback. This may require changes to your code. Please be responsive and discuss 
 any suggestions with the owner (GitBrincie212).
 7. Once approved, the owner will squash and merge your PR.
-
-# Styles Guide
-- Before you push changes, make sure to use ``cargo clippy`` and ensure there is no warning (the exception is loop {} 
-statements for testing to keep the script awake at all times)
-- Once no warnings are shown, use ``cargo fmt`` and commit the changes
-- Document every public method without being too brief or too descriptive, only relevant information should be documented,
-Ideally you should have sections for:
-  - ``# Example`` for example(s) section, list relevant simple examples, it must be used for any complex systems, for
-  simple ones, it can be skipped **(HIGH RECOMMEND)**
-  - ``# Panics`` if a method can panic with an error, document how it can panic and optionally how 
-  it could be prevented **(MUST)**
-  - ``# Errors`` if a method may return an error, it should be documented on what conditions it causes a method
-  to fail and optionally how it could be prevented **(MUST)**
-  - ``# Safety`` if a method is unsafe, explain why a function is unsafe and the invariants callers must uphold **(MUST)**
-  - ``# Arguments`` if the method has argument(s), they should be explained what they are for **(MUST)**
-  - ``# Returns`` if the method has a returned value, it should be explained what does it actually return **(MUST)**
-  - ``# Implementation Details``  In case it is needed to explain the way the method is implemented. This should be
-  used sparingly and shouldn't be the main focus **(OPTIONAL)**
-  - ``# See Also`` If there are relevant structs/enums/traits... etc. Which are used, it is nice to have a see also
-  section with a list of relevant instances **(OPTIONAL)**
-  - ``# Performance`` for documenting how performant or slow the method is, ideally there should be suggestions
-  whenever possible on methods or patterns which are more performant than this implementation as well as explaining
-      why its slow **(OPTIONAL)**
-  - ``# Trait Implementation(s)`` Lists important noteworthy structs/enums/traits that have implemented this trait or in the
-  other way around, structs/enums/traits list the important traits they implement **(OPTIONAL)**
-  - ``# Variants`` Demonstrates the various variants this enum has, what they are, how do they function, what they 
-  - represent and so on so fourth **(MUST & ENUM ONLY)**
-  - ``# Required Methods`` Lists various methods which are required to be implemented by the developer,
-  it describes what it is supposed do **(HIGH RECOMMEND & TRAIT ONLY)**
-  - ``# Object Safety`` State if the trait is object safe, why it is (or why not) **(HIGH RECOMMEND & TRAIT ONLY)**
-  - ``# (IMPORTANT) Note(s)`` the important is optional, used in case some limitations or undefined behavior may be present,
-  - ``# Default Value`` This explains what default value the field has on the builder (if it has) **(HIGH RECOMMEND & BUILDER ONLY)**
-  - ``# Fields`` It is used to describe some of the non-internal fields **(HIGH RECOMMEND & STRUCTS ONLY)**
-  this section is used to note specific things (such as limitations, performance issues and so on) **(HIGH RECOMMEND)**
-  - ``# Extension Trait(s)`` List specific extension traits that base off this trait, what do they add onto the existing 
-  trait, what other structs/enums implement it and so on **(HIGH RECOMMEND & TRAIT ONLY)**
-- Group and sort imports consistently. We recommend using rust-analyzer's "Organize Imports" feature to ensure
-consistency
