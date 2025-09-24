@@ -190,7 +190,11 @@ macro_rules! execute_func_impl {
         let result = $self.predicate.execute($ctx.clone()).await;
         if result {
             $ctx.emitter
-                .emit($ctx.metadata.clone(), $self.on_true.clone(), $self.task.clone())
+                .emit(
+                    $ctx.metadata.clone(),
+                    $self.on_true.clone(),
+                    $self.task.clone(),
+                )
                 .await;
             return $self.task.execute($ctx).await;
         }
@@ -214,7 +218,6 @@ impl<T: TaskFrame> TaskFrame for ConditionalFrame<T> {
             Ok(())
         }
     }
-
 }
 
 #[async_trait]
