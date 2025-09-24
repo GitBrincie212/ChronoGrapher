@@ -119,5 +119,5 @@ as such, Chronographer is tiny about **~1MB** in size
 <br /> <br />
 <img align="center" src="assets/Chronographer Divider.png" />
 When it comes to contributing and forking. Chronographer is free and open source to use, only restricted by the lightweight
-**MIT License** <strong>(this license only applies to when the project enters beta)</strong>, contributions
+<strong>MIT License (this license only applies to when the project enters beta)</strong>, contributions
 are welcome with wide open arms as Chronographer is looking to foster a community
