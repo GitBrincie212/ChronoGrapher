@@ -31,16 +31,8 @@ use crate::scheduler::Scheduler;
 /// Task Config is simply used as a builder to construct [`Task`], <br />
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
 #[derive(TypedBuilder)]
-#[builder(build_method(into = Task<E>))]
-pub struct TaskConfig<E: TaskExtension> {
-    /// The task extension (via [`TaskExtension`], it allows one to define additional fields to the
-    /// task than it currently has). By default, there is no extension point defined, you may supply
-    /// your own depending on the circumstances
-    ///
-    /// # See Also
-    /// - [`TaskExtension`]
-    extension: E,
-
+#[builder(build_method(into = Task))]
+pub struct TaskConfig {
     /// The [`TaskMetadata`], it is the <u>**State**</u> of the task and is a reactive container, allowing
     /// the outside parties to listen to fields changing via [`ObserverField`], making it a very powerful
     /// system. Multiple listeners can be attached per field. For triggering an action by changing
@@ -48,18 +40,14 @@ pub struct TaskConfig<E: TaskExtension> {
     /// will need their own state and based on it either do nothing or execute a specific logic
     ///
     /// # Default Value
-    /// By default, the value uses [`DynamicTaskMetadata`], which is an implementation of [`TaskMetadata],
+    /// By default, the value uses [`TaskMetadata`], which is an implementation of [`TaskMetadata],
     /// hosting the minimum number of fields that define a metadata container
     ///
     /// # See Also
     /// - [`TaskMetadata`]
     /// - [`ObserverField`]
-    /// - [`DynamicTaskMetadata`]
-    #[builder(
-        default = Arc::new(DynamicTaskMetadata::new()),
-        setter(transform = |s: impl TaskMetadata + 'static| Arc::new(s) as Arc<dyn TaskMetadata>)
-    )]
-    metadata: Arc<dyn TaskMetadata>,
+    #[builder(default = DynamicTaskMetadata::new())]
+    metadata: Arc<TaskMetadata>,
 
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
     /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
@@ -165,8 +153,8 @@ pub struct TaskConfig<E: TaskExtension> {
     max_runs: Option<NonZeroU64>,
 }
 
-impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
-    fn from(config: TaskConfig<E>) -> Self {
+impl From<TaskConfig> for Task {
+    fn from(config: TaskConfig) -> Self {
         Task {
             metadata: config.metadata,
             frame: config.frame,
@@ -174,7 +162,6 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
             error_handler: config.error_handler,
             overlap_policy: config.schedule_strategy,
             priority: config.priority,
-            extension: Arc::new(config.extension),
             runs: AtomicU64::new(0),
             debug_label: config.debug_label,
             max_runs: config.max_runs,
@@ -235,14 +222,13 @@ impl<E: TaskExtension> From<TaskConfig<E>> for Task<E> {
 /// - [`TaskSchedule`]
 /// - [`ScheduleStrategy`]
 /// - [`TaskErrorHandler`]
-pub struct Task<E: TaskExtension = ()> {
-    pub(crate) metadata: Arc<dyn TaskMetadata>,
+pub struct Task {
+    pub(crate) metadata: Arc<TaskMetadata>,
     pub(crate) frame: Arc<dyn TaskFrame>,
     pub(crate) schedule: Arc<dyn TaskSchedule>,
     pub(crate) error_handler: Arc<dyn TaskErrorHandler>,
     pub(crate) overlap_policy: Arc<dyn ScheduleStrategy>,
     pub(crate) priority: TaskPriority,
-    pub(crate) extension: Arc<E>,
     pub(crate) runs: AtomicU64,
     pub(crate) debug_label: String,
     pub(crate) max_runs: Option<NonZeroU64>,
@@ -250,23 +236,11 @@ pub struct Task<E: TaskExtension = ()> {
     pub on_end: TaskEndEvent
 }
 
-impl Debug for Task<()> {
+impl Debug for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Task").field(&self.debug_label).finish()
     }
 }
-
-/// [`TaskExtension`] is a blanket trait, providing a way to add on more composite types to the
-/// task, without having to deal with metadata management while getting guaranteed type safety.
-/// By default, a [`Task`] does not require a task extension, as such this is mostly for third
-/// party integrations
-///
-/// # See Also
-/// - [`Task`]
-pub trait TaskExtension: Send + Sync {}
-impl TaskExtension for () {}
-
-type DefaultExtensiveBuilder = TaskConfigBuilder<(), (((),), (), (), (), (), (), (), (), ())>;
 
 impl Task {
     /// A simple constructor that creates a simple task from a task schedule and a task frame.
@@ -296,12 +270,11 @@ impl Task {
     pub fn define(schedule: impl TaskSchedule + 'static, task: impl TaskFrame + 'static) -> Self {
         Self {
             frame: Arc::new(task),
-            metadata: Arc::new(DynamicTaskMetadata::new()),
+            metadata: Arc::new(TaskMetadata::new()),
             schedule: Arc::new(schedule),
             error_handler: Arc::new(SilentTaskErrorHandler),
             overlap_policy: Arc::new(SequentialSchedulingPolicy),
             priority: TaskPriority::MODERATE,
-            extension: Arc::new(()),
             runs: AtomicU64::new(0),
             debug_label: Uuid::new_v4().to_string(),
             max_runs: None,
@@ -339,42 +312,10 @@ impl Task {
     /// - [`Task::define`]
     /// - [`Task::extend_builder`]
     /// - [`TaskExtension`]
-    pub fn builder() -> DefaultExtensiveBuilder {
-        TaskConfig::builder().extension(())
-    }
-}
-
-impl<E: TaskExtension> Task<E> {
-    /// Creates a task builder, unlike [`Task::builder`], this builder specifically requires
-    /// the extension point of type `E` [`TaskExtension`]
-    ///
-    /// # Example
-    /// ```ignore
-    /// use chronographer_core::task::{
-    ///     ExecutionTaskFrame, PanicTaskErrorHandler,
-    ///     Task, TaskScheduleImmediate
-    /// };
-    ///
-    /// Task::extend_builder()
-    ///     .extension(...)
-    ///     .schedule(TaskScheduleImmediate)
-    ///     .frame(ExecutionTaskFrame::new(|_| async {
-    ///         todo!()
-    ///     }))
-    ///     .error_handler(PanicTaskErrorHandler)
-    ///     .build();
-    /// ```
-    ///
-    /// # See Also
-    /// - [`TaskExtension`]
-    /// - [`Task::builder`]
-    /// - [`Task::define`]
-    pub fn extend_builder() -> TaskConfigBuilder<E> {
+    pub fn builder() -> TaskConfigBuilder {
         TaskConfig::builder()
     }
-}
 
-impl<E: TaskExtension> Task<E> {
     /// Runs the task, handling any metadata throughout by itself as well as calling events
     /// the error handler. This method can only be used by parts which have access to [`TaskEventEmitter`],
     /// such as [`Scheduler`], and mostly is an internal one (even if exposed for public use)
@@ -389,7 +330,7 @@ impl<E: TaskExtension> Task<E> {
             .await;
         let result = self
             .frame()
-            .execute(self.metadata.clone(), emitter.clone())
+            .execute(TaskContext::new(self, emitter))
             .await;
         let err = result.clone().err();
 
@@ -400,7 +341,7 @@ impl<E: TaskExtension> Task<E> {
         if let Some(error) = err {
             let error_ctx = TaskErrorContext {
                 error,
-                metadata: self.metadata.clone(),
+                metadata: self.metadata(),
             };
             self.error_handler().on_error(error_ctx).await;
         }
@@ -409,7 +350,7 @@ impl<E: TaskExtension> Task<E> {
     }
 
     /// Gets the exposed metadata (immutable) for outside parties
-    pub fn metadata(&self) -> Arc<dyn TaskMetadata> {
+    pub fn metadata(&self) -> Arc<TaskMetadata> {
         self.metadata.clone()
     }
 
@@ -431,11 +372,6 @@ impl<E: TaskExtension> Task<E> {
     /// Gets the overlapping policy for outside parties
     pub fn schedule_strategy(&self) -> Arc<dyn ScheduleStrategy> {
         self.overlap_policy.clone()
-    }
-
-    /// Gets the extension trait attached to the task
-    pub fn extension(&self) -> Arc<E> {
-        self.extension.clone()
     }
 
     /// Gets the priority of a task
