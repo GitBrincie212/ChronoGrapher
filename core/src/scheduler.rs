@@ -31,6 +31,11 @@ pub struct SchedulerConfig {
     /// # Default Value
     /// Every scheduler uses as default value [`DefaultTaskDispatcher::default_configs()`]
     ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
     /// # See Also
     /// - [`DefaultTaskDispatcher`]
     /// - [`SchedulerTaskDispatcher`]
@@ -49,6 +54,11 @@ pub struct SchedulerConfig {
     /// demos and examples, this is fine for larger scale applications, persistent storage mechanisms
     /// should be preferred to ensure tasks never fail (even when everything else fails)
     ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
     /// # See Also
     /// - [`EphemeralDefaultTaskStore`]
     /// - [`SchedulerTaskStore`]
@@ -65,6 +75,11 @@ pub struct SchedulerConfig {
     /// Every scheduler uses as default value [`SystemClock`]. While for most cases, this is fine,
     /// when it comes to unit testing, stress-testing simulations, [`VirtualClock`] should be preferred
     /// as it allows explicit advancing of time
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
     ///
     /// # See Also
     /// - [`SystemClock`]
@@ -112,11 +127,12 @@ type ArcSchedulerRX = Arc<Mutex<broadcast::Receiver<(Arc<Task>, usize)>>>;
 ///    scheduler to reschedule the same task.
 /// 6. Repeats for all the tasks.
 ///
+/// # Constructor(s)
 /// If one wishes to construct their own [`Scheduler`], they may do so via [`Scheduler::builder`],
 /// alternatively, for simple demos and examples, it may be preferred to use the default provided
 /// scheduler, that being [`CHRONOGRAPHER_SCHEDULER`]
 ///
-/// # Implementation Details
+/// # Implementation Detail(s)
 /// The reason the [`Scheduler`] is a struct and not a trait is due to the fact that the loop,
 /// the handling of tasks, the abortion of the scheduler and so on, do not differ per implementation.
 /// As such, for convenience's sake, it is therefore a struct.
@@ -176,10 +192,14 @@ impl Scheduler {
     /// various composites to then construct a [`Scheduler`], for
     /// simple enough demos and examples, it may be preferred to use
     /// the default provided [`CHRONOGRAPHER_SCHEDULER`]
+    /// 
+    /// # Returns
+    /// The [`SchedulerConfigBuilder`] builder for constructing the [`Scheduler`]
     ///
     /// # See Also
     /// - [`CHRONOGRAPHER_SCHEDULER`]
     /// - [`Scheduler`]
+    /// - [`SchedulerConfigBuilder`]
     pub fn builder() -> SchedulerConfigBuilder {
         SchedulerConfig::builder()
     }
@@ -323,7 +343,7 @@ impl Scheduler {
     /// if the index is invalid, then it may be skipped or something else may happen, as such it
     /// is advised to check the documentation of it
     ///
-    /// # Important Note
+    /// # Usage Note(s)
     /// If the task is running, while its being canceled, it has no effect on skipping the current
     /// instance running but more so any future schedules of this instance
     ///
