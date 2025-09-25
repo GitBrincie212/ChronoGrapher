@@ -1,10 +1,13 @@
-use std::num::NonZeroU32;
-use std::sync::Arc;
-use std::time::Duration;
-use crate::task::{ConditionalFrame, DependencyTaskFrame, FallbackTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame};
 use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
+use crate::task::{
+    ConditionalFrame, DependencyTaskFrame, FallbackTaskFrame, RetriableTaskFrame, TaskFrame,
+    TimeoutTaskFrame,
+};
+use std::num::NonZeroU32;
+use std::sync::Arc;
+use std::time::Duration;
 
 /// [`TaskFrameBuilder`] acts more as a utility rather than a full feature, it allows to construct
 /// the default implemented task frames with a more builder syntax
