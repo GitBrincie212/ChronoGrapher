@@ -132,7 +132,7 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
             frame: config.task,
             dependencies: config.dependencies,
             dependent_behaviour: config.dependent_behaviour,
-            on_dependency: TaskEvent::new()
+            on_dependency: TaskEvent::new(),
         }
     }
 }
@@ -211,7 +211,7 @@ pub struct DependencyTaskFrame<T: TaskFrame> {
     /// Event fired for when [`FrameDependency`] finishes the resolve process,
     /// it contains both the target dependency, and a boolean indicating if it
     /// has been resolved or not
-    pub on_dependency: Arc<TaskEvent<(Arc<dyn FrameDependency>, bool)>>
+    pub on_dependency: Arc<TaskEvent<(Arc<dyn FrameDependency>, bool)>>,
 }
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
@@ -234,9 +234,7 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
 
         for dep in &self.dependencies {
             let dep = dep.clone();
-            handles.push(tokio::spawn(async move {
-                dep.is_resolved().await
-            }));
+            handles.push(tokio::spawn(async move { dep.is_resolved().await }));
         }
 
         let mut is_resolved = true;
@@ -244,18 +242,22 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             let dep = self.dependencies[index].clone();
             match handle.await {
                 Ok(res) => {
-                    ctx.emitter.emit(
-                        ctx.metadata.clone(), self.on_dependency.clone(), (dep, res)
-                    ).await;
+                    ctx.emitter
+                        .emit(ctx.metadata.clone(), self.on_dependency.clone(), (dep, res))
+                        .await;
                     if !res {
                         is_resolved = false;
                         break;
                     }
                 }
                 Err(_) => {
-                    ctx.emitter.emit(
-                        ctx.metadata.clone(), self.on_dependency.clone(), (dep, false)
-                    ).await;
+                    ctx.emitter
+                        .emit(
+                            ctx.metadata.clone(),
+                            self.on_dependency.clone(),
+                            (dep, false),
+                        )
+                        .await;
                     is_resolved = false;
                     break;
                 }
