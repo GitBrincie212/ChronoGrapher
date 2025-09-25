@@ -16,7 +16,7 @@ use std::time::{Duration, SystemTime};
 /// The precision of [`SchedulerClock`] can depend on the underlying OS-specific time format due
 /// to the fact it uses `SystemTime` under the hood. For example, on Windows, the time is represented
 /// in 100 nanosecond intervals, whereas Linux can represent nanosecond intervals... etc
-/// 
+///
 /// # Required Methods
 /// When implementing the [`SchedulerClock`], one must provide implementations for two methods, those
 /// being [`SchedulerClock::now`] and [`SchedulerClock::idle_to`], the former is used to get the
@@ -101,7 +101,7 @@ where
 /// # Supertrait(s)
 /// as discussed above, [`AdvanceableScheduleClock`] is an extension to [`SchedulerClock`], as such
 /// when implementing this trait, one has to also implement the [`SchedulerClock`] trait
-/// 
+///
 /// # See Also
 /// - [`SchedulerClock`]
 /// - [`VirtualClock`]

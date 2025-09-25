@@ -36,7 +36,7 @@ use crate::task::Task;
 /// This trait is also implemented for any type implementing ``Deref`` where the target is ``T`` which
 /// itself is an implementation of the [`TaskSchedule`] trait, making it relatively easy to store both
 /// owned and non-owned values
-/// 
+///
 /// # Object Safety
 /// This trait is object safe to use, as seen in the source code of [`Task`] struct
 ///

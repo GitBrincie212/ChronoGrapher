@@ -63,7 +63,7 @@ pub trait ScheduleStrategy: Send + Sync {
 impl<S> ScheduleStrategy for S
 where
     S: Deref + Send + Sync,
-    S::Target: ScheduleStrategy
+    S::Target: ScheduleStrategy,
 {
     async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
         self.deref().handle(task, emitter).await;
