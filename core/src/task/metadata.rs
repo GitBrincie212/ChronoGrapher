@@ -18,6 +18,9 @@ use std::collections::HashMap;
 /// method which is used for executing logic when a value ``T`` changes. It accepts the value as an
 /// ``Arc<T>`` (keep in mind it is not the [`ObserverField`] but rather the inner value of the [`ObserverField`])
 ///
+/// # Object Safety
+/// This trait is object safe to use, as seen in the source code of [`TaskMetadata`] struct
+///
 /// # See Also
 /// - [`ObserverField`]
 /// - [`TaskMetadata`]
@@ -49,6 +52,10 @@ where
 /// It is a struct which wraps an ``ArcSwap<T>`` where ``T`` is the value to be wrapped
 /// and hosts multiple listeners to listen to that field
 ///
+/// # Constructor(s)
+/// Constructing a [`ObserverField`], one can call [`ObserverField::new`] and supply it with an
+/// initial value, which will create the [`ObserverField`] wrapper around the value
+///
 /// # See Also
 /// - [`ObserverFieldListener`]
 /// - [`TaskMetadata`]
@@ -58,6 +65,14 @@ pub struct ObserverField<T: Send + Sync + 'static> {
 }
 
 impl<T: Send + Sync + 'static> ObserverField<T> {
+    /// Constructs / Creates a new [`ObserverField`] instance and returns it for
+    /// the developers to use it throughout the codebase
+    ///
+    /// # Argument(s)
+    /// It accepts only one argument, that being an initial value of type ``T``
+    ///
+    /// # Returns
+    /// The constructed instance of [`ObserverField`]
     pub fn new(initial: T) -> Self {
         Self {
             value: ArcSwap::from_pointee(initial),
@@ -65,21 +80,68 @@ impl<T: Send + Sync + 'static> ObserverField<T> {
         }
     }
 
+    /// Subscribes via a listener to the current [`ObserverField`] instance,
+    /// returning a UUID v4 that points to the listener (if one wishes to unsubscribe)
+    ///
+    /// # Argument(s)
+    /// It accepts only one argument, that being an implementation of [`ObserverFieldListener`],
+    /// which is the logic that will be executed when a value changes
+    ///
+    /// # Returns
+    /// The UUID pointing to the [`ObserverFieldListener`] entry, which can be used to later
+    /// unsubscribe from the changes that [`ObserverField`] announces via [`ObserverField::unsubscribe`]
+    ///
+    /// # See Also
+    /// - [`ObserverFieldListener`]
+    /// - [`ObserverField`]
+    /// - [`ObserverField::unsubscribe`]
     pub fn subscribe(&self, listener: impl ObserverFieldListener<T> + 'static) -> Uuid {
         let id = Uuid::new_v4();
         self.listeners.insert(id, Arc::new(listener));
         id
     }
 
+    /// Unsubscribes a listener from the current [`ObserverField`] instance, via
+    /// a UUID reference, if it doesn't exist, then it does nothing
+    ///
+    /// # Argument(s)
+    /// It accepts only one argument, that being a UUID reference pointing to a potential
+    /// [`ObserverFieldListener`], this UUID is acquired via [`ObserverField::subscribe`]
+    ///
+    /// # See Also
+    /// - [`ObserverFieldListener`]
+    /// - [`ObserverField`]
+    /// - [`ObserverField::subscribe`]
     pub fn unsubscribe(&self, id: &Uuid) {
         self.listeners.remove(id);
     }
 
+    /// Updates the [`ObserverField`] with a new value, alerting all contained
+    /// [`ObserverFieldListener`], under the hood it uses [`ObserverField::tap`] for
+    /// notifying (which in its own does nothing but notify)
+    ///
+    /// # Argument(s)
+    /// It accepts only one argument, that being the new value ``T``
+    /// to update this [`ObserverField`] with
+    ///
+    /// # See Also
+    /// - [`ObserverFieldListener`]
+    /// - [`ObserverField`]
+    /// - [`ObserverField::tap`]
     pub fn update(&self, value: T) {
         self.value.store(Arc::new(value));
         self.tap();
     }
 
+    /// Notifies all [`ObserverFieldListener`] contained inside [`ObserverField`].
+    /// This does not change the value to anything new, it is only for manual notification,
+    /// even if a change hasn't happened to the value. This is used by [`ObserverField::update`]
+    /// under the hood
+    ///
+    /// # See Also
+    /// - [`ObserverFieldListener`]
+    /// - [`ObserverField`]
+    /// - [`ObserverField::update`]
     pub fn tap(&self) {
         for listener in self.listeners.iter() {
             let cloned_listener = listener.value().clone();
@@ -90,6 +152,14 @@ impl<T: Send + Sync + 'static> ObserverField<T> {
         }
     }
 
+    /// Gets the inner value of [`ObserverField`] as an ``Arc<T>`` where ``T`` is
+    /// the type of the inner value and returns it
+    ///
+    /// # Returns
+    /// The inner value acquired from the [`ObserverField`]
+    ///
+    /// # See Also
+    /// - [`ObserverField`]
     pub fn get(&self) -> Arc<T> {
         self.value.load().clone()
     }
@@ -136,6 +206,23 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
     }
 }
 
+/// [`TaskMetadata`] is a reactive container, which hosts keys as strings
+/// and values as [`ObserverField`] with any value inside. It acts more as a glorified
+/// wrapper around ``DashMap``
+///
+/// # Constructor(s)
+/// You can either construct it via [`TaskMetadata::default`] via [`Default`] or you can
+/// construct it via [`TaskMetadata::new`], both do the same and that is initializing a new
+/// empty task metadata
+///
+/// # Trait Implementation(s)
+/// [`TaskMetadata`] as previously mentioned, implements the [`Default`] trait, but in addition
+/// it also implements the [`Debug`] trait and [`Clone`] trait
+///
+/// # Clone Semantics
+/// When cloning, this acts as mostly a shallow clone (due to some limitations when it comes to
+/// [`Clone`] not being object safe).
+#[derive(Debug)]
 pub struct TaskMetadata(DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>);
 
 impl Default for TaskMetadata {
@@ -144,25 +231,102 @@ impl Default for TaskMetadata {
     }
 }
 
+impl Clone for TaskMetadata {
+    fn clone(&self) -> Self {
+        let map = DashMap::new();
+        for entry in self.0.iter() {
+            map.insert(entry.key().clone(), entry.value().clone());
+        }
+        Self(map)
+    }
+}
+
 impl TaskMetadata {
+    /// Constructs / Creates a new empty [`TaskMetadata`] instance for developers
+    /// to use throughout their code
+    ///
+    /// # Returns
+    /// The constructed [`TaskMetadata`] instance to be used
+    ///
+    /// # See Also
+    /// - [`TaskMetadata`]
     pub fn new() -> Self {
         Self(DashMap::new())
     }
 
+    /// Gets a potential [`ObserverField`] based on a key and returns it, if it doesn't exist,
+    /// one can use [`TaskMetadata::insert`] to append a new entry and then acquire it, one
+    /// can also check if the entry exists via [`TaskMetadata::exists`]
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, that being a key as a ``&str`` which points
+    /// to the [`ObserverField`] you want to get
+    ///
+    /// # Returns
+    /// The [`ObserverField`] wrapped as an option, if it has been found then it returns
+    /// ``Some`` otherwise ``None`` if it hasn't been found with that key
+    ///
+    /// # See Also
+    /// - [`ObserverField`]
+    /// - [`TaskMetadata`]
+    /// - [`TaskMetadata::insert`]
+    /// - [`TaskMetadata::exists`]
     pub fn get(&self, key: &str) -> Option<ObserverField<Box<dyn Any + Send + Sync>>> {
         Some(self.0.get(key)?.value().clone())
     }
 
+    /// Inserts a new entry of a key and a value, then returns a boolean. This is the opposite
+    /// of [`TaskMetadata::remove`], one can also check if the key exists via [`TaskMetadata::exists`]
+    ///
+    /// # Argument(s)
+    /// This method accepts two arguments, those being a key as an owned``String`` and
+    /// an initial value which is an implementation of ``Any + Send + Sync``
+    ///
+    /// # Returns
+    /// A boolean indicating if there was any previous value that had the same key (idiomatically
+    /// one shouldn't replace values with [`TaskMetadata::insert`] but rather use [`ObserverField`]
+    /// for updating them via getting them [`TaskMetadata::get`])
+    ///
+    /// # See Also
+    /// - [`ObserverField`]
+    /// - [`TaskMetadata`]
+    /// - [`TaskMetadata::get`]
+    /// - [`TaskMetadata::remove`]
+    /// - [`TaskMetadata::exists`]
     pub fn insert(&self, key: String, value: impl Any + Send + Sync) -> bool {
         let value: Box<dyn Any + Send + Sync> = Box::new(value);
         let field = ObserverField::new(value);
         self.0.insert(key, field).is_none()
     }
 
+    /// Removes an entry via a key, if the entry doesn't exist based on the key, then
+    /// nothing happens.  This is the opposite of [`TaskMetadata::remove`], one can also check if
+    /// the key exists via [`TaskMetadata::exists`]
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, that being a key as a``&str`` which points to
+    /// the [`ObserverField`] to be removed along with the key (the entry)
+    ///
+    /// # See Also
+    /// - [`ObserverField`]
+    /// - [`TaskMetadata`]
+    /// - [`TaskMetadata::insert`]
+    /// - [`TaskMetadata::exists`]
     pub fn remove(&self, key: &str) {
         self.0.remove(key);
     }
 
+    /// Checks if an entry exists via a key, this is the same as just using
+    /// [`TaskMetadata::get`] and checking if the value is some
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, that being a key as a``&str`` which points to
+    /// the [`ObserverField`] to be removed along with the key (the entry)
+    ///
+    /// # See Also
+    /// - [`ObserverField`]
+    /// - [`TaskMetadata`]
+    /// - [`TaskMetadata::get`]
     pub fn exists(&self, key: &str) -> bool {
         self.0.contains_key(key)
     }
