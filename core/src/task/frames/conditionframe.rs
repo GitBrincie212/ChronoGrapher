@@ -176,13 +176,13 @@ where
 /// # Events
 /// For events, [`ConditionalFrame`] has only two events, those being ``on_true`` and ``on_false``,
 /// they execute depending on the predicate and both host the target task frame which will be executed
-/// 
+///
 /// # Constructor(s)
 /// When construing a [`ConditionalFrame`] one can use [`ConditionalFrame::fallback_builder`] which
 /// creates a builder that has a required parameter for a fallback task frame, or for convenience,
 /// [`ConditionalFrame::builder`] that automatically fills it with a [`NoOperationTaskFrame`] which
 /// does nothing
-/// 
+///
 /// # Trait Implementation(s)
 /// It is obvious that the [`ConditionalFrame`] implements [`TaskFrame`] since this
 /// is a part of the default provided implementations, however there are many others
@@ -223,7 +223,7 @@ where
 ///
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
-/// 
+///
 /// # See Also
 /// - [`TaskFrame`]
 /// - [`ConditionalFramePredicate`]
@@ -251,27 +251,26 @@ pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
 pub type NonFallbackCFCBuilder<T> = ConditionalFrameConfigBuilder<
     T,
     NoOperationTaskFrame,
-    ((Arc<NoOperationTaskFrame>,), (), (), ())
+    ((Arc<NoOperationTaskFrame>,), (), (), ()),
 >;
 
 impl<T> ConditionalFrame<T>
 where
     T: TaskFrame + 'static + Send + Sync,
 {
-    /// Creates / Constructs a builder for the construction of [`ConditionalFrame`], 
+    /// Creates / Constructs a builder for the construction of [`ConditionalFrame`],
     /// that contains no fallback option. If one would wish to supply the fallback
     /// option as well, then there is also [`ConditionalFrame::fallback_builder`]
     /// for that purpose
-    /// 
+    ///
     /// # Returns
     /// A fully created [`NonFallbackCFCBuilder`]
-    /// 
+    ///
     /// # See Also
     /// - [`ConditionalFrame`]
     /// - [`ConditionalFrame::fallback_builder`]
-    pub fn builder() ->  NonFallbackCFCBuilder<T> {
-        ConditionalFrameConfig::builder()
-            .fallback(NoOperationTaskFrame)
+    pub fn builder() -> NonFallbackCFCBuilder<T> {
+        ConditionalFrameConfig::builder().fallback(NoOperationTaskFrame)
     }
 }
 
@@ -280,7 +279,7 @@ where
     T: TaskFrame + 'static + Send + Sync,
     T2: TaskFrame + 'static + Send + Sync,
 {
-    /// Creates / Constructs a builder for the construction of [`ConditionalFrame`], 
+    /// Creates / Constructs a builder for the construction of [`ConditionalFrame`],
     /// that requires a fallback option. If one would wish to not supply the fallback
     /// option, then there is also [`ConditionalFrame::builder`] for that convenience purpose
     ///

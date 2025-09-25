@@ -86,10 +86,7 @@ where
     T2: TaskFrame + 'static,
 {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let primary_result = self
-            .primary
-            .execute(ctx.clone())
-            .await;
+        let primary_result = self.primary.execute(ctx.clone()).await;
         match primary_result {
             Err(err) => {
                 ctx.emitter

@@ -13,11 +13,11 @@ pub mod metadata;
 #[allow(missing_docs)]
 pub mod task;
 
-use std::ops::Deref;
 pub use dynamic::*;
 pub use flag::*;
 pub use logical::*;
 pub use metadata::*;
+use std::ops::Deref;
 pub use task::*;
 
 use async_trait::async_trait;
@@ -137,7 +137,7 @@ pub trait FrameDependency: Send + Sync + 'static {
 impl<D> FrameDependency for D
 where
     D: Deref + ?Sized + Send + Sync + 'static,
-    D::Target: FrameDependency
+    D::Target: FrameDependency,
 {
     async fn is_resolved(&self) -> bool {
         self.deref().is_resolved().await
