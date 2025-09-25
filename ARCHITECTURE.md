@@ -24,10 +24,9 @@ use the underlying composites
 ![Task Abstraction Map](assets/Task%20Abstraction.png) <br />
 Task is the most in-depth compared to the scheduler and is broken down to several parts to ensure
 extensibility. Mainly being:
-- **TaskMetadata** This is a trait that acts as a container for wrapping relevant state the task needs to track throughout its
+- **TaskMetadata** This is a container for wrapping relevant dynamic state the task needs to track throughout its
 lifetime. It is mostly a reactive container where fields are wrapped via ``ObservableField`` which other
-code pieces can listen to upcoming changes to the value. One can implement the trait to add more state to be
-tracked or use the default metadata container
+code pieces can listen to upcoming changes to the value
 <br /> <br />
 - **TaskFrame** This is a trait for the main unit of execution, it is also one of the most flexible out of all other composites
 for tasks. It contains <u>lifecycle task events</u> (start and end more specifically) and <u>local task frame events</u>
@@ -43,9 +42,6 @@ implementing the trait
 - **TaskPriority** It is a simple enum dictating the importance of the task, the more importance, the greater the chances
 for it to execute exactly on time (of course, under heavy workflow shall be used). This is the only composite which cannot
 be extended
-<br /> <br />
-- **TaskExtension** It is a trait which allows the extension of tasks, if the current fields aren't enough for you, you
-can always implement this trait to add additional content, by default it doesn't add anything
 <br /> <br />
 - **SchedulerStrategy** This trait tells how to handle rescheduling and tasks of the same instance being overlapped, 
 should it be rescheduled when completed? Should it cancel the previous running task then run this current?
