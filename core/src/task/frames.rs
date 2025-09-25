@@ -2,12 +2,12 @@ pub mod conditionframe;
 pub mod dependencyframe;
 pub mod executionframe;
 pub mod fallbackframe;
+pub mod noopframe;
 pub mod parallelframe;
 pub mod retryframe;
 pub mod selectframe;
 pub mod sequentialframe;
 pub mod timeoutframe;
-pub mod noopframe;
 
 use crate::task::conditionframe::FramePredicateFunc;
 use crate::task::dependency::FrameDependency;
@@ -97,7 +97,7 @@ pub trait TaskFrame: Send + Sync {
 impl<F> TaskFrame for F
 where
     F: ?Sized + Deref + Send + Sync,
-    F::Target: TaskFrame
+    F::Target: TaskFrame,
 {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         self.deref().execute(ctx).await

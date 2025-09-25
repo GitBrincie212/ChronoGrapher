@@ -192,7 +192,7 @@ impl Scheduler {
     /// various composites to then construct a [`Scheduler`], for
     /// simple enough demos and examples, it may be preferred to use
     /// the default provided [`CHRONOGRAPHER_SCHEDULER`]
-    /// 
+    ///
     /// # Returns
     /// The [`SchedulerConfigBuilder`] builder for constructing the [`Scheduler`]
     ///
