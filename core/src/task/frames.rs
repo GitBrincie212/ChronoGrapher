@@ -9,11 +9,12 @@ pub mod selectframe;
 pub mod sequentialframe;
 pub mod timeoutframe;
 
+use std::fmt::Debug;
 use crate::task::conditionframe::FramePredicateFunc;
 use crate::task::dependency::FrameDependency;
 use crate::task::events::TaskEventEmitter;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{Task, TaskError, TaskMetadata, TaskPriority};
+use crate::task::{Task, TaskMetadata, TaskPriority};
 use async_trait::async_trait;
 pub use conditionframe::ConditionalFrame;
 pub use dependencyframe::DependencyTaskFrame;
@@ -29,6 +30,8 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 pub use timeoutframe::TimeoutTaskFrame;
+
+pub type TaskError = Arc<dyn Debug + Send + Sync>;
 
 #[derive(Clone)]
 pub struct TaskContext {
