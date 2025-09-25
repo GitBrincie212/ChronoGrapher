@@ -1,15 +1,40 @@
 use crate::errors::ChronographerErrors;
 use crate::task::dependency::FrameDependency;
-use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
+use crate::task::{Arc, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
 /// [`DependentFailBehavior`] is a trait for implementing a behavior when dependencies aren't resolved
 /// in [`DependencyTaskFrame`]. It takes nothing and returns a result for the [`DependencyTaskFrame`] to
-/// return. By default, [`DependencyTaskFrame`] uses [`DependentSuccessOnFail`]
+/// return
+///
+/// # Trait Implementation(s)
+/// There are 2 implementations of the [`DependentFailBehavior`] trait present, those being:
+/// - [`DependentFailureOnFail`] Returns a [`ChronographerErrors::TaskDependenciesUnresolved`]
+/// - [`DependentSuccessOnFail`] Returns a ``Ok(())``
+///
+/// By default, [`DependencyTaskFrame`] uses [`DependentFailureOnFail`]
+///
+/// # Object Safety
+/// [`DependentFailBehavior`] is object safe as seen in the source code of [`DependencyTaskFrame`]
+///
+/// # See Also
+/// - [`DependencyTaskFrame`]
+/// - [`DependentFailureOnFail`]
+/// - [`DependentSuccessOnFail`]
 #[async_trait]
 pub trait DependentFailBehavior: Send + Sync {
+    /// The main logic to execute that determines the result to return back
+    /// to the [`DependencyTaskFrame`] (so it can also return it back)
+    ///
+    /// # Returns
+    /// A result based on a constant or something more dynamic, where
+    /// it maps one to one with the results from [`DependencyTaskFrame`]
+    ///
+    /// # See Also
+    /// - [`DependencyTaskFrame`]
+    /// - [`DependentFailBehavior`]
     async fn execute(&self) -> Result<(), TaskError>;
 }
 
@@ -41,12 +66,59 @@ impl DependentFailBehavior for DependentSuccessOnFail {
     }
 }
 
+/// [`DependencyTaskFrameConfig`] is a typed builder and by itself
+/// it is not as useful, only useful for construction of a [`DependencyTaskFrame`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = DependencyTaskFrame<T>))]
 pub struct DependencyTaskFrameConfig<T: TaskFrame> {
+    /// The [`TaskFrame`] that is wrapped for handling all its [`FrameDependency`]
+    ///
+    /// # Default Value
+    /// This builder method has no default value, as it is required
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`FrameDependency`]
     task: T,
+
+    /// A collection of [`FrameDependency`] tied to the inner [`TaskFrame`]. Where
+    /// all the dependencies listed must be resolved in order to execute the wrapped
+    /// [`TaskFrame`] (effectively acting as an AND for a collection of booleans)
+    ///
+    /// # Default Value
+    /// This builder method has no default value, as it is required
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`FrameDependency`]
     dependencies: Vec<Arc<dyn FrameDependency>>,
 
+    /// An implementation of the [`DependentFailBehavior`] for managing the behavior of the
+    /// [`DependencyTaskFrame`] when dependencies aren't resolved
+    ///
+    /// # Default Value
+    /// By default, all [`DependencyTaskFrame`] use [`DependentFailureOnFail`], which
+    /// means when dependencies aren't resolved, the [`DependencyTaskFrame`] fails with
+    /// an error, specifically [`ChronographerErrors::TaskDependenciesUnresolved`]
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`DependentFailureOnFail`]
     #[builder(
         default = Arc::new(DependentFailureOnFail),
         setter(transform = |ts: impl DependentFailBehavior + 'static| Arc::new(ts) as Arc<dyn DependentFailBehavior>)
@@ -60,6 +132,7 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
             frame: config.task,
             dependencies: config.dependencies,
             dependent_behaviour: config.dependent_behaviour,
+            on_dependency: TaskEvent::new()
         }
     }
 }
@@ -69,9 +142,18 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
 /// hierarchy. Allowing the creation of task frames that depend on other tasks, in addition to allowing
 /// dynamic execution (which opens the door for optimizations in case dependencies are expensive to compute)
 ///
+/// # Constructor(s)
+/// When construing a [`DependencyTaskFrame`] the only way to do so is via
+/// [`DependencyTaskFrame::builder`] which creates a builder for [`DependencyTaskFrame`], then
+/// simply supply the required fields and done
+///
 /// # Events
 /// When it comes to events, [`DependencyTaskFrame`] comes with the default set of events, as
 /// there is nothing else to listen for / subscribe to
+///
+/// # Trait Implementation(s)
+/// It is obvious that the [`DependencyTaskFrame`] implements [`TaskFrame`] since this
+/// is a part of the default provided implementations, however there are many others
 ///
 /// # Example
 /// ```ignore
@@ -114,13 +196,32 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
 ///
 /// CHRONOGRAPHER_SCHEDULER.schedule(task1.clone()).await;
 /// ```
+///
+/// # See Also
+/// - [`TaskFrame`]
+/// - [`FrameDependency`]
+/// - [`TaskEvent`]
+/// - [`DependentFailBehavior`]
+/// - [`DependencyTaskFrame::builder`]
 pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,
     dependencies: Vec<Arc<dyn FrameDependency>>,
     dependent_behaviour: Arc<dyn DependentFailBehavior>,
+
+    /// Event fired for when [`FrameDependency`] finishes the resolve process,
+    /// it contains both the target dependency, and a boolean indicating if it
+    /// has been resolved or not
+    pub on_dependency: Arc<TaskEvent<(Arc<dyn FrameDependency>, bool)>>
 }
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
+    /// Creates / Constructs a builder for the construction of [`DependencyTaskFrame`],
+    ///
+    /// # Returns
+    /// A fully created [`DependencyTaskFrameConfigBuilder`]
+    ///
+    /// # See Also
+    /// - [`DependencyTaskFrame`]
     pub fn builder() -> DependencyTaskFrameConfigBuilder<T> {
         DependencyTaskFrameConfig::builder()
     }
@@ -129,23 +230,32 @@ impl<T: TaskFrame> DependencyTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let mut handles: Vec<JoinHandle<bool>> = Vec::new();
+        let mut handles: Vec<JoinHandle<bool>> = Vec::with_capacity(self.dependencies.len());
 
         for dep in &self.dependencies {
             let dep = dep.clone();
-            handles.push(tokio::spawn(async move { dep.is_resolved().await }));
+            handles.push(tokio::spawn(async move {
+                dep.is_resolved().await
+            }));
         }
 
         let mut is_resolved = true;
-        for handle in handles {
+        for (index, handle) in handles.into_iter().enumerate() {
+            let dep = self.dependencies[index].clone();
             match handle.await {
-                Ok(result) => {
-                    if !result {
+                Ok(res) => {
+                    ctx.emitter.emit(
+                        ctx.metadata.clone(), self.on_dependency.clone(), (dep, res)
+                    ).await;
+                    if !res {
                         is_resolved = false;
                         break;
                     }
                 }
                 Err(_) => {
+                    ctx.emitter.emit(
+                        ctx.metadata.clone(), self.on_dependency.clone(), (dep, false)
+                    ).await;
                     is_resolved = false;
                     break;
                 }
