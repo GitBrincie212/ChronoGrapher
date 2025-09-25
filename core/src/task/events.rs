@@ -1,20 +1,33 @@
-use crate::task::TaskMetadata;
+use crate::task::{TaskError, TaskMetadata};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use std::fmt::Debug;
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// The ``on_start`` event type alias
 pub type TaskStartEvent = ArcTaskEvent<()>;
-pub type TaskEndEvent = ArcTaskEvent<Option<TaskError>>;
-pub type ArcTaskEvent<P> = Arc<TaskEvent<P>>;
-pub type TaskError = Arc<dyn Debug + Send + Sync>;
 
-/// [`EventListener`] is a function tailored to listening to task events, as it accepts
-/// metadata and a payload as arguments but returns nothing, only really being useful for
+/// The ``on_end`` event type alias
+pub type TaskEndEvent = ArcTaskEvent<Option<TaskError>>;
+
+/// A convenient type alias for wrapping a task event in an ``Arc<T>``
+pub type ArcTaskEvent<P> = Arc<TaskEvent<P>>;
+
+/// [`EventListener`] is a function tailored to listening to [`Task`] and [`TaskFrame`] events, as
+/// it accepts metadata and a payload as arguments but returns nothing, only really being useful for
 /// just listening to relevant [`TaskEvent`] fires. Functions and closures automatically implement
 /// this trait, but due to their nature they cannot persist, as a result, it is advised to create
 /// your own struct and implement this trait
+///
+/// # Required Method(s)
+/// When implementing the [`EventListener`] trait, one has to supply an implementation for
+/// the method [`EventListener::execute`] which accepts the metadata and a payload (which contains
+/// additional parameters depending on the event)
+///
+/// # See Also
+/// - [`TaskEvent`]
+/// - [`Task`]
+/// - [`TaskFrame`]
 #[async_trait]
 pub trait EventListener<P: Send + Sync>: Send + Sync {
     async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>);
@@ -43,12 +56,12 @@ impl<P: Send + Sync + 'static, E: EventListener<P> + ?Sized> EventListener<P> fo
 /// handles this task event) execute. This is the main system used for listening to various events,
 /// there are 2 types of events at play, which one can listen to:
 ///
-/// - **Lifecycle Task Events** These are automatically emitted by the scheduler, all task frames have this
-///   event no matter the type. Currently, there are 2 of these, the first namely being ``on_start``
-///   used for listening to when a task is about to start. While the second is ``on_end`` which is used
-///   for listening to when a task is ending (this event executes before the error handler)
+/// - **Lifecycle Task Events** These live inside [`Task`], and specifically are 2 events, the former
+///   is ``on_start`` which executes always when the task is about to start. While the latter is
+///   ``on_end`` which is always executed before the error handler and after the task execution finishes,
+///   these events tackle the lifecycle of a task as such the reason why they are named like so
 ///
-/// - **Local Task Events** These are local to the task frame, different task frames may have none, one
+/// - **Local Task Frame Events** These are local to the task frame, different task frames may have none, one
 ///   or multiple of these event types. They are emitted by the task frame logic and give more extensibility
 ///   to what outside parties can listen to (for example, on the fallback task frame, one can listen to
 ///   when the fallback is about to execute)
@@ -56,40 +69,117 @@ impl<P: Send + Sync + 'static, E: EventListener<P> + ?Sized> EventListener<P> fo
 /// [`TaskEvent`] **CANNOT** be emitted by itself, it needs an emitter which is only handed to the
 /// scheduler, overlapping policies and the task frame. Outside parties can listen to the event at any
 /// time they would like
+///
+/// # Construction(s)
+/// When constructing a [`TaskEvent`] the one can construct it via [`TaskEvent::new`] which returns
+/// an ``Arc<TaskEvent<P>>`` where ``P`` is a payload or via [`TaskEvent::default`] from the [`Default`]
+///
+/// # Trait Implementation(s)
+/// [`TaskEvent`] implements the [`Default`] trait only
+///
+/// # See Also
+/// - [`EventListener`]
+/// - [`Task`]
 pub struct TaskEvent<P> {
     listeners: DashMap<Uuid, Arc<dyn EventListener<P>>>,
 }
 
+impl<P: Send + Sync + 'static> Default for TaskEvent<P> {
+    fn default() -> Self {
+        Self {
+            listeners: DashMap::new(),
+        }
+    }
+}
+
 impl<P: Send + Sync + 'static> TaskEvent<P> {
-    /// Creates a task event, containing no listeners
+    /// Creates / Constructs a [`TaskEvent`], containing no [`EventListener`] and wrapped in an ``Arc``,
+    /// which developers can use throughout their codebase, this is exactly the same as doing it
+    /// with [`TaskEvent::default`] in the form of:
+    /// ```ignore
+    /// Arc::new(TaskEvent::default())
+    /// ```
+    ///
+    /// # Returns
+    /// The constructed [`TaskEvent`] wrapped in an ``Arc<TaskEvent<P>>``
+    /// where ``P`` is the payload
+    ///
+    /// # See Also
+    /// - [`TaskEvent`]
+    /// - [`TaskEvent::default`]
+    /// - [`EventListener`]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             listeners: DashMap::new(),
         })
     }
 
-    /// Subscribes a listener to the task event, returning an identifier for that listener / subscriber
+    /// Subscribes a [`EventListener`] to the [`TaskEvent`], returning an identifier for that
+    /// listener / subscriber
+    ///
+    /// # Arguments
+    /// This method accepts only one argument, that being an implementation of [`EventListener`]
+    /// with a specified payload
+    ///
+    /// # Returns
+    /// An identifier as a UUID to later unsubscribe the [`EventListener`]
+    /// from that event via [`TaskEvent::unsubscribe`]
+    ///
+    /// # See Also
+    /// - [`EventListener`]
+    /// - [`TaskEvent`]
+    /// - [`TaskEvent::unsubscribe`]
     pub async fn subscribe(&self, func: impl EventListener<P> + 'static) -> Uuid {
         let id = Uuid::new_v4();
         self.listeners.insert(id, Arc::new(func));
         id
     }
 
-    /// Unsubscribes a listener to the task event, returning an identifier for that listener
-    pub async fn unsubscribe(&self, id: Uuid) {
-        self.listeners.remove(&id);
+    /// Unsubscribes a [`EventListener`] from the [`TaskEvent`], based on an identifier (UUID),
+    /// this identifier is returned when calling [`TaskEvent::subscribe`] with an [`EventListener`]
+    ///
+    /// # Arguments
+    /// This method accepts only one argument, that being the UUID corresponding to the
+    /// [`EventListener`], if the UUID isn't associated with a [`EventListener`] then nothing
+    /// happens
+    ///
+    /// # See Also
+    /// - [`EventListener`]
+    /// - [`TaskEvent`]
+    /// - [`TaskEvent::subscribe`]
+    pub async fn unsubscribe(&self, id: &Uuid) {
+        self.listeners.remove(id);
     }
 }
 
-/// [`TaskEventEmitter`] is a sealed mechanism to allow the use of emitting events, by itself
-/// it doesn't hot any data, but it unlocks the use of [`TaskEventEmitter::emit`].
-/// The reason for this is to prevent any emissions from outside parties on events
+/// [`TaskEventEmitter`] is a sealed mechanism to allow the use of emitting [`TaskEvent`] which
+/// alerts all [`EventListener`], by itself it doesn't hot any data, but it unlocks the use 
+/// of [`TaskEventEmitter::emit`]. The reason for this is to prevent any emissions from outside parties 
+/// on [`TaskEvent`]
+/// 
+/// # Constructor(s)
+/// There are no constructors for public use, it cannot be constructed via a constructor method
+/// nor via rust's struct initialization from the public, internally ChronoGrapher constructs it
+/// 
+/// # See Also
+/// - [`TaskEvent`]
+/// - [`TaskEventListener`]
 pub struct TaskEventEmitter {
     pub(crate) _private: (),
 }
 
 impl TaskEventEmitter {
-    /// Emits the event, notifying all subscribers / listeners
+    /// Emits the [`TaskEvent`], notifying all [`EventListener`] from event
+    /// 
+    /// # Argument(s)
+    /// The method accepts 3 arguments, the first being ``metadata`` which is for accessing
+    /// any relevant state, the second is the actual [`TaskEvent`] via ``event``. While the third is the
+    /// payload of the [`TaskEvent`] via ``payload`` (it depends on what payload type the ``event`` has)
+    /// 
+    /// # See Also
+    /// - [`TaskEvent`]
+    /// - [`EventListener`]
+    /// - [`TaskEventEmitter`]
     pub async fn emit<P: Send + Sync + Clone + 'static>(
         &self,
         metadata: Arc<TaskMetadata>,
