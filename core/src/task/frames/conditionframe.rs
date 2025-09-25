@@ -4,21 +4,48 @@ use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-/*
-    Sadly, I am forced to specify and handle 2 mostly identical
-    builder types for ergonomic reasons, unless if someone suggests
-    a better way of doing this, then it pretty much stays this way.
 
-    Honestly, it's quite the code smell
-*/
+#[allow(unused_imports)]
+use crate::task::FallbackTaskFrame;
 
+/// [`ConditionalFramePredicate`] is a trait that works closely with [`ConditionalFrame`], it is the
+/// mechanism that returns true/false for the task to execute
+///
+/// # Required Method(s)
+/// When implementing the [`ConditionalFramePredicate`], one has to supply an implementation
+/// for the method being [`ConditionalFramePredicate::execute`] which is where the main logic
+/// lives, where it accepts the [`TaskContext`]
+///
+/// # Trait Implementation(s)
+/// By default [`ConditionalFramePredicate`] is implemented on any async function that accepts a
+/// task context (specifically wrapped in an ``Arc``) and returns a boolean
+///
+/// # See Also
+/// - [`TaskFrame`]
+/// - [`ConditionalFrame`]
+/// - [`TaskContext`]
 #[async_trait]
-pub trait FramePredicateFunc: Send + Sync {
+pub trait ConditionalFramePredicate: Send + Sync {
+    /// Executes the predicate and returns a boolean indicating to allow or not
+    /// the [`TaskFrame`] to execute
+    ///
+    /// # Argument(s)
+    /// The method accepts one argument, that being the [`TaskContext`] wrapped
+    /// in an ``Arc``
+    ///
+    /// # Returns
+    /// A boolean indicating if the [`TaskFrame`] should be executed
+    /// or not, true for yes it should and false for the opposite
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskFrame`]
+    /// - [`ConditionalFramePredicate`]
     async fn execute(&self, ctx: Arc<TaskContext>) -> bool;
 }
 
 #[async_trait]
-impl<F, Fut> FramePredicateFunc for F
+impl<F, Fut> ConditionalFramePredicate for F
 where
     F: Fn(Arc<TaskContext>) -> Fut + Send + Sync,
     Fut: Future<Output = bool> + Send,
@@ -28,76 +55,102 @@ where
     }
 }
 
-#[async_trait]
-impl<F: FramePredicateFunc + ?Sized> FramePredicateFunc for Arc<F> {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> bool {
-        self.as_ref().execute(ctx).await
-    }
-}
-
-//noinspection DuplicatedCode
+/// [`ConditionalFrameConfig`] is a typed builder and by itself
+/// it is not as useful, only useful for construction of a [`ConditionalFrame`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = ConditionalFrame<T, T2>))]
-pub struct FallbackConditionalFrameConfig<T, T2>
+pub struct ConditionalFrameConfig<T, T2>
 where
     T: TaskFrame + 'static + Send + Sync,
     T2: TaskFrame + 'static + Send + Sync,
 {
+    /// A fallback [`TaskFrame`] for handling the execution in
+    /// case the [`ConditionalFramePredicate`] returned false, depending on the
+    /// builder used, this might already be inserted
+    ///
+    /// # Default Value
+    /// If the [`ConditionalFrame::builder`] is used then this value is
+    /// not required to be supplied, thus using as a default value [`NoOperationTaskFrame`],
+    /// if however [`ConditionalFrame::fallback_builder`] is used, then it has to be
+    /// specified
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`ConditionalFrame::builder`]
+    /// - [`ConditionalFrame::fallback_builder`]
+    /// - [`ConditionalFramePredicate`]
     #[builder(setter(transform = |s: T2| Arc::new(s)))]
     fallback: Arc<T2>,
 
+    /// The [`TaskFrame`] for handling the execution in
+    /// case the [`ConditionalFramePredicate`] returned true,
+    ///
+    /// # Default Value
+    /// This builder method has no default value, as it is required
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`ConditionalFramePredicate`]
     #[builder(setter(transform = |s: T| Arc::new(s)))]
-    task: Arc<T>,
+    frame: Arc<T>,
 
-    #[builder(setter(transform = |s: impl FramePredicateFunc + 'static| {
-        Arc::new(s) as Arc<dyn FramePredicateFunc>
+    /// The [`ConditionalFramePredicate`] for handling the decision-making on whenever
+    /// to execute the [`TaskFrame`] or not based on a boolean value
+    ///
+    /// # Default Value
+    /// This builder method has no default value, as it is required
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`ConditionalFramePredicate`]
+    #[builder(setter(transform = |s: impl ConditionalFramePredicate + 'static| {
+        Arc::new(s) as Arc<dyn ConditionalFramePredicate>
     }))]
-    predicate: Arc<dyn FramePredicateFunc>,
+    predicate: Arc<dyn ConditionalFramePredicate>,
 
+    /// A boolean value indicating to error or not when the
+    /// [`ConditionalFramePredicate`] returns false
+    ///
+    /// # Default Value
+    /// By default, every [`ConditionalFrame`] will return a success and not error out
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`ConditionalFrame`]
+    /// - [`ConditionalFramePredicate`]
     #[builder(default = false)]
     error_on_false: bool,
 }
 
-//noinspection DuplicatedCode
-#[derive(TypedBuilder)]
-#[builder(build_method(into = ConditionalFrame<T, NoOperationTaskFrame>))]
-pub struct NonFallbackConditionalFrameConfig<T: TaskFrame + Send + Sync + 'static> {
-    #[builder(setter(transform = |s: T| Arc::new(s)))]
-    task: Arc<T>,
-
-    #[builder(setter(transform = |s: impl FramePredicateFunc + 'static| {
-        Arc::new(s) as Arc<dyn FramePredicateFunc>
-    }))]
-    predicate: Arc<dyn FramePredicateFunc>,
-
-    #[builder(default = false)]
-    error_on_false: bool,
-}
-
-impl<T, T2> From<FallbackConditionalFrameConfig<T, T2>> for ConditionalFrame<T, T2>
+impl<T, T2> From<ConditionalFrameConfig<T, T2>> for ConditionalFrame<T, T2>
 where
     T: TaskFrame + 'static + Send + Sync,
     T2: TaskFrame + 'static + Send + Sync,
 {
-    fn from(config: FallbackConditionalFrameConfig<T, T2>) -> Self {
+    fn from(config: ConditionalFrameConfig<T, T2>) -> Self {
         ConditionalFrame {
-            task: config.task,
+            frame: config.frame,
             fallback: config.fallback,
-            predicate: config.predicate,
-            error_on_false: config.error_on_false,
-            on_true: TaskEvent::new(),
-            on_false: TaskEvent::new(),
-        }
-    }
-}
-
-impl<T: TaskFrame + 'static + Send + Sync> From<NonFallbackConditionalFrameConfig<T>>
-    for ConditionalFrame<T, NoOperationTaskFrame>
-{
-    fn from(config: NonFallbackConditionalFrameConfig<T>) -> Self {
-        ConditionalFrame {
-            task: config.task,
-            fallback: Arc::new(NoOperationTaskFrame),
             predicate: config.predicate,
             error_on_false: config.error_on_false,
             on_true: TaskEvent::new(),
@@ -123,6 +176,16 @@ impl<T: TaskFrame + 'static + Send + Sync> From<NonFallbackConditionalFrameConfi
 /// # Events
 /// For events, [`ConditionalFrame`] has only two events, those being ``on_true`` and ``on_false``,
 /// they execute depending on the predicate and both host the target task frame which will be executed
+/// 
+/// # Constructor(s)
+/// When construing a [`ConditionalFrame`] one can use [`ConditionalFrame::fallback_builder`] which
+/// creates a builder that has a required parameter for a fallback task frame, or for convenience,
+/// [`ConditionalFrame::builder`] that automatically fills it with a [`NoOperationTaskFrame`] which
+/// does nothing
+/// 
+/// # Trait Implementation(s)
+/// It is obvious that the [`ConditionalFrame`] implements [`TaskFrame`] since this
+/// is a part of the default provided implementations, however there are many others
 ///
 /// # Example
 /// ```ignore
@@ -160,13 +223,56 @@ impl<T: TaskFrame + 'static + Send + Sync> From<NonFallbackConditionalFrameConfi
 ///
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
+/// 
+/// # See Also
+/// - [`TaskFrame`]
+/// - [`ConditionalFramePredicate`]
+/// - [`NoOperationTaskFrame`]
+/// - [`ConditionalFrame::builder`]
+/// - [`ConditionalFrame::fallback_builder`]
+/// - [`TaskEvent`]
+/// - [`FallbackTaskFrame`]
 pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
-    task: Arc<T>,
+    frame: Arc<T>,
     fallback: Arc<T2>,
-    predicate: Arc<dyn FramePredicateFunc>,
+    predicate: Arc<dyn ConditionalFramePredicate>,
     error_on_false: bool,
+
+    /// Event fired for when [`ConditionalFramePredicate`] returns true
     pub on_true: ArcTaskEvent<Arc<T>>,
+
+    /// Event fired for when [`ConditionalFramePredicate`] returns false
     pub on_false: ArcTaskEvent<Arc<T2>>,
+}
+
+/// A type alias to alleviate the immense typing required to specify that
+/// the [`ConditionalFrameConfigBuilder`] has already filled the fallback parameter
+/// as a [`NoOperationTaskFrame`]
+pub type NonFallbackCFCBuilder<T> = ConditionalFrameConfigBuilder<
+    T,
+    NoOperationTaskFrame,
+    ((Arc<NoOperationTaskFrame>,), (), (), ())
+>;
+
+impl<T> ConditionalFrame<T>
+where
+    T: TaskFrame + 'static + Send + Sync,
+{
+    /// Creates / Constructs a builder for the construction of [`ConditionalFrame`], 
+    /// that contains no fallback option. If one would wish to supply the fallback
+    /// option as well, then there is also [`ConditionalFrame::fallback_builder`]
+    /// for that purpose
+    /// 
+    /// # Returns
+    /// A fully created [`NonFallbackCFCBuilder`]
+    /// 
+    /// # See Also
+    /// - [`ConditionalFrame`]
+    /// - [`ConditionalFrame::fallback_builder`]
+    pub fn builder() ->  NonFallbackCFCBuilder<T> {
+        ConditionalFrameConfig::builder()
+            .fallback(NoOperationTaskFrame)
+    }
 }
 
 impl<T, T2> ConditionalFrame<T, T2>
@@ -174,14 +280,18 @@ where
     T: TaskFrame + 'static + Send + Sync,
     T2: TaskFrame + 'static + Send + Sync,
 {
-    pub fn fallback_builder() -> FallbackConditionalFrameConfigBuilder<T, T2> {
-        FallbackConditionalFrameConfig::builder()
-    }
-}
-
-impl<T: TaskFrame + 'static + Send + Sync> ConditionalFrame<T, NoOperationTaskFrame> {
-    pub fn builder() -> NonFallbackConditionalFrameConfigBuilder<T> {
-        NonFallbackConditionalFrameConfig::builder()
+    /// Creates / Constructs a builder for the construction of [`ConditionalFrame`], 
+    /// that requires a fallback option. If one would wish to not supply the fallback
+    /// option, then there is also [`ConditionalFrame::builder`] for that convenience purpose
+    ///
+    /// # Returns
+    /// A fully created [`ConditionalFrameConfigBuilder`]
+    ///
+    /// # See Also
+    /// - [`ConditionalFrame`]
+    /// - [`ConditionalFrame::builder`]
+    pub fn fallback_builder() -> ConditionalFrameConfigBuilder<T, T2> {
+        ConditionalFrameConfig::builder()
     }
 }
 
@@ -193,10 +303,10 @@ macro_rules! execute_func_impl {
                 .emit(
                     $ctx.metadata.clone(),
                     $self.on_true.clone(),
-                    $self.task.clone(),
+                    $self.frame.clone(),
                 )
                 .await;
-            return $self.task.execute($ctx).await;
+            return $self.frame.execute($ctx).await;
         }
         $ctx.emitter
             .emit(
