@@ -34,6 +34,18 @@ where
     Fut: Future<Output = Result<(), TaskError>> + Send,
     F: Fn(Arc<TaskContext>) -> Fut + Send + Sync,
 {
+    /// Creates / Constructs a new [`ExecutionTaskFrame`] instance based on the
+    /// function supplied
+    ///
+    /// # Argument(s)
+    /// This method accepts one single argument, that is the function to wrap
+    /// around the [`ExecutionTaskFrame`] to execute
+    ///
+    /// # Returns
+    /// A fully created [`ExecutionTaskFrame`] with the wrapped function ``func``
+    ///
+    /// # See Also
+    /// - [`ExecutionTaskFrame`]
     pub fn new(func: F) -> Self {
         ExecutionTaskFrame(func)
     }
