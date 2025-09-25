@@ -44,6 +44,9 @@ use std::sync::Arc;
 pub struct FallbackTaskFrame<T: 'static, T2: 'static> {
     primary: T,
     secondary: Arc<T2>,
+
+    /// An event fired when the fallback is executed
+    /// (i.e. The primary task frame failed)
     pub on_fallback: ArcTaskEvent<(Arc<T2>, TaskError)>,
 }
 
@@ -52,6 +55,21 @@ where
     T: TaskFrame + 'static,
     T2: TaskFrame + 'static,
 {
+    /// Creates / Constructs a new [`FallbackTaskFrame`] instance based on the
+    /// two [`TaskFrame`] supplied
+    ///
+    /// # Argument(s)
+    /// The method accepts two arguments, those being ``primary`` which is a [`TaskFrame`]
+    /// type and is the first task frame that will always execute. And the second being ``secondary``
+    /// which is a [`TaskFrame`] type that is executed as last report option when the ``primary``
+    /// fails
+    ///
+    /// # Returns
+    /// A fully created [`FallbackTaskFrame`] with the primary
+    /// task frame and a fallback task frame
+    ///
+    /// # See Also
+    /// - [`ExecutionTaskFrame`]
     pub fn new(primary: T, secondary: T2) -> Self {
         Self {
             primary,
