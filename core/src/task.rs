@@ -22,10 +22,10 @@ pub mod frame_builder;
 pub use crate::schedule::*;
 pub use error_handler::*;
 pub use events::*;
+pub use frame_builder::*;
 pub use frames::*;
 pub use metadata::*;
 pub use priority::*;
-pub use frame_builder::*;
 
 use crate::scheduling_strats::*;
 use std::fmt::Debug;
@@ -234,9 +234,9 @@ impl From<TaskConfig> for Task {
 /// ones are:
 ///
 /// - **[`TaskMetadata`]** The <u>Local Task State</u>, it is a reactive container, allowing
-/// the ability to listen to various incoming field changes, it can be modified from any point, it also
-/// allows tracking of dynamic fields, in addition outside parties can also use and modify it via
-/// [`Task::metadata`]
+///   the ability to listen to various incoming field changes, it can be modified from any point, it also
+///   allows tracking of dynamic fields, in addition outside parties can also use and modify it via
+///   [`Task::metadata`]
 ///
 /// - **[`TaskFrame`]** The <u>What</u> of the task, the logic part of the task. When executed, task
 ///   frames get a task context which hosts all the information needed, including an event emitter,

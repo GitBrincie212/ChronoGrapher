@@ -1,5 +1,3 @@
-#![allow(clippy::empty_loop)]
-
 #[allow(missing_docs)]
 pub mod clock;
 

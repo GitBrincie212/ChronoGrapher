@@ -166,7 +166,7 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2>
 
 #[async_trait]
 impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
-    async fn execute(&self, ctx: Arc<TaskContext>, ) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
         for retry in 0u32..self.retries.get() {
             if retry != 0 {

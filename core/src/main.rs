@@ -6,6 +6,7 @@ use rand::Rng;
 use std::time::Duration;
 
 #[tokio::main]
+#[allow(clippy::empty_loop)]
 async fn main() {
     let now = Local::now();
     println!(
@@ -30,5 +31,6 @@ async fn main() {
         CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
     }
     CHRONOGRAPHER_SCHEDULER.start().await;
+
     loop {}
 }

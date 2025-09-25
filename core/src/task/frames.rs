@@ -158,7 +158,7 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskPriority`]
     pub fn priority(&self) -> TaskPriority {
-        self.priority.clone()
+        self.priority
     }
 
     /// Accesses the runs field (counts how many times the task ran), returning it in the process
