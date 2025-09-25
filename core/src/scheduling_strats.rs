@@ -2,6 +2,7 @@ use crate::task::{Task, TaskEventEmitter};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::task::JoinHandle;
@@ -59,9 +60,13 @@ pub trait ScheduleStrategy: Send + Sync {
 }
 
 #[async_trait]
-impl<S: ScheduleStrategy + ?Sized> ScheduleStrategy for Arc<S> {
+impl<S> ScheduleStrategy for S
+where
+    S: Deref + Send + Sync,
+    S::Target: ScheduleStrategy
+{
     async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
-        self.as_ref().handle(task, emitter).await;
+        self.deref().handle(task, emitter).await;
     }
 }
 
