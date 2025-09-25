@@ -25,6 +25,10 @@ use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 /// - [`TaskPriority::CRITICAL`] It is the highest level of priority, and represents a critical task
 ///   that has to be executed at this time specifically. No time drifts are allowed, exact laser focus
 ///   execution
+/// 
+/// # Constructor(s)
+/// When creating a priority, one can just use the default rust enum initialization, alternatively
+/// one can also use [`TaskPriority::default`] from [`Default`] which will always return [`TaskPriority::MODERATE`]
 ///
 /// # Trait Implementation(s)
 /// The enum is cloneable and copiable via [`Clone`] and [`Copy`] traits respectively, it also
