@@ -3,7 +3,7 @@ use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-
+use crate::task::noopframe::NoOperationTaskFrame;
 /*
     Sadly, I am forced to specify and handle 2 mostly identical
     builder types for ergonomic reasons, unless if someone suggests
@@ -60,7 +60,7 @@ where
 
 //noinspection DuplicatedCode
 #[derive(TypedBuilder)]
-#[builder(build_method(into = ConditionalFrame<T, ()>))]
+#[builder(build_method(into = ConditionalFrame<T, NoOperationTaskFrame>))]
 pub struct NonFallbackConditionalFrameConfig<T: TaskFrame + Send + Sync + 'static> {
     #[builder(setter(transform = |s: T| Arc::new(s)))]
     task: Arc<T>,
@@ -92,12 +92,12 @@ where
 }
 
 impl<T: TaskFrame + 'static + Send + Sync> From<NonFallbackConditionalFrameConfig<T>>
-    for ConditionalFrame<T>
+    for ConditionalFrame<T, NoOperationTaskFrame>
 {
     fn from(config: NonFallbackConditionalFrameConfig<T>) -> Self {
         ConditionalFrame {
             task: config.task,
-            fallback: Arc::new(()),
+            fallback: Arc::new(NoOperationTaskFrame),
             predicate: config.predicate,
             error_on_false: config.error_on_false,
             on_true: TaskEvent::new(),
@@ -160,7 +160,7 @@ impl<T: TaskFrame + 'static + Send + Sync> From<NonFallbackConditionalFrameConfi
 ///
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
-pub struct ConditionalFrame<T: 'static, T2: 'static = ()> {
+pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
     task: Arc<T>,
     fallback: Arc<T2>,
     predicate: Arc<dyn FramePredicateFunc>,
@@ -179,7 +179,7 @@ where
     }
 }
 
-impl<T: TaskFrame + 'static + Send + Sync> ConditionalFrame<T> {
+impl<T: TaskFrame + 'static + Send + Sync> ConditionalFrame<T, NoOperationTaskFrame> {
     pub fn builder() -> NonFallbackConditionalFrameConfigBuilder<T> {
         NonFallbackConditionalFrameConfig::builder()
     }
@@ -206,18 +206,6 @@ macro_rules! execute_func_impl {
             )
             .await;
     };
-}
-
-#[async_trait]
-impl<T: TaskFrame> TaskFrame for ConditionalFrame<T> {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        execute_func_impl!(self, ctx);
-        if self.error_on_false {
-            Err(Arc::new(ChronographerErrors::TaskConditionFail))
-        } else {
-            Ok(())
-        }
-    }
 }
 
 #[async_trait]
