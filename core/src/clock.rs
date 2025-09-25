@@ -12,6 +12,11 @@ use std::time::{Duration, SystemTime};
 /// [`SchedulerClock`] is a trait for implementing a custom scheduler clock, typical operations
 /// include getting the current time, idle for a specific duration (or til a specific date is reached).
 ///
+/// # Usage Note(s)
+/// The precision of [`SchedulerClock`] can depend on the underlying OS-specific time format due
+/// to the fact it uses `SystemTime` under the hood. For example, on Windows, the time is represented
+/// in 100 nanosecond intervals, whereas Linux can represent nanosecond intervals... etc
+/// 
 /// # Required Methods
 /// When implementing the [`SchedulerClock`], one must provide implementations for two methods, those
 /// being [`SchedulerClock::now`] and [`SchedulerClock::idle_to`], the former is used to get the
@@ -33,11 +38,6 @@ use std::time::{Duration, SystemTime};
 /// there is [`AdvanceableScheduleClock`] which allows the explicit advancing of time via methods
 /// it provides. Specifically, the [`VirtualClock`] implements this to allow for the explicit advancing
 /// from now to points of interest
-///
-/// # IMPORTANT Note(s)
-/// The precision of SchedulerClock can depend on the underlying OS-specific time format due
-/// to the fact it uses `SystemTime` under the hood. For example, on Windows, the time is represented
-/// in 100 nanosecond intervals, whereas Linux can represent nanosecond intervals... etc
 ///
 /// # See Also
 /// - [`VirtualClock`]
@@ -98,6 +98,10 @@ where
 /// Specifically, only one type implements the [`AdvanceableScheduleClock`] trait, that is
 /// the [`VirtualClock`] which allows for the explicit advancement of arbitrary points in time
 ///
+/// # Supertrait(s)
+/// as discussed above, [`AdvanceableScheduleClock`] is an extension to [`SchedulerClock`], as such
+/// when implementing this trait, one has to also implement the [`SchedulerClock`] trait
+/// 
 /// # See Also
 /// - [`SchedulerClock`]
 /// - [`VirtualClock`]
