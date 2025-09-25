@@ -94,7 +94,7 @@ impl TaskContext {
     ///
     /// # Returns
     /// The constructed instance to be used
-    /// 
+    ///
     /// # See Also
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
@@ -111,10 +111,10 @@ impl TaskContext {
     }
 
     /// Accesses the metadata field, returning it in the process
-    /// 
+    ///
     /// # Returns
     /// The metadata field as an ``Arc<TaskMetadata>``
-    /// 
+    ///
     /// # See Also
     /// - [`TaskContext`]
     /// - [`TaskMetadata`]
@@ -176,7 +176,7 @@ impl TaskContext {
     /// # See Also
     /// - [`TaskContext`]
     pub fn max_runs(&self) -> Option<NonZeroU64> {
-        self.max_runs.clone()
+        self.max_runs
     }
 }
 
