@@ -9,7 +9,6 @@ pub mod selectframe;
 pub mod sequentialframe;
 pub mod timeoutframe;
 
-use std::fmt::Debug;
 use crate::task::conditionframe::FramePredicateFunc;
 use crate::task::dependency::FrameDependency;
 use crate::task::events::TaskEventEmitter;
@@ -24,6 +23,7 @@ pub use parallelframe::ParallelTaskFrame;
 pub use retryframe::RetriableTaskFrame;
 pub use selectframe::SelectTaskFrame;
 pub use sequentialframe::SequentialTaskFrame;
+use std::fmt::Debug;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -94,7 +94,7 @@ impl TaskContext {
     ///
     /// # Returns
     /// The constructed instance to be used
-    /// 
+    ///
     /// # See Also
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
@@ -111,10 +111,10 @@ impl TaskContext {
     }
 
     /// Accesses the metadata field, returning it in the process
-    /// 
+    ///
     /// # Returns
     /// The metadata field as an ``Arc<TaskMetadata>``
-    /// 
+    ///
     /// # See Also
     /// - [`TaskContext`]
     /// - [`TaskMetadata`]

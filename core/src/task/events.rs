@@ -153,14 +153,14 @@ impl<P: Send + Sync + 'static> TaskEvent<P> {
 }
 
 /// [`TaskEventEmitter`] is a sealed mechanism to allow the use of emitting [`TaskEvent`] which
-/// alerts all [`EventListener`], by itself it doesn't hot any data, but it unlocks the use 
-/// of [`TaskEventEmitter::emit`]. The reason for this is to prevent any emissions from outside parties 
+/// alerts all [`EventListener`], by itself it doesn't hot any data, but it unlocks the use
+/// of [`TaskEventEmitter::emit`]. The reason for this is to prevent any emissions from outside parties
 /// on [`TaskEvent`]
-/// 
+///
 /// # Constructor(s)
 /// There are no constructors for public use, it cannot be constructed via a constructor method
 /// nor via rust's struct initialization from the public, internally ChronoGrapher constructs it
-/// 
+///
 /// # See Also
 /// - [`TaskEvent`]
 /// - [`TaskEventListener`]
@@ -170,12 +170,12 @@ pub struct TaskEventEmitter {
 
 impl TaskEventEmitter {
     /// Emits the [`TaskEvent`], notifying all [`EventListener`] from event
-    /// 
+    ///
     /// # Argument(s)
     /// The method accepts 3 arguments, the first being ``metadata`` which is for accessing
     /// any relevant state, the second is the actual [`TaskEvent`] via ``event``. While the third is the
     /// payload of the [`TaskEvent`] via ``payload`` (it depends on what payload type the ``event`` has)
-    /// 
+    ///
     /// # See Also
     /// - [`TaskEvent`]
     /// - [`EventListener`]
