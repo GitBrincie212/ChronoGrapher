@@ -21,7 +21,7 @@ use crate::task::Task;
 /// where the task will be scheduled to execute. This system is used closely by the [`Scheduler`]
 /// and the [`Task`]
 ///
-/// # Required Methods
+/// # Required Method(s)
 /// If one wants to implement this trait, they must provide an implementation for the
 /// [`TaskSchedule::next_after`] method used to calculate the next available time
 ///
@@ -33,9 +33,12 @@ use crate::task::Task;
 ///   control on each individual field via [`TaskCalendarField`], it can be at an exact date, an interval basis... etc.
 ///   It is a good alternative to cron, as it provides second and millisecond accuracy plus being more human-friendly
 ///
-/// This trait is also implemented for any type ``Arc<T>`` where ``T`` is itself
-/// an implementation of the [`TaskSchedule`] trait, making it relatively easy to store both
+/// This trait is also implemented for any type implementing ``Deref`` where the target is ``T`` which
+/// itself is an implementation of the [`TaskSchedule`] trait, making it relatively easy to store both
 /// owned and non-owned values
+/// 
+/// # Object Safety
+/// This trait is object safe to use, as seen in the source code of [`Task`] struct
 ///
 /// # See Also
 /// - [`Scheduler`]
