@@ -1,6 +1,13 @@
+#[allow(missing_docs)]
 pub mod calendar;
+
+#[allow(missing_docs)]
 pub mod cron;
+
+#[allow(missing_docs)]
 pub mod immediate;
+
+#[allow(missing_docs)]
 pub mod interval;
 
 pub use crate::schedule::calendar::TaskCalendarField;

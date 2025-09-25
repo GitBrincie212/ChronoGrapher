@@ -1,4 +1,7 @@
+#[allow(missing_docs)]
 pub mod task_dispatcher;
+
+#[allow(missing_docs)]
 pub mod task_store;
 
 use crate::clock::*;

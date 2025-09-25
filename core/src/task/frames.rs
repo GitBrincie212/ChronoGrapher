@@ -1,12 +1,31 @@
+#[allow(missing_docs)]
 pub mod conditionframe;
+
+#[allow(missing_docs)]
 pub mod dependencyframe;
+
+#[allow(missing_docs)]
 pub mod executionframe;
+
+#[allow(missing_docs)]
 pub mod fallbackframe;
+
+#[allow(missing_docs)]
 pub mod noopframe;
+
+#[allow(missing_docs)]
 pub mod parallelframe;
+
+#[allow(missing_docs)]
 pub mod retryframe;
+
+#[allow(missing_docs)]
 pub mod selectframe;
+
+#[allow(missing_docs)]
 pub mod sequentialframe;
+
+#[allow(missing_docs)]
 pub mod timeoutframe;
 
 use std::fmt::Debug;

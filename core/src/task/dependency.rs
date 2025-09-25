@@ -1,7 +1,16 @@
+#[allow(missing_docs)]
 pub mod dynamic;
+
+#[allow(missing_docs)]
 pub mod flag;
+
+#[allow(missing_docs)]
 pub mod logical;
+
+#[allow(missing_docs)]
 pub mod metadata;
+
+#[allow(missing_docs)]
 pub mod task;
 
 use std::ops::Deref;

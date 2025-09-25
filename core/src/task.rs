@@ -1,9 +1,22 @@
+#[allow(missing_docs)]
 pub mod dependency;
+
+#[allow(missing_docs)]
 pub mod error_handler;
+
+#[allow(missing_docs)]
 pub mod events;
+
+#[allow(missing_docs)]
 pub mod frames;
+
+#[allow(missing_docs)]
 pub mod metadata;
+
+#[allow(missing_docs)]
 pub mod priority;
+
+#[allow(missing_docs)]
 pub mod frame_builder;
 
 pub use crate::schedule::*;
