@@ -9,7 +9,7 @@ use async_trait::async_trait;
 /// # Events
 /// When it comes to events, [`ExecutionTaskFrame`] comes with the default set of events, as
 /// there is nothing else to listen for / subscribe to
-/// 
+///
 /// # Trait Implementation(s)
 /// It is obvious that the [`ExecutionTaskFrame`] implements [`TaskFrame`] since this
 /// is a part of the default provided implementations, however there are many others

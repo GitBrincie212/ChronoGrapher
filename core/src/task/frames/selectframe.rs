@@ -134,14 +134,17 @@ where
 pub struct SelectTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
     accessor: Arc<dyn SelectFrameAccessor>,
-    
+
     /// Event fired when a [`TaskFrame`] is successfully selected,
     /// without any errors (no index out of bounds)
     pub on_select: ArcTaskEvent<Arc<dyn TaskFrame>>,
 }
 
 impl SelectTaskFrame {
-    pub fn new(tasks: Vec<Arc<dyn TaskFrame>>, accessor: impl SelectFrameAccessor + 'static) -> Self {
+    pub fn new(
+        tasks: Vec<Arc<dyn TaskFrame>>,
+        accessor: impl SelectFrameAccessor + 'static,
+    ) -> Self {
         Self {
             tasks,
             accessor: Arc::new(accessor),

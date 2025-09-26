@@ -1,6 +1,6 @@
 use crate::task::{
-    ArcTaskEvent, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure,
-    TaskContext, TaskError, TaskEvent, TaskFrame
+    ArcTaskEvent, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure, TaskContext,
+    TaskError, TaskEvent, TaskFrame,
 };
 use async_trait::async_trait;
 use std::sync::Arc;

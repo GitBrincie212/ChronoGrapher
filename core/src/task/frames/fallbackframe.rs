@@ -18,7 +18,7 @@ use std::sync::Arc;
 /// [`FallbackTaskFrame`] includes one event for when the fallback is triggered. Handing out the fallback
 /// task frame instance being executed as well as the task error which can be accessed via the `on_fallback`
 /// field
-/// 
+///
 /// # Trait Implementation(s)
 /// It is obvious that the [`FallbackTaskFrame`] implements [`TaskFrame`] since this
 /// is a part of the default provided implementations, however there are many others
