@@ -1,25 +1,8 @@
-use crate::policy_match;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::mpsc;
-
-/// Defines a policy set for the [`ParallelTaskFrame`], these change the behavior of how the
-/// parallel task frame operates, by default the parallel policy
-/// [`ParallelTaskPolicy::RunSilenceFailures`] is used
-pub enum ParallelTaskPolicy {
-    /// Runs a task frame and its results do not affect the [`ParallelTaskFrame`]
-    RunSilenceFailures,
-
-    /// Runs a task frame, if it succeeds then it halts the other task frames and
-    /// returns / halts [`ParallelTaskFrame`], if not then it ignores the results and continues
-    RunUntilSuccess,
-
-    /// Runs a task frame, if it fails then it halts the other task frames and
-    /// returns the error and halts [`ParallelTaskFrame`], if not then it ignores the results
-    /// and continues
-    RunUntilFailure,
-}
+use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure};
 
 /// Represents a **parallel task frame** which wraps multiple task frames to execute at the same time.
 /// This task frame type acts as a **composite node** within the task frame hierarchy, facilitating a
@@ -28,11 +11,16 @@ pub enum ParallelTaskPolicy {
 /// execution is unordered, and thus one task may be executed sooner than another, in this case,
 /// it is advised to use [`SequentialTaskFrame`] as opposed to [`ParallelTaskFrame`]
 ///
+/// # Constructor(s)
+/// When constructing a [`ParallelTask`], one can use either [`ParallelTask::new`] for no explicit
+/// [`GroupedTaskFramesExecBehavior`] policy (convenience) or [`ParallelTask::new_with`]
+/// if they do want to specify the [`GroupedTaskFramesExecBehavior`] policy as well
+///
 /// # Events
-/// For events, [`ParallelTask`] has 2 of them, these being `on_child_start` and `on_child_end`,
-/// the former is for when a child task frame is about to start, the event hands out the target
-/// task frame. For the latter, it is for when a child task frame ends, the event hands out the
-/// target task frame and an optional error in case it fails
+/// For events, [`ParallelTask`] has 2 of them, these being [`ParallelTask::on_child_start`] and
+/// [`ParallelTask::on_child_end`],the former is for when a child task frame is about to start, the
+/// event hands out the target [`TaskFrame`]. For the latter, it is for when a child task frame ends,
+/// the event hands out the target task frame and an optional error in case it fails
 ///
 /// # Example
 /// ```ignore
@@ -44,21 +32,21 @@ pub enum ParallelTaskPolicy {
 /// use chronographer_core::task::Task;
 ///
 /// let primary_frame = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Primary task frame fired...");
 ///         Ok(())
 ///     }
 /// );
 ///
 /// let secondary_frame = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Secondary task frame fired...");
 ///         Ok(())
 ///     }
 /// );
 ///
 /// let tertiary_frame = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Tertiary task frame fired...");
 ///         Err(())
 ///     }
@@ -76,25 +64,71 @@ pub enum ParallelTaskPolicy {
 ///
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
+///
+/// # See Also
+/// - [`TaskFrame`]
+/// - [`SequentialTaskFrame`]
+/// - [`GroupedTaskFramesExecBehavior`]
 pub struct ParallelTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
-    policy: ParallelTaskPolicy,
+    policy: Arc<dyn GroupedTaskFramesExecBehavior>,
+
+    /// Event fired for when a child [`TaskFrame`] starts execution
     pub on_child_start: ArcTaskEvent<Arc<dyn TaskFrame>>,
+
+    /// Event fired for when a child [`TaskFrame`] has ended execution
     pub on_child_end: ArcTaskEvent<(Arc<dyn TaskFrame>, Option<TaskError>)>,
 }
 
 impl ParallelTaskFrame {
+    /// Creates / Constructs a new [`ParallelTaskFrame`] instance based on
+    /// the child [`TaskFrame`] collection supplied. If one wishes to
+    /// also supply their own [`GroupedTaskFramesExecBehavior`], then they can use
+    /// [`ParallelTaskFrame::new_with`]
+    ///
+    /// # Argument(s)
+    /// This method accepts one single argument, that is the collection of [`TaskFrame`] to wrap
+    /// around the [`ParallelTaskFrame`] to execute concurrently
+    ///
+    /// # Returns
+    /// A fully created [`ParallelTaskFrame`] with the wrapped ``tasks``
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`GroupedTaskFramesExecBehavior`]
+    /// - [`ParallelTaskFrame::new_with`]
+    /// - [`ParallelTaskFrame`]
     pub fn new(tasks: Vec<Arc<dyn TaskFrame>>) -> Self {
-        Self::new_with(tasks, ParallelTaskPolicy::RunSilenceFailures)
+        Self::new_with(tasks, GroupedTaskFramesQuitOnFailure)
     }
 
+    /// Creates / Constructs a new [`ParallelTaskFrame`] instance based on
+    /// the child [`TaskFrame`] collection and a [`GroupedTaskFramesExecBehavior`] policy supplied.
+    /// If one wishes to prefer the default [`GroupedTaskFramesExecBehavior`], then they can use
+    /// [`ParallelTaskFrame::new`] for convenience
+    ///
+    /// # Argument(s)
+    /// This method accepts two arguments, those being the collection of [`TaskFrame`] to wrap
+    /// around the [`ParallelTaskFrame`] to execute concurrently and a [`GroupedTaskFramesExecBehavior`]
+    /// policy
+    ///
+    /// # Returns
+    /// A fully created [`ParallelTaskFrame`] with the wrapped ``tasks`` and a custom ``policy``
+    /// as a [`GroupedTaskFramesExecBehavior`]
+    /// ``
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`GroupedTaskFramesExecBehavior`]
+    /// - [`ParallelTaskFrame::new`]
+    /// - [`ParallelTaskFrame`]
     pub fn new_with(
         tasks: Vec<Arc<dyn TaskFrame>>,
-        parallel_task_policy: ParallelTaskPolicy,
+        policy: impl GroupedTaskFramesExecBehavior + 'static,
     ) -> Self {
         Self {
             tasks,
-            policy: parallel_task_policy,
+            policy: Arc::new(policy),
             on_child_end: TaskEvent::new(),
             on_child_start: TaskEvent::new(),
         }
@@ -116,6 +150,7 @@ impl TaskFrame for ParallelTaskFrame {
                         let context_clone = ctx.clone();
                         let result_tx = result_tx.clone();
                         let child_start = self.on_child_start.clone();
+                        let child_end = self.on_child_end.clone();
                         s.spawn(move || {
                             tokio::spawn(async move {
                                 context_clone
@@ -127,8 +162,17 @@ impl TaskFrame for ParallelTaskFrame {
                                         frame_clone.clone(),
                                     )
                                     .await;
-                                let result = frame_clone.execute(context_clone).await;
-                                let _ = result_tx.send((frame_clone, result));
+                                let result = frame_clone.execute(context_clone.clone()).await;
+                                context_clone
+                                    .emitter
+                                    .clone()
+                                    .emit(
+                                        context_clone.metadata.clone(),
+                                        child_end,
+                                        (frame_clone, result.clone().err())
+                                    )
+                                    .await;
+                                let _ = result_tx.send(result);
                             })
                         });
                     }
@@ -138,15 +182,11 @@ impl TaskFrame for ParallelTaskFrame {
 
         drop(result_tx);
 
-        while let Some((task, result)) = result_rx.recv().await {
-            policy_match!(
-                ctx.metadata,
-                ctx.emitter,
-                task,
-                self,
-                result,
-                ParallelTaskPolicy
-            );
+        while let Some(result) = result_rx.recv().await {
+            let should_quit = self.policy.should_quit(result);
+            if let Some(res) = should_quit {
+                return res;
+            }
         }
 
         Ok(())
