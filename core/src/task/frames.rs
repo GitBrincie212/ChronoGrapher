@@ -43,6 +43,7 @@ pub use parallelframe::ParallelTaskFrame;
 pub use retryframe::RetriableTaskFrame;
 pub use selectframe::SelectTaskFrame;
 pub use sequentialframe::SequentialTaskFrame;
+pub use noopframe::NoOperationTaskFrame;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::ops::Deref;
