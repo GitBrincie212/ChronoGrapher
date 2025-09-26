@@ -1,20 +1,20 @@
 #[allow(missing_docs)]
-pub mod clock;
+pub mod clock; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod errors;
+pub mod errors; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod schedule;
+pub mod schedule; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod scheduler;
+pub mod scheduler; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod scheduling_strats;
+pub mod scheduling_strats; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod task;
+pub mod task; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub(crate) mod utils;
+pub(crate) mod utils; // skipcq: RS-D1001

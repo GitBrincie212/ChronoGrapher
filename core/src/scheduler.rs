@@ -1,8 +1,8 @@
 #[allow(missing_docs)]
-pub mod task_dispatcher;
+pub mod task_dispatcher; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod task_store;
+pub mod task_store; // skipcq: RS-D1001
 
 use crate::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};

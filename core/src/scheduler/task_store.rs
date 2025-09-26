@@ -1,5 +1,5 @@
 #[allow(missing_docs)]
-pub mod ephemeral;
+pub mod ephemeral; // skipcq: RS-D1001
 
 pub use ephemeral::*;
 use std::fmt::Debug;

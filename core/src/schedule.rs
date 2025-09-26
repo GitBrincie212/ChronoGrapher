@@ -1,14 +1,14 @@
 #[allow(missing_docs)]
-pub mod calendar;
+pub mod calendar; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod cron;
+pub mod cron; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod immediate;
+pub mod immediate; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod interval;
+pub mod interval; // skipcq: RS-D1001
 
 pub use crate::schedule::calendar::TaskCalendarField;
 pub use crate::schedule::calendar::TaskScheduleCalendar;

@@ -1,35 +1,35 @@
 #[allow(missing_docs)]
-pub mod conditionframe;
+pub mod conditionframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod dependencyframe;
+pub mod dependencyframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod executionframe;
+pub mod executionframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod fallbackframe;
+pub mod fallbackframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod noopframe;
+pub mod noopframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod parallelframe;
+pub mod parallelframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod retryframe;
+pub mod retryframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod selectframe;
+pub mod selectframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod sequentialframe;
+pub mod sequentialframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod timeoutframe;
+pub mod timeoutframe; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod misc;
+pub mod misc; // skipcq: RS-D1001
 
 use crate::task::events::TaskEventEmitter;
 use crate::task::{Task, TaskMetadata, TaskPriority};
