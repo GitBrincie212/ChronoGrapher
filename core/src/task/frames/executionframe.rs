@@ -18,7 +18,7 @@ use async_trait::async_trait;
 /// use chronographer_core::task::Task;
 ///
 /// let task_frame = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Hello from an execution task!");
 ///         Ok(())
 ///     }
