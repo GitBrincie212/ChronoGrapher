@@ -106,7 +106,7 @@ impl TaskFrame for SequentialTaskFrame {
                     (task.clone(), result.clone().err()),
                 )
                 .await;
-            let should_quit = self.policy.should_quit(result);
+            let should_quit = self.policy.should_quit(result).await;
             if let Some(res) = should_quit {
                 return res;
             }

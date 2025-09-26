@@ -3,6 +3,7 @@ use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 
+/// [`FrameAccessorFunc`]
 #[async_trait]
 pub trait FrameAccessorFunc: Send + Sync {
     async fn execute(&self, ctx: Arc<TaskContext>) -> usize;

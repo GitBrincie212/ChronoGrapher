@@ -69,6 +69,7 @@ use tokio::sync::mpsc;
 /// - [`TaskFrame`]
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
+//noinspection DuplicatedCode
 pub struct ParallelTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
     policy: Arc<dyn GroupedTaskFramesExecBehavior>,
@@ -183,7 +184,7 @@ impl TaskFrame for ParallelTaskFrame {
         drop(result_tx);
 
         while let Some(result) = result_rx.recv().await {
-            let should_quit = self.policy.should_quit(result);
+            let should_quit = self.policy.should_quit(result).await;
             if let Some(res) = should_quit {
                 return res;
             }

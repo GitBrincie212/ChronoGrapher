@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use crate::task::TaskError;
 
 #[allow(unused_imports)]
@@ -33,8 +34,9 @@ use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
 /// - [`SequentialTaskFrame`]
 /// - [`TaskFrame`]
 /// - [`GroupedTaskFrameExecBehavior::should_quit`]
+#[async_trait]
 pub trait GroupedTaskFramesExecBehavior: Send + Sync {
-    fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>>;
+    async fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>>;
 }
 
 /// [`GroupedTaskFramesQuitOnSuccess`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -56,8 +58,10 @@ pub trait GroupedTaskFramesExecBehavior: Send + Sync {
 /// - [`GroupedTaskFramesExecBehavior`]
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GroupedTaskFramesQuitOnSuccess;
+
+#[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
-    fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
+    async fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
         match result {
             Ok(()) => Some(Ok(())),
             Err(_) => None,
@@ -83,8 +87,10 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
 pub struct GroupedTaskFramesQuitOnFailure;
+
+#[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
-    fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
+    async fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
         match result {
             Ok(()) => None,
             Err(err) => Some(Err(err)),
@@ -110,8 +116,10 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
 pub struct GroupedTaskFramesSilent;
+
+#[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
-    fn should_quit(&self, _result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
+    async fn should_quit(&self, _result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
         None
     }
 }
