@@ -28,6 +28,9 @@ pub mod sequentialframe;
 #[allow(missing_docs)]
 pub mod timeoutframe;
 
+#[allow(missing_docs)]
+pub mod misc;
+
 use crate::task::events::TaskEventEmitter;
 use crate::task::{Task, TaskMetadata, TaskPriority};
 use async_trait::async_trait;
@@ -39,6 +42,7 @@ pub use parallelframe::ParallelTaskFrame;
 pub use retryframe::RetriableTaskFrame;
 pub use selectframe::SelectTaskFrame;
 pub use sequentialframe::SequentialTaskFrame;
+pub use misc::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::ops::Deref;
