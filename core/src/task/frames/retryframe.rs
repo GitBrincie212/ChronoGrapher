@@ -10,10 +10,22 @@ use std::time::Duration;
 /// implementations to use which can be stacked (tho stacking too many of them doesn't
 /// provide flexibility, simplicity is often preferred than more complex retry delay strategies).
 ///
-/// Some example implementations are:
+/// # Required Method(s)
+/// When implementing the [`RetryBackoffStrategy`] trait, one has to supply an implementation
+/// for the method [`RetryBackoffStrategy::compute`] which is where the logic to compute
+/// the delay resides in
+///
+/// # Trait Implementation(s)
+/// There are 3 implementations of [`RetryBackoffStrategy`] trait in the library, those being:
 /// - [`ConstantDelayStrategy`] Wraps a duration and gives the same duration
 /// - [`ExponentialBackoffStrategy`] For exponential backoff based on a factor
 /// - [`JitterBackoffStrategy`] For randomly-based jitter from a backoff strategy
+///
+/// # See Also
+/// - [`RetriableTaskFrame`]
+/// - [`ConstantDelayStrategy`]
+/// - [`ExponentialBackoffStrategy`]
+/// - [`JitterBackoffStrategy`]
 #[async_trait]
 pub trait RetryBackoffStrategy: Debug + Send + Sync + 'static {
     async fn compute(&self, retry: u32) -> Duration;
@@ -28,10 +40,34 @@ impl<RBS: RetryBackoffStrategy + ?Sized> RetryBackoffStrategy for Arc<RBS> {
 
 /// [`ConstantBackoffStrategy`] is an implementation of the [`RetryBackoffStrategy`],
 /// essentially wrapping a [`Duration`]
-#[derive(Debug)]
+///
+/// # Constructor(s)
+/// One can simply use [`ConstantBackoffStrategy::new`] to construct a new
+/// [`ConstantBackoffStrategy`] instance with a supplied duration
+///
+/// # Trait Implementation(s)
+/// Obviously [`ConstantBackoffStrategy`] implements the trait [`RetryBackoffStrategy`], but
+/// also [`Debug`], [`Clone`], [`Copy`], [`PartialEq`] and [`Eq`]
+///
+/// # See Also
+/// - [`RetryBackoffStrategy`]
+/// - [`ConstantBackoffStrategy::new`]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConstantBackoffStrategy(Duration);
 
 impl ConstantBackoffStrategy {
+    /// Constructs / Creates a new [`ConstantBackoffStrategy`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts only one argument, that being the ``duration``,
+    /// which is a constant delay to apply
+    ///
+    /// # Returns
+    /// The fully constructed [`ConstantBackoffStrategy`] with a constant
+    /// delay of ``duration``
+    ///
+    /// # See Also
+    /// - [`ConstantBackoffStrategy`]
     pub fn new(duration: Duration) -> Self {
         Self(duration)
     }
@@ -47,14 +83,53 @@ impl RetryBackoffStrategy for ConstantBackoffStrategy {
 /// [`ExponentialBackoffStrategy`] is an implementation of the [`RetryBackoffStrategy`], essentially
 /// the more retries happen throughout, the more the duration grows by a specified factor til it reaches
 /// a specified maximum threshold in which it will remain constant
-#[derive(Debug)]
+///
+/// # Constructor(s)
+/// There are two constructors to use, if one wants boundless duration, then [`ExponentialBackoffStrategy::new`]
+/// is used for convenience, otherwise [`ExponentialBackoffStrategy::new_with`] to specify a maximum
+/// threshold
+///
+/// # Trait Implementation(s)
+/// Obviously [`ExponentialBackoffStrategy`] implements the trait [`RetryBackoffStrategy`], but
+/// also [`Debug`], [`Clone`], [`Copy`], [`PartialEq`]
+///
+/// # See Also
+/// - [`RetryBackoffStrategy`]
+/// - [`ExponentialBackoffStrategy::new`]
+/// - [`ExponentialBackoffStrategy::new_with`]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ExponentialBackoffStrategy(f64, f64);
 
 impl ExponentialBackoffStrategy {
+    /// Constructs / Creates a new [`ExponentialBackoffStrategy`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, that is the ``factor`` which determines
+    /// how much the duration should grow per retry
+    ///
+    /// # Returns
+    /// A fully constructed [`ExponentialBackoffStrategy`] with no maximum threshold
+    /// and a growth factor as ``factor``
+    ///
+    /// # See Also
+    /// - [`ExponentialBackoffStrategy`]
     pub fn new(factor: f64) -> Self {
         Self(factor, f64::INFINITY)
     }
 
+    /// Constructs / Creates a new [`ExponentialBackoffStrategy`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts two arguments, those being the ``factor`` which determines
+    /// how much the duration should grow per retry and the ``max_duration`` which is a threshold
+    /// / ceiling the duration cannot surpass
+    ///
+    /// # Returns
+    /// A fully constructed [`ExponentialBackoffStrategy`] with maximum threshold of ``max_duration``
+    /// and a growth factor as ``factor``
+    ///
+    /// # See Also
+    /// - [`ExponentialBackoffStrategy`]
     pub fn new_with(factor: f64, max_duration: f64) -> Self {
         Self(factor, max_duration)
     }
@@ -69,10 +144,35 @@ impl RetryBackoffStrategy for ExponentialBackoffStrategy {
 
 /// [`JitterBackoffStrategy`] is an implementation of [`RetryBackoffStrategy`], acting as a wrapper
 /// around a backoff strategy, essentially it distorts the results by a specified randomness factor
-#[derive(Debug)]
+///
+/// # Constructor(s)
+/// The only way to construct a [`JitterBackoffStrategy`] is via [`JitterBackoffStrategy::new`]
+/// with a provided randomness / jiter factor
+///
+/// # Trait Implementation(s)
+/// Obviously [`JitterBackoffStrategy`] implements the trait [`RetryBackoffStrategy`], but
+/// also [`Debug`], [`Clone`] and [`Copy`]
+///
+/// # See Also
+/// - [`JitterBackoffStrategy::new`]
+/// - [`RetryBackoffStrategy`]
+#[derive(Debug, Clone, Copy)]
 pub struct JitterBackoffStrategy<T: RetryBackoffStrategy>(T, f64);
 
 impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
+    /// Creates / Constructs a new [`JitterBackoffStrategy`]
+    ///
+    /// # Argument(s)
+    /// This method accepts two arguments, those being a wrapped ``strat``
+    /// of type [`RetryBackoffStrategy`] and a jittered ``factor`` for
+    /// how much noise to add to the computed result
+    ///
+    /// # Returns
+    /// A fully constructed [`JitterBackoffStrategy`], with a wrapped [`RetryBackoffStrategy`]
+    /// as ``strat`` and a noise / jittered factor being ``factor``
+    ///
+    /// # See Also
+    /// - [`JitterBackoffStrategy`]
     pub fn new(strat: T, factor: f64) -> Self {
         Self(strat, factor)
     }
@@ -86,13 +186,22 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
     }
 }
 
-/// Represents a **retriable task frame** which wraps a task frame. This task frame type acts as a
+/// Represents a **retriable task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the task frame hierarchy, providing a retry mechanism for execution.
 ///
 /// # Behavior
 /// - Executes the **wrapped task frame**.
 /// - If the task frame fails, it re-executes it again after a specified delay (or instantaneous).
 /// - Repeat the process for a specified number of retries til the task frame succeeds
+///
+/// # Constructor(s)
+/// When constructing a [`RetriableTaskFrame`], one can use 3 constructors at their disposal:
+/// - [`RetriableTaskFrame::new`] Creates a [`RetriableTaskFrame`] with a
+/// constant delay per retry and a specified number of retries
+/// - [`RetriableTaskFrame::new_instant`] Creates a [`RetriableTaskFrame`] with a
+/// no delay per retry and a specified number of retries
+/// - [`RetriableTaskFrame::new_with`] Creates a [`RetriableTaskFrame`] with a
+/// custom [`RetryBackoffStrategy`] and a specified number of retries
 ///
 /// # Events
 /// [`RetriableTaskFrame`] provides 2 events, namely ``on_retry_start`` which executes when a retry
@@ -125,8 +234,12 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
 ///
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
+///
+/// # See Also
+/// - [`TaskFrame`]
+/// - [`RetryBackoffStrategy`]
 pub struct RetriableTaskFrame<T: 'static, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
-    task: Arc<T>,
+    frame: Arc<T>,
     retries: NonZeroU32,
     backoff_strat: T2,
     pub on_retry_start: ArcTaskEvent<Arc<T>>,
@@ -134,10 +247,22 @@ pub struct RetriableTaskFrame<T: 'static, T2: RetryBackoffStrategy = ConstantBac
 }
 
 impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
-    /// Creates a retriable task that has a specified delay per retry
-    pub fn new(task: T, retries: NonZeroU32, delay: Duration) -> Self {
+    /// Creates / Constructs a [`RetriableTaskFrame`] that has a specified delay per retry
+    ///
+    /// # Argument(s)
+    /// This method accepts 3 arguments, the first being the [`TaskFrame`] as ``frame``, the second
+    /// being the number of retries as ``retries`` and the third being a constant delay as ``delay``
+    ///
+    /// # Returns
+    /// The constructed [`RetriableTaskFrame`] instance that wraps a [`TaskFrame`] as ``frame`` which
+    /// will be retried ``retries`` times until it succeeds with each retry having a delay of ``delay``
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`RetriableTaskFrame`]
+    pub fn new(frame: T, retries: NonZeroU32, delay: Duration) -> Self {
         Self {
-            task: Arc::new(task),
+            frame: Arc::new(frame),
             retries,
             backoff_strat: ConstantBackoffStrategy::new(delay),
             on_retry_end: TaskEvent::new(),
@@ -145,17 +270,44 @@ impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
         }
     }
 
-    /// Creates a retriable task that has no delay per retry
+    /// Creates / Constructs a [`RetriableTaskFrame`] that has no delay per retry
+    ///
+    /// # Argument(s)
+    /// This method accepts 2 arguments, the first being the [`TaskFrame`] as ``frame`` and
+    /// the second being the number of retries as ``retries``
+    ///
+    /// # Returns
+    /// The constructed [`RetriableTaskFrame`] instance that wraps a [`TaskFrame`] as ``frame`` which
+    /// will be retried ``retries`` times until it succeeds with no delay in between
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`RetriableTaskFrame`]
     pub fn new_instant(task: T, retries: NonZeroU32) -> Self {
         RetriableTaskFrame::<T, ConstantBackoffStrategy>::new(task, retries, Duration::ZERO)
     }
 }
 
 impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2> {
-    /// Creates a retriable task that has a specific backoff strategy per retry
+    /// Creates / Constructs a [`RetriableTaskFrame`] that has a custom backoff strategy per retry
+    ///
+    /// # Argument(s)
+    /// This method accepts 3 arguments, the first being the [`TaskFrame`] as ``frame``, the second
+    /// being the number of retries as ``retries`` and the third being a custom [`RetryBackoffStrategy`]
+    /// as ``backoff_strat``
+    ///
+    /// # Returns
+    /// The constructed [`RetriableTaskFrame`] instance that wraps a [`TaskFrame`] as ``frame`` which
+    /// will be retried ``retries`` times until it succeeds with each retry's delay being computed
+    /// in a [`RetryBackoffStrategy`] via ``backoff_strat``
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`RetryBackoffStrategy`]
+    /// - [`RetriableTaskFrame`]
     pub fn new_with(task: T, retries: NonZeroU32, backoff_strat: T2) -> Self {
         Self {
-            task: Arc::new(task),
+            frame: Arc::new(task),
             retries,
             backoff_strat,
             on_retry_end: TaskEvent::new(),
@@ -174,18 +326,18 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                     .emit(
                         ctx.metadata.clone(),
                         self.on_retry_start.clone(),
-                        self.task.clone(),
+                        self.frame.clone(),
                     )
                     .await;
             }
-            let result = self.task.execute(ctx.clone()).await;
+            let result = self.frame.execute(ctx.clone()).await;
             match result {
                 Ok(_) => {
                     ctx.emitter
                         .emit(
                             ctx.metadata.clone(),
                             self.on_retry_end.clone(),
-                            (self.task.clone(), None),
+                            (self.frame.clone(), None),
                         )
                         .await;
                     return Ok(());
@@ -196,7 +348,7 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                         .emit(
                             ctx.metadata.clone(),
                             self.on_retry_end.clone(),
-                            (self.task.clone(), error.clone()),
+                            (self.frame.clone(), error.clone()),
                         )
                         .await;
                 }
