@@ -174,8 +174,9 @@ where
 /// primary task always and potentially then the second task frame
 ///
 /// # Events
-/// For events, [`ConditionalFrame`] has only two events, those being ``on_true`` and ``on_false``,
-/// they execute depending on the predicate and both host the target task frame which will be executed
+/// For events, [`ConditionalFrame`] has only two events, those being [`ConditionalFrame::on_true`] 
+/// and [`ConditionalFrame::on_false`], they execute depending on the predicate and both host the 
+/// target [`TaskFrame`] which will be executed
 ///
 /// # Constructor(s)
 /// When construing a [`ConditionalFrame`] one can use [`ConditionalFrame::fallback_builder`] which
@@ -197,7 +198,7 @@ where
 /// use chronographer_core::task::Task;
 ///
 /// let primary_frame = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Primary task frame fired...");
 ///         Ok(())
 ///     }
@@ -205,7 +206,7 @@ where
 ///
 /// // This is optional to specify
 /// let secondary_frame = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Secondary task frame fired...");
 ///         Ok(())
 ///     }
