@@ -4,6 +4,10 @@ use std::sync::Arc;
 
 /// Represents a **fallback task frame** which wraps two other task frames. This task frame type acts as a
 /// **composite node** within the task frame hierarchy, providing a failover mechanism for execution.
+/// 
+/// # Constructor(s)
+/// When constructing a [`FallbackTaskFrame`], the only way is via [`FallbackTaskFrame::new`]
+/// which requires the two [`TaskFrame`], one primary and one fallback to construct
 ///
 /// # Behavior
 /// - Executes the **primary task frame** first.
@@ -23,14 +27,14 @@ use std::sync::Arc;
 /// use chronographer_core::task::{FallbackTaskFrame, Task};
 ///
 /// let primary_frame = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Trying primary task frame...");
 ///         Err::<(), ()>(())
 ///     }
 /// );
 ///
 /// let secondary_frame = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Primary failed, running fallback task frame!");
 ///         Ok::<(), ()>(())
 ///     }
