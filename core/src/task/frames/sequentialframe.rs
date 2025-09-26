@@ -1,6 +1,6 @@
 use crate::task::{
-    ArcTaskEvent, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure,
-    TaskContext, TaskError, TaskEvent, TaskFrame
+    ArcTaskEvent, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure, TaskContext,
+    TaskError, TaskEvent, TaskFrame,
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -103,7 +103,7 @@ impl TaskFrame for SequentialTaskFrame {
                 .emit(
                     ctx.metadata.clone(),
                     self.on_child_end.clone(),
-                    (task.clone(), result.clone().err())
+                    (task.clone(), result.clone().err()),
                 )
                 .await;
             let should_quit = self.policy.should_quit(result);

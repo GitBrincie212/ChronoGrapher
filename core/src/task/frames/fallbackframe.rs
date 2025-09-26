@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 /// Represents a **fallback task frame** which wraps two other task frames. This task frame type acts as a
 /// **composite node** within the task frame hierarchy, providing a failover mechanism for execution.
-/// 
+///
 /// # Constructor(s)
 /// When constructing a [`FallbackTaskFrame`], the only way is via [`FallbackTaskFrame::new`]
 /// which requires the two [`TaskFrame`], one primary and one fallback to construct

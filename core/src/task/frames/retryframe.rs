@@ -197,11 +197,11 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
 /// # Constructor(s)
 /// When constructing a [`RetriableTaskFrame`], one can use 3 constructors at their disposal:
 /// - [`RetriableTaskFrame::new`] Creates a [`RetriableTaskFrame`] with a
-/// constant delay per retry and a specified number of retries
+///   constant delay per retry and a specified number of retries
 /// - [`RetriableTaskFrame::new_instant`] Creates a [`RetriableTaskFrame`] with a
-/// no delay per retry and a specified number of retries
+///   no delay per retry and a specified number of retries
 /// - [`RetriableTaskFrame::new_with`] Creates a [`RetriableTaskFrame`] with a
-/// custom [`RetryBackoffStrategy`] and a specified number of retries
+///   custom [`RetryBackoffStrategy`] and a specified number of retries
 ///
 /// # Events
 /// [`RetriableTaskFrame`] provides 2 events, namely ``on_retry_start`` which executes when a retry

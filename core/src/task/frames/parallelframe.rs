@@ -1,8 +1,8 @@
+use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure};
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::mpsc;
-use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure};
 
 /// Represents a **parallel task frame** which wraps multiple task frames to execute at the same time.
 /// This task frame type acts as a **composite node** within the task frame hierarchy, facilitating a
@@ -169,7 +169,7 @@ impl TaskFrame for ParallelTaskFrame {
                                     .emit(
                                         context_clone.metadata.clone(),
                                         child_end,
-                                        (frame_clone, result.clone().err())
+                                        (frame_clone, result.clone().err()),
                                     )
                                     .await;
                                 let _ = result_tx.send(result);

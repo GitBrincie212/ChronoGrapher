@@ -174,8 +174,8 @@ where
 /// primary task always and potentially then the second task frame
 ///
 /// # Events
-/// For events, [`ConditionalFrame`] has only two events, those being [`ConditionalFrame::on_true`] 
-/// and [`ConditionalFrame::on_false`], they execute depending on the predicate and both host the 
+/// For events, [`ConditionalFrame`] has only two events, those being [`ConditionalFrame::on_true`]
+/// and [`ConditionalFrame::on_false`], they execute depending on the predicate and both host the
 /// target [`TaskFrame`] which will be executed
 ///
 /// # Constructor(s)
