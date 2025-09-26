@@ -10,6 +10,10 @@ use async_trait::async_trait;
 ///
 /// # Events
 /// When it comes to events, [`NoOperationTaskFrame`], it has no local task frame events
+///
+/// # Trait Implementation(s)
+/// It is obvious that the [`NoOperationTaskFrame`] implements [`TaskFrame`] since this
+/// is a part of the default provided implementations, however there are many others
 pub struct NoOperationTaskFrame;
 
 #[async_trait]
