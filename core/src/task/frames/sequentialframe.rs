@@ -1,24 +1,9 @@
-use crate::policy_match;
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{
+    ArcTaskEvent, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure,
+    TaskContext, TaskError, TaskEvent, TaskFrame
+};
 use async_trait::async_trait;
 use std::sync::Arc;
-
-/// Defines a policy set for the [`SequentialTaskFrame`], these change the behavior of how the
-/// parallel task frame operates, by default the parallel policy
-/// [`SequentialTaskPolicy::RunSilenceFailures`] is used
-pub enum SequentialTaskPolicy {
-    /// Runs a task frame and its results do not affect the [`SequentialTaskFrame`]
-    RunSilenceFailures,
-
-    /// Runs a task frame, if it succeeds then it halts the other task frames and
-    /// halts [`SequentialTaskFrame`], if not then it ignores the results and continues
-    RunUntilSuccess,
-
-    /// Runs a task frame, if it fails then it halts the other task frames and
-    /// returns the error, halting [`SequentialTaskFrame`], if not then it ignores the results
-    /// and continues
-    RunUntilFailure,
-}
 
 /// Represents a **sequential task frame** which wraps multiple task frames to execute at the same time
 /// in a sequential manner. This task frame type acts as a **composite node** within the task frame hierarchy,
@@ -74,25 +59,26 @@ pub enum SequentialTaskPolicy {
 ///
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
+//noinspection DuplicatedCode
 pub struct SequentialTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
-    policy: SequentialTaskPolicy,
+    policy: Arc<dyn GroupedTaskFramesExecBehavior>,
     pub on_child_start: ArcTaskEvent<Arc<dyn TaskFrame>>,
     pub on_child_end: ArcTaskEvent<(Arc<dyn TaskFrame>, Option<TaskError>)>,
 }
 
 impl SequentialTaskFrame {
     pub fn new(tasks: Vec<Arc<dyn TaskFrame>>) -> SequentialTaskFrame {
-        Self::new_with(tasks, SequentialTaskPolicy::RunSilenceFailures)
+        Self::new_with(tasks, GroupedTaskFramesQuitOnFailure)
     }
 
     pub fn new_with(
         tasks: Vec<Arc<dyn TaskFrame>>,
-        sequential_policy: SequentialTaskPolicy,
+        sequential_policy: impl GroupedTaskFramesExecBehavior + 'static,
     ) -> SequentialTaskFrame {
         Self {
             tasks,
-            policy: sequential_policy,
+            policy: Arc::new(sequential_policy),
             on_child_end: TaskEvent::new(),
             on_child_start: TaskEvent::new(),
         }
@@ -112,14 +98,18 @@ impl TaskFrame for SequentialTaskFrame {
                 )
                 .await;
             let result = task.execute(ctx.clone()).await;
-            policy_match!(
-                ctx.metadata,
-                ctx.emitter,
-                task,
-                self,
-                result,
-                SequentialTaskPolicy
-            );
+            ctx.emitter
+                .clone()
+                .emit(
+                    ctx.metadata.clone(),
+                    self.on_child_end.clone(),
+                    (task.clone(), result.clone().err())
+                )
+                .await;
+            let should_quit = self.policy.should_quit(result);
+            if let Some(res) = should_quit {
+                return res;
+            }
         }
         Ok(())
     }
