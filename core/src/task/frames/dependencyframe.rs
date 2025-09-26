@@ -147,9 +147,16 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
 /// [`DependencyTaskFrame::builder`] which creates a builder for [`DependencyTaskFrame`], then
 /// simply supply the required fields and done
 ///
+///
+/// # Behavior
+/// - Before executing the [`TaskFrame`] it calls [`FrameDependency::is_resolved`] on all
+///   dependencies and checks if all of them are true
+/// - if they are then the [`TaskFrame`] executes, otherwise [`DependentFailBehavior`] takes over
+///
 /// # Events
-/// When it comes to events, [`DependencyTaskFrame`] comes with the default set of events, as
-/// there is nothing else to listen for / subscribe to
+/// When it comes to events, [`DependencyTaskFrame`], there is only one, that being
+/// [`ConditionalFrame::on_dependency`] which is triggered for every dependency and
+/// hosts the [`FrameDependency`] as well as if it has been resolved (as boolean)
 ///
 /// # Trait Implementation(s)
 /// It is obvious that the [`DependencyTaskFrame`] implements [`TaskFrame`] since this
@@ -165,14 +172,14 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
 /// use chronographer_core::task::dependency::TaskDependency;
 ///
 /// let exec_frame1 = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Hello from primary execution task!");
 ///         Ok(())
 ///     }
 /// );
 ///
 /// let exec_frame2 = ExecutionTaskFrame::new(
-///     |_metadata| async {
+///     |_ctx| async {
 ///         println!("Hello from secondary execution task!");
 ///         Ok(())
 ///     }
