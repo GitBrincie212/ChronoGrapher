@@ -8,12 +8,22 @@ use async_trait::async_trait;
 /// This is useful for skipping execution of a task frame that is required, making it effectively
 /// just a placeholder (that is why it is a no-operation task frame)
 ///
+/// # Constructor(s)
+/// When constructing a [`NoOperationTaskFrame`], one can use the default rust struct initialization,
+/// or they can use [`NoOperationTaskFrame::default`] via [`Default`]
+///
 /// # Events
 /// When it comes to events, [`NoOperationTaskFrame`], it has no local task frame events
 ///
 /// # Trait Implementation(s)
 /// It is obvious that the [`NoOperationTaskFrame`] implements [`TaskFrame`] since this
-/// is a part of the default provided implementations, however there are many others
+/// is a part of the default provided implementations, however, there are many others.
+/// [`NoOperationTaskFrame`] also implements [`Default`]
+///
+/// # See Also
+/// - [`TaskFrame`]
+/// - [`NoOperationTaskFrame::default`]
+#[derive(Default)]
 pub struct NoOperationTaskFrame;
 
 #[async_trait]
