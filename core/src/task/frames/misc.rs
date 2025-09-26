@@ -1,5 +1,5 @@
-use async_trait::async_trait;
 use crate::task::TaskError;
+use async_trait::async_trait;
 
 #[allow(unused_imports)]
 use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};

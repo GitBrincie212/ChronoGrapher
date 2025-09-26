@@ -24,7 +24,7 @@ use crate::task::SequentialTaskFrame;
 /// [`ParallelTask::on_child_end`],the former is for when a child task frame is about to start, the
 /// event hands out the target [`TaskFrame`]. For the latter, it is for when a child task frame ends,
 /// the event hands out the target task frame and an optional error in case it fails
-/// 
+///
 /// # Trait Implementation(s)
 /// It is obvious that the [`ParallelTask`] implements [`TaskFrame`] since this
 /// is a part of the default provided implementations, however there are many others

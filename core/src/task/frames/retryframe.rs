@@ -208,7 +208,7 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
 /// happens, it hands out the wrapped task frame instance. As well as the ``on_retry_end`` which
 /// executes when a retry is finished, it hands out the wrapped task frame instance and an option
 /// error for a potential error it may have gotten from this retry
-/// 
+///
 /// # Trait Implementation(s)
 /// It is obvious that the [`RetriableTaskFrame`] implements [`TaskFrame`] since this
 /// is a part of the default provided implementations, however there are many others
