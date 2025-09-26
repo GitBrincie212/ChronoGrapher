@@ -4,9 +4,12 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
-/// Represents a **parallel task frame** which wraps multiple task frames to execute at the same time.
-/// This task frame type acts as a **composite node** within the task frame hierarchy, facilitating a
-/// way to represent multiple tasks which have same timings. This is much more optimized and accurate
+#[allow(unused_imports)]
+use crate::task::SequentialTaskFrame;
+
+/// Represents a **parallel task frame** which wraps multiple [`TaskFrame`] to execute at the same time.
+/// This task frame type acts as a **composite node** within the [`TaskFrame`] hierarchy, facilitating a
+/// way to represent multiple [`TaskFrame`] which have same timings. This is much more optimized and accurate
 /// than dispatching those task frames on the scheduler as independent tasks. The order of
 /// execution is unordered, and thus one task may be executed sooner than another, in this case,
 /// it is advised to use [`SequentialTaskFrame`] as opposed to [`ParallelTaskFrame`]
@@ -21,6 +24,10 @@ use tokio::sync::mpsc;
 /// [`ParallelTask::on_child_end`],the former is for when a child task frame is about to start, the
 /// event hands out the target [`TaskFrame`]. For the latter, it is for when a child task frame ends,
 /// the event hands out the target task frame and an optional error in case it fails
+/// 
+/// # Trait Implementation(s)
+/// It is obvious that the [`ParallelTask`] implements [`TaskFrame`] since this
+/// is a part of the default provided implementations, however there are many others
 ///
 /// # Example
 /// ```ignore
