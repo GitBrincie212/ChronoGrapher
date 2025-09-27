@@ -71,7 +71,7 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
     ///
     /// # Argument(s)
     /// The method accepts 2 arguments, those being ``frame`` as [`TaskFrame`] to wrap,
-    /// and a maximum threshold duration as ``max_duration
+    /// and a maximum threshold duration as ``max_duration``
     ///
     /// # Returns
     /// A newly created [`TimeoutTaskFrame`] instance wrapping the [`TaskFrame`] as ``frame
