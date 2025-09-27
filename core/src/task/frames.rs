@@ -31,6 +31,9 @@ pub mod timeoutframe; // skipcq: RS-D1001
 #[allow(missing_docs)]
 pub mod misc; // skipcq: RS-D1001
 
+#[allow(missing_docs)]
+pub mod delayframe; // skipcq: RS-D1001
+
 use crate::task::events::TaskEventEmitter;
 use crate::task::{Task, TaskMetadata, TaskPriority};
 use async_trait::async_trait;
