@@ -15,13 +15,18 @@ the license in a nutshell says:
 > - The license will automatically convert to the [MIT License](https://opensource.org/license/mit) on 
 > the date of the first official beta announcement (made by the owner, GitBrincie212)
 
-Chronographer is the **ULTIMATE** unopinionated scheduling library which all developers dreamed of.
-Schedule thousands of tasks with the efficiency of rust while still using it in multiple programming languages
-such as <u>Python</u>, <u>Rust</u>, <u>JavaScript(and TypeScript)</u> and even <u>Java</u>. The library is designed to be
-as easy to use as possible while being powerful, flexible and extendable
+<img align="center" src="assets/Chronographer Divider.png" />
+<h1 align="center">What Is ChronoGrapher?</h1>
+
+Dreaming of a **powerful, unopinionated polyglot scheduler**? Chronographer delivers, achieve 
+**Rust-Level Efficiency** while scheduling thousands of tasks across all your projects. 
+With native bindings for Python, Rust, JavaScript/TypeScript, and Java, 
+it combines raw power with incredible ease of use and flexibility via a composition-based architecture
 
 <img align="center" src="assets/Chronographer Divider.png" />
-Since Chronographer is a fully featured scheduling library, it provides many features out of the box by default:
+<h1 align="center">The Architecture Of ChronoGrapher</h1>
+Since Chronographer is a fully featured scheduling / orchestration workflow library, it provides many 
+features out of the box by default:
 
 ## 🧩 Task Composition
 Instead of thinking a task is just some executable, Chronographer thinks of tasks as components in a group instead, allowing 
@@ -61,9 +66,10 @@ consist of:
     Chronographer has this area covered as well. By default, there are no task dependencies for tasks
   
 ## 🔄 Task Behavior And Management
-Fine grain control over task behavior, listening to lifecycle or local task frame events, controlling how the task
-is rescheduled via scheduling strategies, controlling dependencies of a task... etc. Want to dynamically re-schedule, 
-remove or schedule tasks at any point throughout your program? Chronographer has you covered
+Fine grain control over task behavior, listening to lifecycle task events or local task frame events, controlling how 
+the task is rescheduled via scheduling strategies, controlling dependencies of a task on **ANY POINT**... etc. 
+Want to dynamically re-schedule, remove or schedule tasks at any point throughout your program? Chronographer has 
+you covered
 
 ## 📋 Scheduler Composition
 Just like tasks. Chronographer gives the ability to also restructure schedulers to fit your needs, no need to depend
@@ -71,10 +77,6 @@ on the default scheduler implementation, if you need. You can also implement you
 defined by the default scheduler, here are the composites a scheduler requires:
 - **Clock** This is a mechanism for tracking time, while by default it uses the system clock, one can also use a virtual
 clock for simulating scenarios, such as unit testing, benchmarking or stress-testing
-<br /> <br />
-- **Scheduler Engine** The actual core that drives the Scheduler, it sleeps til the earliest task is due, then
-gets the instance from ``TaskStore``, emits relevant events and hands out the task to ``TaskDispatcher``, then repeats
-the process for the next task
 <br /> <br />
 - **Task Store** It stores a task in some form (either be in-memory or persist them), the scheduler may interact with
 the task store via getting the earliest task, rescheduling the same task instance or from methods from the scheduler which 
@@ -86,12 +88,14 @@ it has based on priority level, once it finds it, that is where the task's sched
 
 ## 📡 Language Agnostic Communication
 Emit a task in python, listen to task events in JavaScript, write task logic in rust. No more doing trickery to
-work around the limitation of a library/framework being limited to one specific programming language. Chronographer is
-the central hub for scheduling
+work around the limitation of a library/framework being trapped in one specific programming language, one specific
+ecosystem. Chronographer is the central hub for scheduling, no more glue code, no more anything that harms productivity.
+Ensuring the smoothest developer experience
 
 <img align="center" src="assets/Chronographer Divider.png" />
-Why use Chronographer when other scheduling libraries exist in other programming languages? Some of the highlights / strength points
-which you might consider to use Chronographer over other scheduling libraries are:
+<h1 align="center">Why Should I Use ChronoGrapher?</h1>
+Why use Chronographer when other scheduling libraries exist in other programming languages? Some of the highlights
+/ strength points which you might consider to use Chronographer over other scheduling libraries are:
 
 - **🌐 Multi-language Support:** Chronographer is available in Python, Rust, JavaScript/TypeScript, and Java. 
 Switch between languages without rewriting scheduling logic and learning a new framework. No more trying to combat the limitations of different 
@@ -118,6 +122,10 @@ frequent scheduled tasks, it maintains this precision even when clogged by multi
 as such, Chronographer is tiny about **~1MB** in size
 <br /> <br />
 <img align="center" src="assets/Chronographer Divider.png" />
+<h1 align="center">Contributing & License Of ChronoGrapher?</h1>
+
 When it comes to contributing and forking. Chronographer is free and open source to use, only restricted by the lightweight
-<strong>MIT License (this license only applies to when the project enters beta)</strong>, contributions
-are welcome with wide open arms as Chronographer is looking to foster a community
+<strong>MIT License (this license only applies to when the project enters beta)</strong>. 
+Contributions are welcome with wide open arms as Chronographer is looking to foster a community, proceed to take a look at 
+[CONTRIBUTING.md](./CONTRIBUTING.md), for more information on how to get started as well as the codebase to learn
+from it. We sincerely and deeply are grateful and thankful for the efforts
