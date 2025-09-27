@@ -11,8 +11,8 @@ use std::time::Duration;
 /// which accepts a [`TaskFrame`] along with a delay
 ///
 /// # Events
-/// [`DelayTaskFrame`] defines two events, and that is [`DelayTaskFrame::on_delay_start`] and 
-/// [`DelayTaskFrame::on_delay_end`], the former is triggered when the delay starts while the 
+/// [`DelayTaskFrame`] defines two events, and that is [`DelayTaskFrame::on_delay_start`] and
+/// [`DelayTaskFrame::on_delay_end`], the former is triggered when the delay starts while the
 /// latter is fired when the delay ends
 ///
 /// # Trait Implementation(s)
@@ -90,7 +90,7 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
             .emit(
                 ctx.metadata.clone(),
                 self.on_delay_start.clone(),
-                self.delay.clone()
+                self.delay.clone(),
             )
             .await;
         tokio::time::sleep(self.delay).await;
@@ -98,7 +98,7 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
             .emit(
                 ctx.metadata.clone(),
                 self.on_delay_end.clone(),
-                self.delay.clone()
+                self.delay.clone(),
             )
             .await;
         let result = self.frame.execute(ctx.clone()).await;
