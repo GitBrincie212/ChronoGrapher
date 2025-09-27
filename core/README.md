@@ -1,5 +1,5 @@
 <h1 align="center">ChronoGrapher Core</h1>
-<img src="./assets/Chronographer Core Banner.png" alt="Chronographer Core Banner" />
+<img src="../assets/Chronographer Core Banner.png" alt="Chronographer Core Banner" />
 
 ---
 This is the **core of the library**, the foundation of **<u>ChronoGrapher</u>** resides here, it contains essential scheduling
