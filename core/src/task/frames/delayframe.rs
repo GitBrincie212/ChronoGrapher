@@ -90,7 +90,7 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
             .emit(
                 ctx.metadata.clone(),
                 self.on_delay_start.clone(),
-                self.delay.clone(),
+                self.delay,
             )
             .await;
         tokio::time::sleep(self.delay).await;
@@ -98,7 +98,7 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
             .emit(
                 ctx.metadata.clone(),
                 self.on_delay_end.clone(),
-                self.delay.clone(),
+                self.delay,
             )
             .await;
         let result = self.frame.execute(ctx.clone()).await;
