@@ -1,4 +1,4 @@
-use crate::task::dependency::FrameDependency;
+use crate::task::dependency::{FlagDependency, FrameDependency};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -7,15 +7,28 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// or multiple task dependencies to boolean operations. When computed, it computes both dependencies
 /// and then based on the operator and the results, it returns the appropriate value.
 ///
+/// # Usage Note(s)
 /// [`LogicalDependency`] cannot be manually resolved or manually unresolved due to its nature of
 /// being an operator. However, one can manually resolve/unresolve the dependencies it hosts to simulate
 /// this kind of behavior. Just like every dependency, it can also be enabled/disabled
 ///
+/// # Constructor(s)
+/// There are various constructors for one to pick from when it comes to [`LogicalDependency`],
+/// a list that includes the constructor as well as the variant they construct is:
+/// - [`LogicalDependency::AND`] - [`LogicalDependency::and`]
+/// - [`LogicalDependency::OR`] - [`LogicalDependency::or`]
+/// - [`LogicalDependency::NOT`] - [`LogicalDependency::not`]
+/// - [`LogicalDependency::XOR`] - [`LogicalDependency::xor`]
+///
+/// # Variants
 /// The boolean operations include:
 /// - [`LogicalDependency::AND`] simulates the `val1 && val2` (AND operator) for task frame dependencies
 /// - [`LogicalDependency::OR`] simulates the `val1 || val2` (OR operator) for task frame dependencies
 /// - [`LogicalDependency::XOR`] simulates the `val1 ^ val2` (XOR operator) for task frame dependencies
 /// - [`LogicalDependency::NOT`] simulates the `!val` (NOT operator) for task framee dependencies
+///
+/// # Trait Implementation(s)
+/// It is self-explanatory that [`LogicalDependency`] implements [`FrameDependency`]
 ///
 /// # Example
 /// ```ignore
@@ -32,29 +45,57 @@ use std::sync::atomic::{AtomicBool, Ordering};
 ///
 /// // This only executes if the first dependency isn't resolved and the second is
 /// ```
+///
+/// # See Also
+/// - [`FrameDependency`]
+/// - [`LogicalDependency::and`]
+/// - [`LogicalDependency::or`]
+/// - [`LogicalDependency::not`]
+/// - [`LogicalDependency::xor`]
 pub enum LogicalDependency {
+    /// Simulates the AND boolean operation, acting the same as ``val1 && val2``,
+    /// it can be constructed via [`LogicalDependency::and`]
     AND {
         dep1: Arc<dyn FrameDependency>,
         dep2: Arc<dyn FrameDependency>,
         is_enabled: Arc<AtomicBool>,
     },
 
+    /// Simulates the OR boolean operation, acting the same as ``val1 || val2``,
+    /// it can be constructed via [`LogicalDependency::or`]
     OR {
         dep1: Arc<dyn FrameDependency>,
         dep2: Arc<dyn FrameDependency>,
         is_enabled: Arc<AtomicBool>,
     },
 
+    /// Simulates the XOR boolean operation, acting the same as ``val1 ^ val2``,
+    /// it can be constructed via [`LogicalDependency::xor`]
     XOR {
         dep1: Arc<dyn FrameDependency>,
         dep2: Arc<dyn FrameDependency>,
         is_enabled: Arc<AtomicBool>,
     },
 
+    /// Simulates the NOT boolean operation, acting the same as ``!val1``,
+    /// it can be constructed via [`LogicalDependency::not`]
     NOT(Arc<dyn FrameDependency>, Arc<AtomicBool>),
 }
 
 impl LogicalDependency {
+    /// Creates / Constructs a new [`LogicalDependency::AND`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts two arguments, those being ``dep1`` and ``dep2``
+    /// which are the dependencies to do the boolean operation on
+    ///
+    /// # Returns
+    /// The newly created [`LogicalDependency::AND`] with the dependencies
+    /// to operate upon being ``dep1`` and ``dep2``
+    ///
+    /// # See Also
+    /// - [`LogicalDependency`]
+    /// - [`LogicalDependency::AND`]
     pub fn and(dep1: impl FrameDependency, dep2: impl FrameDependency) -> Self {
         LogicalDependency::AND {
             dep1: Arc::new(dep1),
@@ -63,6 +104,19 @@ impl LogicalDependency {
         }
     }
 
+    /// Creates / Constructs a new [`LogicalDependency::OR`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts two arguments, those being ``dep1`` and ``dep2``
+    /// which are the dependencies to do the boolean operation on
+    ///
+    /// # Returns
+    /// The newly created [`LogicalDependency::OR`] with the dependencies
+    /// to operate upon being ``dep1`` and ``dep2``
+    ///
+    /// # See Also
+    /// - [`LogicalDependency`]
+    /// - [`LogicalDependency::OR`]
     pub fn or(dep1: impl FrameDependency, dep2: impl FrameDependency) -> Self {
         LogicalDependency::OR {
             dep1: Arc::new(dep1),
@@ -71,6 +125,19 @@ impl LogicalDependency {
         }
     }
 
+    /// Creates / Constructs a new [`LogicalDependency::XOR`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts two arguments, those being ``dep1`` and ``dep2``
+    /// which are the dependencies to do the boolean operation on
+    ///
+    /// # Returns
+    /// The newly created [`LogicalDependency::XOR`] with the dependencies
+    /// to operate upon being ``dep1`` and ``dep2``
+    ///
+    /// # See Also
+    /// - [`LogicalDependency`]
+    /// - [`LogicalDependency::XOR`]
     pub fn xor(dep1: impl FrameDependency, dep2: impl FrameDependency) -> Self {
         LogicalDependency::XOR {
             dep1: Arc::new(dep1),
@@ -79,6 +146,20 @@ impl LogicalDependency {
         }
     }
 
+    /// Creates / Constructs a new [`LogicalDependency::NOT`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, unlike the other constructor
+    /// methods for other boolean operations, that being ``dep`` which
+    /// is the dependency to wrap and invert its output
+    ///
+    /// # Returns
+    /// The newly created [`LogicalDependency::NOT`] with the dependency
+    /// to invert its output being ``dep``
+    ///
+    /// # See Also
+    /// - [`LogicalDependency`]
+    /// - [`LogicalDependency::NOT`]
     pub fn not(dep: impl FrameDependency) -> Self {
         LogicalDependency::NOT(Arc::new(dep), Arc::new(AtomicBool::new(false)))
     }
