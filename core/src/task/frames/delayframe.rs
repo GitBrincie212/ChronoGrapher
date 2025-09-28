@@ -101,7 +101,6 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
                 self.delay,
             )
             .await;
-        let result = self.frame.execute(ctx.clone()).await;
-        result
+        self.frame.execute(ctx.clone()).await
     }
 }

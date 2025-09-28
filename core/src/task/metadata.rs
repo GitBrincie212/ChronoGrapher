@@ -341,6 +341,9 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
     }
 }
 
+pub type OnMetadataInsertEvent = Arc<MetadataEvent<(String, ObserverField<Box<dyn Any + Send + Sync + 'static>>)>>;
+pub type OnMetadataRemoveEvent = Arc<MetadataEvent<String>>;
+
 /// [`TaskMetadata`] is a reactive container, which hosts keys as strings
 /// and values as [`ObserverField`] with any value inside. It acts more as a glorified
 /// wrapper around ``DashMap``
@@ -355,8 +358,8 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
 /// it also implements the [`Debug`] trait
 pub struct TaskMetadata {
     fields: DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>,
-    pub on_insert: Arc<MetadataEvent<(String, ObserverField<Box<dyn Any + Send + Sync + 'static>>)>>,
-    pub on_remove: Arc<MetadataEvent<String>>,
+    pub on_insert: OnMetadataInsertEvent,
+    pub on_remove: OnMetadataRemoveEvent,
 }
 
 impl Debug for TaskMetadata {
