@@ -9,6 +9,141 @@ use uuid::Uuid;
 #[allow(unused_imports)]
 use std::collections::HashMap;
 
+/// [`MetadataEventListener`] is a function tailored to listening to [`TaskMetadata`] events, as
+/// it accepts metadata and a payload as arguments but returns nothing, only really being useful for
+/// just listening to relevant [`MetadataEvent`] fires. Functions and closures automatically implement
+/// this trait, but due to their nature they cannot persist, as a result, it is advised to create
+/// your own struct and implement this trait
+///
+/// # Required Method(s)
+/// When implementing the [`MetadataEventListener`] trait, one has to supply an implementation for
+/// the method [`MetadataEventListener::execute`] which accepts the metadata and a payload (which contains
+/// additional parameters depending on the event)
+///
+/// # See Also
+/// - [`MetadataEvent`]
+/// - [`Task`]
+/// - [`TaskFrame`]
+#[async_trait]
+pub trait MetadataEventListener<P: Send + Sync>: Send + Sync {
+    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>);
+}
+
+#[async_trait]
+impl<P, F, Fut> MetadataEventListener<P> for F
+where
+    P: Send + Sync + 'static,
+    F: Fn(Arc<TaskMetadata>, Arc<P>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
+{
+    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
+        self(metadata, payload).await;
+    }
+}
+
+#[async_trait]
+impl<P: Send + Sync + 'static, E: MetadataEventListener<P> + ?Sized> MetadataEventListener<P> for Arc<E> {
+    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
+        self.as_ref().execute(metadata, payload).await;
+    }
+}
+
+/// [`MetadataEvent`] defines an event tailored to [`TaskMetadata`]. This is the main system used for
+/// listening to various events via [`MetadataEventListener`] happening in [`TaskMetadata`], as
+/// of now there are 2 of these, those being when an insert happens in [`TaskMetadata`] and when
+/// a remove happens in [`TaskMetadata`]
+///
+/// [`MetadataEvent`] **CANNOT** be emitted outside a [`TaskMetadata`], the emission is handled
+/// automatically by [`TaskMetadata`].
+///
+/// # Construction(s)
+/// When constructing a [`MetadataEvent`] the one can construct it via [`MetadataEvent::new`] which returns
+/// an ``Arc<MetadataEvent<P>>`` where ``P`` is a payload or via [`MetadataEvent::default`] from the [`Default`]
+///
+/// # Trait Implementation(s)
+/// [`MetadataEvent`] implements the [`Default`] trait only
+///
+/// # See Also
+/// - [`MetadataEventListener`]
+/// - [`TaskMetadata`]
+pub struct MetadataEvent<P> {
+    listeners: DashMap<Uuid, Arc<dyn MetadataEventListener<P>>>,
+}
+
+impl<P: Send + Sync + 'static> MetadataEvent<P> {
+    /// Creates / Constructs a [`MetadataEvent`], containing no [`MetadataEventListener`] and wrapped in an ``Arc``,
+    /// which developers can use throughout their codebase, this is exactly the same as doing it
+    /// with [`MetadataEvent::default`] in the form of:
+    /// ```ignore
+    /// Arc::new(MetadataEvent::default())
+    /// ```
+    ///
+    /// # Returns
+    /// The constructed [`MetadataEvent`] wrapped in an ``Arc<MetadataEvent<P>>``
+    /// where ``P`` is the payload
+    ///
+    /// # See Also
+    /// - [`MetadataEvent`]
+    /// - [`MetadataEvent::default`]
+    /// - [`MetadataEventListener`]
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            listeners: DashMap::new(),
+        })
+    }
+
+    /// Subscribes a [`MetadataEventListener`] to the [`MetadataEvent`], returning an
+    /// identifier for that listener / subscriber
+    ///
+    /// # Arguments
+    /// This method accepts only one argument, that being an implementation of [`MetadataEventListener`]
+    /// with a specified payload
+    ///
+    /// # Returns
+    /// An identifier as a UUID to later unsubscribe the [`MetadataEventListener`]
+    /// from that event via [`MetadataEvent::unsubscribe`]
+    ///
+    /// # See Also
+    /// - [`MetadataEventListener`]
+    /// - [`MetadataEvent`]
+    /// - [`MetadataEvent::unsubscribe`]
+    pub async fn subscribe(&self, func: impl MetadataEventListener<P> + 'static) -> Uuid {
+        let id = Uuid::new_v4();
+        self.listeners.insert(id, Arc::new(func));
+        id
+    }
+
+    /// Unsubscribes a [`MetadataEventListener`] from the [`MetadataEvent`], based on an identifier (UUID),
+    /// this identifier is returned when calling [`MetadataEvent::subscribe`] with an [`MetadataEventListener`]
+    ///
+    /// # Arguments
+    /// This method accepts only one argument, that being the UUID corresponding to the
+    /// [`MetadataEventListener`], if the UUID isn't associated with a [`MetadataEventListener`] then nothing
+    /// happens
+    ///
+    /// # See Also
+    /// - [`MetadataEventListener`]
+    /// - [`MetadataEvent`]
+    /// - [`MetadataEvent::subscribe`]
+    pub async fn unsubscribe(&self, id: &Uuid) {
+        self.listeners.remove(id);
+    }
+
+    fn emit(&self, metadata: Arc<TaskMetadata>, payload: P) {
+        let payload_arc = Arc::new(payload);
+        for listener in self.listeners.iter() {
+            let cloned_listener = listener.value().clone();
+            let cloned_payload = payload_arc.clone();
+            let cloned_metadata = metadata.clone();
+            tokio::spawn(async move {
+                cloned_listener
+                    .execute(cloned_metadata, cloned_payload)
+                    .await;
+            });
+        }
+    }
+}
+
 /// [`ObserverFieldListener`] is the mechanism that drives the listening of reactivity on the
 /// [`ObserverField`], where it listens to any changes made to the value. This system is used
 /// closely on [`TaskMetadata`] for both static and dynamic fields
@@ -217,27 +352,28 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
 ///
 /// # Trait Implementation(s)
 /// [`TaskMetadata`] as previously mentioned, implements the [`Default`] trait, but in addition
-/// it also implements the [`Debug`] trait and [`Clone`] trait
-///
-/// # Clone Semantics
-/// When cloning, this acts as mostly a shallow clone (due to some limitations when it comes to
-/// [`Clone`] not being object safe).
-#[derive(Debug)]
-pub struct TaskMetadata(DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>);
+/// it also implements the [`Debug`] trait
+pub struct TaskMetadata {
+    fields: DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>,
+    pub on_insert: Arc<MetadataEvent<(String, ObserverField<Box<dyn Any + Send + Sync + 'static>>)>>,
+    pub on_remove: Arc<MetadataEvent<String>>,
+}
 
-impl Default for TaskMetadata {
-    fn default() -> Self {
-        Self(DashMap::new())
+impl Debug for TaskMetadata {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TaskMetadata")
+            .field("fields", &self.fields)
+            .finish()
     }
 }
 
-impl Clone for TaskMetadata {
-    fn clone(&self) -> Self {
-        let map = DashMap::new();
-        for entry in self.0.iter() {
-            map.insert(entry.key().clone(), entry.value().clone());
+impl Default for TaskMetadata {
+    fn default() -> Self {
+        Self {
+            fields: DashMap::new(),
+            on_insert: MetadataEvent::new(),
+            on_remove: MetadataEvent::new()
         }
-        Self(map)
     }
 }
 
@@ -250,8 +386,12 @@ impl TaskMetadata {
     ///
     /// # See Also
     /// - [`TaskMetadata`]
-    pub fn new() -> Self {
-        Self(DashMap::new())
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            fields: DashMap::new(),
+            on_insert: MetadataEvent::new(),
+            on_remove: MetadataEvent::new()
+        })
     }
 
     /// Gets a potential [`ObserverField`] based on a key and returns it, if it doesn't exist,
@@ -271,8 +411,8 @@ impl TaskMetadata {
     /// - [`TaskMetadata`]
     /// - [`TaskMetadata::insert`]
     /// - [`TaskMetadata::exists`]
-    pub fn get(&self, key: &str) -> Option<ObserverField<Box<dyn Any + Send + Sync>>> {
-        Some(self.0.get(key)?.value().clone())
+    pub fn get(self: Arc<Self>, key: &str) -> Option<ObserverField<Box<dyn Any + Send + Sync>>> {
+        Some(self.fields.get(key)?.value().clone())
     }
 
     /// Inserts a new entry of a key and a value, then returns a boolean. This is the opposite
@@ -293,10 +433,13 @@ impl TaskMetadata {
     /// - [`TaskMetadata::get`]
     /// - [`TaskMetadata::remove`]
     /// - [`TaskMetadata::exists`]
-    pub fn insert(&self, key: String, value: impl Any + Send + Sync) -> bool {
+    pub fn insert(self: Arc<Self>, key: String, value: impl Any + Send + Sync) -> bool {
         let value: Box<dyn Any + Send + Sync> = Box::new(value);
         let field = ObserverField::new(value);
-        self.0.insert(key, field).is_none()
+        let cloned_key = key.clone();
+        let result = self.fields.insert(key, field.clone()).is_none();
+        self.on_insert.emit(self.clone(), (cloned_key, field));
+        result
     }
 
     /// Removes an entry via a key, if the entry doesn't exist based on the key, then
@@ -312,8 +455,9 @@ impl TaskMetadata {
     /// - [`TaskMetadata`]
     /// - [`TaskMetadata::insert`]
     /// - [`TaskMetadata::exists`]
-    pub fn remove(&self, key: &str) {
-        self.0.remove(key);
+    pub fn remove(self: Arc<Self>, key: String) {
+        self.fields.remove(&key);
+        self.on_remove.emit(self.clone(), key.clone());
     }
 
     /// Checks if an entry exists via a key, this is the same as just using
@@ -327,7 +471,7 @@ impl TaskMetadata {
     /// - [`ObserverField`]
     /// - [`TaskMetadata`]
     /// - [`TaskMetadata::get`]
-    pub fn exists(&self, key: &str) -> bool {
-        self.0.contains_key(key)
+    pub fn exists(self: Arc<Self>, key: &str) -> bool {
+        self.fields.contains_key(key)
     }
 }
