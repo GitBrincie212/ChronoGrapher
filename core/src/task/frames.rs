@@ -66,7 +66,9 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - debug_label: ``String``
 /// - max_runs: ``Option<NonZeroU64>``
 ///
-/// All of them fetched in [`Task`]
+/// All of them fetched in [`Task`]. The [`TaskContext`] object can also
+/// be restricted to disallow event emission, this is useful to ensure
+/// no other source can emit naively any [`TaskEvent`]
 ///
 /// # Constructor(s)
 /// There are no public constructors as this context's constructor is sealed
@@ -83,7 +85,7 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - [`TaskPriority`]
 /// - [`TaskEventEmitter`]
 #[derive(Clone)]
-pub struct TaskContext {
+pub struct TaskContext<const RESTRICTED: bool = false> {
     pub(crate) metadata: Arc<TaskMetadata>,
     pub(crate) emitter: Arc<TaskEventEmitter>,
     pub(crate) priority: TaskPriority,
@@ -92,7 +94,7 @@ pub struct TaskContext {
     pub(crate) max_runs: Option<NonZeroU64>,
 }
 
-impl Debug for TaskContext {
+impl<const T: bool> Debug for TaskContext<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TaskContext")
             .field("metadata", self.metadata.as_ref())
@@ -104,7 +106,7 @@ impl Debug for TaskContext {
     }
 }
 
-impl TaskContext {
+impl<const T: bool> TaskContext<T> {
     /// Constructs / Creates a new [`TaskContext`] instance based for use inside [`TaskFrame`],
     /// unlike most constructors, this mechanism is sealed and accessible only in the library's
     /// internal code
@@ -143,18 +145,6 @@ impl TaskContext {
     /// - [`TaskMetadata`]
     pub fn metadata(&self) -> Arc<TaskMetadata> {
         self.metadata.clone()
-    }
-
-    /// Accesses the event emitter field, returning it in the process
-    ///
-    /// # Returns
-    /// The event emitter field as an ``Arc<TaskEventEmitter>``
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    /// - [`TaskEventEmitter`]
-    pub fn emitter(&self) -> Arc<TaskEventEmitter> {
-        self.emitter.clone()
     }
 
     /// Accesses the priority field, returning it in the process
@@ -200,6 +190,40 @@ impl TaskContext {
     /// - [`TaskContext`]
     pub fn max_runs(&self) -> Option<NonZeroU64> {
         self.max_runs
+    }
+}
+
+impl TaskContext {
+    /// Accesses the event emitter field, returning it in the process
+    ///
+    /// # Returns
+    /// The event emitter field as an ``Arc<TaskEventEmitter>``
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskEventEmitter`]
+    pub fn emitter(&self) -> Arc<TaskEventEmitter> {
+        self.emitter.clone()
+    }
+
+    /// Restricts this [`TaskContext`] to not be able to access and use the
+    /// [`TaskEventEmitter`]
+    ///
+    /// # Returns
+    /// A restricted variation of this context object that disallows
+    /// event emission
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    pub fn as_restricted(&self) -> Arc<TaskContext<true>> {
+        Arc::new(TaskContext {
+            metadata: self.metadata.clone(),
+            emitter: self.emitter.clone(),
+            priority: self.priority.clone(),
+            runs: self.runs.clone(),
+            debug_label: self.debug_label.clone(),
+            max_runs: self.max_runs.clone(),
+        })
     }
 }
 
