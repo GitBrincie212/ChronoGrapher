@@ -1,16 +1,47 @@
 use crate::task::ObserverField;
-use crate::task::dependency::{
-    FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
-};
+use crate::task::dependency::{FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// A trait for implementing metadata resolvers. By default, functions and closures implement this
-/// trait, but they cannot persist due to the limitations of closures, in those cases it is recommended
-/// to create a struct yourself that implements this trait
+#[allow(unused_imports)]
+use crate::task::TaskMetadata;
+
+/// [`MetadataDependencyResolver`] is a trait used for implementing metadata resolvers. By default,
+/// functions and closures implement this trait
+///
+/// # Usage Note(s)
+/// While by default the trait [`MetadataDependencyResolver`] is implemented on functions / closures,
+/// they cannot persist, as such it is recommended to manually implement this trait yourself
+///
+/// # Required Method(s)
+/// When implementing [`MetadataDependencyResolver`], one has to also implement the method
+/// [`MetadataDependencyResolver::is_resolved`] which is where the main logic for
+/// the resolver lives in
+///
+/// # Object Safety
+/// [`MetadataDependencyResolver`] is object safe as seen throughout
+/// the code for [`MetadataDependency`]
+///
+/// # See Also
+/// - [`MetadataDependency`]
 #[async_trait]
 pub trait MetadataDependencyResolver<T: Send + Sync>: Send + Sync + 'static {
+    /// This is where the main logic for [`MetadataDependencyResolver`] lives in.
+    /// The job of this method is to listen to changes made to a field and when they
+    /// happen, it checks if the new change should mark the dependency as resolved
+    ///
+    /// # Argument(s)
+    /// As discussed above, [`MetadataDependencyResolver::is_resolve`] accepts one argument,
+    /// that being the changed value as ``value``
+    ///
+    /// # Returns
+    /// A boolean indicating whenever or not the changed value satisfies [`MetadataDependencyResolver`],
+    /// as such if [`MetadataDependency`] should be resolved or not
+    ///
+    /// # See Also
+    /// - [`MetadataDependency`]
+    /// - [`MetadataDependencyResolver`]
     async fn is_resolved(&self, value: Arc<T>) -> bool;
 }
 
@@ -26,9 +57,18 @@ where
     }
 }
 
-/// [`MetadataDependency`] monitors closely a metadata field and resolves itself depending on the
-/// result from a supplied resolver function. Upon a change happens, the resolver computes and then
-/// its results are cached to be retrieved efficiently
+/// [`MetadataDependency`] monitors closely a [`TaskMetadata`] field (being an [`ObserverField`])
+/// and resolves itself depending on the result from a [`MetadataDependencyResolver`]. Upon a change
+/// happens, the resolver computes and then its results are cached to be retrieved efficiently
+///
+/// # Constructor(s)
+/// When constructing a [`MetadataDependency`], one can use [`MetadataDependency::new`] where
+/// it accepts the field and a [`MetadataDependencyResolver`] to monitor and act accordingly
+///
+/// # Trait Implementation(s)
+/// It is self-explanatory that [`MetadataDependency`] implements [`FrameDependency`], but it
+/// also implements [`ResolvableFrameDependency`] and [`UnresolvableFrameDependency`] for manual
+/// resolving / unresolving from the developer
 ///
 /// # Example
 /// ```ignore
@@ -61,6 +101,15 @@ where
 /// observed_debug_label.update(String::from("Magic Password"));
 /// assert_eq!(dependency.is_resolved().await, true); // Somewhere else
 /// ```
+///
+/// # See Also
+/// - [`TaskMetadata`]
+/// - [`ObserverField`]
+/// - [`MetadataDependencyResolver`]
+/// - [`FrameDependency`]
+/// - [`UnresolvableFrameDependency`]
+/// - [`ResolvableFrameDependency`]
+/// - [`MetadataDependency::new`]
 pub struct MetadataDependency<T: Send + Sync + 'static> {
     field: ObserverField<T>,
     is_resolved: Arc<AtomicBool>,
@@ -69,6 +118,20 @@ pub struct MetadataDependency<T: Send + Sync + 'static> {
 }
 
 impl<T: Send + Sync> MetadataDependency<T> {
+    /// Creates / Constructs a new [`MetadataDependency`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts two single arguments, those being ``field``, which is
+    /// the field to monitor closely and a [`MetadataDependencyResolver`] as ``resolver``
+    /// for acting upon changes
+    ///
+    /// # Returns
+    /// The newly created [`MetadataDependency`] with the field to monitor being ``field``
+    /// and the resolving behavior being [`MetadataDependencyResolver`]
+    ///
+    /// # See Also
+    /// - [`MetadataDependencyResolver`]
+    /// - [`MetadataDependency`]
     pub fn new(field: ObserverField<T>, resolver: impl MetadataDependencyResolver<T>) -> Self {
         let slf = Self {
             field,
