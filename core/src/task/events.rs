@@ -13,15 +13,15 @@ pub type TaskEndEvent = ArcTaskEvent<Option<TaskError>>;
 /// A convenient type alias for wrapping a task event in an ``Arc<T>``
 pub type ArcTaskEvent<P> = Arc<TaskEvent<P>>;
 
-/// [`EventListener`] is a function tailored to listening to [`Task`] and [`TaskFrame`] events, as
+/// [`TaskEventListener`] is a function tailored to listening to [`Task`] and [`TaskFrame`] events, as
 /// it accepts metadata and a payload as arguments but returns nothing, only really being useful for
 /// just listening to relevant [`TaskEvent`] fires. Functions and closures automatically implement
 /// this trait, but due to their nature they cannot persist, as a result, it is advised to create
 /// your own struct and implement this trait
 ///
 /// # Required Method(s)
-/// When implementing the [`EventListener`] trait, one has to supply an implementation for
-/// the method [`EventListener::execute`] which accepts the metadata and a payload (which contains
+/// When implementing the [`TaskEventListener`] trait, one has to supply an implementation for
+/// the method [`TaskEventListener::execute`] which accepts the metadata and a payload (which contains
 /// additional parameters depending on the event)
 ///
 /// # See Also
@@ -29,12 +29,12 @@ pub type ArcTaskEvent<P> = Arc<TaskEvent<P>>;
 /// - [`Task`]
 /// - [`TaskFrame`]
 #[async_trait]
-pub trait EventListener<P: Send + Sync>: Send + Sync {
+pub trait TaskEventListener<P: Send + Sync>: Send + Sync {
     async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>);
 }
 
 #[async_trait]
-impl<P, F, Fut> EventListener<P> for F
+impl<P, F, Fut> TaskEventListener<P> for F
 where
     P: Send + Sync + 'static,
     F: Fn(Arc<TaskMetadata>, Arc<P>) -> Fut + Send + Sync + 'static,
@@ -46,7 +46,7 @@ where
 }
 
 #[async_trait]
-impl<P: Send + Sync + 'static, E: EventListener<P> + ?Sized> EventListener<P> for Arc<E> {
+impl<P: Send + Sync + 'static, E: TaskEventListener<P> + ?Sized> TaskEventListener<P> for Arc<E> {
     async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
         self.as_ref().execute(metadata, payload).await;
     }
@@ -78,10 +78,10 @@ impl<P: Send + Sync + 'static, E: EventListener<P> + ?Sized> EventListener<P> fo
 /// [`TaskEvent`] implements the [`Default`] trait only
 ///
 /// # See Also
-/// - [`EventListener`]
+/// - [`TaskEventListener`]
 /// - [`Task`]
 pub struct TaskEvent<P> {
-    listeners: DashMap<Uuid, Arc<dyn EventListener<P>>>,
+    listeners: DashMap<Uuid, Arc<dyn TaskEventListener<P>>>,
 }
 
 impl<P: Send + Sync + 'static> Default for TaskEvent<P> {
@@ -93,7 +93,7 @@ impl<P: Send + Sync + 'static> Default for TaskEvent<P> {
 }
 
 impl<P: Send + Sync + 'static> TaskEvent<P> {
-    /// Creates / Constructs a [`TaskEvent`], containing no [`EventListener`] and wrapped in an ``Arc``,
+    /// Creates / Constructs a [`TaskEvent`], containing no [`TaskEventListener`] and wrapped in an ``Arc``,
     /// which developers can use throughout their codebase, this is exactly the same as doing it
     /// with [`TaskEvent::default`] in the form of:
     /// ```ignore
@@ -107,44 +107,44 @@ impl<P: Send + Sync + 'static> TaskEvent<P> {
     /// # See Also
     /// - [`TaskEvent`]
     /// - [`TaskEvent::default`]
-    /// - [`EventListener`]
+    /// - [`TaskEventListener`]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             listeners: DashMap::new(),
         })
     }
 
-    /// Subscribes a [`EventListener`] to the [`TaskEvent`], returning an identifier for that
+    /// Subscribes a [`TaskEventListener`] to the [`TaskEvent`], returning an identifier for that
     /// listener / subscriber
     ///
     /// # Arguments
-    /// This method accepts only one argument, that being an implementation of [`EventListener`]
+    /// This method accepts only one argument, that being an implementation of [`TaskEventListener`]
     /// with a specified payload
     ///
     /// # Returns
-    /// An identifier as a UUID to later unsubscribe the [`EventListener`]
+    /// An identifier as a UUID to later unsubscribe the [`TaskEventListener`]
     /// from that event via [`TaskEvent::unsubscribe`]
     ///
     /// # See Also
-    /// - [`EventListener`]
+    /// - [`TaskEventListener`]
     /// - [`TaskEvent`]
     /// - [`TaskEvent::unsubscribe`]
-    pub async fn subscribe(&self, func: impl EventListener<P> + 'static) -> Uuid {
+    pub async fn subscribe(&self, func: impl TaskEventListener<P> + 'static) -> Uuid {
         let id = Uuid::new_v4();
         self.listeners.insert(id, Arc::new(func));
         id
     }
 
-    /// Unsubscribes a [`EventListener`] from the [`TaskEvent`], based on an identifier (UUID),
-    /// this identifier is returned when calling [`TaskEvent::subscribe`] with an [`EventListener`]
+    /// Unsubscribes a [`TaskEventListener`] from the [`TaskEvent`], based on an identifier (UUID),
+    /// this identifier is returned when calling [`TaskEvent::subscribe`] with an [`TaskEventListener`]
     ///
     /// # Arguments
     /// This method accepts only one argument, that being the UUID corresponding to the
-    /// [`EventListener`], if the UUID isn't associated with a [`EventListener`] then nothing
+    /// [`TaskEventListener`], if the UUID isn't associated with a [`TaskEventListener`] then nothing
     /// happens
     ///
     /// # See Also
-    /// - [`EventListener`]
+    /// - [`TaskEventListener`]
     /// - [`TaskEvent`]
     /// - [`TaskEvent::subscribe`]
     pub async fn unsubscribe(&self, id: &Uuid) {
@@ -153,7 +153,7 @@ impl<P: Send + Sync + 'static> TaskEvent<P> {
 }
 
 /// [`TaskEventEmitter`] is a sealed mechanism to allow the use of emitting [`TaskEvent`] which
-/// alerts all [`EventListener`], by itself it doesn't hot any data, but it unlocks the use
+/// alerts all [`TaskEventListener`], by itself it doesn't hot any data, but it unlocks the use
 /// of [`TaskEventEmitter::emit`]. The reason for this is to prevent any emissions from outside parties
 /// on [`TaskEvent`]
 ///
@@ -169,7 +169,7 @@ pub struct TaskEventEmitter {
 }
 
 impl TaskEventEmitter {
-    /// Emits the [`TaskEvent`], notifying all [`EventListener`] from event
+    /// Emits the [`TaskEvent`], notifying all [`TaskEventListener`] from event
     ///
     /// # Argument(s)
     /// The method accepts 3 arguments, the first being ``metadata`` which is for accessing
@@ -178,7 +178,7 @@ impl TaskEventEmitter {
     ///
     /// # See Also
     /// - [`TaskEvent`]
-    /// - [`EventListener`]
+    /// - [`TaskEventListener`]
     /// - [`TaskEventEmitter`]
     pub async fn emit<P: Send + Sync + Clone + 'static>(
         &self,
