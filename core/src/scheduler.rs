@@ -112,8 +112,8 @@ impl From<SchedulerConfig> for Scheduler {
     }
 }
 
-type ArcSchedulerTX = Arc<broadcast::Sender<(Arc<Task>, usize)>>;
-type ArcSchedulerRX = Arc<Mutex<broadcast::Receiver<(Arc<Task>, usize)>>>;
+type ArcSchedulerTX = Arc<broadcast::Sender<usize>>;
+type ArcSchedulerRX = Arc<Mutex<broadcast::Receiver<usize>>>;
 
 /// [`Scheduler`] is the instance that hosts all the three composites those being:
 ///
@@ -231,14 +231,17 @@ impl Scheduler {
             let double_store_clone = store_clone.clone();
             let double_notifier_clone = notifier.clone();
             tokio::spawn(async move {
-                while let Ok((task, idx)) = scheduler_receive.lock().await.recv().await {
+                while let Ok(idx) = scheduler_receive.lock().await.recv().await {
+                    // This is the task dispatcher's duty to return the correct index,
+                    // I am aware doing ``.unwrap()`` is an antipattern
+                    let task = double_store_clone.get(&idx).await.unwrap();
                     if let Some(max_runs) = task.max_runs
                         && task.runs.load(Ordering::Relaxed) >= max_runs.get()
                     {
                         continue;
                     }
                     double_store_clone
-                        .reschedule(double_clock_clone.clone(), task, idx)
+                        .reschedule(double_clock_clone.clone(), &idx)
                         .await;
                     double_notifier_clone.notify_waiters();
                 }
@@ -249,7 +252,7 @@ impl Scheduler {
                     tokio::select! {
                         _ = clock_clone.idle_to(time) => {
                             store_clone.pop().await;
-                            if !store_clone.exists(idx).await { continue; }
+                            if !store_clone.exists(&idx).await { continue; }
                             dispatcher_clone.clone()
                                 .dispatch(scheduler_send.clone(), emitter.clone(), task, idx)
                                 .await;
@@ -347,7 +350,7 @@ impl Scheduler {
     /// is advised to check the documentation of it
     ///
     /// # Usage Note(s)
-    /// If the task is running, while its being canceled, it has no effect on skipping the current
+    /// If the task is running while its being canceled, it has no effect on skipping the current
     /// instance running but more so any future schedules of this instance
     ///
     /// # Arguments
@@ -358,7 +361,7 @@ impl Scheduler {
     /// - [`SchedulerTaskStore`]
     /// - [`Scheduler::exists`]
     /// - [`Task`]
-    pub async fn cancel(&self, idx: usize) {
+    pub async fn cancel(&self, idx: &usize) {
         self.store.remove(idx).await;
     }
 
@@ -377,7 +380,7 @@ impl Scheduler {
     /// - [`Scheduler`]
     /// - [`SchedulerTaskStore`]
     /// - [`Task`]
-    pub async fn exists(&self, idx: usize) -> bool {
+    pub async fn exists(&self, idx: &usize) -> bool {
         self.store.exists(idx).await
     }
 
