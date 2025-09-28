@@ -1,13 +1,19 @@
-use crate::task::dependency::{
-    FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
-};
+use crate::task::dependency::{FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// [`FlagDependency`] is a dependency which can be enabled and disabled from outside, essentially
-/// acting as a checkbox. This dependency can be enabled/disabled and even developers can manually resolve
-/// it or manually unresolve it
+/// acting more as a checkbox
+///
+/// # Constructor(s)
+/// When constructing a [`FlagDependency`], one can use [`FlagDependency::new`] with a supplied
+/// ``Arc<AtomicBool`` acting as the flag which can be changed from the outside
+///
+/// # Trait Implementation(s)
+/// It is clear as day that [`FlagDependency`] implements the [`FrameDependency`] trait,
+/// but it also implements the extension traits [`ResolvableFrameDependency`] and [`UnresolvableFrameDependency`]
+/// for developers to manually resolve and unresolve
 ///
 /// # Example
 /// ```ignore
@@ -25,9 +31,26 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// val.store(true, Ordering::Relaxed);
 /// assert!(flag.is_resolved());
 /// ```
+///
+/// # See Also
+/// - [`FrameDependency`]
+/// - [`FlagDependency::new`]
+/// - [`ResolvableFrameDependency`]
+/// - [`UnresolvableFrameDependency`]
 pub struct FlagDependency(Arc<AtomicBool>, Arc<AtomicBool>);
 
 impl FlagDependency {
+    /// Creates / Constructs a new [`FlagDependency`] instance
+    ///
+    /// # Argument(s)
+    /// This method accepts one single argument, that being ``flag``, which is
+    /// an atomic boolean wrapped in ``Arc<T>``
+    ///
+    /// # Returns
+    /// The newly created [`FlagDependency`] with the flag being ``flag``
+    ///
+    /// # See Also
+    /// - [`FlagDependency`]
     pub fn new(flag: Arc<AtomicBool>) -> Self {
         Self(flag, Arc::new(AtomicBool::new(true)))
     }
