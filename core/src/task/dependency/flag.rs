@@ -1,4 +1,6 @@
-use crate::task::dependency::{FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency};
+use crate::task::dependency::{
+    FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
+};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};

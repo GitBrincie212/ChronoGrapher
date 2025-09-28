@@ -49,7 +49,7 @@ pub trait TaskResolvent: Send + Sync {
     /// - [`TaskDependency`]
     /// - [`TaskContext`]
     /// - [`TaskResolvent`]
-    async fn should_count(&self,  ctx: Arc<TaskContext<true>>, result: Option<TaskError>) -> bool;
+    async fn should_count(&self, ctx: Arc<TaskContext<true>>, result: Option<TaskError>) -> bool;
 }
 
 macro_rules! implement_core_resolvent {
@@ -58,7 +58,11 @@ macro_rules! implement_core_resolvent {
 
         #[async_trait]
         impl TaskResolvent for $name {
-            async fn should_count(&self, ctx: Arc<TaskContext<true>>, result: Option<TaskError>) -> bool {
+            async fn should_count(
+                &self,
+                ctx: Arc<TaskContext<true>>,
+                result: Option<TaskError>,
+            ) -> bool {
                 $code(ctx, result)
             }
         }
@@ -151,21 +155,24 @@ impl From<TaskDependencyConfig> for TaskDependency {
             async move {
                 task_clone
                     .on_end
-                    .subscribe(move |ctx: Arc<TaskContext<true>>, payload: Arc<Option<TaskError>>| {
-                        let counter_clone = counter_clone.clone();
-                        let resolve_behavior_clone = resolve_behavior_clone.clone();
-                        let payload_cloned = payload.as_ref().clone();
-                        let context_cloned = ctx.clone();
+                    .subscribe(
+                        move |ctx: Arc<TaskContext<true>>, payload: Arc<Option<TaskError>>| {
+                            let counter_clone = counter_clone.clone();
+                            let resolve_behavior_clone = resolve_behavior_clone.clone();
+                            let payload_cloned = payload.as_ref().clone();
+                            let context_cloned = ctx.clone();
 
-                        async move {
-                            let should_increment =
-                                resolve_behavior_clone.should_count(context_cloned, payload_cloned).await;
-                            if should_increment {
-                                return;
+                            async move {
+                                let should_increment = resolve_behavior_clone
+                                    .should_count(context_cloned, payload_cloned)
+                                    .await;
+                                if should_increment {
+                                    return;
+                                }
+                                counter_clone.fetch_add(1, Ordering::Relaxed);
                             }
-                            counter_clone.fetch_add(1, Ordering::Relaxed);
-                        }
-                    })
+                        },
+                    )
                     .await;
             }
         });

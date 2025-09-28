@@ -96,7 +96,11 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
             .await;
         tokio::time::sleep(self.delay).await;
         ctx.emitter
-            .emit(restricted_ctx.clone(), self.on_delay_end.clone(), self.delay)
+            .emit(
+                restricted_ctx.clone(),
+                self.on_delay_end.clone(),
+                self.delay,
+            )
             .await;
         self.frame.execute(ctx.clone()).await
     }
