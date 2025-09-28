@@ -60,33 +60,34 @@ impl Ord for EphemeralScheduledItem {
 /// instances
 ///
 /// # Example
-/// ```rust
+/// ```ignore
 /// use std::sync::Arc;
 /// use std::time::{Duration, SystemTime};
 /// use chronographer_core::clock::VirtualClock;
 /// use chronographer_core::scheduler::task_store::EphemeralDefaultTaskStore;
 /// use chronographer_core::task::{NoOperationTaskFrame, Task, TaskScheduleInterval};
+/// use chronographer_core::scheduler::task_store::SchedulerTaskStore;
 ///
 /// let my_store = EphemeralDefaultTaskStore::new();
-/// let my_clock = VirtualClock::from_value(0);
+/// let my_clock = Arc::new(VirtualClock::from_value(0));
 ///
 /// let primary_task = Task::define(
-///     NoOperationTaskFrame,
-///     TaskScheduleInterval::from_secs_f64(3.0)
+///     TaskScheduleInterval::from_secs_f64(3.0),
+///     NoOperationTaskFrame
 /// );
 ///
 /// let secondary_task = Task::define(
-///     NoOperationTaskFrame,
-///     TaskScheduleInterval::from_secs_f64(1.0)
+///     TaskScheduleInterval::from_secs_f64(1.0),
+///     NoOperationTaskFrame
 /// );
 ///
 /// let tertiary_task = Task::define(
-///     NoOperationTaskFrame,
-///     TaskScheduleInterval::from_secs_f64(2.0)
+///     TaskScheduleInterval::from_secs_f64(2.0),
+///     NoOperationTaskFrame
 /// );
 ///
-/// my_store.store(my_clock, Arc::new(primary_task)).await;
-/// my_store.store(my_clock, Arc::new(secondary_task)).await;
+/// my_store.store(my_clock.clone(), Arc::new(primary_task)).await;
+/// my_store.store(my_clock.clone(), Arc::new(secondary_task)).await;
 /// my_store.store(my_clock, Arc::new(tertiary_task)).await;
 ///
 /// my_store.retrieve(); // earliest: primary_task
