@@ -42,7 +42,9 @@ where
 }
 
 #[async_trait]
-impl<P: Send + Sync + 'static, E: MetadataEventListener<P> + ?Sized> MetadataEventListener<P> for Arc<E> {
+impl<P: Send + Sync + 'static, E: MetadataEventListener<P> + ?Sized> MetadataEventListener<P>
+    for Arc<E>
+{
     async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
         self.as_ref().execute(metadata, payload).await;
     }
@@ -341,7 +343,8 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
     }
 }
 
-pub type OnMetadataInsertEvent = Arc<MetadataEvent<(String, ObserverField<Box<dyn Any + Send + Sync + 'static>>)>>;
+pub type OnMetadataInsertEvent =
+    Arc<MetadataEvent<(String, ObserverField<Box<dyn Any + Send + Sync + 'static>>)>>;
 pub type OnMetadataRemoveEvent = Arc<MetadataEvent<String>>;
 
 /// [`TaskMetadata`] is a reactive container, which hosts keys as strings
@@ -375,7 +378,7 @@ impl Default for TaskMetadata {
         Self {
             fields: DashMap::new(),
             on_insert: MetadataEvent::new(),
-            on_remove: MetadataEvent::new()
+            on_remove: MetadataEvent::new(),
         }
     }
 }
@@ -393,7 +396,7 @@ impl TaskMetadata {
         Arc::new(Self {
             fields: DashMap::new(),
             on_insert: MetadataEvent::new(),
-            on_remove: MetadataEvent::new()
+            on_remove: MetadataEvent::new(),
         })
     }
 
