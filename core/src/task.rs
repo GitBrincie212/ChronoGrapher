@@ -67,7 +67,7 @@ pub struct TaskConfig {
     /// - [`TaskMetadata`]
     /// - [`ObserverField`]
     #[builder(default = TaskMetadata::new())]
-    metadata: TaskMetadata,
+    metadata: Arc<TaskMetadata>,
 
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
     /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
@@ -211,7 +211,7 @@ pub struct TaskConfig {
 impl From<TaskConfig> for Task {
     fn from(config: TaskConfig) -> Self {
         Task {
-            metadata: Arc::new(config.metadata),
+            metadata: config.metadata,
             frame: config.frame,
             schedule: config.schedule,
             error_handler: config.error_handler,
@@ -346,7 +346,7 @@ impl Task {
     pub fn define(schedule: impl TaskSchedule + 'static, task: impl TaskFrame + 'static) -> Self {
         Self {
             frame: Arc::new(task),
-            metadata: Arc::new(TaskMetadata::new()),
+            metadata: TaskMetadata::new(),
             schedule: Arc::new(schedule),
             error_handler: Arc::new(SilentTaskErrorHandler),
             overlap_policy: Arc::new(SequentialSchedulingPolicy),
