@@ -38,16 +38,21 @@ impl Debug for VirtualClock {
 
 impl VirtualClock {
     pub fn new(initial_time: SystemTime) -> Self {
+        VirtualClock::from_value(
+            initial_time
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as u64,
+        )
+    }
+
+    pub fn from_value(initial_value: u64) -> Self {
         VirtualClock {
-            current_time: AtomicU64::new(
-                initial_time
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-            ),
+            current_time: AtomicU64::new(initial_value),
             notify: Notify::new(),
         }
     }
+
     pub fn from_current_time() -> Self {
         Self::new(SystemTime::now())
     }
