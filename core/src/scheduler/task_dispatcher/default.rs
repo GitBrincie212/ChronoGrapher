@@ -49,7 +49,7 @@ impl DefaultTaskDispatcher {
 impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
     async fn dispatch(
         self: Arc<Self>,
-        sender: Arc<broadcast::Sender<(Arc<Task>, usize)>>,
+        sender: Arc<broadcast::Sender<usize>>,
         emitter: Arc<TaskEventEmitter>,
         task: Arc<Task>,
         idx: usize,
@@ -75,7 +75,7 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
                         .schedule_strategy()
                         .handle(task_clone.clone(), emitter_clone)
                         .await;
-                    sender_clone.send((task_clone, idx_clone)).unwrap();
+                    sender_clone.send(idx_clone).unwrap();
                 }
             },
             target_priority,
