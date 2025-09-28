@@ -361,7 +361,11 @@ pub type OnMetadataRemoveEvent = Arc<MetadataEvent<String>>;
 /// it also implements the [`Debug`] trait
 pub struct TaskMetadata {
     fields: DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>,
+
+    /// Event fired when an insertion happens
     pub on_insert: OnMetadataInsertEvent,
+
+    /// Event fired wwhen a removal happens
     pub on_remove: OnMetadataRemoveEvent,
 }
 
