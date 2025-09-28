@@ -1,4 +1,4 @@
-use crate::task::{TaskError, TaskMetadata};
+use crate::task::{TaskContext, TaskError};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -14,41 +14,42 @@ pub type TaskEndEvent = ArcTaskEvent<Option<TaskError>>;
 pub type ArcTaskEvent<P> = Arc<TaskEvent<P>>;
 
 /// [`TaskEventListener`] is a function tailored to listening to [`Task`] and [`TaskFrame`] events, as
-/// it accepts metadata and a payload as arguments but returns nothing, only really being useful for
+/// it accepts restricted [`TaskContext`] and a payload as arguments but returns nothing, only really being useful for
 /// just listening to relevant [`TaskEvent`] fires. Functions and closures automatically implement
 /// this trait, but due to their nature they cannot persist, as a result, it is advised to create
 /// your own struct and implement this trait
 ///
 /// # Required Method(s)
 /// When implementing the [`TaskEventListener`] trait, one has to supply an implementation for
-/// the method [`TaskEventListener::execute`] which accepts the metadata and a payload (which contains
+/// the method [`TaskEventListener::execute`] which accepts a restricted [`TaskContext`] and a payload (which contains
 /// additional parameters depending on the event)
 ///
 /// # See Also
 /// - [`TaskEvent`]
 /// - [`Task`]
 /// - [`TaskFrame`]
+/// - [`TaskContext`]
 #[async_trait]
 pub trait TaskEventListener<P: Send + Sync>: Send + Sync {
-    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>);
+    async fn execute(&self, ctx: Arc<TaskContext<true>>, payload: Arc<P>);
 }
 
 #[async_trait]
 impl<P, F, Fut> TaskEventListener<P> for F
 where
     P: Send + Sync + 'static,
-    F: Fn(Arc<TaskMetadata>, Arc<P>) -> Fut + Send + Sync + 'static,
+    F: Fn(Arc<TaskContext<true>>, Arc<P>) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
 {
-    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
-        self(metadata, payload).await;
+    async fn execute(&self, ctx: Arc<TaskContext<true>>, payload: Arc<P>) {
+        self(ctx, payload).await;
     }
 }
 
 #[async_trait]
 impl<P: Send + Sync + 'static, E: TaskEventListener<P> + ?Sized> TaskEventListener<P> for Arc<E> {
-    async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
-        self.as_ref().execute(metadata, payload).await;
+    async fn execute(&self, ctx: Arc<TaskContext<true>>, payload: Arc<P>) {
+        self.as_ref().execute(ctx, payload).await;
     }
 }
 
@@ -172,8 +173,8 @@ impl TaskEventEmitter {
     /// Emits the [`TaskEvent`], notifying all [`TaskEventListener`] from event
     ///
     /// # Argument(s)
-    /// The method accepts 3 arguments, the first being ``metadata`` which is for accessing
-    /// any relevant state, the second is the actual [`TaskEvent`] via ``event``. While the third is the
+    /// The method accepts 3 arguments, the first being ``ctx`` which is a
+    /// restricted version of [`TaskContext`], the second is the actual [`TaskEvent`] via ``event``. While the third is the
     /// payload of the [`TaskEvent`] via ``payload`` (it depends on what payload type the ``event`` has)
     ///
     /// # See Also
@@ -182,18 +183,18 @@ impl TaskEventEmitter {
     /// - [`TaskEventEmitter`]
     pub async fn emit<P: Send + Sync + Clone + 'static>(
         &self,
-        metadata: Arc<TaskMetadata>,
+        ctx: Arc<TaskContext<true>>,
         event: Arc<TaskEvent<P>>,
         payload: P,
     ) {
         let payload_arc = Arc::new(payload);
         for listener in event.listeners.iter() {
             let cloned_listener = listener.value().clone();
-            let cloned_metadata = metadata.clone();
+            let cloned_context = ctx.clone();
             let cloned_payload = payload_arc.clone();
             tokio::spawn(async move {
                 cloned_listener
-                    .execute(cloned_metadata, cloned_payload)
+                    .execute(cloned_context, cloned_payload)
                     .await;
             });
         }
