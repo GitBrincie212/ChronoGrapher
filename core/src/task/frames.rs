@@ -219,10 +219,10 @@ impl TaskContext {
         Arc::new(TaskContext {
             metadata: self.metadata.clone(),
             emitter: self.emitter.clone(),
-            priority: self.priority.clone(),
-            runs: self.runs.clone(),
+            priority: self.priority,
+            runs: self.runs,
             debug_label: self.debug_label.clone(),
-            max_runs: self.max_runs.clone(),
+            max_runs: self.max_runs,
         })
     }
 }
