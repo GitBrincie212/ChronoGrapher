@@ -96,6 +96,7 @@ Ensuring the smoothest developer experience
 <h1 align="center">Why Should I Use ChronoGrapher?</h1>
 Why use Chronographer when other scheduling libraries exist in other programming languages? Some of the highlights
 / strength points which you might consider to use Chronographer over other scheduling libraries are:
+<br /> <br />
 
 - **🌐 Multi-language Support:** Chronographer is available in Python, Rust, JavaScript/TypeScript, and Java. 
 Switch between languages without rewriting scheduling logic and learning a new framework. No more trying to combat the limitations of different 
