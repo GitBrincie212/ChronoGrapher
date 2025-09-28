@@ -42,7 +42,9 @@ where
 }
 
 #[async_trait]
-impl<P: Send + Sync + 'static, E: MetadataEventListener<P> + ?Sized> MetadataEventListener<P> for Arc<E> {
+impl<P: Send + Sync + 'static, E: MetadataEventListener<P> + ?Sized> MetadataEventListener<P>
+    for Arc<E>
+{
     async fn execute(&self, metadata: Arc<TaskMetadata>, payload: Arc<P>) {
         self.as_ref().execute(metadata, payload).await;
     }
@@ -355,7 +357,8 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
 /// it also implements the [`Debug`] trait
 pub struct TaskMetadata {
     fields: DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>,
-    pub on_insert: Arc<MetadataEvent<(String, ObserverField<Box<dyn Any + Send + Sync + 'static>>)>>,
+    pub on_insert:
+        Arc<MetadataEvent<(String, ObserverField<Box<dyn Any + Send + Sync + 'static>>)>>,
     pub on_remove: Arc<MetadataEvent<String>>,
 }
 
@@ -372,7 +375,7 @@ impl Default for TaskMetadata {
         Self {
             fields: DashMap::new(),
             on_insert: MetadataEvent::new(),
-            on_remove: MetadataEvent::new()
+            on_remove: MetadataEvent::new(),
         }
     }
 }
@@ -390,7 +393,7 @@ impl TaskMetadata {
         Arc::new(Self {
             fields: DashMap::new(),
             on_insert: MetadataEvent::new(),
-            on_remove: MetadataEvent::new()
+            on_remove: MetadataEvent::new(),
         })
     }
 
