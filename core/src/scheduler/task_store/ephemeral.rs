@@ -12,11 +12,7 @@ use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 
-struct EphemeralScheduledItem(
-    Arc<Task>,
-    SystemTime,
-    usize,
-);
+struct EphemeralScheduledItem(Arc<Task>, SystemTime, usize);
 
 impl Eq for EphemeralScheduledItem {}
 
@@ -170,7 +166,11 @@ impl SchedulerTaskStore for EphemeralDefaultTaskStore {
         let sys_future_time = date_time_to_system_time(future_time);
 
         let mut lock = self.earliest_sorted.lock().await;
-        lock.push(Reverse(EphemeralScheduledItem(task.clone(), sys_future_time, *idx)));
+        lock.push(Reverse(EphemeralScheduledItem(
+            task.clone(),
+            sys_future_time,
+            *idx,
+        )));
     }
 
     async fn store(&self, clock: Arc<dyn SchedulerClock>, task: Arc<Task>) -> usize {
