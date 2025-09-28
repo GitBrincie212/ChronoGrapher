@@ -32,9 +32,9 @@ features out of the box by default:
 Instead of thinking a task is just some executable, Chronographer thinks of tasks as components in a group instead, allowing 
 the expression and reuse of complex logic easily while also separating concerns and giving overall flexibility, tasks 
 consist of:
-  - ***Task Metadata:*** The <ins>State</ins> of the task, anything data-related. Internally, this data is mutable, metadata
-  can also be exposed restricting write access to any data, think of it as a global state for the entire task. In most
-  cases, this is optional to provide
+  - ***Task Metadata:*** The <ins>State</ins> of the task, it contains dynamic / runtime fields and is reactive to changes.
+  Outside parties can listento changes made into a field and be notified accordingly, one can also add other fields to the
+  metadata container. The metadata can be accessed and modified on any point throughout the task's execution and from outside
   <br /> <br />
   - ***Task Frame*** The Task Frame is the core embodiment of a task. It defines <ins>What</ins> needs to be done. Think of it 
   as the immutable recipe or the instruction set for a specific unit of work. Task frames can access the metadata of the
@@ -51,10 +51,6 @@ consist of:
   - **Task Error Handler** This handles gracefully errors when a task fails, it is meant as a recovery from any potential 
   error, examples include rollbacks, cleanups, state reset management, and so on. While the default error handler used is
   for silently ignoring them, in production environments it is advised to make your own error handler
-  <br /> <br />
-  - **Task Extension** Acts as an extension point for defining more complex task types, by default it is not required,
-   however, in the future distributed crate, this will be used for defining other fields which do not fit in the core
-  crate (single-node use)
   <br /> <br />
   - **Task Priority** Defines the importance of a task. Chronographer offers 5 levels of priority which are
   ``LOW``, ``MEDIUM``, ``HIGH``, ``IMPORTANT``, ``CRITICAL``. These priority levels make Chronographer responsive even under
