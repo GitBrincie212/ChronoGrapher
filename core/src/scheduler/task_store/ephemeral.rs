@@ -12,10 +12,10 @@ use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 
-pub(crate) struct EphemeralScheduledItem(
-    pub(crate) Arc<Task>,
-    pub(crate) SystemTime,
-    pub(crate) usize,
+struct EphemeralScheduledItem(
+    Arc<Task>,
+    SystemTime,
+    usize,
 );
 
 impl Eq for EphemeralScheduledItem {}
@@ -39,6 +39,65 @@ impl Ord for EphemeralScheduledItem {
     }
 }
 
+/// [`EphemeralDefaultTaskStore`] is an implementation of [`SchedulerTaskStore`]
+/// that operates in-memory
+///
+/// # Usage Note(s)
+/// Due to the fact that [`EphemeralDefaultTaskStore`] operates in-memory by nature,
+/// it doesn't store any information on the disk, while being fast, it makes it brittle
+/// to crashes and shutdowns. For enterprise use, it is advised to use a persistent
+/// implementation. It is mostly meant to be used for demos or for debugging (where one
+/// doesn't care to persist information on disk)
+///
+/// # Constructor(s)
+/// When constructing a new [`EphemeralDefaultTaskStore`], one can use [`EphemeralDefaultTaskStore::new`]
+/// for doing so, or [`EphemeralDefaultTaskStore::default`] via the [`Default`] trait to get an owned
+/// version
+///
+/// # Trait Implementation(s)
+/// [`EphemeralDefaultTaskStore`] obviously implements the [`SchedulerTaskStore`] but also
+/// it implements [`Default`], allowing for the creation of owned [`EphemeralDefaultTaskStore`]
+/// instances
+///
+/// # Example
+/// ```rust
+/// use std::sync::Arc;
+/// use std::time::{Duration, SystemTime};
+/// use chronographer_core::clock::VirtualClock;
+/// use chronographer_core::scheduler::task_store::EphemeralDefaultTaskStore;
+/// use chronographer_core::task::{NoOperationTaskFrame, Task, TaskScheduleInterval};
+///
+/// let my_store = EphemeralDefaultTaskStore::new();
+/// let my_clock = VirtualClock::from_value(0);
+///
+/// let primary_task = Task::define(
+///     NoOperationTaskFrame,
+///     TaskScheduleInterval::from_secs_f64(3.0)
+/// );
+///
+/// let secondary_task = Task::define(
+///     NoOperationTaskFrame,
+///     TaskScheduleInterval::from_secs_f64(1.0)
+/// );
+///
+/// let tertiary_task = Task::define(
+///     NoOperationTaskFrame,
+///     TaskScheduleInterval::from_secs_f64(2.0)
+/// );
+///
+/// my_store.store(my_clock, Arc::new(primary_task)).await;
+/// my_store.store(my_clock, Arc::new(secondary_task)).await;
+/// my_store.store(my_clock, Arc::new(tertiary_task)).await;
+///
+/// my_store.retrieve(); // earliest: primary_task
+/// my_store.pop();
+/// my_store.retrieve(); // earliest: tertiary_task
+/// ```
+///
+/// # See Also
+/// - [`SchedulerTaskStore`]
+/// - [`EphemeralDefaultTaskStore::new`]
+#[derive(Default)]
 pub struct EphemeralDefaultTaskStore {
     earliest_sorted: Mutex<BinaryHeap<Reverse<EphemeralScheduledItem>>>,
     tasks: DashMap<usize, Arc<Task>>,
@@ -60,6 +119,18 @@ impl Debug for EphemeralDefaultTaskStore {
 }
 
 impl EphemeralDefaultTaskStore {
+    /// Creates / Constructs a new [`EphemeralDefaultTaskStore`] instance
+    ///
+    /// # Returns
+    /// The newly constructed [`EphemeralDefaultTaskStore`] wrapped in an ``Arc<T>``,
+    /// this is the same as doing:
+    /// ```ignore
+    /// Arc::new(EphemeralDefaultTaskStore::default())
+    /// ```
+    ///
+    /// # See Also
+    /// - [`EphemeralDefaultTaskStore`]
+    /// - [`EphemeralDefaultTaskStore::default`]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
@@ -78,22 +149,27 @@ impl SchedulerTaskStore for EphemeralDefaultTaskStore {
         Some((item.0.clone(), item.1, item.2))
     }
 
+    async fn get(&self, idx: &usize) -> Option<Arc<Task>> {
+        self.tasks.get(idx).map(|x| x.value().clone())
+    }
+
     async fn pop(&self) {
         self.earliest_sorted.lock().await.pop();
     }
 
-    async fn exists(&self, idx: usize) -> bool {
-        self.tasks.contains_key(&idx)
+    async fn exists(&self, idx: &usize) -> bool {
+        self.tasks.contains_key(idx)
     }
 
-    async fn reschedule(&self, clock: Arc<dyn SchedulerClock>, task: Arc<Task>, idx: usize) {
+    async fn reschedule(&self, clock: Arc<dyn SchedulerClock>, idx: &usize) {
         let sys_now = clock.now().await;
+        let task = self.tasks.get(idx).unwrap();
         let now = system_time_to_date_time(sys_now);
         let future_time = task.schedule().next_after(&now).unwrap();
         let sys_future_time = date_time_to_system_time(future_time);
 
         let mut lock = self.earliest_sorted.lock().await;
-        lock.push(Reverse(EphemeralScheduledItem(task, sys_future_time, idx)));
+        lock.push(Reverse(EphemeralScheduledItem(task.clone(), sys_future_time, *idx)));
     }
 
     async fn store(&self, clock: Arc<dyn SchedulerClock>, task: Arc<Task>) -> usize {
@@ -113,8 +189,8 @@ impl SchedulerTaskStore for EphemeralDefaultTaskStore {
         idx
     }
 
-    async fn remove(&self, idx: usize) {
-        self.tasks.remove(&idx);
+    async fn remove(&self, idx: &usize) {
+        self.tasks.remove(idx);
     }
 
     async fn clear(&self) {
