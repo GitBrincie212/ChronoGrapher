@@ -99,7 +99,7 @@ where
             Err(err) => {
                 ctx.emitter
                     .emit(
-                        ctx.metadata.clone(),
+                        ctx.as_restricted(),
                         self.on_fallback.clone(),
                         (self.secondary.clone(), err),
                     )

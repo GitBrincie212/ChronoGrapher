@@ -161,11 +161,12 @@ impl TaskFrame for ParallelTaskFrame {
                         let child_end = self.on_child_end.clone();
                         s.spawn(move || {
                             tokio::spawn(async move {
+                                let restricted_context = context_clone.as_restricted();
                                 context_clone
                                     .emitter
                                     .clone()
                                     .emit(
-                                        context_clone.metadata.clone(),
+                                        restricted_context.clone(),
                                         child_start,
                                         frame_clone.clone(),
                                     )
@@ -175,8 +176,8 @@ impl TaskFrame for ParallelTaskFrame {
                                     .emitter
                                     .clone()
                                     .emit(
-                                        context_clone.metadata.clone(),
-                                        child_end,
+                                        restricted_context.clone(),
+                                        child_end, 
                                         (frame_clone, result.clone().err()),
                                     )
                                     .await;

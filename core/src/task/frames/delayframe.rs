@@ -86,16 +86,17 @@ impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+        let restricted_ctx = ctx.as_restricted();
         ctx.emitter
             .emit(
-                ctx.metadata.clone(),
+                restricted_ctx.clone(),
                 self.on_delay_start.clone(),
                 self.delay,
             )
             .await;
         tokio::time::sleep(self.delay).await;
         ctx.emitter
-            .emit(ctx.metadata.clone(), self.on_delay_end.clone(), self.delay)
+            .emit(restricted_ctx.clone(), self.on_delay_end.clone(), self.delay)
             .await;
         self.frame.execute(ctx.clone()).await
     }

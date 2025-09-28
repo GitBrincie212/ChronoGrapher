@@ -159,7 +159,7 @@ impl TaskFrame for SelectTaskFrame {
         let idx = self.accessor.select(ctx.clone()).await;
         if let Some(frame) = self.tasks.get(idx) {
             ctx.emitter
-                .emit(ctx.metadata.clone(), self.on_select.clone(), frame.clone())
+                .emit(ctx.as_restricted(), self.on_select.clone(), frame.clone())
                 .await;
             return frame.execute(ctx).await;
         }

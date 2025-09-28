@@ -145,11 +145,12 @@ impl SequentialTaskFrame {
 #[async_trait]
 impl TaskFrame for SequentialTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+        let restricted_context = ctx.as_restricted();
         for task in self.tasks.iter() {
             ctx.emitter
                 .clone()
                 .emit(
-                    ctx.metadata.clone(),
+                    restricted_context.clone(),
                     self.on_child_start.clone(),
                     task.clone(),
                 )
@@ -158,7 +159,7 @@ impl TaskFrame for SequentialTaskFrame {
             ctx.emitter
                 .clone()
                 .emit(
-                    ctx.metadata.clone(),
+                    restricted_context.clone(),
                     self.on_child_end.clone(),
                     (task.clone(), result.clone().err()),
                 )

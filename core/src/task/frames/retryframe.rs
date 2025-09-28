@@ -324,11 +324,12 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2>
 impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
+        let restricted_context = ctx.as_restricted();
         for retry in 0u32..self.retries.get() {
             if retry != 0 {
                 ctx.emitter
                     .emit(
-                        ctx.metadata.clone(),
+                        restricted_context.clone(),
                         self.on_retry_start.clone(),
                         self.frame.clone(),
                     )
@@ -339,7 +340,7 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                 Ok(_) => {
                     ctx.emitter
                         .emit(
-                            ctx.metadata.clone(),
+                            restricted_context.clone(),
                             self.on_retry_end.clone(),
                             (self.frame.clone(), None),
                         )
@@ -350,7 +351,7 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                     error = Some(err.clone());
                     ctx.emitter
                         .emit(
-                            ctx.metadata.clone(),
+                            restricted_context.clone(),
                             self.on_retry_end.clone(),
                             (self.frame.clone(), error.clone()),
                         )

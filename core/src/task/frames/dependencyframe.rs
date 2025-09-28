@@ -250,7 +250,7 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             match handle.await {
                 Ok(res) => {
                     ctx.emitter
-                        .emit(ctx.metadata.clone(), self.on_dependency.clone(), (dep, res))
+                        .emit(ctx.as_restricted(), self.on_dependency.clone(), (dep, res))
                         .await;
                     if !res {
                         is_resolved = false;
@@ -260,7 +260,7 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
                 Err(_) => {
                     ctx.emitter
                         .emit(
-                            ctx.metadata.clone(),
+                            ctx.as_restricted(),
                             self.on_dependency.clone(),
                             (dep, false),
                         )

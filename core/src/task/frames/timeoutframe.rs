@@ -98,7 +98,7 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
             return inner;
         }
         ctx.emitter
-            .emit(ctx.metadata.clone(), self.on_timeout.clone(), ())
+            .emit(ctx.as_restricted(), self.on_timeout.clone(), ())
             .await;
         Err(Arc::new(std::io::Error::new(
             std::io::ErrorKind::TimedOut,

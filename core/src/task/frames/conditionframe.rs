@@ -301,7 +301,7 @@ macro_rules! execute_func_impl {
         if result {
             $ctx.emitter
                 .emit(
-                    $ctx.metadata.clone(),
+                    $ctx.as_restricted(),
                     $self.on_true.clone(),
                     $self.frame.clone(),
                 )
@@ -310,7 +310,7 @@ macro_rules! execute_func_impl {
         }
         $ctx.emitter
             .emit(
-                $ctx.metadata.clone(),
+                $ctx.as_restricted(),
                 $self.on_false.clone(),
                 $self.fallback.clone(),
             )
