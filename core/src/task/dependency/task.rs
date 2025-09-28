@@ -1,23 +1,55 @@
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
-use crate::task::{Task, TaskError};
+use crate::task::{Task, TaskContext, TaskError};
 use async_trait::async_trait;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
 
-/// [`TaskResolvent`] acts as a policy dictating how the [`TaskDependency`] manages the counting
-/// of runs, there are 3 core implementations of this trait which are specifically:
+/// [`TaskResolvent`] acts as a policy dictating how to manage the counting
+/// of relevant runs towards [`TaskDependency`], the [`TaskDependency`] has
+/// in store a caching mechanism to provide efficiency
+///
+/// # Required Method(s)
+/// When implementing the trait [`TaskResolvent`], one has to supply an implementation
+/// for the method [`TaskResolvent::should_count`] which is where the logic lives for
+/// counting a task's run as relevant for [`TaskDependency`]
+///
+/// # Trait Implementation(s)
+/// there are 3 core implementations of this [`TaskResolvent`] trait which are specifically:
 /// - [`TaskResolveSuccessOnly`] counts only successful runs
 /// - [`TaskResolveFailuresOnly`] counts only failure runs
 /// - [`TaskResolveIdentity`] counts both successful and failure runs,
 ///
 /// by default [`TaskDependency`] uses [`TaskResolveSuccessOnly`] (which of course can be overridden)
+///
+/// # See Also
+/// - [`TaskDependency`]
+/// - [`TaskResolveSuccessOnly`]
+/// - [`TaskResolveFailuresOnly`]
+/// - [`TaskResolveIdentity`]
 #[async_trait]
 pub trait TaskResolvent: Send + Sync {
-    async fn should_count(&self, result: Arc<Option<TaskError>>) -> bool;
+    /// This is the main logic part that counts if a specific run
+    /// is relevant to [`TaskDependency`] or not
+    ///
+    /// # Argument(s)
+    /// This method accepts two arguments, that is an optional error
+    /// of the [`Task`] represented as ``result`` as well as the
+    /// [`TaskContext`] via ``ctx`` (without the event emission part, i.e. It
+    /// is a restricted)
+    ///
+    /// # Returns
+    /// A boolean value indicating that the run counts as relevant
+    /// in [`TaskDependency`]
+    ///
+    /// # See Also
+    /// - [`TaskDependency`]
+    /// - [`TaskContext`]
+    /// - [`TaskResolvent`]
+    async fn should_count(&self,  ctx: Arc<TaskContext<true>>, result: Option<TaskError>) -> bool;
 }
 
 macro_rules! implement_core_resolvent {
@@ -26,8 +58,8 @@ macro_rules! implement_core_resolvent {
 
         #[async_trait]
         impl TaskResolvent for $name {
-            async fn should_count(&self, result: Arc<Option<TaskError>>) -> bool {
-                $code(result)
+            async fn should_count(&self, ctx: Arc<TaskContext<true>>, result: Option<TaskError>) -> bool {
+                $code(ctx, result)
             }
         }
     };
@@ -35,22 +67,61 @@ macro_rules! implement_core_resolvent {
 
 implement_core_resolvent!(
     TaskResolveSuccessOnly,
-    (|result: Arc<Option<TaskError>>| result.is_none())
+    (|_ctx: Arc<TaskContext<true>>, result: Option<TaskError>| result.is_none())
 );
 implement_core_resolvent!(
     TaskResolveFailureOnly,
-    (|result: Arc<Option<TaskError>>| result.is_some())
+    (|_ctx: Arc<TaskContext<true>>, result: Option<TaskError>| result.is_some())
 );
-implement_core_resolvent!(TaskResolveIdentityOnly, (|_| true));
+implement_core_resolvent!(TaskResolveIdentityOnly, (|_, _| true));
 
+/// [`TaskDependencyConfig`] is simply used as a builder to construct [`TaskDependency`], <br />
+/// it isn't meant to be used by itself, you may refer to [`TaskDependency::builder`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = TaskDependency))]
 pub struct TaskDependencyConfig {
+    /// The [`Task`] to monitor closely when it finishes a run and act accordingly
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`Task`]
     task: Arc<Task>,
 
+    /// The number of relevant runs for the [`TaskDependency`] to be considered resolved
+    ///
+    /// # Default Value
+    /// By default, every [`Task`] requires at least one run for this dependency to be resolved
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskDependency`]
+    /// - [`Task`]
     #[builder(default = NonZeroU64::new(1).unwrap())]
     minimum_runs: NonZeroU64,
 
+    /// The task resolvent behavior. This monitors the [`Task`] and whenever it finishes
+    /// a run, it checks if this specific run counts towards the relevant counter
+    ///
+    /// # Default Value
+    /// By default, every [`Task`] run will count **ONLY** if it is a successful one
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`Task`]
+    /// - [`TaskResolvent`]
+    /// - [`TaskResolveSuccessOnly`]
     #[builder(
         default = Arc::new(TaskResolveSuccessOnly),
         setter(transform = |ts: impl TaskResolvent + 'static| Arc::new(ts) as Arc<dyn TaskResolvent>)
@@ -80,13 +151,15 @@ impl From<TaskDependencyConfig> for TaskDependency {
             async move {
                 task_clone
                     .on_end
-                    .subscribe(move |_, payload: Arc<Option<TaskError>>| {
+                    .subscribe(move |ctx: Arc<TaskContext<true>>, payload: Arc<Option<TaskError>>| {
                         let counter_clone = counter_clone.clone();
                         let resolve_behavior_clone = resolve_behavior_clone.clone();
+                        let payload_cloned = payload.as_ref().clone();
+                        let context_cloned = ctx.clone();
 
                         async move {
                             let should_increment =
-                                resolve_behavior_clone.should_count(payload.clone()).await;
+                                resolve_behavior_clone.should_count(context_cloned, payload_cloned).await;
                             if should_increment {
                                 return;
                             }
@@ -102,10 +175,20 @@ impl From<TaskDependencyConfig> for TaskDependency {
 }
 
 /// [`TaskDependency`] represents a dependency between a task, typically when a task is executed,
-/// the task dependency closely monitors it to see if it succeeds or fails. Depending on the configured
-/// behavior (count fails, successes or a custom solution), it will count this run towards the resolving
-/// of the dependency. If there is a disagreement with the configured behavior and the results, then
-/// it doesn't operate at all
+/// the task dependency closely monitors it to see if it succeeds or fails as well as other relevant
+/// information. Depending on the configured behavior via [`TaskResolvent`] (count fails, successes or a
+/// custom solution), it will count this run towards the resolving of the dependency. If there is
+/// a disagreement with the [`TaskResolvent`] and the results, then it doesn't operate at all
+///
+/// # Constructor(s)
+/// When constructing a [`TaskDependency`], one should use [`TaskDependency::builder`] or
+/// [`TaskDependency::builder_owned`] depending on if they want to supply either
+/// an owned task or a non-owned task
+///
+/// # Trait Implementation(s)
+/// It is obvious that [`TaskDependency`] implements the [`FrameDependency`] trait, but it
+/// also implements the extension traits [`ResolvableFrameDependency`] and [`UnresolvableFrameDependency`]
+/// for manual resolving / unresolving of the dependency
 ///
 /// # Example
 /// ```ignore
@@ -132,6 +215,14 @@ impl From<TaskDependencyConfig> for TaskDependency {
 ///     .resolve_behavior(TaskResolveIdentityOnly)
 ///     .build();
 /// ```
+///
+/// # See Also
+/// - [`TaskResolvent`]
+/// - [`TaskDependency::builder`]
+/// - [`TaskDependency::builder_owned`]
+/// - [`FrameDependency`]
+/// - [`ResolvableFrameDependency`]
+/// - [`UnresolvableFrameDependency`]
 pub struct TaskDependency {
     task: Arc<Task>,
     minimum_runs: NonZeroU64,
