@@ -177,7 +177,7 @@ impl TaskFrame for ParallelTaskFrame {
                                     .clone()
                                     .emit(
                                         restricted_context.clone(),
-                                        child_end, 
+                                        child_end,
                                         (frame_clone, result.clone().err()),
                                     )
                                     .await;

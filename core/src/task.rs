@@ -401,10 +401,7 @@ impl Task {
         emitter
             .emit(ctx.as_restricted(), self.on_start.clone(), ())
             .await;
-        let result = self
-            .frame()
-            .execute(ctx.clone())
-            .await;
+        let result = self.frame().execute(ctx.clone()).await;
         let err = result.clone().err();
 
         emitter
