@@ -43,7 +43,7 @@ use crate::scheduler::Scheduler;
     from trait implementation, reducing the code and making it more maintainable
 */
 
-/// Task Config is simply used as a builder to construct [`Task`], <br />
+/// [`TaskConfig`] is simply used as a builder to construct [`Task`], <br />
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task))]
@@ -396,18 +396,19 @@ impl Task {
     /// - [`TaskEventEmitter`]
     /// - [`Scheduler`]
     pub async fn run(&self, emitter: Arc<TaskEventEmitter>) -> Result<(), TaskError> {
+        let ctx = TaskContext::new(self, emitter.clone());
         self.runs.fetch_add(1, Ordering::Relaxed);
         emitter
-            .emit(self.metadata(), self.on_start.clone(), ())
+            .emit(ctx.as_restricted(), self.on_start.clone(), ())
             .await;
         let result = self
             .frame()
-            .execute(TaskContext::new(self, emitter.clone()))
+            .execute(ctx.clone())
             .await;
         let err = result.clone().err();
 
         emitter
-            .emit(self.metadata(), self.on_end.clone(), err.clone())
+            .emit(ctx.as_restricted(), self.on_end.clone(), err.clone())
             .await;
 
         if let Some(error) = err {
