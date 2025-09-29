@@ -18,9 +18,9 @@ use crate::task::Task;
 /// - [`TaskScheduleInterval::new`] Creates a [`TaskScheduleInterval`] with a [`TimeDelta`]
 /// - [`TaskScheduleInterval::duration`] Creates a [`TaskScheduleInterval`] with a [`Duration`]
 /// - [`TaskScheduleInterval::from_secs`] Creates a [`TaskScheduleInterval`] with an
-/// interval number of seconds
+///   interval number of seconds
 /// - [`TaskScheduleInterval::from_secs_f64`] Similar to [`TaskScheduleInterval::from_secs`] but for floating-point
-/// numbers for seconds
+///   numbers for seconds
 ///
 /// One can also construct via ``From`` trait implementations
 ///
