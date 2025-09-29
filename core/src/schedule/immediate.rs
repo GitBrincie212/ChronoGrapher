@@ -2,15 +2,26 @@ use crate::schedule::TaskSchedule;
 use chrono::{DateTime, Local};
 use std::sync::Arc;
 
-/// [`TaskScheduleImmediate`] is an implementation of the [`TaskSchedule`] trait that executes tasks
-/// immediately
+#[allow(unused_imports)]
+use crate::task::Task;
+
+/// [`TaskScheduleImmediate`] is an implementation of the [`TaskSchedule`] trait
+/// that executes any [`Task`] instance immediately once scheduled / rescheduled
 ///
-/// # Construction
-/// You can simply drop in the TaskScheduleImmediate, as no data is associated with it
+/// # Constructor(s)
+/// If one wishes to construct a [`TaskScheduleImmediate`], they can simply use
+/// rust's struct initialization by just dropping [`TaskScheduleImmediate`] or with
+/// [`TaskScheduleImmediate::default`] via [`Default`] trait
+///
+/// # Trait Implementation(s)
+/// Obviously, [`TaskScheduleImmediate`] implements the [`TaskSchedule`] trait but
+/// also [`Debug`] (just prints the name, nothing more, nothing less), [`Clone`], [`Copy`]
+/// and [`Default`]
 ///
 /// # See also
-/// - [`TaskSchedule`] - the trait implemented by this type
-#[derive(Debug, Clone)]
+/// - [`Task`]
+/// - [`TaskSchedule`]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct TaskScheduleImmediate;
 
 impl TaskSchedule for TaskScheduleImmediate {
