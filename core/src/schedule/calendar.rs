@@ -1,7 +1,5 @@
 use crate::schedule::TaskSchedule;
-use chrono::{
-    DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike,
-};
+use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -61,7 +59,7 @@ pub enum TaskCalendarFieldType {
     SECONDS = 1,
 
     /// The milliseconds field, restricted to **0-999** (inclusive) range
-    MILLISECONDS = 0
+    MILLISECONDS = 0,
 }
 
 /// [`TaskCalendarField`] is a trait that defines a field on the schedule,
@@ -92,17 +90,13 @@ pub trait TaskCalendarField: Send + Sync {
     ///
     /// # See Also
     /// - [`TaskCalendarField`]
-    fn evaluate(
-        &self,
-        date_field: &mut u32,
-        date_field_type: TaskCalendarFieldType
-    );
+    fn evaluate(&self, date_field: &mut u32, date_field_type: TaskCalendarFieldType);
 }
 
 impl<T> TaskCalendarField for T
 where
     T: Deref + Send + Sync,
-    T::Target: TaskCalendarField
+    T::Target: TaskCalendarField,
 {
     fn evaluate(&self, date_field: &mut u32, date_field_type: TaskCalendarFieldType) {
         self.deref().evaluate(date_field, date_field_type)
@@ -126,11 +120,7 @@ where
 pub struct TaskCalendarFieldIdentity;
 
 impl TaskCalendarField for TaskCalendarFieldIdentity {
-    fn evaluate(
-        &self,
-        _date_field: &mut u32,
-        _date_field_type: TaskCalendarFieldType
-    ) {}
+    fn evaluate(&self, _date_field: &mut u32, _date_field_type: TaskCalendarFieldType) {}
 }
 
 /// [`TaskCalendarFieldExact`] is an implementation of the trait [`TaskCalendarField`],
@@ -168,11 +158,7 @@ impl TaskCalendarFieldExact {
 }
 
 impl TaskCalendarField for TaskCalendarFieldExact {
-    fn evaluate(
-        &self,
-        date_field: &mut u32,
-        _date_field_type: TaskCalendarFieldType
-    ) {
+    fn evaluate(&self, date_field: &mut u32, _date_field_type: TaskCalendarFieldType) {
         *date_field = self.0
     }
 }
@@ -212,11 +198,7 @@ impl TaskCalendarFieldInterval {
 }
 
 impl TaskCalendarField for TaskCalendarFieldInterval {
-    fn evaluate(
-        &self,
-        date_field: &mut u32,
-        _date_field_type: TaskCalendarFieldType
-    ) {
+    fn evaluate(&self, date_field: &mut u32, _date_field_type: TaskCalendarFieldType) {
         *date_field = date_field.saturating_add(self.0);
     }
 }
