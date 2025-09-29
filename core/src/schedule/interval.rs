@@ -5,19 +5,23 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskSchedule`] trait
-/// that executes tasks at a fixed interval.
+/// that executes tasks at a fixed interval. The interval is defined using either a [`TimeDelta`] or
+/// a [`Duration`], making it flexible for different time representations. This makes it well-suited
+/// for recurring jobs such as periodic cleanup tasks, heartbeat signals, polling operations... etc.
 ///
-/// The interval is defined using either a [`TimeDelta`] or a [`Duration`], making it
-/// flexible for different time representations. This makes it well-suited for recurring
-/// jobs such as periodic cleanup tasks, heartbeat signals, polling operations... etc.
+/// # Constructor(s)
+/// When one wants to create a new [`TaskScheduleInterval`] instance, they can use a variety
+/// of constructors, those being:
+/// - [`TaskScheduleInterval::new`] Creates a [`TaskScheduleInterval`] with a [`TimeDelta`]
+/// - [`TaskScheduleInterval::duration`] Creates a [`TaskScheduleInterval`] with a [`Duration`]
+/// - [`TaskScheduleInterval::from_secs`] Creates a [`TaskScheduleInterval`] with an
+/// interval number of seconds
+/// - [`TaskScheduleInterval::from_secs_f64`] Similar to [`TaskScheduleInterval::from_secs`] but for floating-point
+/// numbers for seconds
 ///
-/// # Construction
-///
-/// - Use [`TaskScheduleInterval::new`] to create an interval schedule from a [`TimeDelta`].
-/// - Use [`TaskScheduleInterval::duration`] when constructing from a [`Duration`].
+/// One can also construct via ``From`` trait implementations
 ///
 /// # Examples
-///
 /// ```ignore
 /// use std::time::Duration;
 /// use chronographer_core::schedule::TaskScheduleInterval;
@@ -26,24 +30,114 @@ use std::time::Duration;
 /// let schedule = TaskScheduleInterval::duration(Duration::from_secs(5));
 /// ```
 ///
+/// # Trait Implementation(s)
+/// [`TaskScheduleInterval`] implements obviously the [`TaskSchedule`] trait but also a variety
+/// of other traits, those being:
+/// - [`Debug`]
+/// - [`Clone`]
+/// - [`Copy`]
+/// - [`Eq`]
+/// - [`PartialEq`]
+/// - [`PartialOrd`]
+/// - [`Ord`]
+///
+/// In addition, it implements ``From`` trait for various integers and float numbers, those being:
+/// - ``u8``
+/// - ``u16``
+/// - ``u32``
+/// - ``f32``
+/// - ``f64``
+///
 /// # See also
-/// - [`TaskSchedule`] — the trait implemented by this type
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy, Default)]
+/// - [`TaskSchedule`]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy)]
 pub struct TaskScheduleInterval(pub(crate) TimeDelta);
 
 impl TaskScheduleInterval {
+    /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
+    /// are various other constructors, suited for other types such as
+    /// - [`TaskScheduleInterval::duration`] for [`Duration`]
+    /// - [`TaskScheduleInterval::from_secs`] for seconds represented as u32
+    /// - [`TaskScheduleInterval::from_secs_f64`] for seconds represented as f64
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, that being a chrono [`TimeDelta`] interval
+    /// as ``interval``
+    ///
+    /// # Returns
+    /// The newly created instance [`TaskScheduleInterval`] with an interval being ``interval``
+    ///
+    /// # See Also
+    /// - [`TaskScheduleInterval`]
+    /// - [`TaskScheduleInterval::duration`]
+    /// - [`TaskScheduleInterval::from_secs`]
+    /// - [`TaskScheduleInterval::from_secs_f64`]
     pub fn new(interval: TimeDelta) -> Self {
         Self(interval)
     }
 
+    /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
+    /// are various other constructors, suited for other types such as
+    /// - [`TaskScheduleInterval::new`] for chrono [`TimeDelta`]
+    /// - [`TaskScheduleInterval::from_secs`] for seconds represented as u32
+    /// - [`TaskScheduleInterval::from_secs_f64`] for seconds represented as f64
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, that being a [`Duration`] interval
+    /// as ``interval``
+    ///
+    /// # Returns
+    /// The newly created instance [`TaskScheduleInterval`] with an interval being ``interval``
+    ///
+    /// # See Also
+    /// - [`TaskScheduleInterval`]
+    /// - [`TaskScheduleInterval::new`]
+    /// - [`TaskScheduleInterval::from_secs`]
+    /// - [`TaskScheduleInterval::from_secs_f64`]
     pub fn duration(interval: Duration) -> Self {
         Self(TimeDelta::from_std(interval).unwrap())
     }
 
+    /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
+    /// are various other constructors, suited for other types such as
+    /// - [`TaskScheduleInterval::duration`] for [`Duration`]
+    /// - [`TaskScheduleInterval::new`] for chrono [`TimeDelta`]
+    /// - [`TaskScheduleInterval::from_secs_f64`] for seconds represented as f64
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, that being ``u32`` number representing the number
+    /// of seconds of an interval as ``interval``
+    ///
+    /// # Returns
+    /// The newly created instance [`TaskScheduleInterval`] with an interval being ``interval``
+    ///
+    /// # See Also
+    /// - [`TaskScheduleInterval`]
+    /// - [`TaskScheduleInterval::duration`]
+    /// - [`TaskScheduleInterval::new`]
+    /// - [`TaskScheduleInterval::from_secs_f64`]
     pub fn from_secs(interval: u32) -> Self {
         Self(TimeDelta::seconds(interval as i64))
     }
 
+    /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
+    /// are various other constructors, suited for other types such as
+    /// - [`TaskScheduleInterval::duration`] for [`Duration`]
+    /// - [`TaskScheduleInterval::from_secs`] for seconds represented as u32
+    /// - [`TaskScheduleInterval::new`] for chrono [`TimeDelta`]
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, that being ``f64`` number representing the number
+    /// of seconds of an interval as ``interval``
+    ///
+    /// # Returns
+    /// The newly created instance [`TaskScheduleInterval`] with an interval being ``interval``
+    ///
+    /// # See Also
+    /// - [`TaskScheduleInterval`]
+    /// - [`TaskScheduleInterval::duration`]
+    /// - [`TaskScheduleInterval::from_secs`]
+    /// - [`TaskScheduleInterval::new`]
     pub fn from_secs_f64(interval: f64) -> Self {
         Self(TimeDelta::from_std(Duration::from_secs_f64(interval)).unwrap())
     }
