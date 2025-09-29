@@ -40,12 +40,27 @@ use typed_builder::TypedBuilder;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TaskCalendarFieldType {
+    /// The year field, the only unrestricted value
     YEARS = 6,
+
+    /// The month field, restricted to **0-11** (inclusive) range
     MONTHS = 5,
+
+    /// The day field, restricted for the most part to **0-30** (inclusive) range,
+    /// tho this may not always be the case, for more information, look into [`TaskScheduleCalendar`]
     DAYS = 4,
+
+    /// The hours field, restricted for the most part to **0-23** (inclusive) range,
+    /// tho this may not always be the case, for more information, look into [`TaskScheduleCalendar`]
     HOURS = 3,
+
+    /// The minutes field, restricted to **0-59** (inclusive) range
     MINUTES = 2,
+
+    /// The seconds field, restricted to **0-59** (inclusive) range
     SECONDS = 1,
+
+    /// The milliseconds field, restricted to **0-999** (inclusive) range
     MILLISECONDS = 0
 }
 
