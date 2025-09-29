@@ -343,8 +343,11 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
     }
 }
 
+/// The type alias for ``on_insert`` event
 pub type OnMetadataInsertEvent =
     Arc<MetadataEvent<(String, ObserverField<Box<dyn Any + Send + Sync + 'static>>)>>;
+
+/// The type alias for ``on_remove`` event
 pub type OnMetadataRemoveEvent = Arc<MetadataEvent<String>>;
 
 /// [`TaskMetadata`] is a reactive container, which hosts keys as strings
