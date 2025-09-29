@@ -239,10 +239,35 @@ pub struct TaskDependency {
 }
 
 impl TaskDependency {
+    /// Creates / Constructs a builder to construct a [`TaskDependency`] instance. There is
+    /// a variant of this method for non-owned task value via [`TaskDependency::builder`]
+    ///
+    /// # Argument(s)
+    /// The method requires one argument, that being an owned [`Task`] instance
+    ///
+    /// # Returns
+    /// The builder to construct a [`TaskDependency`]
+    ///
+    /// # See Also
+    /// - [`TaskDependency`]
+    /// - [`TaskDependency::builder`]
     pub fn builder_owned(task: Task) -> TaskDependencyConfigBuilder<((Arc<Task>,), (), ())> {
         TaskDependencyConfig::builder().task(Arc::new(task))
     }
 
+    /// Creates / Constructs a builder to construct a [`TaskDependency`] instance. There is
+    /// a variant of this method for owned task value via [`TaskDependency::builder_owned`]
+    ///
+    /// # Argument(s)
+    /// The method requires one argument, that being a [`Task`] instance wrapped
+    /// in an ``Arc<T>``
+    ///
+    /// # Returns
+    /// The builder to construct a [`TaskDependency`]
+    ///
+    /// # See Also
+    /// - [`TaskDependency`]
+    /// - [`TaskDependency::builder_owned`]
     pub fn builder(task: Arc<Task>) -> TaskDependencyConfigBuilder<((Arc<Task>,), (), ())> {
         TaskDependencyConfig::builder().task(task)
     }
