@@ -246,7 +246,14 @@ pub struct RetriableTaskFrame<T: 'static, T2: RetryBackoffStrategy = ConstantBac
     frame: Arc<T>,
     retries: NonZeroU32,
     backoff_strat: T2,
+
+    /// Event fired when a retry occurs for the wrapped [`TaskFrame`],
+    /// hosting the wrapped [`TaskFrame`] instance
     pub on_retry_start: ArcTaskEvent<Arc<T>>,
+
+    /// Event fired when a retry ends for the wrapped [`TaskFrame`],
+    /// hosting the wrapped [`TaskFrame`] instance as well as an option error
+    /// it may have thrown
     pub on_retry_end: ArcTaskEvent<(Arc<T>, Option<TaskError>)>,
 }
 
