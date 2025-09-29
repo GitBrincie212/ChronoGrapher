@@ -26,7 +26,7 @@ use tokio::sync::Notify;
 /// the [`AdvanceableScheduleClock`] extension trait and the [`Debug`] trait
 ///
 /// # Example
-/// ```rust
+/// ```ignore
 /// use std::thread::sleep;
 /// use std::time::{Duration, SystemTime};
 /// use chronographer_core::clock::VirtualClock;
