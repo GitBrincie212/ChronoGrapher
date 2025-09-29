@@ -132,7 +132,7 @@ where
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 pub struct SelectTaskFrame {
-    tasks: Vec<Arc<dyn TaskFrame>>,
+    frames: Vec<Arc<dyn TaskFrame>>,
     accessor: Arc<dyn SelectFrameAccessor>,
 
     /// Event fired when a [`TaskFrame`] is successfully selected,
@@ -141,12 +141,26 @@ pub struct SelectTaskFrame {
 }
 
 impl SelectTaskFrame {
+    /// Creates / Constructs a new [`SelectTaskFrame`] instance
+    ///
+    /// # Argument(s)
+    /// This method requires 2 arguments, those being a collection of [`TaskFrame`]
+    /// as ``frames`` and a [`SelectFrameAccessor`] implementation as ``accessor``
+    ///
+    /// # Returns
+    /// The fully constructed [`SelectTaskFrame`] with the collection of frames to
+    /// select being ``frames`` and a [`SelectFrameAccessor`] being ``accessor``
+    ///
+    /// # See Also
+    /// - [`TaskFrame`]
+    /// - [`SelectFrameAccessor`]
+    /// - [`SelectTaskFrame`]
     pub fn new(
-        tasks: Vec<Arc<dyn TaskFrame>>,
+        frames: Vec<Arc<dyn TaskFrame>>,
         accessor: impl SelectFrameAccessor + 'static,
     ) -> Self {
         Self {
-            tasks,
+            frames,
             accessor: Arc::new(accessor),
             on_select: TaskEvent::new(),
         }
@@ -157,7 +171,7 @@ impl SelectTaskFrame {
 impl TaskFrame for SelectTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let idx = self.accessor.select(ctx.clone()).await;
-        if let Some(frame) = self.tasks.get(idx) {
+        if let Some(frame) = self.frames.get(idx) {
             ctx.emitter
                 .emit(ctx.as_restricted(), self.on_select.clone(), frame.clone())
                 .await;
@@ -166,7 +180,7 @@ impl TaskFrame for SelectTaskFrame {
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,
             "SelectTaskFrame".to_owned(),
-            self.tasks.len(),
+            self.frames.len(),
         )))
     }
 }
