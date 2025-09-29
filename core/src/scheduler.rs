@@ -44,7 +44,7 @@ pub struct SchedulerConfig {
     /// - [`SchedulerTaskDispatcher`]
     /// - [`Scheduler`]
     #[builder(
-        default = DefaultTaskDispatcher::default_configs(),
+        default = Arc::new(DefaultTaskDispatcher::default()),
         setter(transform = |std: impl SchedulerTaskDispatcher + 'static| Arc::new(std) as Arc<dyn SchedulerTaskDispatcher>),
     )]
     dispatcher: Arc<dyn SchedulerTaskDispatcher>,
@@ -232,7 +232,7 @@ impl Scheduler {
             let double_notifier_clone = notifier.clone();
             tokio::spawn(async move {
                 while let Ok(idx) = scheduler_receive.lock().await.recv().await {
-                    // This is the task dispatcher's duty to return the correct index,
+                    // This is the task dispatcher's duty to return the correct index.
                     // I am aware doing ``.unwrap()`` is an antipattern
                     let task = double_store_clone.get(&idx).await.unwrap();
                     if let Some(max_runs) = task.max_runs
