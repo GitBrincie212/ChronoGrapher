@@ -1,6 +1,8 @@
 use chrono::{DateTime, Local, TimeZone};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+/// Simply converts the ``SystemTime`` to a ``DateTime<Local>``, it is a private
+/// method used internally by ChronoGrapher, as such why it lives in utils module
 pub fn system_time_to_date_time(t: SystemTime) -> DateTime<Local> {
     let (sec, nsec) = match t.duration_since(UNIX_EPOCH) {
         Ok(dur) => (dur.as_secs() as i64, dur.subsec_nanos()),
@@ -17,6 +19,8 @@ pub fn system_time_to_date_time(t: SystemTime) -> DateTime<Local> {
     Local.timestamp_opt(sec, nsec).unwrap()
 }
 
+/// Simply converts the ``DateTime<Local>`` to a ``SystemTime``, it is a private
+/// method used internally by ChronoGrapher, as such why it lives in utils module
 pub fn date_time_to_system_time(dt: DateTime<impl TimeZone>) -> SystemTime {
     let duration_since_epoch = dt.timestamp_nanos_opt().unwrap();
     if duration_since_epoch >= 0 {
