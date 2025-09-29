@@ -113,7 +113,8 @@ its core.
 it needs to be. No complications, no trickery, what you write in code is what you will get in the production environment
 <br /><br />
 - **⏰ Millisecond Precision:** Chronographer is also designed to be millisecond precise, which makes it very practical for
-frequent scheduled tasks, it maintains this precision even when clogged by multiple tasks
+frequent scheduled tasks, it attempts to maintain this precision even when clogged by multiple tasks (tho no gurantees of
+fetching exactly at the specified millisecond under heavy workload)
 <br /> <br />
 - **📦 Tiny But Mighty** Tired of large sized packages, taking forever to compile, consuming disk space and so on? We too,
 as such, Chronographer is tiny about **~1MB** in size
