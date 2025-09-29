@@ -4,8 +4,11 @@ use std::ops::Add;
 use std::sync::Arc;
 use std::time::Duration;
 
+#[allow(unused_imports)]
+use crate::task::Task;
+
 /// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskSchedule`] trait
-/// that executes tasks at a fixed interval. The interval is defined using either a [`TimeDelta`] or
+/// that executes [`Task`] instances at a fixed interval. The interval is defined using either a [`TimeDelta`] or
 /// a [`Duration`], making it flexible for different time representations. This makes it well-suited
 /// for recurring jobs such as periodic cleanup tasks, heartbeat signals, polling operations... etc.
 ///
@@ -49,6 +52,7 @@ use std::time::Duration;
 /// - ``f64``
 ///
 /// # See also
+/// - [`Task`]
 /// - [`TaskSchedule`]
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy)]
 pub struct TaskScheduleInterval(pub(crate) TimeDelta);
