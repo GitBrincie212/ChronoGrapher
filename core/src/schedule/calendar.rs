@@ -1,14 +1,58 @@
 use crate::schedule::TaskSchedule;
 use chrono::{
-    DateTime, Datelike, Local, LocalResult, Months, NaiveDate, TimeDelta, TimeZone, Timelike,
+    DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike,
 };
 use std::fmt::Debug;
+use std::ops::Deref;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 
-/// Defines a field on the schedule for [`TaskSchedule::Calendar`], by itself it just holds data and how this
-/// data is scheduled, it is useful for [`TaskSchedule::Calendar`] only, all fields used in the calendar are
-/// zero-based (they start from zero), fields have their own ranges defined, typically:
+/// [`TaskCalendarFieldType`] represents the date field type that is being modified, by itself
+/// it doesn't hold any data, just what field is being modified. This is used closely with
+/// [`TaskCalendarField`] and subsequently [`TaskScheduleCalendar`]
+///
+/// # Variants
+/// The [`TaskCalendarFieldType`] enum includes:
+/// - [`TaskCalendarFieldType::YEARS`] for year field
+/// - [`TaskCalendarFieldType::MONTHS`] for month field
+/// - [`TaskCalendarFieldType::DAYS`] for days field
+/// - [`TaskCalendarFieldType::HOURS`] for hours field
+/// - [`TaskCalendarFieldType::MINUTES`] for minutes field
+/// - [`TaskCalendarFieldType::SECONDS`] for seconds field
+/// - [`TaskCalendarFieldType::MILLISECONDS`] for milliseconds field
+///
+/// # Construction
+/// There are no special strings attached, [`TaskCalendarFieldType`] can be constructed with
+/// rust's enum initialization easily
+///
+/// # Trait Implementation(s)
+/// There are many traits [`TaskCalendarFieldType`] implements, those being
+/// - [`Debug`]
+/// - [`Clone`]
+/// - [`Copy`]
+/// - [`PartialEq`]
+/// - [`Eq`]
+/// - [`PartialOrd`]
+/// - [`Ord`]
+///
+/// # See Also
+/// - [`TaskCalendarField`]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TaskCalendarFieldType {
+    YEARS = 6,
+    MONTHS = 5,
+    DAYS = 4,
+    HOURS = 3,
+    MINUTES = 2,
+    SECONDS = 1,
+    MILLISECONDS = 0
+}
+
+/// [`TaskCalendarField`] is a trait that defines a field on the schedule,
+/// by itself it just holds data and how this data is scheduled, it is useful for
+/// [`TaskSchedule::Calendar`] only, all fields used in the calendar are zero-based
+/// (they start from zero), fields have their own ranges defined, typically:
 /// - **Year** can be any value (unrestricted)
 /// - **Month** must be between 0 and 11 range
 /// - **Day** must be between 0 and 30 range
@@ -20,35 +64,145 @@ use typed_builder::TypedBuilder;
 /// All ranges are <u>inclusive on both ends</u>, the scheduler auto-validates the field schedules and if they
 /// are out of bounds, it panics with the corresponding error
 ///
-/// A field schedule has 4 variants which it can be in, these are:
-/// - **Ignore** ignores the field, instead using the current time's corresponding field
-/// - **Every(u32)** tells the scheduler to schedule this field on an interval basis
-/// - **Exactly(u32)** tells the scheduler to schedule this field at an exact value
-/// - **Custom(Arc<dyn Fn(u32) -> u32 + Send + Sync>)** triggers a custom function to run, where its argument
-///   is the current time's field and returns the corresponding field to use (behaves like Exactly but as a function)
-///
-/// # See
-/// - [`TaskSchedule`]
-/// - [`crate::scheduler::Scheduler`](scheduler)
-#[derive(Clone, Default)]
-pub enum TaskCalendarField {
-    #[default]
-    Ignore,
-    Every(u32),
-    Exactly(u32),
-    Custom(Arc<dyn Fn(u32) -> u32 + Send + Sync>),
+/// # Required Method(s)
+/// When implementing the [`TaskCalendarField`] trait, one has to supply an implementation for
+/// the method [`TaskCalendarField::evaluate`] which hosts the logic for modifying the date field
+/// to a corresponding value
+pub trait TaskCalendarField: Send + Sync {
+    /// This method is where the logic for modifying the date field lives in.
+    ///
+    /// # Argument(s)
+    /// This method hosts 2 arguments, those being the ``date_field`` to modify as well as the
+    /// ``date_field_type`` to indicate which date field the [`TaskCalendarField`] is modifying
+    ///
+    /// # See Also
+    /// - [`TaskCalendarField`]
+    fn evaluate(
+        &self,
+        date_field: &mut u32,
+        date_field_type: TaskCalendarFieldType
+    );
 }
 
-impl Debug for TaskCalendarField {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("CalendarFieldSchedule::{}", &{
-            match self {
-                Self::Ignore => "Ignore".to_owned(),
-                Self::Every(d) => format!("Every({d:?})"),
-                Self::Exactly(res) => format!("Exactly({res:?})"),
-                Self::Custom(_) => "Custom(...)".to_owned(),
-            }
-        }))
+impl<T> TaskCalendarField for T
+where
+    T: Deref + Send + Sync,
+    T::Target: TaskCalendarField
+{
+    fn evaluate(&self, date_field: &mut u32, date_field_type: TaskCalendarFieldType) {
+        self.deref().evaluate(date_field, date_field_type)
+    }
+}
+
+/// [`TaskCalendarFieldIdentity`] is an implementation of the trait [`TaskCalendarField`],
+/// where it keeps the same date field intact without any modification
+///
+/// # Constructor(s)
+/// When constructing [`TaskCalendarFieldIdentity`], one can do it via rust's struct initialization
+/// or from [`TaskCalendarFieldIdentity::default`] via [`Default`]
+///
+/// # Trait Implementation(s)
+/// Obviously [`TaskCalendarFieldIdentity`] implements the [`TaskCalendarField`] trait, but also
+/// implements the [`Debug`] trait, the [`Default`] trait, the [`Clone`] trait and the [`Copy`] trait
+///
+/// # See Also
+/// - [`TaskCalendarField`]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TaskCalendarFieldIdentity;
+
+impl TaskCalendarField for TaskCalendarFieldIdentity {
+    fn evaluate(
+        &self,
+        _date_field: &mut u32,
+        _date_field_type: TaskCalendarFieldType
+    ) {}
+}
+
+/// [`TaskCalendarFieldExact`] is an implementation of the trait [`TaskCalendarField`],
+/// where it modifies the date field to have an exact value **always**
+///
+/// # Constructor(s)
+/// When constructing [`TaskCalendarFieldExact`], one can do it via [`TaskCalendarFieldExact::new`]
+/// where they can supply a ``value`` to always modify to
+///
+/// # Trait Implementation(s)
+/// Obviously [`TaskCalendarFieldExact`] implements the [`TaskCalendarField`] trait, but also
+/// implements the [`Debug`] trait, the [`Clone`] trait and the [`Copy`] trait
+///
+/// # See Also
+/// - [`TaskCalendarField`]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TaskCalendarFieldExact(u32);
+
+impl TaskCalendarFieldExact {
+    /// Creates / Constructs a new [`TaskCalendarFieldExact`] instance
+    ///
+    /// # Argument(s)
+    /// This method requires only one argument, this being ``value`` which is a ``u32``
+    /// number, it is the value that will always modify the field to
+    ///
+    /// # Returns
+    /// The newly constructed [`TaskCalendarFieldExact`] instance with the value
+    /// to modify the target date field to being ``value``
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldExact`]
+    pub fn new(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl TaskCalendarField for TaskCalendarFieldExact {
+    fn evaluate(
+        &self,
+        date_field: &mut u32,
+        _date_field_type: TaskCalendarFieldType
+    ) {
+        *date_field = self.0
+    }
+}
+
+/// [`TaskCalendarFieldInterval`] is an implementation of the trait [`TaskCalendarField`],
+/// where it modifies the date field by adding an interval
+///
+/// # Constructor(s)
+/// When constructing [`TaskCalendarFieldInterval`], one can do it via [`TaskCalendarFieldExact::new`]
+/// where they can supply a ``interval`` to always add onto
+///
+/// # Trait Implementation(s)
+/// Obviously [`TaskCalendarFieldInterval`] implements the [`TaskCalendarField`] trait, but also
+/// implements the [`Debug`] trait, the [`Clone`] trait and the [`Copy`] trait
+///
+/// # See Also
+/// - [`TaskCalendarField`]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TaskCalendarFieldInterval(u32);
+
+impl TaskCalendarFieldInterval {
+    /// Creates / Constructs a new [`TaskCalendarFieldInterval`] instance
+    ///
+    /// # Argument(s)
+    /// This method requires only one argument, this being ``interval`` which is a ``u32``
+    /// number, it is the interval that will be added onto the date_field
+    ///
+    /// # Returns
+    /// The newly constructed [`TaskCalendarFieldInterval`] instance with the interval
+    /// being ``interval``
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldInterval`]
+    pub fn new(interval: u32) -> Self {
+        Self(interval)
+    }
+}
+
+impl TaskCalendarField for TaskCalendarFieldInterval {
+    fn evaluate(
+        &self,
+        date_field: &mut u32,
+        _date_field_type: TaskCalendarFieldType
+    ) {
+        *date_field = date_field.saturating_add(self.0);
     }
 }
 
@@ -56,12 +210,27 @@ impl Debug for TaskCalendarField {
 /// schedules with fine-grained control over individual calendar fields.
 ///
 /// Each field can be configured independently to restrict when the schedule should match.
-/// By default, all fields are set to [`TaskCalendarField::Ignore`], which means the field
-/// is ignored and instead replaced with the time's fields in [`TaskScheduleCalendar::next_after`] (if
-/// there is an exact field after the ignore, then its zero)
+/// By default, all fields are set to [`TaskCalendarFieldIdentity`], which means the field
+/// is set to the current time's field in [`TaskScheduleCalendar::next_after`]
+///
+/// If you want precise zero times, it is advised to use [`TaskCalendarFieldExact`] and set the
+/// time field to zero
+///
+/// # Constructor(s)
+/// When constructing a [`TaskScheduleCalendar`], the only way to achieve is via
+/// [`TaskScheduleCalendar::builder`] which prompts you to a builder style pattern
+/// for configuring your calendar
+///
+/// # Trait Implementation(s)
+/// [`TaskScheduleCalendar`] not only implements the [`TaskSchedule`] trait but also
+/// the [`Clone`] trait in addition
+///
+/// # Cloning Semantics
+/// When cloning, this creates a shallow copy (due to some limitations), in most cases
+/// this is fine. But when tracking state, it is advised to build a new [`TaskScheduleCalendar`]
+/// from scratch
 ///
 /// # Examples
-///
 /// ```ignore
 /// // Example: A schedule that runs every day at 12:30:00.00
 /// use chronographer_core::schedule::{TaskScheduleCalendar, TaskCalendarField};
@@ -73,43 +242,134 @@ impl Debug for TaskCalendarField {
 ///     .build();
 /// ```
 ///
-/// # Fields
-///
-/// - **year** The year field. This is the only unrestricted field and can take any value.
-/// - **month** The month field. Valid range: **0–11** (inclusive), where `0 = January`, `11 = December`.
-/// - **day** The day-of-month field. Valid range: **0–30** (inclusive). <br />
-///   ⚠️ Note: Actual limits depend on the selected month (e.g., February or leap years).
-/// - **hour** The hour-of-day field. Valid range: **0–23** (inclusive). <br />
-///   ⚠️ Note: Some days may have exceptions due to daylight saving transitions.
-/// - **minute** The minute field. Valid range: **0–59** (inclusive).
-/// - **second** The second field. Valid range: **0–59** (inclusive).
-/// - **millisecond** The millisecond field. Valid range: **0–999** (inclusive).
-///
-/// # See
+/// # See Also
 /// - [`TaskSchedule`]
 /// - [`TaskCalendarField`]
 #[derive(TypedBuilder, Clone)]
 pub struct TaskScheduleCalendar {
-    #[builder(default=TaskCalendarField::Ignore)]
-    year: TaskCalendarField,
+    /// The year field, it is the only unrestricted and can be any value (non-negative)
+    ///
+    /// # Default Value
+    /// By default, it is set to [`TaskCalendarFieldIdentity`], i.e. It uses the same
+    /// date field as the supplied time
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldIdentity`]
+    /// - [`TaskCalendarField`]
+    #[builder(default=Arc::new(TaskCalendarFieldIdentity))]
+    year: Arc<dyn TaskCalendarField>,
 
-    #[builder(default=TaskCalendarField::Ignore)]
-    month: TaskCalendarField,
+    /// The month field has a valid range of **0-11** (inclusive) where `0 = January`, `11 = December`
+    ///
+    /// # Default Value
+    /// By default, it is set to [`TaskCalendarFieldIdentity`], i.e. It uses the same
+    /// date field as the supplied time
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldIdentity`]
+    /// - [`TaskCalendarField`]
+    #[builder(default=Arc::new(TaskCalendarFieldIdentity))]
+    month: Arc<dyn TaskCalendarField>,
 
-    #[builder(default=TaskCalendarField::Ignore)]
-    day: TaskCalendarField,
+    /// The day of the month field has most of the time a valid range of **0-30** (inclusive),
+    /// however, this range may not always hold true, in-fact in special occasions. For example,
+    /// when the month is set to 2 (February), it is 28 days (and sometimes 29 days on leap
+    /// years)
+    ///
+    /// # Default Value
+    /// By default, it is set to [`TaskCalendarFieldIdentity`], i.e. It uses the same
+    /// date field as the supplied time
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldIdentity`]
+    /// - [`TaskCalendarField`]
+    #[builder(default=Arc::new(TaskCalendarFieldIdentity))]
+    day: Arc<dyn TaskCalendarField>,
 
-    #[builder(default=TaskCalendarField::Ignore)]
-    hour: TaskCalendarField,
+    /// The hour of the day field has most of the time a valid range of **0-23** (inclusive),
+    /// however, this range may not always hold true, in-fact in special occasions. For example,
+    /// daylight saving hours
+    ///
+    /// # Default Value
+    /// By default, it is set to [`TaskCalendarFieldIdentity`], i.e. It uses the same
+    /// date field as the supplied time
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldIdentity`]
+    /// - [`TaskCalendarField`]
+    #[builder(default=Arc::new(TaskCalendarFieldIdentity))]
+    hour: Arc<dyn TaskCalendarField>,
 
-    #[builder(default=TaskCalendarField::Ignore)]
-    minute: TaskCalendarField,
+    /// The minute of the hour field has a valid range of **0-59** (inclusive)
+    ///
+    /// # Default Value
+    /// By default, it is set to [`TaskCalendarFieldIdentity`], i.e. It uses the same
+    /// date field as the supplied time
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldIdentity`]
+    /// - [`TaskCalendarField`]
+    #[builder(default=Arc::new(TaskCalendarFieldIdentity))]
+    minute: Arc<dyn TaskCalendarField>,
 
-    #[builder(default=TaskCalendarField::Ignore)]
-    second: TaskCalendarField,
+    /// The second of the minute field has a valid range of **0-59** (inclusive)
+    ///
+    /// # Default Value
+    /// By default, it is set to [`TaskCalendarFieldIdentity`], i.e. It uses the same
+    /// date field as the supplied time
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldIdentity`]
+    /// - [`TaskCalendarField`]
+    #[builder(default=Arc::new(TaskCalendarFieldIdentity))]
+    second: Arc<dyn TaskCalendarField>,
 
-    #[builder(default=TaskCalendarField::Ignore)]
-    millisecond: TaskCalendarField,
+    /// The millisecond of the second field has a valid range of **0-999** (inclusive)
+    ///
+    /// # Default Value
+    /// By default, it is set to [`TaskCalendarFieldIdentity`], i.e. It uses the same
+    /// date field as the supplied time
+    ///
+    /// # Method Behavior
+    /// This builder parameter method cannot be chained, as it is a typed builder,
+    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
+    /// inner workings under the hood, just sets the value
+    ///
+    /// # See Also
+    /// - [`TaskCalendarFieldIdentity`]
+    /// - [`TaskCalendarField`]
+    #[builder(default=Arc::new(TaskCalendarFieldIdentity))]
+    millisecond: Arc<dyn TaskCalendarField>,
 }
 
 #[inline(always)]
@@ -177,23 +437,20 @@ impl TaskSchedule for TaskScheduleCalendar {
             &self.month,
             &self.year,
         ];
+        let date_field_types = [
+            TaskCalendarFieldType::YEARS,
+            TaskCalendarFieldType::MONTHS,
+            TaskCalendarFieldType::DAYS,
+            TaskCalendarFieldType::HOURS,
+            TaskCalendarFieldType::MINUTES,
+            TaskCalendarFieldType::SECONDS,
+            TaskCalendarFieldType::MILLISECONDS,
+        ];
         for (index, &field) in fields.iter().enumerate() {
             let date_field = dates.get_mut(index).unwrap();
-            match field {
-                TaskCalendarField::Ignore => {}
-                TaskCalendarField::Every(d) => {
-                    *date_field +=
-                        (*d as f64).clamp(u32::MIN as f64, u32::MAX as f64).round() as u32;
-                }
-                TaskCalendarField::Exactly(res) => {
-                    *date_field = *res;
-                }
-                TaskCalendarField::Custom(func) => {
-                    *date_field = func(*date_field);
-                }
-            }
+            field.evaluate(date_field, date_field_types[index])
         }
-        let mut modified = rebuild_datetime_from_parts(
+        let modified = rebuild_datetime_from_parts(
             dates[6] as i32,
             dates[5] + 1,
             dates[4] + 1,
@@ -202,24 +459,6 @@ impl TaskSchedule for TaskScheduleCalendar {
             dates[1],
             dates[0],
         );
-        for (index, &field) in fields.iter().enumerate() {
-            if index > 0
-                && matches!(fields[index - 1], TaskCalendarField::Exactly(_))
-                && !matches!(field, TaskCalendarField::Exactly(_))
-                && modified < *time
-            {
-                match index {
-                    0 => {}
-                    1 => modified += TimeDelta::seconds(1),
-                    2 => modified += TimeDelta::minutes(1),
-                    3 => modified += TimeDelta::hours(1),
-                    4 => modified += TimeDelta::days(1),
-                    5 => modified = modified + Months::new(1),
-                    6 => modified = modified + Months::new(12),
-                    _ => {}
-                };
-            }
-        }
         Ok(modified)
     }
 }
