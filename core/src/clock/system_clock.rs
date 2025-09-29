@@ -10,9 +10,18 @@ use crate::clock::VirtualClock;
 /// for scheduling, unlike [`VirtualClock`], it moves forward no matter what and cannot be advanced
 /// at any arbitrary point (due to its design)
 ///
-/// # See
+/// # Constructor(s)
+/// One can simply use the default rust's struct initialization or via [`SystemClock::default`]
+/// to construct the [`SystemClock`]
+///
+/// # Trait Implementation(s)
+/// While [`SystemClock`] implements the [`SchedulerClock`] trait, it also implements the
+/// [`Default`] trait, the [`Clone`] trait and the [`Copy`] trait
+///
+/// # See Also
 /// - [`VirtualClock`]
 /// - [`SchedulerClock`]
+#[derive(Default, Clone, Copy)]
 pub struct SystemClock;
 
 impl Debug for SystemClock {
