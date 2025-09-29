@@ -6,25 +6,37 @@ use multipool::pool::modes::PriorityWorkStealingMode;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use typed_builder::TypedBuilder;
 
-#[derive(TypedBuilder)]
-#[builder(build_method(into = Arc<DefaultTaskDispatcher>))]
-pub struct DefaultTaskDispatcherConfig {
-    workers: usize,
-}
+#[allow(unused_imports)]
+use crate::scheduler::Scheduler;
 
-impl From<DefaultTaskDispatcherConfig> for Arc<DefaultTaskDispatcher> {
-    fn from(config: DefaultTaskDispatcherConfig) -> Arc<DefaultTaskDispatcher> {
-        let pool = multipool::ThreadPoolBuilder::new()
-            .set_work_stealing()
-            .enable_priority()
-            .num_threads(config.workers)
-            .build();
-        Arc::new(DefaultTaskDispatcher { pool })
-    }
-}
-
+/// [`DefaultTaskDispatcher`] is an implementation of [`SchedulerTaskDispatcher`],
+/// this system works closely with the [`Scheduler`]. Its main job is to handle the execution of
+/// more than one [`Task`] instances in such a way that its efficient and priority-based (lower
+/// priority tasks execute commonly have time drifts on heavy workflow compared to critical tasks).
+///
+/// Due to the fact this system works with [`Scheduler`] it isn't really meant to be used outside
+/// of this domain, rather it is just a composite of a much granular system
+///
+/// # Implementation Detail(s)
+/// To achieve this, [`DefaultTaskDispatcher`] uses a thread pool via ``multipool`` under the hood,
+/// configured for work-stealing and priority execution. Depending on the priority of a [`Task`],
+/// [`DefaultTaskDispatcher`] ensures to execute at the precise timing, no matter what, delaying tasks
+/// with lower priorities.
+///
+/// # Constructor(s)
+/// When constructing a [`DefaultTaskDispatcher`], one can use either [`DefaultTaskDispatcher::new`]
+/// to configure the worker / thread count, or [`DefaultTaskDispatcher::default`] via [`Default`]
+/// trait
+///
+/// # Trait Implementation(s)
+/// It is obvious that [`DefaultTaskDispatcher`] implements the [`SchedulerTaskDispatcher`], but
+/// also the [`Default`] trait and [`Debug`] trait (although there are no fields when debugging it)
+///
+/// # See Also
+/// - [`Scheduler`]
+/// - [`Task`]
+/// - [`SchedulerTaskDispatcher`]
 pub struct DefaultTaskDispatcher {
     pool: ThreadPool<PriorityWorkStealingMode>,
 }
@@ -35,13 +47,39 @@ impl Debug for DefaultTaskDispatcher {
     }
 }
 
-impl DefaultTaskDispatcher {
-    pub fn default_configs() -> Arc<Self> {
-        DefaultTaskDispatcher::builder().workers(16).build()
+impl Default for DefaultTaskDispatcher {
+    fn default() -> Self {
+        let pool = multipool::ThreadPoolBuilder::new()
+            .set_work_stealing()
+            .enable_priority()
+            .num_threads(16)
+            .build();
+        Self { pool }
     }
+}
 
-    pub fn builder() -> DefaultTaskDispatcherConfigBuilder {
-        DefaultTaskDispatcherConfig::builder()
+impl DefaultTaskDispatcher {
+    /// Creates / Constructs a [`DefaultTaskDispatcher`] instance
+    ///
+    /// # Argument(s)
+    /// This method requests only one argument, that is the number of workers / threads via ``workers``
+    /// to allocate for [`DefaultTaskDispatcher`]. The more workers / threads, the more CPU power
+    /// it consumes but handles more tasks concurrently, minimizing major time drifts under heavy
+    /// workflow
+    ///
+    /// # Return(s)
+    /// The newly created [`DefaultTaskDispatcher`] instance with a configured number of
+    /// workers / threads set to ``workers``
+    ///
+    /// # See Also
+    /// - [`DefaultTaskDispatcher`]
+    pub fn new(workers: usize) -> Self {
+        let pool = multipool::ThreadPoolBuilder::new()
+            .set_work_stealing()
+            .enable_priority()
+            .num_threads(workers)
+            .build();
+        Self { pool }
     }
 }
 
