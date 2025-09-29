@@ -12,7 +12,6 @@ use arc_swap::ArcSwapOption;
 use once_cell::sync::Lazy;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
@@ -235,8 +234,8 @@ impl Scheduler {
                     // This is the task dispatcher's duty to return the correct index.
                     // I am aware doing ``.unwrap()`` is an antipattern
                     let task = double_store_clone.get(&idx).await.unwrap();
-                    if let Some(max_runs) = task.max_runs
-                        && task.runs.load(Ordering::Relaxed) >= max_runs.get()
+                    if let Some(max_runs) = task.max_runs()
+                        && task.runs() >= max_runs.get()
                     {
                         continue;
                     }

@@ -92,7 +92,7 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
         task: Arc<Task>,
         idx: usize,
     ) {
-        let target_priority = match task.priority {
+        let target_priority = match task.priority() {
             TaskPriority::CRITICAL => 0,
             TaskPriority::IMPORTANT => 100,
             TaskPriority::HIGH => 200,

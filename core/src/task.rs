@@ -292,16 +292,20 @@ impl From<TaskConfig> for Task {
 /// - [`ScheduleStrategy`]
 /// - [`TaskErrorHandler`]
 pub struct Task {
-    pub(crate) metadata: Arc<TaskMetadata>,
-    pub(crate) frame: Arc<dyn TaskFrame>,
-    pub(crate) schedule: Arc<dyn TaskSchedule>,
-    pub(crate) error_handler: Arc<dyn TaskErrorHandler>,
-    pub(crate) overlap_policy: Arc<dyn ScheduleStrategy>,
-    pub(crate) priority: TaskPriority,
-    pub(crate) runs: Arc<AtomicU64>,
-    pub(crate) debug_label: String,
-    pub(crate) max_runs: Option<NonZeroU64>,
+    metadata: Arc<TaskMetadata>,
+    frame: Arc<dyn TaskFrame>,
+    schedule: Arc<dyn TaskSchedule>,
+    error_handler: Arc<dyn TaskErrorHandler>,
+    overlap_policy: Arc<dyn ScheduleStrategy>,
+    priority: TaskPriority,
+    runs: Arc<AtomicU64>,
+    debug_label: String,
+    max_runs: Option<NonZeroU64>,
+
+    /// Event fired when the [`Task`] starts execution
     pub on_start: TaskStartEvent,
+
+    /// Event fired when the [`Task`] ends its execution
     pub on_end: TaskEndEvent,
 }
 
