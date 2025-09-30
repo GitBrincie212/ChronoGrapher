@@ -36,28 +36,28 @@ consist of:
   Outside parties can listento changes made into a field and be notified accordingly, one can also add other fields to the
   metadata container. The metadata can be accessed and modified on any point throughout the task's execution and from outside
   <br /> <br />
-  - ***Task Frame*** The Task Frame is the core embodiment of a task. It defines <ins>What</ins> needs to be done. Think of it 
+  - ***Task Frame:*** The Task Frame is the core embodiment of a task. It defines <ins>What</ins> needs to be done. Think of it 
   as the immutable recipe or the instruction set for a specific unit of work. Task frames can access the metadata of the
   task, task frames can also be decorated / wrapped, allowing for flexibility with minimal boilerplate footprint and code
   <br /> <br />
-  - **Task Schedule** This defines <ins>When</ins> the task needs to be executed, schedules can be as simple as an
+  - **Task Schedule:** This defines <ins>When</ins> the task needs to be executed, schedules can be as simple as an
   interval, to a cron expression and even a calendar. Given a specific time, they calculate based on the time provided, when
   the task will execute again (they can fail depending on the scenario)
   <br /> <br />
-  - **Task Scheduling Strategy (Policy)** Defines when the task reschedules (how the task overlaps with others), 
+  - **Task Scheduling Strategy:** Defines when the task reschedules (how the task overlaps with others), 
   should it reschedule the same instance now? Should it do it once the instance finishes execution? Should it cancel
   the previous running task? All these questions are answered by the policy, by default it uses the sequential policy
   <br /> <br />
-  - **Task Error Handler** This handles gracefully errors when a task fails, it is meant as a recovery from any potential 
+  - **Task Error Handler:** This handles gracefully errors when a task fails, it is meant as a recovery from any potential 
   error, examples include rollbacks, cleanups, state reset management, and so on. While the default error handler used is
   for silently ignoring them, in production environments it is advised to make your own error handler
   <br /> <br />
-  - **Task Priority** Defines the importance of a task. Chronographer offers 5 levels of priority which are
+  - **Task Priority:** Defines the importance of a task. Chronographer offers 5 levels of priority which are
   ``LOW``, ``MEDIUM``, ``HIGH``, ``IMPORTANT``, ``CRITICAL``. These priority levels make Chronographer responsive even under
   heavy workflow, as it optimizes the execution of tasks, as low priority tasks may execute a bit later, whereas critical
   tasks in most scenarios will immediately execute
   <br /> <br />
-  - **Task Dependencies** While for task frames, you can use ``ParallelTaskFrame`` and ``SequentialTaskFrame`` together,
+  - **Task Dependencies:** While for task frames, you can use ``ParallelTaskFrame`` and ``SequentialTaskFrame`` together,
   there may be cases where you want Task C to wait for Task A and Task B to finish before scheduling it for execution.
     Chronographer has this area covered as well. By default, there are no task dependencies for tasks
   
@@ -71,14 +71,14 @@ you covered
 Just like tasks. Chronographer gives the ability to also restructure schedulers to fit your needs, no need to depend
 on the default scheduler implementation, if you need. You can also implement your own, or even use existing components
 defined by the default scheduler, here are the composites a scheduler requires:
-- **Clock** This is a mechanism for tracking time, while by default it uses the system clock, one can also use a virtual
+- **Clock:** This is a mechanism for tracking time, while by default it uses the system clock, one can also use a virtual
 clock for simulating scenarios, such as unit testing, benchmarking or stress-testing
 <br /> <br />
-- **Task Store** It stores a task in some form (either be in-memory or persist them), the scheduler may interact with
+- **Task Store:** It stores a task in some form (either be in-memory or persist them), the scheduler may interact with
 the task store via getting the earliest task, rescheduling the same task instance or from methods from the scheduler which 
 act as wrappers around the task store mechanism
 <br /> <br />
-- **Task Dispatcher** It is the main logic block that handles execution logic, typically when the scheduler hands out a
+- **Task Dispatcher:** It is the main logic block that handles execution logic, typically when the scheduler hands out a
 task to the dispatcher, it tries to find the worker (which are units that concurrently execute) with the most minimum work 
 it has based on priority level, once it finds it, that is where the task's schedule strategy is executed
 
