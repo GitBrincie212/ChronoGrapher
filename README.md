@@ -33,8 +33,8 @@ Instead of thinking a task is just some executable, Chronographer thinks of task
 the expression and reuse of complex logic easily while also separating concerns and giving overall flexibility, tasks 
 consist of:
   - ***Task Metadata:*** The <ins>State</ins> of the task, it contains dynamic / runtime fields and is reactive to changes.
-  Outside parties can listento changes made into a field and be notified accordingly, one can also add other fields to the
-  metadata container. The metadata can be accessed and modified on any point throughout the task's execution and from outside
+  Outside parties can listen to changes made into a field and be notified accordingly, one can also add other fields to the
+  metadata container. The metadata can be accessed and modified at any point throughout the task's execution and from outside
   <br /> <br />
   - ***Task Frame:*** The Task Frame is the core embodiment of a task. It defines <ins>What</ins> needs to be done. Think of it 
   as the immutable recipe or the instruction set for a specific unit of work. Task frames can access the metadata of the
@@ -48,7 +48,7 @@ consist of:
   should it reschedule the same instance now? Should it do it once the instance finishes execution? Should it cancel
   the previous running task? All these questions are answered by the policy, by default it uses the sequential policy
   <br /> <br />
-  - **Task Error Handler:** This handles gracefully errors when a task fails, it is meant as a recovery from any potential 
+  - **Task Error Handler:** This handles errors gracefully when a task fails, it is meant as a recovery from any potential 
   error, examples include rollbacks, cleanups, state reset management, and so on. While the default error handler used is
   for silently ignoring them, in production environments it is advised to make your own error handler
   <br /> <br />
