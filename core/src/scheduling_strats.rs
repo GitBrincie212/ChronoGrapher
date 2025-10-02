@@ -1,11 +1,14 @@
-use crate::task::{Task, TaskEventEmitter};
+use crate::task::{Task, TaskError, TaskEventEmitter};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use serde_json::json;
 use tokio::task::JoinHandle;
+use crate::persistent_object::PersistentObject;
+use crate::serialized_component::SerializedComponent;
 
 /// [`ScheduleStrategy`] defines how the task should be rescheduled and how the task acts when being
 /// overlapped by the same task instance or by others. It is their duty to handle calling
@@ -81,13 +84,32 @@ where
 /// [`SequentialSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well
 /// as the [`Default`] trait which is the same as  simply pasting the instance (since no other data
 /// is required to be specified at construction time). In addition, it implements the [`Debug`] trait
-/// as well
-#[derive(Debug, Default)]
+/// as well as the [`Clone`] and [`Copy`] traits
+#[derive(Debug, Default, Clone, Copy)]
 pub struct SequentialSchedulingPolicy;
+
 #[async_trait]
 impl ScheduleStrategy for SequentialSchedulingPolicy {
     async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
         task.run(emitter).await.ok();
+    }
+}
+
+#[async_trait]
+impl PersistentObject<SequentialSchedulingPolicy> for SequentialSchedulingPolicy {
+    fn persistence_id(&self) -> &'static str {
+        "SequentialSchedulingPolicy$chronographer_core"
+    }
+
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        Ok(SerializedComponent::new(
+            self.persistence_id().to_string(),
+            json!({})
+        ))
+    }
+
+    async fn deserialize(_component: SerializedComponent) -> Result<SequentialSchedulingPolicy, TaskError> {
+        Ok(SequentialSchedulingPolicy)
     }
 }
 
@@ -102,8 +124,8 @@ impl ScheduleStrategy for SequentialSchedulingPolicy {
 /// [`ConcurrentSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well
 /// as the [`Default`] trait which is the same as  simply pasting the instance (since no other data
 /// is required to be specified at construction time). In addition, it implements the [`Debug`] trait
-/// as well
-#[derive(Debug, Default)]
+/// as well as the [`Clone`] and [`Copy`] traits
+#[derive(Debug, Default, Clone, Copy)]
 pub struct ConcurrentSchedulingPolicy;
 
 #[async_trait]
@@ -112,6 +134,24 @@ impl ScheduleStrategy for ConcurrentSchedulingPolicy {
         tokio::spawn(async move {
             task.run(emitter).await.ok();
         });
+    }
+}
+
+#[async_trait]
+impl PersistentObject<ConcurrentSchedulingPolicy> for ConcurrentSchedulingPolicy {
+    fn persistence_id(&self) -> &'static str {
+        "ConcurrentSchedulingPolicy$chronographer_core"
+    }
+
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        Ok(SerializedComponent::new(
+            self.persistence_id().to_string(),
+            json!({})
+        ))
+    }
+
+    async fn deserialize(_component: SerializedComponent) -> Result<ConcurrentSchedulingPolicy, TaskError> {
+        Ok(ConcurrentSchedulingPolicy)
     }
 }
 
@@ -182,6 +222,24 @@ impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
     }
 }
 
+#[async_trait]
+impl PersistentObject<CancelPreviousSchedulingPolicy> for CancelPreviousSchedulingPolicy {
+    fn persistence_id(&self) -> &'static str {
+        "CancelPreviousSchedulingPolicy$chronographer_core"
+    }
+
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        Ok(SerializedComponent::new(
+            self.persistence_id().to_string(),
+            json!({})
+        ))
+    }
+
+    async fn deserialize(_component: SerializedComponent) -> Result<CancelPreviousSchedulingPolicy, TaskError> {
+        Ok(CancelPreviousSchedulingPolicy::new())
+    }
+}
+
 /// [`CancelCurrentSchedulingPolicy`] is an implementation of [`ScheduleStrategy`] and executes the
 /// task in the background, unlike [`ConcurrentSchedulingPolicy`], this policy cancels the current
 /// task that tries to overlaps the already-running task
@@ -240,5 +298,23 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
             task.run(emitter).await.ok();
             is_free_clone.store(true, Ordering::Relaxed);
         });
+    }
+}
+
+#[async_trait]
+impl PersistentObject<CancelCurrentSchedulingPolicy> for CancelCurrentSchedulingPolicy {
+    fn persistence_id(&self) -> &'static str {
+        "CancelCurrentSchedulingPolicy$chronographer_core"
+    }
+
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        Ok(SerializedComponent::new(
+            self.persistence_id().to_string(),
+            json!({})
+        ))
+    }
+
+    async fn deserialize(_component: SerializedComponent) -> Result<CancelCurrentSchedulingPolicy, TaskError> {
+        Ok(CancelCurrentSchedulingPolicy::new())
     }
 }
