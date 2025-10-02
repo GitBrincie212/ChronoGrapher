@@ -1,7 +1,8 @@
 #[allow(missing_docs)]
-pub mod ephemeral; // skipcq: RS-D1001
+pub mod default;
+// skipcq: RS-D1001
 
-pub use ephemeral::*;
+pub use default::*;
 
 use crate::clock::SchedulerClock;
 use crate::task::Task;
@@ -30,14 +31,14 @@ use crate::task::TaskSchedule;
 ///
 /// # Trait Implementation(s)
 /// [`SchedulerTaskStore`] has specifically one implementation present in the library, that being
-/// [`EphemeralDefaultTaskStore`] which is an in-memory task store and does not handle persistence
+/// [`PersistentDefaultTaskStore`] which is an in-memory task store and does not handle persistence
 ///
 /// # Object Safety
 /// [`SchedulerTaskStore`] is object safe as seen throughout the source code of [`Scheduler`]
 ///
 /// # See Also
 /// - [`Scheduler`]
-/// - [`EphemeralDefaultTaskStore`]
+/// - [`PersistentDefaultTaskStore`]
 /// - [`SchedulerTaskStore::retrieve`]
 /// - [`SchedulerTaskStore::pop`]
 /// - [`SchedulerTaskStore::exists`]
