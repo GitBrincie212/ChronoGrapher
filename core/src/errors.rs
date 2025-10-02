@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use serde_json::Map;
 use thiserror::Error;
 
 #[allow(unused_imports)]
@@ -51,4 +52,23 @@ pub enum ChronographerErrors {
     /// field already exists (modifying basically the ObserverField which is non-idiomatic)
     #[error("`{0}` already exists as a field, grab the observer as opposed to fully modifying")]
     DynamicFieldAlreadyExists(String),
+    
+    /// This error is meant to happen when deserialization of a system (for task) fails.
+    /// The first field is the type that field, the second is the error message and the third
+    /// is the JSON payload
+    #[error("Deserialization of `{0}` failed, with an error message `{1}` and the payload being:\n{2:?}")]
+    DeserializationFailed(String, String, Map<String, serde_json::Value>),
+
+    /// This error is meant to happen when deserialization of a system (for task) detects
+    /// this JSON payload is not an object
+    #[error("Deserialization of `{0}` failed, as this is not a json object, rather a standalone value")]
+    NonObjectDeserialization(String, serde_json::Value),
+
+    /// This error is meant to happen when serialization occurs
+    /// on a non-persistent critical component
+    #[error(
+        "Serialization of `{0}` failed, as this is a critical component and persistence \
+        is required to deserialize this form back"
+    )]
+    NonPersistentObject(String)
 }
