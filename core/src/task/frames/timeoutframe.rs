@@ -1,7 +1,13 @@
+use crate::errors::ChronographerErrors;
+use std::fmt::Debug;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
+use serde_json::json;
+use crate::persistent_object::PersistentObject;
+use crate::serialized_component::SerializedComponent;
+use crate::{acquire_mut_ir_map, deserialization_err, deserialize_field, to_json};
 
 /// Represents a **timeout task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the [`TaskFrame`] hierarchy, providing a timeout mechanism for execution.
@@ -67,6 +73,9 @@ pub struct TimeoutTaskFrame<T: 'static> {
 }
 
 impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
+    /// A constant ID used for persisting the [`TimeoutTaskFrame`]
+    pub const PERSISTENCE_ID: &'static str = stringify!(TimeoutTaskFrame$chronographer_core);
+
     /// Constructs / Creates a new [`TimeoutTaskFrame`] instance
     ///
     /// # Argument(s)
@@ -104,5 +113,55 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
             std::io::ErrorKind::TimedOut,
             "Task timed out",
         )))
+    }
+}
+
+#[async_trait]
+impl<T: TaskFrame + PersistentObject<T>> PersistentObject<TimeoutTaskFrame<T>> for TimeoutTaskFrame<T> {
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        let frame = to_json!(self.frame.serialize().await?);
+        let max_duration = to_json!(self.max_duration);
+        Ok(SerializedComponent::new(
+            TimeoutTaskFrame::<T>::PERSISTENCE_ID.to_string(),
+            json!({
+                "wrapped_frame": frame,
+                "max_duration": max_duration
+            })
+        ))
+    }
+
+    async fn deserialize(component: SerializedComponent) -> Result<TimeoutTaskFrame<T>, TaskError> {
+        let mut repr = acquire_mut_ir_map!(TimeoutTaskFrame, component);
+
+        deserialize_field!(
+            repr,
+            serialized_max_duration,
+            "max_duration",
+            TimeoutTaskFrame,
+            "Cannot deserialize the maximum delay"
+        );
+
+        deserialize_field!(
+            repr,
+            serialized_frame,
+            "wrapped_frame",
+            TimeoutTaskFrame,
+            "Cannot deserialize the wrapped task frame"
+        );
+
+        let delay: Duration = serde_json::from_value(serialized_max_duration).map_err(|_|
+            deserialization_err!(
+                repr,
+                TimeoutTaskFrame,
+                "Cannot deserialize the maximum delay"
+            )
+        )?;
+
+        let frame: T = T::deserialize(
+            serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
+        ).await?;
+
+        Ok(TimeoutTaskFrame::new(frame, delay))
     }
 }
