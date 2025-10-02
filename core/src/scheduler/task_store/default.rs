@@ -1,6 +1,7 @@
 use crate::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::Task;
+use crate::backend::PersistenceBackend;
 use crate::utils::{date_time_to_system_time, system_time_to_date_time};
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -12,48 +13,47 @@ use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 
-struct EphemeralScheduledItem(Arc<Task>, SystemTime, usize);
+struct DefaultScheduledItem(Arc<Task>, SystemTime, usize);
 
-impl Eq for EphemeralScheduledItem {}
+impl Eq for DefaultScheduledItem {}
 
-impl PartialEq<Self> for EphemeralScheduledItem {
+impl PartialEq<Self> for DefaultScheduledItem {
     fn eq(&self, other: &Self) -> bool {
         self.1 == other.1
     }
 }
 
 #[allow(clippy::non_canonical_partial_ord_impl)]
-impl PartialOrd<Self> for EphemeralScheduledItem {
+impl PartialOrd<Self> for DefaultScheduledItem {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.1.partial_cmp(&other.1)
     }
 }
 
-impl Ord for EphemeralScheduledItem {
+impl Ord for DefaultScheduledItem {
     fn cmp(&self, other: &Self) -> Ordering {
         self.1.cmp(&other.1)
     }
 }
 
-/// [`EphemeralDefaultTaskStore`] is an implementation of [`SchedulerTaskStore`]
-/// that operates in-memory
+/// [`DefaultSchedulerTaskStore`] is an implementation of [`SchedulerTaskStore`]
+/// that can operate in-memory and persistence (can be configured with a [`PersistenceBackend`])
 ///
 /// # Usage Note(s)
-/// Due to the fact that [`EphemeralDefaultTaskStore`] operates in-memory by nature,
+/// By default [`DefaultSchedulerTaskStore`] operates in-memory,
 /// it doesn't store any information on the disk, while being fast, it makes it brittle
-/// to crashes and shutdowns. For enterprise use, it is advised to use a persistent
-/// implementation. It is mostly meant to be used for demos or for debugging (where one
+/// to crashes and shutdowns. For enterprise use, it is advised to configure a
+/// backend. It is mostly meant to be used for demos or for debugging (where one
 /// doesn't care to persist information on disk)
 ///
 /// # Constructor(s)
-/// When constructing a new [`EphemeralDefaultTaskStore`], one can use [`EphemeralDefaultTaskStore::new`]
-/// for doing so, or [`EphemeralDefaultTaskStore::default`] via the [`Default`] trait to get an owned
-/// version
+/// When constructing a new [`DefaultSchedulerTaskStore`], one can use
+/// [`DefaultSchedulerTaskStore::ephemeral`] for ephemeral-only (in-memory) storage or
+/// [`DefaultSchedulerTaskStore<T>::persistent`] for backend storage with a provided
+/// backend
 ///
 /// # Trait Implementation(s)
-/// [`EphemeralDefaultTaskStore`] obviously implements the [`SchedulerTaskStore`] but also
-/// it implements [`Default`], allowing for the creation of owned [`EphemeralDefaultTaskStore`]
-/// instances
+/// [`DefaultSchedulerTaskStore`] obviously implements the [`SchedulerTaskStore`]
 ///
 /// # Example
 /// ```ignore
@@ -93,15 +93,15 @@ impl Ord for EphemeralScheduledItem {
 ///
 /// # See Also
 /// - [`SchedulerTaskStore`]
-/// - [`EphemeralDefaultTaskStore::new`]
-#[derive(Default)]
-pub struct EphemeralDefaultTaskStore {
-    earliest_sorted: Mutex<BinaryHeap<Reverse<EphemeralScheduledItem>>>,
+/// - [`DefaultSchedulerTaskStore::new`]
+pub struct DefaultSchedulerTaskStore<T: PersistenceBackend = ()> {
+    earliest_sorted: Mutex<BinaryHeap<Reverse<DefaultScheduledItem>>>,
     tasks: DashMap<usize, Arc<Task>>,
     id: AtomicUsize,
+    backend: T
 }
 
-impl Debug for EphemeralDefaultTaskStore {
+impl<T: PersistenceBackend> Debug for DefaultSchedulerTaskStore<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "EphemeralDefaultTaskStore [{:?}]",
@@ -115,30 +115,55 @@ impl Debug for EphemeralDefaultTaskStore {
     }
 }
 
-impl EphemeralDefaultTaskStore {
-    /// Creates / Constructs a new [`EphemeralDefaultTaskStore`] instance
+impl DefaultSchedulerTaskStore {
+    /// Creates / Constructs a new [`DefaultSchedulerTaskStore`] instance which
+    /// only operates in-memory, one can construct a version for persistence
+    /// use, via [`DefaultSchedulerTaskStore<T>::persistent`]
     ///
     /// # Returns
-    /// The newly constructed [`EphemeralDefaultTaskStore`] wrapped in an ``Arc<T>``,
-    /// this is the same as doing:
-    /// ```ignore
-    /// Arc::new(EphemeralDefaultTaskStore::default())
-    /// ```
+    /// The newly constructed [`DefaultSchedulerTaskStore`] wrapped in an ``Arc<T>``.
     ///
     /// # See Also
-    /// - [`EphemeralDefaultTaskStore`]
-    /// - [`EphemeralDefaultTaskStore::default`]
-    pub fn new() -> Arc<Self> {
+    /// - [`DefaultSchedulerTaskStore`]
+    /// - [`DefaultSchedulerTaskStore::default`]
+    pub fn ephemeral() -> Arc<Self> {
         Arc::new(Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
             id: AtomicUsize::new(0),
+            backend: ()
+        })
+    }
+}
+
+impl<T: PersistenceBackend> DefaultSchedulerTaskStore<T> {
+    /// Creates / Constructs a new [`DefaultSchedulerTaskStore`] instance which
+    /// operates in-memory and stores information to be reconstructed at runtime
+    /// when a crash occurs. One can also construct a variant for only in-memory use
+    /// via [`DefaultSchedulerTaskStore::ephemeral`]
+    ///
+    /// # Argument(s)
+    /// This method accepts one argument, this being the [`PersistenceBackend`]
+    /// implementation to use
+    ///
+    /// # Returns
+    /// The newly constructed [`DefaultSchedulerTaskStore`] wrapped in an ``Arc<T>``.
+    ///
+    /// # See Also
+    /// - [`DefaultSchedulerTaskStore`]
+    /// - [`DefaultSchedulerTaskStore::ephemeral`]
+    pub fn persistent(backend: T) -> Arc<Self> {
+        Arc::new(Self {
+            earliest_sorted: Mutex::new(BinaryHeap::new()),
+            tasks: DashMap::new(),
+            id: AtomicUsize::new(0),
+            backend
         })
     }
 }
 
 #[async_trait]
-impl SchedulerTaskStore for EphemeralDefaultTaskStore {
+impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> {
     async fn retrieve(&self) -> Option<(Arc<Task>, SystemTime, usize)> {
         let early_lock = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
@@ -166,7 +191,7 @@ impl SchedulerTaskStore for EphemeralDefaultTaskStore {
         let sys_future_time = date_time_to_system_time(future_time);
 
         let mut lock = self.earliest_sorted.lock().await;
-        lock.push(Reverse(EphemeralScheduledItem(
+        lock.push(Reverse(DefaultScheduledItem(
             task.clone(),
             sys_future_time,
             *idx,
@@ -183,7 +208,7 @@ impl SchedulerTaskStore for EphemeralDefaultTaskStore {
             idx
         };
         let sys_future_time = SystemTime::from(future_time);
-        let entry = EphemeralScheduledItem(task, sys_future_time, idx);
+        let entry = DefaultScheduledItem(task, sys_future_time, idx);
         let mut earliest_tasks = self.earliest_sorted.lock().await;
         earliest_tasks.push(Reverse(entry));
 
