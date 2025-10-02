@@ -5,8 +5,8 @@ pub mod task_dispatcher; // skipcq: RS-D1001
 pub mod task_store; // skipcq: RS-D1001
 
 use crate::clock::*;
-use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
+use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{Task, TaskEventEmitter};
 use arc_swap::ArcSwapOption;
@@ -22,7 +22,6 @@ use typed_builder::TypedBuilder;
 /// a different built scheduler
 pub static CHRONOGRAPHER_SCHEDULER: Lazy<Arc<Scheduler>> =
     Lazy::new(|| Arc::new(Scheduler::builder().build()));
-
 
 /// This is the builder configs to use for building a [`Scheduler`] instance.
 /// By itself it should not be used, and it resides in [`Scheduler::builder`]

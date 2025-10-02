@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use serde_json::Map;
 #[allow(unused_imports)]
 use crate::backend::PersistenceBackend;
+use serde::{Deserialize, Serialize};
+use serde_json::Map;
 
 /// [`SerializedComponent`] is a container that wraps a **unique** identifier (ID) corresponding
 /// to a concrete type and an IR (Intermediate Representation) as JSON that is not type-safe but
@@ -44,10 +44,7 @@ impl SerializedComponent {
     /// # See Also
     /// - [`SerializedComponent`]
     pub fn new(id: String, json: serde_json::Value) -> Self {
-        Self {
-            id,
-            json
-        }
+        Self { id, json }
     }
 
     /// Returns the identifier of the type

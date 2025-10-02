@@ -1,16 +1,16 @@
-use crate::{acquire_mut_ir_map, deserialization_err, deserialize_field, to_json};
-use std::clone::Clone;
+use crate::errors::ChronographerErrors;
+use crate::persistent_object::PersistentObject;
+use crate::serialized_component::SerializedComponent;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::{acquire_mut_ir_map, deserialization_err, deserialize_field, to_json};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::clone::Clone;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use crate::errors::ChronographerErrors;
-use crate::persistent_object::PersistentObject;
-use crate::serialized_component::SerializedComponent;
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -386,14 +386,10 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
 impl<T1, T2> PersistentObject<RetriableTaskFrame<T1, T2>> for RetriableTaskFrame<T1, T2>
 where
     T1: TaskFrame + 'static + PersistentObject<T1>,
-    T2: RetryBackoffStrategy + PersistentObject<T2>
+    T2: RetryBackoffStrategy + PersistentObject<T2>,
 {
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
-        let serialized_backoff_strat = to_json!(
-            self.backoff_strat
-                .serialize()
-                .await?
-        );
+        let serialized_backoff_strat = to_json!(self.backoff_strat.serialize().await?);
 
         let serialized_frame = to_json!(self.frame.serialize().await?);
 
@@ -405,11 +401,13 @@ where
 
         Ok(SerializedComponent::new(
             RetriableTaskFrame::<T1, T2>::PERSISTENCE_ID.to_string(),
-            payload
+            payload,
         ))
     }
 
-    async fn deserialize(component: SerializedComponent) -> Result<RetriableTaskFrame<T1, T2>, TaskError> {
+    async fn deserialize(
+        component: SerializedComponent,
+    ) -> Result<RetriableTaskFrame<T1, T2>, TaskError> {
         let mut repr = acquire_mut_ir_map!(DelayTaskFrame, component);
 
         deserialize_field!(
@@ -440,7 +438,7 @@ where
             let err = ChronographerErrors::DeserializationFailed(
                 "RetriableTaskFrame".to_string(),
                 "Cannot deserialize the number of retries".to_string(),
-                repr.clone()
+                repr.clone(),
             );
 
             Arc::new(err) as Arc<dyn Debug + Send + Sync>
@@ -450,7 +448,7 @@ where
             let err = ChronographerErrors::DeserializationFailed(
                 "RetriableTaskFrame".to_string(),
                 "The deserialized number of retries is zero".to_string(),
-                repr.clone()
+                repr.clone(),
             );
 
             Arc::new(err) as Arc<dyn Debug + Send + Sync>
@@ -458,14 +456,20 @@ where
 
         let frame = T1::deserialize(
             serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
-        ).await?;
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
+        )
+        .await?;
 
         let retry_backoff_strat = T2::deserialize(
             serde_json::from_value::<SerializedComponent>(serialized_backoff_strat.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
-        ).await?;
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
+        )
+        .await?;
 
-        Ok(RetriableTaskFrame::new_with(frame, nonzero_retries, retry_backoff_strat))
+        Ok(RetriableTaskFrame::new_with(
+            frame,
+            nonzero_retries,
+            retry_backoff_strat,
+        ))
     }
 }

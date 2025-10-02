@@ -1,18 +1,18 @@
 use crate::errors::ChronographerErrors;
-use std::fmt::Debug;
-use crate::schedule::TaskSchedule;
-use chrono::{DateTime, Local, TimeDelta};
-use std::ops::Add;
-use std::sync::Arc;
-use std::time::Duration;
-use async_trait::async_trait;
-use serde_json::json;
 use crate::persistent_object::PersistentObject;
+use crate::schedule::TaskSchedule;
 use crate::serialized_component::SerializedComponent;
 #[allow(unused_imports)]
 use crate::task::Task;
 use crate::task::TaskError;
 use crate::{acquire_mut_ir_map, deserialization_err, deserialize_field, to_json};
+use async_trait::async_trait;
+use chrono::{DateTime, Local, TimeDelta};
+use serde_json::json;
+use std::fmt::Debug;
+use std::ops::Add;
+use std::sync::Arc;
+use std::time::Duration;
 
 /// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskSchedule`] trait
 /// that executes [`Task`] instances at a fixed interval. The interval is defined using either a [`TimeDelta`] or
@@ -201,11 +201,13 @@ impl PersistentObject<TaskScheduleInterval> for TaskScheduleInterval {
             self.persistence_id().to_string(),
             json!({
                 "interval_seconds": secs
-            })
+            }),
         ))
     }
 
-    async fn deserialize(component: SerializedComponent) -> Result<TaskScheduleInterval, TaskError> {
+    async fn deserialize(
+        component: SerializedComponent,
+    ) -> Result<TaskScheduleInterval, TaskError> {
         let mut map = acquire_mut_ir_map!(TaskScheduleInterval, component);
         deserialize_field!(
             map,
@@ -215,12 +217,13 @@ impl PersistentObject<TaskScheduleInterval> for TaskScheduleInterval {
             "Cannot deserialize the interval_seconds field"
         );
 
-        let secs = serialized_seconds.as_f64()
-            .ok_or_else(|| deserialization_err!(
+        let secs = serialized_seconds.as_f64().ok_or_else(|| {
+            deserialization_err!(
                 map,
                 TaskScheduleInterval,
                 "Cannot deserialize the interval_seconds field"
-            ))?;
+            )
+        })?;
 
         Ok(TaskScheduleInterval::from_secs_f64(secs))
     }

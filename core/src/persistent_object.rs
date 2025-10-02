@@ -1,10 +1,10 @@
+use crate::serialized_component::SerializedComponent;
+use crate::task::TaskError;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::any::type_name;
 use std::fmt::Debug;
 use std::sync::Arc;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use crate::serialized_component::SerializedComponent;
-use crate::task::TaskError;
 
 #[allow(unused_imports)]
 use crate::task::*;
@@ -74,9 +74,9 @@ impl<T: Serialize + for<'de> Deserialize<'de> + Send + Sync> PersistentObject<T>
         match serde_json::to_value(self) {
             Ok(res) => Ok(SerializedComponent::new(
                 self.persistence_id().to_string(),
-                res
+                res,
             )),
-            Err(err) => Err(Arc::new(err))
+            Err(err) => Err(Arc::new(err)),
         }
     }
 

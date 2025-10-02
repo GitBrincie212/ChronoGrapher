@@ -1,14 +1,14 @@
 use crate::deserialization_err;
-use crate::task::Debug;
 use crate::errors::ChronographerErrors;
+use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
+use crate::serialized_component::SerializedComponent;
+use crate::task::Debug;
 use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
-use std::sync::Arc;
 use serde_json::json;
+use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
-use crate::serialized_component::SerializedComponent;
 
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
@@ -343,7 +343,7 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
 impl<T, F> PersistentObject<ConditionalFrame<T, F>> for ConditionalFrame<T, F>
 where
     T: TaskFrame + 'static + PersistentObject<T>,
-    F: TaskFrame + 'static + PersistentObject<F>
+    F: TaskFrame + 'static + PersistentObject<F>,
 {
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         let frame = to_json!(self.frame.serialize().await?);
@@ -352,11 +352,14 @@ where
         let predicate = match self.predicate.as_persistent().await {
             PersistenceCapability::Persistable(res) => res,
             _ => {
-                return Err(Arc::new(
-                    ChronographerErrors::NonPersistentObject("ConditionalFramePredicate".to_string())
-                ));
+                return Err(Arc::new(ChronographerErrors::NonPersistentObject(
+                    "ConditionalFramePredicate".to_string(),
+                )));
             }
-        }.serialize().await?.into_ir();
+        }
+        .serialize()
+        .await?
+        .into_ir();
         Ok(SerializedComponent::new(
             ConditionalFrame::<T, F>::PERSISTENCE_ID.to_string(),
             json!({
@@ -364,11 +367,13 @@ where
                 "wrapped_fallback": fallback,
                 "errors_on_false": errors_on_false,
                 "predicate": predicate,
-            })
+            }),
         ))
     }
 
-    async fn deserialize(component: SerializedComponent) -> Result<ConditionalFrame<T, F>, TaskError> {
+    async fn deserialize(
+        component: SerializedComponent,
+    ) -> Result<ConditionalFrame<T, F>, TaskError> {
         let mut repr = acquire_mut_ir_map!(ConditionalFrame, component);
 
         deserialize_field!(
@@ -405,27 +410,29 @@ where
 
         let primary_frame = T::deserialize(
             serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
-        ).await?;
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
+        )
+        .await?;
 
         let fallback_frame = F::deserialize(
             serde_json::from_value::<SerializedComponent>(serialized_fallback.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
-        ).await?;
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
+        )
+        .await?;
 
-        let error_on_false = serialized_error_on_false.as_bool()
-            .ok_or_else(|| deserialization_err!(
+        let error_on_false = serialized_error_on_false.as_bool().ok_or_else(|| {
+            deserialization_err!(
                 repr,
                 ConditionalFrame,
                 "Cannot deserialize the boolean to decide whenever or not to error on false"
-            ))?;
+            )
+        })?;
 
         Ok(ConditionalFrame::fallback_builder()
             .frame(primary_frame)
             .predicate() // TODO: Fill the argument with the deserialized predicate
             .error_on_false(error_on_false)
             .fallback(fallback_frame)
-            .build()
-        )
+            .build())
     }
 }
