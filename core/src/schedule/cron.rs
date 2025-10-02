@@ -1,6 +1,15 @@
+use crate::errors::ChronographerErrors;
+use crate::deserialization_err;
+use std::fmt::Debug;
 use crate::schedule::TaskSchedule;
 use chrono::{DateTime, Local};
 use std::sync::Arc;
+use async_trait::async_trait;
+use serde_json::json;
+use crate::persistent_object::PersistentObject;
+use crate::serialized_component::SerializedComponent;
+use crate::task::TaskError;
+use crate::{acquire_mut_ir_map, deserialize_field, to_json};
 
 /// [`TaskScheduleCron`] is an implementation of the [`TaskSchedule`] trait that executes [`Task`]
 /// instances, according to a cron expression. Learn more about cron expression in
@@ -67,5 +76,44 @@ impl TaskSchedule for TaskScheduleCron {
         time: &DateTime<Local>,
     ) -> Result<DateTime<Local>, Arc<dyn std::error::Error + 'static>> {
         Ok(cron_parser::parse(&self.0, time).unwrap())
+    }
+}
+
+#[async_trait]
+impl PersistentObject<TaskScheduleCron> for TaskScheduleCron {
+    fn persistence_id(&self) -> &'static str {
+        "TaskScheduleCron$chronographer_core"
+    }
+    
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        let cron = to_json!(self.0.as_str());
+        Ok(SerializedComponent::new(
+            self.persistence_id().to_string(),
+            json!({
+                "cron_expression": cron
+            }),
+        ))
+    }
+
+    async fn deserialize(component: SerializedComponent) -> Result<TaskScheduleCron, TaskError> {
+        let mut map = acquire_mut_ir_map!(TaskScheduleCron, component);
+        
+        deserialize_field!(
+            map,
+            serialized_cron,
+            "cron_expression",
+            TaskScheduleCron,
+            "Cannot deserialize the cron_expression field"
+        );
+        
+        let cron = serialized_cron.as_str()
+            .ok_or_else(|| deserialization_err!(
+                map,
+                TaskScheduleCron,
+                "Cannot deserialize the cron_expression field"
+            ))?
+            .to_string();
+        
+        Ok(TaskScheduleCron::new(cron))
     }
 }
