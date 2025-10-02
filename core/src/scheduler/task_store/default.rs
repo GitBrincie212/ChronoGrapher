@@ -1,7 +1,7 @@
+use crate::backend::PersistenceBackend;
 use crate::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::Task;
-use crate::backend::PersistenceBackend;
 use crate::utils::{date_time_to_system_time, system_time_to_date_time};
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -98,7 +98,7 @@ pub struct DefaultSchedulerTaskStore<T: PersistenceBackend = ()> {
     earliest_sorted: Mutex<BinaryHeap<Reverse<DefaultScheduledItem>>>,
     tasks: DashMap<usize, Arc<Task>>,
     id: AtomicUsize,
-    backend: T
+    backend: T,
 }
 
 impl<T: PersistenceBackend> Debug for DefaultSchedulerTaskStore<T> {
@@ -131,7 +131,7 @@ impl DefaultSchedulerTaskStore {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
             id: AtomicUsize::new(0),
-            backend: ()
+            backend: (),
         })
     }
 }
@@ -157,7 +157,7 @@ impl<T: PersistenceBackend> DefaultSchedulerTaskStore<T> {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
             id: AtomicUsize::new(0),
-            backend
+            backend,
         })
     }
 }

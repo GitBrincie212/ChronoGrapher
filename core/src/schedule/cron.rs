@@ -1,15 +1,15 @@
-use crate::errors::ChronographerErrors;
 use crate::deserialization_err;
-use std::fmt::Debug;
-use crate::schedule::TaskSchedule;
-use chrono::{DateTime, Local};
-use std::sync::Arc;
-use async_trait::async_trait;
-use serde_json::json;
+use crate::errors::ChronographerErrors;
 use crate::persistent_object::PersistentObject;
+use crate::schedule::TaskSchedule;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
 use crate::{acquire_mut_ir_map, deserialize_field, to_json};
+use async_trait::async_trait;
+use chrono::{DateTime, Local};
+use serde_json::json;
+use std::fmt::Debug;
+use std::sync::Arc;
 
 /// [`TaskScheduleCron`] is an implementation of the [`TaskSchedule`] trait that executes [`Task`]
 /// instances, according to a cron expression. Learn more about cron expression in
@@ -84,7 +84,7 @@ impl PersistentObject<TaskScheduleCron> for TaskScheduleCron {
     fn persistence_id(&self) -> &'static str {
         "TaskScheduleCron$chronographer_core"
     }
-    
+
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         let cron = to_json!(self.0.as_str());
         Ok(SerializedComponent::new(
@@ -97,7 +97,7 @@ impl PersistentObject<TaskScheduleCron> for TaskScheduleCron {
 
     async fn deserialize(component: SerializedComponent) -> Result<TaskScheduleCron, TaskError> {
         let mut map = acquire_mut_ir_map!(TaskScheduleCron, component);
-        
+
         deserialize_field!(
             map,
             serialized_cron,
@@ -105,15 +105,18 @@ impl PersistentObject<TaskScheduleCron> for TaskScheduleCron {
             TaskScheduleCron,
             "Cannot deserialize the cron_expression field"
         );
-        
-        let cron = serialized_cron.as_str()
-            .ok_or_else(|| deserialization_err!(
-                map,
-                TaskScheduleCron,
-                "Cannot deserialize the cron_expression field"
-            ))?
+
+        let cron = serialized_cron
+            .as_str()
+            .ok_or_else(|| {
+                deserialization_err!(
+                    map,
+                    TaskScheduleCron,
+                    "Cannot deserialize the cron_expression field"
+                )
+            })?
             .to_string();
-        
+
         Ok(TaskScheduleCron::new(cron))
     }
 }

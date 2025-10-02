@@ -1,14 +1,14 @@
+use crate::persistent_object::PersistentObject;
+use crate::serialized_component::SerializedComponent;
 use crate::task::{Task, TaskError, TaskEventEmitter};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
+use serde_json::json;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use serde_json::json;
 use tokio::task::JoinHandle;
-use crate::persistent_object::PersistentObject;
-use crate::serialized_component::SerializedComponent;
 
 /// [`ScheduleStrategy`] defines how the task should be rescheduled and how the task acts when being
 /// overlapped by the same task instance or by others. It is their duty to handle calling
@@ -104,11 +104,13 @@ impl PersistentObject<SequentialSchedulingPolicy> for SequentialSchedulingPolicy
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<SequentialSchedulingPolicy, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<SequentialSchedulingPolicy, TaskError> {
         Ok(SequentialSchedulingPolicy)
     }
 }
@@ -146,11 +148,13 @@ impl PersistentObject<ConcurrentSchedulingPolicy> for ConcurrentSchedulingPolicy
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<ConcurrentSchedulingPolicy, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<ConcurrentSchedulingPolicy, TaskError> {
         Ok(ConcurrentSchedulingPolicy)
     }
 }
@@ -231,11 +235,13 @@ impl PersistentObject<CancelPreviousSchedulingPolicy> for CancelPreviousScheduli
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<CancelPreviousSchedulingPolicy, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<CancelPreviousSchedulingPolicy, TaskError> {
         Ok(CancelPreviousSchedulingPolicy::new())
     }
 }
@@ -310,11 +316,13 @@ impl PersistentObject<CancelCurrentSchedulingPolicy> for CancelCurrentScheduling
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<CancelCurrentSchedulingPolicy, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<CancelCurrentSchedulingPolicy, TaskError> {
         Ok(CancelCurrentSchedulingPolicy::new())
     }
 }

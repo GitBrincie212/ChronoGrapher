@@ -1,10 +1,10 @@
-use crate::task::TaskError;
-use async_trait::async_trait;
-use serde_json::json;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
+use crate::task::TaskError;
 #[allow(unused_imports)]
 use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
+use async_trait::async_trait;
+use serde_json::json;
 
 /// [`GroupedTaskFrameExecBehavior`] is a mechanism used in conjunction with [`ParallelTaskFrame`]
 /// and [`SequentialTaskFrame`] **(we call them grouped task frames)**, it defines the behavior for
@@ -80,11 +80,13 @@ impl PersistentObject<GroupedTaskFramesQuitOnSuccess> for GroupedTaskFramesQuitO
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<GroupedTaskFramesQuitOnSuccess, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<GroupedTaskFramesQuitOnSuccess, TaskError> {
         Ok(GroupedTaskFramesQuitOnSuccess)
     }
 }
@@ -127,11 +129,13 @@ impl PersistentObject<GroupedTaskFramesQuitOnFailure> for GroupedTaskFramesQuitO
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<GroupedTaskFramesQuitOnFailure, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<GroupedTaskFramesQuitOnFailure, TaskError> {
         Ok(GroupedTaskFramesQuitOnFailure)
     }
 }
@@ -171,11 +175,13 @@ impl PersistentObject<GroupedTaskFramesSilent> for GroupedTaskFramesSilent {
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<GroupedTaskFramesSilent, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<GroupedTaskFramesSilent, TaskError> {
         Ok(GroupedTaskFramesSilent)
     }
 }

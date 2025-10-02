@@ -1,8 +1,8 @@
+use crate::persistent_object::PersistentObject;
+use crate::serialized_component::SerializedComponent;
 use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use serde_json::json;
-use crate::persistent_object::PersistentObject;
-use crate::serialized_component::SerializedComponent;
 
 /// Represents a **no-operation task frame** that does nothing. This task frame type
 /// acts as a **leaf node** within the task frame hierarchy. Its primary role is to
@@ -46,11 +46,13 @@ impl PersistentObject<NoOperationTaskFrame> for NoOperationTaskFrame {
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             NoOperationTaskFrame::PERSISTENCE_ID.to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<NoOperationTaskFrame, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<NoOperationTaskFrame, TaskError> {
         Ok(NoOperationTaskFrame)
     }
 }

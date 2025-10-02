@@ -20,10 +20,10 @@ pub mod task; // skipcq: RS-D1001
 pub(crate) mod utils; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod backend;  // skipcq: RS-D1001
+pub mod backend; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod serialized_component;  // skipcq: RS-D1001
+pub mod serialized_component; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod persistent_object;  // skipcq: RS-D1001
+pub mod persistent_object; // skipcq: RS-D1001

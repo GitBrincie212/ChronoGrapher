@@ -1,13 +1,13 @@
 use crate::errors::ChronographerErrors;
-use crate::task::Debug;
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
-use async_trait::async_trait;
-use std::sync::Arc;
-use std::time::Duration;
-use serde_json::json;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
+use crate::task::Debug;
+use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use crate::{acquire_mut_ir_map, deserialization_err, deserialize_field, to_json};
+use async_trait::async_trait;
+use serde_json::json;
+use std::sync::Arc;
+use std::time::Duration;
 
 /// Represents a **delay task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the [`TaskFrame`] hierarchy, providing a delay mechanism for execution.
@@ -125,7 +125,7 @@ impl<T: TaskFrame + PersistentObject<T>> PersistentObject<DelayTaskFrame<T>> for
             json!({
                 "wrapped_frame": frame,
                 "delay": delay
-            })
+            }),
         ))
     }
 
@@ -148,18 +148,15 @@ impl<T: TaskFrame + PersistentObject<T>> PersistentObject<DelayTaskFrame<T>> for
             "Cannot deserialize the wrapped task frame"
         );
 
-        let delay: Duration = serde_json::from_value(serialized_delay).map_err(|_|
-            deserialization_err!(
-                repr,
-                DelayTaskFrame,
-                "Cannot deserialize the delay"
-            )
-        )?;
+        let delay: Duration = serde_json::from_value(serialized_delay).map_err(|_| {
+            deserialization_err!(repr, DelayTaskFrame, "Cannot deserialize the delay")
+        })?;
 
         let frame: T = T::deserialize(
             serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
-        ).await?;
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
+        )
+        .await?;
 
         Ok(DelayTaskFrame::new(frame, delay))
     }

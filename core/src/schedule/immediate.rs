@@ -1,13 +1,13 @@
-use crate::schedule::TaskSchedule;
-use chrono::{DateTime, Local};
-use std::sync::Arc;
-use async_trait::async_trait;
-use serde_json::json;
 use crate::persistent_object::PersistentObject;
+use crate::schedule::TaskSchedule;
 use crate::serialized_component::SerializedComponent;
 #[allow(unused_imports)]
 use crate::task::Task;
 use crate::task::TaskError;
+use async_trait::async_trait;
+use chrono::{DateTime, Local};
+use serde_json::json;
+use std::sync::Arc;
 
 /// [`TaskScheduleImmediate`] is an implementation of the [`TaskSchedule`] trait
 /// that executes any [`Task`] instance immediately once scheduled / rescheduled
@@ -46,11 +46,13 @@ impl PersistentObject<TaskScheduleImmediate> for TaskScheduleImmediate {
     async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
-            json!({})
+            json!({}),
         ))
     }
 
-    async fn deserialize(_component: SerializedComponent) -> Result<TaskScheduleImmediate, TaskError> {
+    async fn deserialize(
+        _component: SerializedComponent,
+    ) -> Result<TaskScheduleImmediate, TaskError> {
         Ok(TaskScheduleImmediate)
     }
 }
