@@ -5,8 +5,9 @@ pub mod task_dispatcher; // skipcq: RS-D1001
 pub mod task_store; // skipcq: RS-D1001
 
 use crate::clock::*;
+use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
-use crate::scheduler::task_store::{EphemeralDefaultTaskStore, SchedulerTaskStore};
+use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{Task, TaskEventEmitter};
 use arc_swap::ArcSwapOption;
 use once_cell::sync::Lazy;
@@ -17,10 +18,11 @@ use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
 /// The default scheduler, it uses all the provided default components to build the scheduler.
-/// Due to non-persistent storage and system clock. This should **NOT** be used over
+/// Due to non-backend storage and system clock. This should **NOT** be used over
 /// a different built scheduler
 pub static CHRONOGRAPHER_SCHEDULER: Lazy<Arc<Scheduler>> =
     Lazy::new(|| Arc::new(Scheduler::builder().build()));
+
 
 /// This is the builder configs to use for building a [`Scheduler`] instance.
 /// By itself it should not be used, and it resides in [`Scheduler::builder`]
@@ -49,11 +51,11 @@ pub struct SchedulerConfig {
     dispatcher: Arc<dyn SchedulerTaskDispatcher>,
 
     /// The [`SchedulerTaskStore`] for handling the storage of tasks. They are the
-    /// mechanisms that drive persistent storing, the retrieval of the earliest task and so on...
+    /// mechanisms that drive backend storing, the retrieval of the earliest task and so on...
     ///
     /// # Default Value
-    /// Every scheduler uses as default value [`EphemeralDefaultTaskStore::new()`]. For simple
-    /// demos and examples, this is fine for larger scale applications, persistent storage mechanisms
+    /// Every scheduler uses as default value [`PersistentDefaultTaskStore::new()`]. For simple
+    /// demos and examples, this is fine for larger scale applications, backend storage mechanisms
     /// should be preferred to ensure tasks never fail (even when everything else fails)
     ///
     /// # Method Behavior
@@ -62,11 +64,11 @@ pub struct SchedulerConfig {
     /// inner workings under the hood, just sets the value
     ///
     /// # See Also
-    /// - [`EphemeralDefaultTaskStore`]
+    /// - [`PersistentDefaultTaskStore`]
     /// - [`SchedulerTaskStore`]
     /// - [`Scheduler`]
     #[builder(
-        default = EphemeralDefaultTaskStore::new(),
+        default = DefaultSchedulerTaskStore::ephemeral(),
         setter(transform = |std: impl SchedulerTaskStore + 'static| Arc::new(std) as Arc<dyn SchedulerTaskStore>),
     )]
     store: Arc<dyn SchedulerTaskStore>,
