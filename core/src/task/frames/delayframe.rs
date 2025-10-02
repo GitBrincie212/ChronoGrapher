@@ -1,7 +1,13 @@
+use crate::errors::ChronographerErrors;
+use crate::task::Debug;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
+use serde_json::json;
+use crate::persistent_object::PersistentObject;
+use crate::serialized_component::SerializedComponent;
+use crate::{acquire_mut_ir_map, deserialization_err, deserialize_field, to_json};
 
 /// Represents a **delay task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the [`TaskFrame`] hierarchy, providing a delay mechanism for execution.
@@ -60,6 +66,9 @@ pub struct DelayTaskFrame<T: 'static> {
 }
 
 impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
+    /// A constant ID used for persisting the [`DelayTaskFrame`]
+    pub const PERSISTENCE_ID: &'static str = stringify!(DelayTaskFrame$chronographer_core);
+
     /// Constructs / Creates a new [`DelayTaskFrame`] instance
     ///
     /// # Argument(s)
@@ -103,5 +112,55 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
             )
             .await;
         self.frame.execute(ctx.clone()).await
+    }
+}
+
+#[async_trait]
+impl<T: TaskFrame + PersistentObject<T>> PersistentObject<DelayTaskFrame<T>> for DelayTaskFrame<T> {
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        let frame = to_json!(self.frame.serialize().await?);
+        let delay = to_json!(self.delay);
+        Ok(SerializedComponent::new(
+            DelayTaskFrame::<T>::PERSISTENCE_ID.to_string(),
+            json!({
+                "wrapped_frame": frame,
+                "delay": delay
+            })
+        ))
+    }
+
+    async fn deserialize(component: SerializedComponent) -> Result<DelayTaskFrame<T>, TaskError> {
+        let mut repr = acquire_mut_ir_map!(DelayTaskFrame, component);
+
+        deserialize_field!(
+            repr,
+            serialized_delay,
+            "delay",
+            DelayTaskFrame,
+            "Cannot deserialize the delay"
+        );
+
+        deserialize_field!(
+            repr,
+            serialized_frame,
+            "wrapped_frame",
+            DelayTaskFrame,
+            "Cannot deserialize the wrapped task frame"
+        );
+
+        let delay: Duration = serde_json::from_value(serialized_delay).map_err(|_|
+            deserialization_err!(
+                repr,
+                DelayTaskFrame,
+                "Cannot deserialize the delay"
+            )
+        )?;
+
+        let frame: T = T::deserialize(
+            serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
+        ).await?;
+
+        Ok(DelayTaskFrame::new(frame, delay))
     }
 }
