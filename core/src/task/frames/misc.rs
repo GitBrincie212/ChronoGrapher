@@ -1,6 +1,8 @@
 use crate::task::TaskError;
 use async_trait::async_trait;
-
+use serde_json::json;
+use crate::persistent_object::PersistentObject;
+use crate::serialized_component::SerializedComponent;
 #[allow(unused_imports)]
 use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
 
@@ -69,6 +71,24 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
     }
 }
 
+#[async_trait]
+impl PersistentObject<GroupedTaskFramesQuitOnSuccess> for GroupedTaskFramesQuitOnSuccess {
+    fn persistence_id(&self) -> &'static str {
+        "GroupedTaskFramesQuitOnSuccess$chronographer_core"
+    }
+
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        Ok(SerializedComponent::new(
+            self.persistence_id().to_string(),
+            json!({})
+        ))
+    }
+
+    async fn deserialize(_component: SerializedComponent) -> Result<GroupedTaskFramesQuitOnSuccess, TaskError> {
+        Ok(GroupedTaskFramesQuitOnSuccess)
+    }
+}
+
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
 /// and when evaluated, it quits [`ParallelTaskFrame`] or [`SequentialTaskFrame`] if at least
 /// one child has failed (returns a failure)
@@ -98,6 +118,24 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
     }
 }
 
+#[async_trait]
+impl PersistentObject<GroupedTaskFramesQuitOnFailure> for GroupedTaskFramesQuitOnFailure {
+    fn persistence_id(&self) -> &'static str {
+        "GroupedTaskFramesQuitOnFailure$chronographer_core"
+    }
+
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        Ok(SerializedComponent::new(
+            self.persistence_id().to_string(),
+            json!({})
+        ))
+    }
+
+    async fn deserialize(_component: SerializedComponent) -> Result<GroupedTaskFramesQuitOnFailure, TaskError> {
+        Ok(GroupedTaskFramesQuitOnFailure)
+    }
+}
+
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
 /// it continues execution of [`ParallelTaskFrame`] and [`SequentialTaskFrame`] no matter what result
 /// a child [`TaskFrame`] returns, acts as an identity
@@ -121,5 +159,23 @@ pub struct GroupedTaskFramesSilent;
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
     async fn should_quit(&self, _result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
         None
+    }
+}
+
+#[async_trait]
+impl PersistentObject<GroupedTaskFramesSilent> for GroupedTaskFramesSilent {
+    fn persistence_id(&self) -> &'static str {
+        "GroupedTaskFramesSilent$chronographer_core"
+    }
+
+    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+        Ok(SerializedComponent::new(
+            self.persistence_id().to_string(),
+            json!({})
+        ))
+    }
+
+    async fn deserialize(_component: SerializedComponent) -> Result<GroupedTaskFramesSilent, TaskError> {
+        Ok(GroupedTaskFramesSilent)
     }
 }
