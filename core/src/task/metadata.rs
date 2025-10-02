@@ -162,7 +162,7 @@ impl<P: Send + Sync + 'static> MetadataEvent<P> {
 /// - [`ObserverField`]
 /// - [`TaskMetadata`]
 #[async_trait]
-pub trait ObserverFieldListener<T: Send + Sync + 'static + ?Sized>: Send + Sync {
+pub trait ObserverFieldListener<T: Send + Sync + ?Sized>: Send + Sync {
     async fn listen(&self, value: Arc<T>);
 }
 
@@ -368,7 +368,7 @@ pub struct TaskMetadata {
     /// Event fired when an insertion happens
     pub on_insert: OnMetadataInsertEvent,
 
-    /// Event fired wwhen a removal happens
+    /// Event fired when a removal happens
     pub on_remove: OnMetadataRemoveEvent,
 }
 
