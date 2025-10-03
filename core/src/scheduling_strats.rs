@@ -101,7 +101,7 @@ impl PersistentObject for SequentialSchedulingPolicy {
         "SequentialSchedulingPolicy$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
@@ -140,7 +140,7 @@ impl PersistentObject for ConcurrentSchedulingPolicy {
         "ConcurrentSchedulingPolicy$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
@@ -222,7 +222,7 @@ impl PersistentObject for CancelPreviousSchedulingPolicy {
         "CancelPreviousSchedulingPolicy$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
@@ -298,7 +298,7 @@ impl PersistentObject for CancelCurrentSchedulingPolicy {
         "CancelCurrentSchedulingPolicy$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
