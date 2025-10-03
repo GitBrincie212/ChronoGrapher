@@ -44,14 +44,10 @@ impl PersistentObject for TaskScheduleImmediate {
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<TaskScheduleImmediate, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<TaskScheduleImmediate, TaskError> {
         Ok(TaskScheduleImmediate)
     }
 }

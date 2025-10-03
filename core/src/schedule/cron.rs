@@ -87,11 +87,9 @@ impl PersistentObject for TaskScheduleCron {
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let cron = to_json!(self.0.as_str());
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "cron_expression": cron
-            }),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({
+            "cron_expression": cron
+        })))
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<TaskScheduleCron, TaskError> {

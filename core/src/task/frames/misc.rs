@@ -81,9 +81,7 @@ impl PersistentObject for GroupedTaskFramesQuitOnSuccess {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
         Ok(GroupedTaskFramesQuitOnSuccess)
     }
 }
@@ -127,9 +125,7 @@ impl PersistentObject for GroupedTaskFramesQuitOnFailure {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
         Ok(GroupedTaskFramesQuitOnFailure)
     }
 }
@@ -170,9 +166,7 @@ impl PersistentObject for GroupedTaskFramesSilent {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
         Ok(GroupedTaskFramesSilent)
     }
 }

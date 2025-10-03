@@ -1,21 +1,23 @@
-use std::pin::Pin;
-use std::sync::Arc;
-use dashmap::DashMap;
-use once_cell::sync::Lazy;
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::PersistentObject;
 use crate::schedule::TaskSchedule;
 use crate::scheduling_strats::ScheduleStrategy;
 use crate::serialized_component::SerializedComponent;
 use crate::task::conditionframe::ConditionalFramePredicate;
-use crate::task::{MetadataEventListener, ObserverFieldListener, TaskError, TaskErrorHandler, TaskEventListener, TaskFrame};
 use crate::task::dependency::FrameDependency;
 use crate::task::dependencyframe::DependentFailBehavior;
 use crate::task::selectframe::SelectFrameAccessor;
+use crate::task::{
+    MetadataEventListener, ObserverFieldListener, TaskError, TaskErrorHandler, TaskEventListener,
+    TaskFrame,
+};
+use dashmap::DashMap;
+use once_cell::sync::Lazy;
+use std::pin::Pin;
+use std::sync::Arc;
 
-pub static RETRIEVE_REGISTRIES: Lazy<RetrieveRegistries> = Lazy::new(|| {
-    RetrieveRegistries::default()
-});
+pub static RETRIEVE_REGISTRIES: Lazy<RetrieveRegistries> =
+    Lazy::new(|| RetrieveRegistries::default());
 
 pub type RetrievedFut<T> = Pin<Box<dyn Future<Output = Result<Arc<T>, TaskError>> + Send>>;
 pub type RetrieveFunc<T> = fn(SerializedComponent) -> RetrievedFut<T>;
@@ -32,12 +34,12 @@ pub struct RetrieveRegistries {
     task_schedule_strategy_registries: RetrieveRegisters<dyn ScheduleStrategy>,
     metadata_event_listener_registries: RetrieveRegisters<dyn MetadataEventListener>,
     /*
-        TODO: Find a way to store arbitrary TaskEventListener and ObserverFieldListener,
-        TODO: and find some way to deserialize them while retaining their original payloads
-     */
+       TODO: Find a way to store arbitrary TaskEventListener and ObserverFieldListener,
+       TODO: and find some way to deserialize them while retaining their original payloads
+    */
     task_event_listener_registries: RetrieveRegisters<dyn TaskEventListener<P>>,
     observer_event_listener_registries: RetrieveRegisters<dyn ObserverFieldListener<T>>,
-    frame_dependent_fail_behaviour_registries: RetrieveRegisters<dyn DependentFailBehavior>
+    frame_dependent_fail_behaviour_registries: RetrieveRegisters<dyn DependentFailBehavior>,
 }
 
 macro_rules! implement_registries_for {

@@ -49,12 +49,14 @@ pub trait PersistentObject: Send + Sync {
     fn persistence_id() -> &'static str {
         use once_cell::sync::OnceCell;
         static CELL: OnceCell<String> = OnceCell::new();
-        CELL.get_or_init(|| type_name::<Self>().to_string()).as_str()
+        CELL.get_or_init(|| type_name::<Self>().to_string())
+            .as_str()
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError>;
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError>
-    where Self: Sized;
+    where
+        Self: Sized;
 }
 
 #[async_trait]

@@ -197,16 +197,12 @@ impl PersistentObject for TaskScheduleInterval {
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let secs = to_json!(self.0.as_seconds_f64());
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "interval_seconds": secs
-            }),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({
+            "interval_seconds": secs
+        })))
     }
 
-    async fn retrieve(
-        component: SerializedComponent,
-    ) -> Result<TaskScheduleInterval, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<TaskScheduleInterval, TaskError> {
         let mut map = acquire_mut_ir_map!(TaskScheduleInterval, component);
         deserialize_field!(
             map,

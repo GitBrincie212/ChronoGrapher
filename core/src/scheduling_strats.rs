@@ -105,9 +105,7 @@ impl PersistentObject for SequentialSchedulingPolicy {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
         Ok(SequentialSchedulingPolicy)
     }
 }
@@ -146,9 +144,7 @@ impl PersistentObject for ConcurrentSchedulingPolicy {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
         Ok(ConcurrentSchedulingPolicy)
     }
 }
@@ -230,9 +226,7 @@ impl PersistentObject for CancelPreviousSchedulingPolicy {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
         Ok(CancelPreviousSchedulingPolicy::new())
     }
 }
@@ -305,14 +299,10 @@ impl PersistentObject for CancelCurrentSchedulingPolicy {
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
         Ok(CancelCurrentSchedulingPolicy::new())
     }
 }
