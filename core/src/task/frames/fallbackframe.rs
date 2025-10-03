@@ -127,9 +127,9 @@ where
     T: TaskFrame + 'static + PersistentObject<T>,
     T2: TaskFrame + 'static + PersistentObject<T2>,
 {
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
-        let primary = to_json!(self.primary.serialize().await?);
-        let fallback = to_json!(self.secondary.serialize().await?);
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+        let primary = to_json!(self.primary.store().await?);
+        let fallback = to_json!(self.secondary.store().await?);
         Ok(SerializedComponent::new(
             FallbackTaskFrame::<T, T2>::PERSISTENCE_ID.to_string(),
             json!({
@@ -139,7 +139,7 @@ where
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         component: SerializedComponent,
     ) -> Result<FallbackTaskFrame<T, T2>, TaskError> {
         let mut repr = acquire_mut_ir_map!(FallbackTaskFrame, component);
@@ -160,13 +160,13 @@ where
             "Cannot deserialize the fallback wrapped task frame"
         );
 
-        let primary_frame = T::deserialize(
+        let primary_frame = T::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_primary.clone())
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
         )
         .await?;
 
-        let fallback_frame = T2::deserialize(
+        let fallback_frame = T2::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_fallback.clone())
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
         )

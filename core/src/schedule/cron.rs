@@ -85,7 +85,7 @@ impl PersistentObject<TaskScheduleCron> for TaskScheduleCron {
         "TaskScheduleCron$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let cron = to_json!(self.0.as_str());
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
@@ -95,7 +95,7 @@ impl PersistentObject<TaskScheduleCron> for TaskScheduleCron {
         ))
     }
 
-    async fn deserialize(component: SerializedComponent) -> Result<TaskScheduleCron, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<TaskScheduleCron, TaskError> {
         let mut map = acquire_mut_ir_map!(TaskScheduleCron, component);
 
         deserialize_field!(

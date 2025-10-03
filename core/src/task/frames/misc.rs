@@ -77,14 +77,14 @@ impl PersistentObject<GroupedTaskFramesQuitOnSuccess> for GroupedTaskFramesQuitO
         "GroupedTaskFramesQuitOnSuccess$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<GroupedTaskFramesQuitOnSuccess, TaskError> {
         Ok(GroupedTaskFramesQuitOnSuccess)
@@ -126,14 +126,14 @@ impl PersistentObject<GroupedTaskFramesQuitOnFailure> for GroupedTaskFramesQuitO
         "GroupedTaskFramesQuitOnFailure$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<GroupedTaskFramesQuitOnFailure, TaskError> {
         Ok(GroupedTaskFramesQuitOnFailure)
@@ -172,14 +172,14 @@ impl PersistentObject<GroupedTaskFramesSilent> for GroupedTaskFramesSilent {
         "GroupedTaskFramesSilent$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<GroupedTaskFramesSilent, TaskError> {
         Ok(GroupedTaskFramesSilent)

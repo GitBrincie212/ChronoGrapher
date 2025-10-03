@@ -345,9 +345,9 @@ where
     T: TaskFrame + 'static + PersistentObject<T>,
     F: TaskFrame + 'static + PersistentObject<F>,
 {
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = to_json!(self.frame.serialize().await?);
-        let fallback = to_json!(self.fallback.serialize().await?);
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+        let frame = to_json!(self.frame.store().await?);
+        let fallback = to_json!(self.fallback.store().await?);
         let errors_on_false = to_json!(self.error_on_false);
         let predicate = match self.predicate.as_persistent().await {
             PersistenceCapability::Persistable(res) => res,
@@ -371,7 +371,7 @@ where
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         component: SerializedComponent,
     ) -> Result<ConditionalFrame<T, F>, TaskError> {
         let mut repr = acquire_mut_ir_map!(ConditionalFrame, component);
@@ -408,13 +408,13 @@ where
             "Cannot deserialize the conditional predicate"
         );
 
-        let primary_frame = T::deserialize(
+        let primary_frame = T::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
         )
         .await?;
 
-        let fallback_frame = F::deserialize(
+        let fallback_frame = F::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_fallback.clone())
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
         )

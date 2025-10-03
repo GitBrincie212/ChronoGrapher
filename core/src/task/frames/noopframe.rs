@@ -43,14 +43,14 @@ impl TaskFrame for NoOperationTaskFrame {
 
 #[async_trait]
 impl PersistentObject<NoOperationTaskFrame> for NoOperationTaskFrame {
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             NoOperationTaskFrame::PERSISTENCE_ID.to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<NoOperationTaskFrame, TaskError> {
         Ok(NoOperationTaskFrame)

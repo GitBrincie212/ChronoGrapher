@@ -43,14 +43,14 @@ impl PersistentObject<TaskScheduleImmediate> for TaskScheduleImmediate {
         "TaskScheduleImmediate$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<TaskScheduleImmediate, TaskError> {
         Ok(TaskScheduleImmediate)

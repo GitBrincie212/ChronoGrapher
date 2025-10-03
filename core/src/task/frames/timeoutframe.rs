@@ -120,8 +120,8 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
 impl<T: TaskFrame + PersistentObject<T>> PersistentObject<TimeoutTaskFrame<T>>
     for TimeoutTaskFrame<T>
 {
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = to_json!(self.frame.serialize().await?);
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+        let frame = to_json!(self.frame.store().await?);
         let max_duration = to_json!(self.max_duration);
         Ok(SerializedComponent::new(
             TimeoutTaskFrame::<T>::PERSISTENCE_ID.to_string(),
@@ -132,7 +132,7 @@ impl<T: TaskFrame + PersistentObject<T>> PersistentObject<TimeoutTaskFrame<T>>
         ))
     }
 
-    async fn deserialize(component: SerializedComponent) -> Result<TimeoutTaskFrame<T>, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<TimeoutTaskFrame<T>, TaskError> {
         let mut repr = acquire_mut_ir_map!(TimeoutTaskFrame, component);
 
         deserialize_field!(
@@ -159,7 +159,7 @@ impl<T: TaskFrame + PersistentObject<T>> PersistentObject<TimeoutTaskFrame<T>>
             )
         })?;
 
-        let frame: T = T::deserialize(
+        let frame: T = T::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
         )

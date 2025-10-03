@@ -117,8 +117,8 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame + PersistentObject<T>> PersistentObject<DelayTaskFrame<T>> for DelayTaskFrame<T> {
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = to_json!(self.frame.serialize().await?);
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+        let frame = to_json!(self.frame.store().await?);
         let delay = to_json!(self.delay);
         Ok(SerializedComponent::new(
             DelayTaskFrame::<T>::PERSISTENCE_ID.to_string(),
@@ -129,7 +129,7 @@ impl<T: TaskFrame + PersistentObject<T>> PersistentObject<DelayTaskFrame<T>> for
         ))
     }
 
-    async fn deserialize(component: SerializedComponent) -> Result<DelayTaskFrame<T>, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<DelayTaskFrame<T>, TaskError> {
         let mut repr = acquire_mut_ir_map!(DelayTaskFrame, component);
 
         deserialize_field!(
@@ -152,7 +152,7 @@ impl<T: TaskFrame + PersistentObject<T>> PersistentObject<DelayTaskFrame<T>> for
             deserialization_err!(repr, DelayTaskFrame, "Cannot deserialize the delay")
         })?;
 
-        let frame: T = T::deserialize(
+        let frame: T = T::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
         )

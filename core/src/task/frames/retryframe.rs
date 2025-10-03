@@ -388,10 +388,10 @@ where
     T1: TaskFrame + 'static + PersistentObject<T1>,
     T2: RetryBackoffStrategy + PersistentObject<T2>,
 {
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
-        let serialized_backoff_strat = to_json!(self.backoff_strat.serialize().await?);
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+        let serialized_backoff_strat = to_json!(self.backoff_strat.store().await?);
 
-        let serialized_frame = to_json!(self.frame.serialize().await?);
+        let serialized_frame = to_json!(self.frame.store().await?);
 
         let payload = json!({
             "retry_backoff_strategy": serialized_backoff_strat,
@@ -405,7 +405,7 @@ where
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         component: SerializedComponent,
     ) -> Result<RetriableTaskFrame<T1, T2>, TaskError> {
         let mut repr = acquire_mut_ir_map!(DelayTaskFrame, component);
@@ -454,13 +454,13 @@ where
             Arc::new(err) as Arc<dyn Debug + Send + Sync>
         })?;
 
-        let frame = T1::deserialize(
+        let frame = T1::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
         )
         .await?;
 
-        let retry_backoff_strat = T2::deserialize(
+        let retry_backoff_strat = T2::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_backoff_strat.clone())
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
         )

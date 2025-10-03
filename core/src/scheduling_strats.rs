@@ -101,14 +101,14 @@ impl PersistentObject<SequentialSchedulingPolicy> for SequentialSchedulingPolicy
         "SequentialSchedulingPolicy$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<SequentialSchedulingPolicy, TaskError> {
         Ok(SequentialSchedulingPolicy)
@@ -145,14 +145,14 @@ impl PersistentObject<ConcurrentSchedulingPolicy> for ConcurrentSchedulingPolicy
         "ConcurrentSchedulingPolicy$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<ConcurrentSchedulingPolicy, TaskError> {
         Ok(ConcurrentSchedulingPolicy)
@@ -232,14 +232,14 @@ impl PersistentObject<CancelPreviousSchedulingPolicy> for CancelPreviousScheduli
         "CancelPreviousSchedulingPolicy$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<CancelPreviousSchedulingPolicy, TaskError> {
         Ok(CancelPreviousSchedulingPolicy::new())
@@ -313,14 +313,14 @@ impl PersistentObject<CancelCurrentSchedulingPolicy> for CancelCurrentScheduling
         "CancelCurrentSchedulingPolicy$chronographer_core"
     }
 
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new(
             self.persistence_id().to_string(),
             json!({}),
         ))
     }
 
-    async fn deserialize(
+    async fn retrieve(
         _component: SerializedComponent,
     ) -> Result<CancelCurrentSchedulingPolicy, TaskError> {
         Ok(CancelCurrentSchedulingPolicy::new())
