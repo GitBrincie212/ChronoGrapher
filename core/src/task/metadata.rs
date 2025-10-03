@@ -135,15 +135,14 @@ impl MetadataEvent {
         self.listeners.remove(id);
     }
 
-    fn emit(&self, metadata: Arc<TaskMetadata>, key: String) {
-        let payload_arc: Arc<str> = Arc::from(key.as_str());
+    fn emit(&self, metadata: Arc<TaskMetadata>, key: Arc<str>) {
         for listener in self.listeners.iter() {
             let cloned_listener = listener.value().clone();
-            let cloned_payload = payload_arc.clone();
+            let cloned_key = key.clone();
             let cloned_metadata = metadata.clone();
             tokio::spawn(async move {
                 cloned_listener
-                    .execute(cloned_metadata, cloned_payload)
+                    .execute(cloned_metadata, cloned_key)
                     .await;
             });
         }
@@ -202,6 +201,7 @@ where
 /// - [`TaskMetadata`]
 pub struct ObserverField<T: Send + Sync + 'static> {
     value: ArcSwap<T>,
+    key: Arc<str>,
     listeners: Arc<DashMap<Uuid, Arc<dyn ObserverFieldListener<T>>>>,
 }
 
@@ -214,8 +214,9 @@ impl<T: Send + Sync + 'static> ObserverField<T> {
     ///
     /// # Returns
     /// The constructed instance of [`ObserverField`]
-    pub fn new(initial: T) -> Self {
+    pub fn new(key: Arc<str>, initial: T) -> Self {
         Self {
+            key,
             value: ArcSwap::from_pointee(initial),
             listeners: Arc::new(DashMap::new()),
         }
@@ -304,6 +305,20 @@ impl<T: Send + Sync + 'static> ObserverField<T> {
     pub fn get(&self) -> Arc<T> {
         self.value.load().clone()
     }
+
+    /// Gets the key associated with the [`ObserverField`], the key is
+    /// shared from [`TaskMetadata`]. This allows users to check if a key
+    /// is present in [`TaskMetadata`] even without knowing the key in
+    /// any other ways
+    ///
+    /// # Returns
+    /// The key associated with the [`ObserverField`]
+    ///
+    /// # See Also
+    /// - [`ObserverField`]
+    pub fn key(&self) -> &'_ str {
+        self.key.as_ref()
+    }
 }
 
 impl<T: Send + Sync + Display + 'static> Display for ObserverField<T> {
@@ -341,6 +356,7 @@ impl<T: Send + Sync + Ord + 'static> Ord for ObserverField<T> {
 impl<T: Send + Sync> Clone for ObserverField<T> {
     fn clone(&self) -> Self {
         ObserverField {
+            key: self.key.clone(),
             value: ArcSwap::from(self.value.load_full()),
             listeners: self.listeners.clone(),
         }
@@ -360,7 +376,7 @@ impl<T: Send + Sync> Clone for ObserverField<T> {
 /// [`TaskMetadata`] as previously mentioned, implements the [`Default`] trait, but in addition
 /// it also implements the [`Debug`] trait
 pub struct TaskMetadata {
-    fields: DashMap<String, ObserverField<Box<dyn Any + Send + Sync + 'static>>>,
+    fields: DashMap<Arc<str>, ObserverField<Box<dyn Any + Send + Sync + 'static>>>,
 
     /// Event fired when an insertion happens
     pub on_insert: Arc<MetadataEvent>,
@@ -445,10 +461,10 @@ impl TaskMetadata {
     /// - [`TaskMetadata::exists`]
     pub fn insert(self: Arc<Self>, key: String, value: impl Any + Send + Sync) -> bool {
         let value: Box<dyn Any + Send + Sync> = Box::new(value);
-        let field = ObserverField::new(value);
-        let cloned_key = key.clone();
-        let result = self.fields.insert(key, field.clone()).is_none();
-        self.on_insert.emit(self.clone(), cloned_key);
+        let key: Arc<str> = Arc::from(key);
+        let field = ObserverField::new(key.clone(), value);
+        let result = self.fields.insert(key.clone(), field.clone()).is_none();
+        self.on_insert.emit(self.clone(), key);
         result
     }
 
@@ -465,7 +481,7 @@ impl TaskMetadata {
     /// - [`TaskMetadata`]
     /// - [`TaskMetadata::insert`]
     /// - [`TaskMetadata::exists`]
-    pub fn remove(self: Arc<Self>, key: String) {
+    pub fn remove(self: Arc<Self>, key: Arc<str>) {
         self.fields.remove(&key);
         self.on_remove.emit(self.clone(), key.clone());
     }
