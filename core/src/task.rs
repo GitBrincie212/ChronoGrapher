@@ -222,6 +222,7 @@ impl From<TaskConfig> for Task {
             max_runs: config.max_runs,
             on_start: TaskEvent::new(),
             on_end: TaskEvent::new(),
+            id: Uuid::new_v4()
         }
     }
 }
@@ -301,6 +302,7 @@ pub struct Task {
     runs: Arc<AtomicU64>,
     debug_label: String,
     max_runs: Option<NonZeroU64>,
+    id: Uuid,
 
     /// Event fired when the [`Task`] starts execution
     pub on_start: TaskStartEvent,
@@ -360,6 +362,7 @@ impl Task {
             max_runs: None,
             on_start: TaskEvent::new(),
             on_end: TaskEvent::new(),
+            id: Uuid::new_v4()
         }
     }
 
@@ -461,5 +464,10 @@ impl Task {
     /// Gets the maximum number of times the task can run (``None`` for infinite times)
     pub fn max_runs(&self) -> &Option<NonZeroU64> {
         &self.max_runs
+    }
+    
+    /// Gets the ID associated with the [`Task`]
+    pub fn id(&self) -> &Uuid {
+        &self.id
     }
 }
