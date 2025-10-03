@@ -59,7 +59,7 @@ pub enum ChronographerErrors {
     #[error(
         "Deserialization of `{0}` failed, with an error message `{1}` and the payload being:\n{2:?}"
     )]
-    DeserializationFailed(String, String, Map<String, serde_json::Value>),
+    RetrievalFailed(String, String, Map<String, serde_json::Value>),
 
     /// This error is meant to happen when deserialization of a system (for task) detects
     /// this JSON payload is not an object
