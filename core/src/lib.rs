@@ -17,7 +17,7 @@ pub mod scheduling_strats; // skipcq: RS-D1001
 pub mod task; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub(crate) mod utils; // skipcq: RS-D1001
+pub mod utils; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
 pub mod backend; // skipcq: RS-D1001
