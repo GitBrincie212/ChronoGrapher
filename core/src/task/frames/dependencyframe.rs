@@ -1,9 +1,16 @@
+use crate::deserialization_err;
+use crate::task::Debug;
 use crate::errors::ChronographerErrors;
 use crate::task::dependency::FrameDependency;
 use crate::task::{Arc, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
+use serde_json::{json, Value};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
+use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
+use crate::serialized_component::SerializedComponent;
+use crate::{acquire_mut_ir_map, deserialize_field, to_json};
+use crate::retrieve_registers::RETRIEVE_REGISTRIES;
 
 /// [`DependentFailBehavior`] is a trait for implementing a behavior when dependencies aren't resolved
 /// in [`DependencyTaskFrame`]. It takes nothing and returns a result for the [`DependencyTaskFrame`] to
@@ -276,5 +283,118 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
         }
 
         self.frame.execute(ctx).await
+    }
+}
+
+#[async_trait]
+impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T> {
+    fn persistence_id() -> &'static str {
+        "DependencyTaskFrame$chronographer_core"
+    }
+
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+        let wrapped_frame = to_json!(self.frame.store().await?);
+        let mut dependencies = Vec::with_capacity(self.dependencies.len());
+
+        for dep in &self.dependencies {
+            let persistent_obj = match dep.as_persistent().await {
+                PersistenceCapability::Persistable(obj) => obj,
+                _ => {
+                    return Err(Arc::new(ChronographerErrors::NonPersistentObject(
+                        "FrameDependency".to_string(),
+                    )) as Arc<dyn Debug + Send + Sync>);
+                }
+            };
+
+            let serialized = persistent_obj.store().await?;
+            dependencies.push(serialized.into_ir());
+        }
+
+        let dependent_fail_behavior = match self.dependent_behaviour.as_persistent().await {
+            PersistenceCapability::Persistable(res) => {
+                serde_json::to_value(res.store().await?)
+                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?
+            }
+            _ => {
+                return Err(Arc::new(ChronographerErrors::NonPersistentObject(
+                    "DependentFailBehavior".to_string(),
+                )));
+            }
+        };
+
+        Ok(SerializedComponent::new::<Self>(
+            json!({
+                "wrapped_frame": wrapped_frame,
+                "dependencies": dependencies,
+                "dependent_fail_behavior": dependent_fail_behavior
+            })
+        ))
+    }
+
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
+        let mut repr = acquire_mut_ir_map!(DependencyTaskFrame, component);
+        deserialize_field!(
+            repr,
+            serialized_frame,
+            "wrapped_frame",
+            DependencyTaskFrame,
+            "Cannot deserialize the wrapped task frame"
+        );
+
+        deserialize_field!(
+            repr,
+            mut serialized_dependencies,
+            "dependencies",
+            DependencyTaskFrame,
+            "Cannot deserialize the dependencies"
+        );
+
+        deserialize_field!(
+            repr,
+            serialized_dependent_fail_behavior,
+            "dependent_fail_behavior",
+            DependencyTaskFrame,
+            "Cannot deserialize the DependentFailBehavior"
+        );
+
+        let wrapped_frame = T::retrieve(
+            serde_json::from_value::<SerializedComponent>(serialized_frame)
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
+        ).await?;
+
+        let dependent_behaviour = RETRIEVE_REGISTRIES.retrieve_dependent_fail_behaviour(
+            serde_json::from_value::<SerializedComponent>(serialized_dependent_fail_behavior)
+                .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?
+        ).await?;
+
+        let dependencies: Vec<Value> = serialized_dependencies
+            .as_array_mut()
+            .ok_or_else(|| {
+                deserialization_err!(
+                    repr,
+                    DependencyTaskFrame,
+                    "Cannot deserialize the dependencies"
+                )
+            })?
+            .drain(..)
+            .collect();
+
+        let mut deserialized_dependencies = Vec::with_capacity(dependencies.len());
+
+        for dep in dependencies {
+            let dep = RETRIEVE_REGISTRIES.retrieve_frame_dependency(
+                serde_json::from_value::<SerializedComponent>(dep)
+                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?
+            ).await?;
+
+            deserialized_dependencies.push(dep)
+        }
+
+        Ok(DependencyTaskFrame {
+            frame: wrapped_frame,
+            dependencies: deserialized_dependencies,
+            dependent_behaviour,
+            on_dependency: TaskEvent::new(),
+        })
     }
 }
