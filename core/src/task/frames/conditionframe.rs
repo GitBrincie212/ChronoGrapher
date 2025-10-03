@@ -1,19 +1,17 @@
-use crate::deserialization_err;
 use crate::errors::ChronographerErrors;
-use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
+use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::Debug;
 use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
+use crate::retrieve_registers::RetrieveRegistries;
+use crate::utils::PersistenceUtils;
 
-use crate::retrieve_registers::RETRIEVE_REGISTRIES;
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
-use crate::{acquire_mut_ir_map, deserialize_field, to_json};
 
 /// [`ConditionalFramePredicate`] is a trait that works closely with [`ConditionalFrame`], it is the
 /// mechanism that returns true/false for the task to execute
@@ -347,23 +345,11 @@ where
         "ConditionalFrame$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = to_json!(self.frame.store().await?);
-        let fallback = to_json!(self.fallback.store().await?);
-        let errors_on_false = to_json!(self.error_on_false);
-        let predicate = serde_json::to_value(
-            match self.predicate.as_persistent().await {
-                PersistenceCapability::Persistable(res) => res,
-                _ => {
-                    return Err(Arc::new(ChronographerErrors::NonPersistentObject(
-                        "ConditionalFramePredicate".to_string(),
-                    )));
-                }
-            }
-            .store()
-            .await?,
-        )
-        .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?;
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
+        let frame = PersistenceUtils::serialize_persistent(self.frame.as_ref()).await?;
+        let fallback = PersistenceUtils::serialize_persistent(self.fallback.as_ref()).await?;
+        let errors_on_false = PersistenceUtils::serialize_field(self.error_on_false)?;
+        let predicate = PersistenceUtils::serialize_potential_field(self.predicate.as_ref()).await?;
         Ok(SerializedComponent::new::<Self>(json!({
             "wrapped_primary": frame,
             "wrapped_fallback": fallback,
@@ -373,66 +359,32 @@ where
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = acquire_mut_ir_map!(ConditionalFrame, component);
+        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
 
-        deserialize_field!(
-            repr,
-            serialized_frame,
+        let primary_frame = PersistenceUtils::deserialize_concrete::<T>(
+            &mut repr,
             "wrapped_primary",
-            ConditionalFrame,
             "Cannot deserialize the primary wrapped task frame"
-        );
+        ).await?;
 
-        deserialize_field!(
-            repr,
-            serialized_fallback,
+        let fallback_frame = PersistenceUtils::deserialize_concrete::<F>(
+            &mut repr,
             "wrapped_fallback",
-            ConditionalFrame,
             "Cannot deserialize the fallback wrapped task frame"
-        );
+        ).await?;
 
-        deserialize_field!(
-            repr,
-            serialized_error_on_false,
+        let error_on_false = PersistenceUtils::deserialize_atomic::<bool>(
+            &mut repr,
             "error_on_false",
-            ConditionalFrame,
             "Cannot deserialize the boolean to decide whenever or not to error on false"
-        );
+        )?;
 
-        deserialize_field!(
-            repr,
-            serialized_predicate,
+        let predicate = PersistenceUtils::deserialize_dyn(
+            &mut repr,
             "predicate",
-            ConditionalFrame,
+            RetrieveRegistries::retrieve_conditional_predicate,
             "Cannot deserialize the conditional predicate"
-        );
-
-        let primary_frame = T::retrieve(
-            serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
-        )
-        .await?;
-
-        let fallback_frame = F::retrieve(
-            serde_json::from_value::<SerializedComponent>(serialized_fallback.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
-        )
-        .await?;
-
-        let predicate = RETRIEVE_REGISTRIES
-            .retrieve_conditional_predicate(
-                serde_json::from_value::<SerializedComponent>(serialized_predicate)
-                    .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
-            )
-            .await?;
-
-        let error_on_false = serialized_error_on_false.as_bool().ok_or_else(|| {
-            deserialization_err!(
-                repr,
-                ConditionalFrame,
-                "Cannot deserialize the boolean to decide whenever or not to error on false"
-            )
-        })?;
+        ).await?;
 
         Ok(ConditionalFrame {
             frame: Arc::new(primary_frame),
