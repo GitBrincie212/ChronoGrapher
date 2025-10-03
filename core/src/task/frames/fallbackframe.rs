@@ -130,21 +130,17 @@ where
     fn persistence_id() -> &'static str {
         Self::PERSISTENCE_ID
     }
-    
+
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let primary = to_json!(self.primary.store().await?);
         let fallback = to_json!(self.secondary.store().await?);
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "primary_frame": primary,
-                "fallback_frame": fallback,
-            }),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({
+            "primary_frame": primary,
+            "fallback_frame": fallback,
+        })))
     }
 
-    async fn retrieve(
-        component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
         let mut repr = acquire_mut_ir_map!(FallbackTaskFrame, component);
 
         deserialize_field!(

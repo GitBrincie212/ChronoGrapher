@@ -1,16 +1,16 @@
 use crate::deserialization_err;
-use crate::task::Debug;
 use crate::errors::ChronographerErrors;
+use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
+use crate::retrieve_registers::RETRIEVE_REGISTRIES;
+use crate::serialized_component::SerializedComponent;
+use crate::task::Debug;
 use crate::task::dependency::FrameDependency;
 use crate::task::{Arc, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::{acquire_mut_ir_map, deserialize_field, to_json};
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
-use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
-use crate::serialized_component::SerializedComponent;
-use crate::{acquire_mut_ir_map, deserialize_field, to_json};
-use crate::retrieve_registers::RETRIEVE_REGISTRIES;
 
 /// [`DependentFailBehavior`] is a trait for implementing a behavior when dependencies aren't resolved
 /// in [`DependencyTaskFrame`]. It takes nothing and returns a result for the [`DependencyTaskFrame`] to
@@ -311,10 +311,8 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
         }
 
         let dependent_fail_behavior = match self.dependent_behaviour.as_persistent().await {
-            PersistenceCapability::Persistable(res) => {
-                serde_json::to_value(res.store().await?)
-                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?
-            }
+            PersistenceCapability::Persistable(res) => serde_json::to_value(res.store().await?)
+                .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?,
             _ => {
                 return Err(Arc::new(ChronographerErrors::NonPersistentObject(
                     "DependentFailBehavior".to_string(),
@@ -322,13 +320,11 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
             }
         };
 
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "wrapped_frame": wrapped_frame,
-                "dependencies": dependencies,
-                "dependent_fail_behavior": dependent_fail_behavior
-            })
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({
+            "wrapped_frame": wrapped_frame,
+            "dependencies": dependencies,
+            "dependent_fail_behavior": dependent_fail_behavior
+        })))
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
@@ -360,12 +356,15 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
         let wrapped_frame = T::retrieve(
             serde_json::from_value::<SerializedComponent>(serialized_frame)
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
-        ).await?;
+        )
+        .await?;
 
-        let dependent_behaviour = RETRIEVE_REGISTRIES.retrieve_dependent_fail_behaviour(
-            serde_json::from_value::<SerializedComponent>(serialized_dependent_fail_behavior)
-                .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?
-        ).await?;
+        let dependent_behaviour = RETRIEVE_REGISTRIES
+            .retrieve_dependent_fail_behaviour(
+                serde_json::from_value::<SerializedComponent>(serialized_dependent_fail_behavior)
+                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?,
+            )
+            .await?;
 
         let dependencies: Vec<Value> = serialized_dependencies
             .as_array_mut()
@@ -382,10 +381,12 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
         let mut deserialized_dependencies = Vec::with_capacity(dependencies.len());
 
         for dep in dependencies {
-            let dep = RETRIEVE_REGISTRIES.retrieve_frame_dependency(
-                serde_json::from_value::<SerializedComponent>(dep)
-                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?
-            ).await?;
+            let dep = RETRIEVE_REGISTRIES
+                .retrieve_frame_dependency(
+                    serde_json::from_value::<SerializedComponent>(dep)
+                        .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?,
+                )
+                .await?;
 
             deserialized_dependencies.push(dep)
         }

@@ -46,9 +46,7 @@ impl PersistentObject for NoOperationTaskFrame {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
-    async fn retrieve(
-        _component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
         Ok(NoOperationTaskFrame)
     }
 }

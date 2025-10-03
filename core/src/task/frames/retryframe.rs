@@ -388,7 +388,7 @@ where
     fn persistence_id() -> &'static str {
         "RetriableTaskFrame$chronographer_core"
     }
-    
+
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let serialized_backoff_strat = to_json!(self.backoff_strat.store().await?);
 
@@ -403,9 +403,7 @@ where
         Ok(SerializedComponent::new::<Self>(payload))
     }
 
-    async fn retrieve(
-        component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
         let mut repr = acquire_mut_ir_map!(DelayTaskFrame, component);
 
         deserialize_field!(

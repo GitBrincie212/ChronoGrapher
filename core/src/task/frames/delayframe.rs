@@ -117,16 +117,14 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DelayTaskFrame<T> {
     fn persistence_id() -> &'static str {
         "DelayTaskFrame$chronographer_core"
     }
-    
+
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let frame = to_json!(self.frame.store().await?);
         let delay = to_json!(self.delay);
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "wrapped_frame": frame,
-                "delay": delay
-            }),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({
+            "wrapped_frame": frame,
+            "delay": delay
+        })))
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {

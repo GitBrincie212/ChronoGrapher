@@ -52,8 +52,8 @@ use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use uuid::Uuid;
 pub use timeoutframe::TimeoutTaskFrame;
+use uuid::Uuid;
 
 /// A task-related error (i.e. A task failure)
 pub type TaskError = Arc<dyn Debug + Send + Sync>;
@@ -93,7 +93,7 @@ pub struct TaskContext<const RESTRICTED: bool = false> {
     pub(crate) runs: u64,
     pub(crate) debug_label: String,
     pub(crate) max_runs: Option<NonZeroU64>,
-    pub(crate) id: Uuid
+    pub(crate) id: Uuid,
 }
 
 impl<const T: bool> Debug for TaskContext<T> {
@@ -134,7 +134,7 @@ impl<const T: bool> TaskContext<T> {
             runs: task.runs.load(Ordering::Relaxed),
             debug_label: task.debug_label.clone(),
             max_runs: task.max_runs,
-            id: Uuid::new_v4()
+            id: Uuid::new_v4(),
         })
     }
 
@@ -226,7 +226,7 @@ impl TaskContext {
             runs: self.runs,
             debug_label: self.debug_label.clone(),
             max_runs: self.max_runs,
-            id: Uuid::new_v4()
+            id: Uuid::new_v4(),
         })
     }
 }

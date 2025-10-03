@@ -118,16 +118,14 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for TimeoutTaskFrame<T> {
     fn persistence_id() -> &'static str {
         "TimeoutTaskFrame$chronographer_core"
     }
-    
+
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let frame = to_json!(self.frame.store().await?);
         let max_duration = to_json!(self.max_duration);
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "wrapped_frame": frame,
-                "max_duration": max_duration
-            }),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({
+            "wrapped_frame": frame,
+            "max_duration": max_duration
+        })))
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {

@@ -10,10 +10,10 @@ use serde_json::json;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 
+use crate::retrieve_registers::RETRIEVE_REGISTRIES;
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
 use crate::{acquire_mut_ir_map, deserialize_field, to_json};
-use crate::retrieve_registers::RETRIEVE_REGISTRIES;
 
 /// [`ConditionalFramePredicate`] is a trait that works closely with [`ConditionalFrame`], it is the
 /// mechanism that returns true/false for the task to execute
@@ -361,21 +361,18 @@ where
                 }
             }
             .store()
-            .await?
-        ).map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?;
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "wrapped_primary": frame,
-                "wrapped_fallback": fallback,
-                "errors_on_false": errors_on_false,
-                "predicate": predicate,
-            }),
-        ))
+            .await?,
+        )
+        .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?;
+        Ok(SerializedComponent::new::<Self>(json!({
+            "wrapped_primary": frame,
+            "wrapped_fallback": fallback,
+            "errors_on_false": errors_on_false,
+            "predicate": predicate,
+        })))
     }
 
-    async fn retrieve(
-        component: SerializedComponent,
-    ) -> Result<Self, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
         let mut repr = acquire_mut_ir_map!(ConditionalFrame, component);
 
         deserialize_field!(
@@ -422,10 +419,12 @@ where
         )
         .await?;
 
-        let predicate = RETRIEVE_REGISTRIES.retrieve_conditional_predicate(
-            serde_json::from_value::<SerializedComponent>(serialized_predicate)
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
-        ).await?;
+        let predicate = RETRIEVE_REGISTRIES
+            .retrieve_conditional_predicate(
+                serde_json::from_value::<SerializedComponent>(serialized_predicate)
+                    .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
+            )
+            .await?;
 
         let error_on_false = serialized_error_on_false.as_bool().ok_or_else(|| {
             deserialization_err!(
