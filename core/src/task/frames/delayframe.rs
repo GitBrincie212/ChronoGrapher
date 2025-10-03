@@ -1,13 +1,11 @@
-use crate::errors::ChronographerErrors;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::Debug;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
-use crate::{acquire_mut_ir_map, deserialization_err, deserialize_field, to_json};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::utils::PersistenceUtils;
 
 /// Represents a **delay task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the [`TaskFrame`] hierarchy, providing a delay mechanism for execution.
@@ -118,9 +116,9 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DelayTaskFrame<T> {
         "DelayTaskFrame$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = to_json!(self.frame.store().await?);
-        let delay = to_json!(self.delay);
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
+        let frame = PersistenceUtils::serialize_persistent(&self.frame).await?;
+        let delay = PersistenceUtils::serialize_field(self.delay)?;
         Ok(SerializedComponent::new::<Self>(json!({
             "wrapped_frame": frame,
             "delay": delay
@@ -128,33 +126,19 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DelayTaskFrame<T> {
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = acquire_mut_ir_map!(DelayTaskFrame, component);
+        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
 
-        deserialize_field!(
-            repr,
-            serialized_delay,
+        let delay = PersistenceUtils::deserialize_atomic::<Duration>(
+            &mut repr,
             "delay",
-            DelayTaskFrame,
             "Cannot deserialize the delay"
-        );
+        )?;
 
-        deserialize_field!(
-            repr,
-            serialized_frame,
+        let frame = PersistenceUtils::deserialize_concrete::<T>(
+            &mut repr,
             "wrapped_frame",
-            DelayTaskFrame,
             "Cannot deserialize the wrapped task frame"
-        );
-
-        let delay: Duration = serde_json::from_value(serialized_delay).map_err(|_| {
-            deserialization_err!(repr, DelayTaskFrame, "Cannot deserialize the delay")
-        })?;
-
-        let frame: T = T::retrieve(
-            serde_json::from_value::<SerializedComponent>(serialized_frame.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
-        )
-        .await?;
+        ).await?;
 
         Ok(DelayTaskFrame::new(frame, delay))
     }
