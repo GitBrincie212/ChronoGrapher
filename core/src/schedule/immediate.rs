@@ -43,7 +43,7 @@ impl PersistentObject for TaskScheduleImmediate {
         "TaskScheduleImmediate$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
