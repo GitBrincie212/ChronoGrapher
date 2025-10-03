@@ -4,7 +4,7 @@ use crate::schedule::TaskSchedule;
 use crate::scheduling_strats::ScheduleStrategy;
 use crate::serialized_component::SerializedComponent;
 use crate::task::conditionframe::ConditionalFramePredicate;
-use crate::task::dependency::FrameDependency;
+use crate::task::dependency::{FrameDependency, MetadataDependencyResolver, TaskResolvent};
 use crate::task::dependencyframe::DependentFailBehavior;
 use crate::task::selectframe::SelectFrameAccessor;
 use crate::task::{
@@ -40,6 +40,8 @@ pub struct RetrieveRegistries {
     task_event_listener_registries: RetrieveRegisters<dyn TaskEventListener<P>>,
     observer_event_listener_registries: RetrieveRegisters<dyn ObserverFieldListener<T>>,
     frame_dependent_fail_behaviour_registries: RetrieveRegisters<dyn DependentFailBehavior>,
+    task_resolvent_registries: RetrieveRegisters<dyn TaskResolvent>,
+    metadata_resolver_registries: RetrieveRegisters<dyn MetadataDependencyResolver<T>>,
 }
 
 macro_rules! implement_registries_for {
@@ -72,10 +74,9 @@ macro_rules! implement_registries_for {
             #[doc = concat!("- [`", stringify!($target_type), "`]")]
             #[doc = concat!("- [`RetrieveRegistries`]")]
             pub async fn $retrieve_method(
-                &self,
                 component: SerializedComponent
             ) -> Result<Arc<dyn $target_type>, TaskError> {
-                if let Some(retriever) = self.$target_registries.get(component.id()) {
+                if let Some(retriever) = RETRIEVE_REGISTRIES.$target_registries.get(component.id()) {
                     let val = retriever.value()(component).await?;
                     return Ok(val)
                 }
@@ -94,7 +95,7 @@ macro_rules! implement_registries_for {
             #[doc = concat!("- [`SerializedComponent`]")]
             #[doc = concat!("- [`", stringify!($target_type), "`]")]
             #[doc = concat!("- [`RetrieveRegistries`]")]
-            pub fn $register_method<T: $target_type + PersistentObject + 'static>(&self) {
+            pub fn $register_method<T: $target_type + PersistentObject + 'static>() {
                 fn retrieve_wrapper<T: $target_type + PersistentObject + 'static>(
                     component: SerializedComponent,
                 ) -> RetrievedFut<dyn $target_type>
@@ -105,7 +106,7 @@ macro_rules! implement_registries_for {
                     })
                 }
 
-                self.$target_registries
+                RETRIEVE_REGISTRIES.$target_registries
                     .insert(T::persistence_id(), retrieve_wrapper::<T>);
             }
         }
@@ -173,4 +174,11 @@ implement_registries_for!(
     retrieve_select_frame_accessor,
     SelectFrameAccessor,
     select_frame_accessors_registries
+);
+
+implement_registries_for!(
+    register_task_resolvent,
+    retrieve_task_resolvent,
+    TaskResolvent,
+    task_resolvent_registries
 );
