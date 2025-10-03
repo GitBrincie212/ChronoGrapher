@@ -1,13 +1,10 @@
-use crate::deserialization_err;
-use crate::errors::ChronographerErrors;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::Debug;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
-use crate::{acquire_mut_ir_map, deserialize_field, to_json};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use crate::utils::PersistenceUtils;
 
 /// Represents a **fallback task frame** which wraps two other task frames. This task frame type acts as a
 /// **composite node** within the task frame hierarchy, providing a failover mechanism for execution.
@@ -131,9 +128,9 @@ where
         Self::PERSISTENCE_ID
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        let primary = to_json!(self.primary.store().await?);
-        let fallback = to_json!(self.secondary.store().await?);
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
+        let primary = PersistenceUtils::serialize_persistent(&self.primary).await?;
+        let fallback = PersistenceUtils::serialize_persistent(self.secondary.as_ref()).await?;
         Ok(SerializedComponent::new::<Self>(json!({
             "primary_frame": primary,
             "fallback_frame": fallback,
@@ -141,35 +138,19 @@ where
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = acquire_mut_ir_map!(FallbackTaskFrame, component);
+        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
 
-        deserialize_field!(
-            repr,
-            serialized_primary,
+        let primary_frame = PersistenceUtils::deserialize_concrete::<T>(
+            &mut repr,
             "primary_frame",
-            FallbackTaskFrame,
             "Cannot deserialize the primary wrapped task frame"
-        );
+        ).await?;
 
-        deserialize_field!(
-            repr,
-            serialized_fallback,
+        let fallback_frame = PersistenceUtils::deserialize_concrete::<T2>(
+            &mut repr,
             "fallback_frame",
-            FallbackTaskFrame,
-            "Cannot deserialize the fallback wrapped task frame"
-        );
-
-        let primary_frame = T::retrieve(
-            serde_json::from_value::<SerializedComponent>(serialized_primary.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
-        )
-        .await?;
-
-        let fallback_frame = T2::retrieve(
-            serde_json::from_value::<SerializedComponent>(serialized_fallback.clone())
-                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
-        )
-        .await?;
+            "Cannot deserialize the primary wrapped task frame"
+        ).await?;
 
         Ok(FallbackTaskFrame::new(primary_frame, fallback_frame))
     }
