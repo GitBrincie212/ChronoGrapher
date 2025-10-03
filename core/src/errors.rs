@@ -75,4 +75,8 @@ pub enum ChronographerErrors {
         is required to deserialize this form back"
     )]
     NonPersistentObject(String),
+
+    /// This error originates when an object isn't on the specific retrieve register
+    #[error("Deserialization of `{0}` failed, as this is not recognised component")]
+    NonMatchingIDs(String)
 }
