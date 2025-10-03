@@ -1,16 +1,16 @@
-use crate::task::{ObserverField, TaskError};
-use crate::task::dependency::{
-    FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
-};
-use async_trait::async_trait;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use serde_json::json;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 #[allow(unused_imports)]
 use crate::task::TaskMetadata;
+use crate::task::dependency::{
+    FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
+};
+use crate::task::{ObserverField, TaskError};
 use crate::utils::PersistenceUtils;
+use async_trait::async_trait;
+use serde_json::json;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// [`MetadataDependencyResolver`] is a trait used for implementing metadata resolvers. By default,
 /// functions and closures implement this trait
@@ -188,7 +188,9 @@ impl<T: Send + Sync + 'static> ResolvableFrameDependency for MetadataDependency<
 }
 
 #[async_trait]
-impl<T: Send + Sync + 'static + PersistentObject> UnresolvableFrameDependency for MetadataDependency<T> {
+impl<T: Send + Sync + 'static + PersistentObject> UnresolvableFrameDependency
+    for MetadataDependency<T>
+{
     async fn unresolve(&self) {
         self.is_resolved.store(false, Ordering::Relaxed);
     }
@@ -202,35 +204,35 @@ impl<T: Send + Sync + 'static> PersistentObject for MetadataDependency<T> {
 
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         let value = PersistenceUtils::serialize_field(self.field.key())?;
-        let is_enabled = PersistenceUtils::serialize_field(self.is_enabled.load(Ordering::Relaxed))?;
-        let is_resolved = PersistenceUtils::serialize_field(self.is_resolved.load(Ordering::Relaxed))?;
+        let is_enabled =
+            PersistenceUtils::serialize_field(self.is_enabled.load(Ordering::Relaxed))?;
+        let is_resolved =
+            PersistenceUtils::serialize_field(self.is_resolved.load(Ordering::Relaxed))?;
         let metadata_resolver = PersistenceUtils::serialize_potential_field(&self.resolver).await?;
-        Ok(SerializedComponent::new(
-            json!({
-                "value": value,
-                "is_enabled": is_enabled,
-                "is_resolved": is_resolved,
-                "metadata_resolver": metadata_resolver
-            })
-        ))
+        Ok(SerializedComponent::new(json!({
+            "value": value,
+            "is_enabled": is_enabled,
+            "is_resolved": is_resolved,
+            "metadata_resolver": metadata_resolver
+        })))
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError>
     where
-        Self: Sized
+        Self: Sized,
     {
         let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
 
         let is_enabled = PersistenceUtils::deserialize_atomic::<bool>(
             &mut repr,
             "is_enabled",
-            "Cannot deserialize the data used for indicating if the dependency was enabled or not"
+            "Cannot deserialize the data used for indicating if the dependency was enabled or not",
         )?;
 
         let is_resolved = PersistenceUtils::deserialize_atomic::<bool>(
             &mut repr,
             "is_resolved",
-            "Cannot deserialize the data used for indicating whenever or not the dependency was resolved or not"
+            "Cannot deserialize the data used for indicating whenever or not the dependency was resolved or not",
         )?;
 
         /*

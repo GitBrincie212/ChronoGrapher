@@ -1,6 +1,7 @@
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -9,7 +10,6 @@ use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::utils::PersistenceUtils;
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -389,50 +389,47 @@ where
     }
 
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let serialized_backoff_strat = PersistenceUtils::serialize_persistent(&self.backoff_strat).await?;
+        let serialized_backoff_strat =
+            PersistenceUtils::serialize_persistent(&self.backoff_strat).await?;
         let serialized_frame = PersistenceUtils::serialize_persistent(self.frame.as_ref()).await?;
         let retries = PersistenceUtils::serialize_field(self.retries.get())?;
 
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "retry_backoff_strategy": serialized_backoff_strat,
-                "wrapped_task_frame": serialized_frame,
-                "retries": retries
-            }))
-        )
+        Ok(SerializedComponent::new::<Self>(json!({
+            "retry_backoff_strategy": serialized_backoff_strat,
+            "wrapped_task_frame": serialized_frame,
+            "retries": retries
+        })))
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
         let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
 
-        let retries = NonZeroU32::new(
-            PersistenceUtils::deserialize_atomic::<u64>(
-                &mut repr,
-                "retries",
-                "Cannot deserialize the number of retries"
-            )? as u32
-        )
-            .ok_or_else(|| PersistenceUtils::create_retrieval_error::<u32>(
+        let retries = NonZeroU32::new(PersistenceUtils::deserialize_atomic::<u64>(
+            &mut repr,
+            "retries",
+            "Cannot deserialize the number of retries",
+        )? as u32)
+        .ok_or_else(|| {
+            PersistenceUtils::create_retrieval_error::<u32>(
                 &repr,
-                "Cannot deserialize the number of retries (as it is zero)"
-            ))?;
+                "Cannot deserialize the number of retries (as it is zero)",
+            )
+        })?;
 
         let frame = PersistenceUtils::deserialize_concrete::<T1>(
             &mut repr,
             "wrapped_task_frame",
-            "Cannot deserialize the wrapped task frame"
-        ).await?;
+            "Cannot deserialize the wrapped task frame",
+        )
+        .await?;
 
         let backoff_strat = PersistenceUtils::deserialize_concrete::<T2>(
             &mut repr,
             "retry_backoff_strategy",
-            "Cannot deserialize the retry backoff strategy"
-        ).await?;
+            "Cannot deserialize the retry backoff strategy",
+        )
+        .await?;
 
-        Ok(RetriableTaskFrame::new_with(
-            frame,
-            retries,
-            backoff_strat,
-        ))
+        Ok(RetriableTaskFrame::new_with(frame, retries, backoff_strat))
     }
 }

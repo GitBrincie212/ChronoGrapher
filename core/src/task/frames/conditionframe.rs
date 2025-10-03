@@ -1,14 +1,14 @@
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::PersistentObject;
+use crate::retrieve_registers::RetrieveRegistries;
 use crate::serialized_component::SerializedComponent;
 use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use crate::retrieve_registers::RetrieveRegistries;
-use crate::utils::PersistenceUtils;
 
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
@@ -349,7 +349,8 @@ where
         let frame = PersistenceUtils::serialize_persistent(self.frame.as_ref()).await?;
         let fallback = PersistenceUtils::serialize_persistent(self.fallback.as_ref()).await?;
         let errors_on_false = PersistenceUtils::serialize_field(self.error_on_false)?;
-        let predicate = PersistenceUtils::serialize_potential_field(self.predicate.as_ref()).await?;
+        let predicate =
+            PersistenceUtils::serialize_potential_field(self.predicate.as_ref()).await?;
         Ok(SerializedComponent::new::<Self>(json!({
             "wrapped_primary": frame,
             "wrapped_fallback": fallback,
@@ -364,27 +365,30 @@ where
         let primary_frame = PersistenceUtils::deserialize_concrete::<T>(
             &mut repr,
             "wrapped_primary",
-            "Cannot deserialize the primary wrapped task frame"
-        ).await?;
+            "Cannot deserialize the primary wrapped task frame",
+        )
+        .await?;
 
         let fallback_frame = PersistenceUtils::deserialize_concrete::<F>(
             &mut repr,
             "wrapped_fallback",
-            "Cannot deserialize the fallback wrapped task frame"
-        ).await?;
+            "Cannot deserialize the fallback wrapped task frame",
+        )
+        .await?;
 
         let error_on_false = PersistenceUtils::deserialize_atomic::<bool>(
             &mut repr,
             "error_on_false",
-            "Cannot deserialize the boolean to decide whenever or not to error on false"
+            "Cannot deserialize the boolean to decide whenever or not to error on false",
         )?;
 
         let predicate = PersistenceUtils::deserialize_dyn(
             &mut repr,
             "predicate",
             RetrieveRegistries::retrieve_conditional_predicate,
-            "Cannot deserialize the conditional predicate"
-        ).await?;
+            "Cannot deserialize the conditional predicate",
+        )
+        .await?;
 
         Ok(ConditionalFrame {
             frame: Arc::new(primary_frame),

@@ -141,9 +141,7 @@ impl MetadataEvent {
             let cloned_key = key.clone();
             let cloned_metadata = metadata.clone();
             tokio::spawn(async move {
-                cloned_listener
-                    .execute(cloned_metadata, cloned_key)
-                    .await;
+                cloned_listener.execute(cloned_metadata, cloned_key).await;
             });
         }
     }

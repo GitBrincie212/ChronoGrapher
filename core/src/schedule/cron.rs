@@ -2,12 +2,12 @@ use crate::persistent_object::PersistentObject;
 use crate::schedule::TaskSchedule;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
+use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
 use serde_json::json;
 use std::fmt::Debug;
 use std::sync::Arc;
-use crate::utils::PersistenceUtils;
 
 /// [`TaskScheduleCron`] is an implementation of the [`TaskSchedule`] trait that executes [`Task`]
 /// instances, according to a cron expression. Learn more about cron expression in
@@ -96,7 +96,7 @@ impl PersistentObject for TaskScheduleCron {
         let cron = PersistenceUtils::deserialize_atomic::<String>(
             &mut map,
             "cron_expression",
-            "Cannot deserialize the cron_expression field"
+            "Cannot deserialize the cron_expression field",
         )?;
 
         Ok(TaskScheduleCron::new(cron))

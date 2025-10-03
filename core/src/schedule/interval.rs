@@ -2,6 +2,7 @@ use crate::persistent_object::PersistentObject;
 use crate::schedule::TaskSchedule;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
+use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use chrono::{DateTime, Local, TimeDelta};
 use serde_json::json;
@@ -9,7 +10,6 @@ use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::utils::PersistenceUtils;
 
 #[allow(unused_imports)]
 use crate::task::Task;
@@ -208,7 +208,7 @@ impl PersistentObject for TaskScheduleInterval {
         let interval = PersistenceUtils::deserialize_atomic::<f64>(
             &mut map,
             "seconds",
-            "Cannot deserialize the interval_seconds field"
+            "Cannot deserialize the interval_seconds field",
         )?;
 
         Ok(TaskScheduleInterval::from_secs_f64(interval))

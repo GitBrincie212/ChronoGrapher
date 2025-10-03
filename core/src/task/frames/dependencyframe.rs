@@ -5,11 +5,11 @@ use crate::serialized_component::SerializedComponent;
 use crate::task::Debug;
 use crate::task::dependency::FrameDependency;
 use crate::task::{Arc, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
-use crate::utils::PersistenceUtils;
 
 /// [`DependentFailBehavior`] is a trait for implementing a behavior when dependencies aren't resolved
 /// in [`DependencyTaskFrame`]. It takes nothing and returns a result for the [`DependencyTaskFrame`] to
@@ -303,8 +303,10 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
         }
 
         let dependent_fail_behavior = match self.dependent_behaviour.as_persistent().await {
-            PersistenceCapability::Persistable(res) => serde_json::to_value(res.persist().await?)
-                .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?,
+            PersistenceCapability::Persistable(res) => {
+                serde_json::to_value(res.persist().await?)
+                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?
+            }
             _ => {
                 return Err(Arc::new(ChronographerErrors::NonPersistentObject(
                     "DependentFailBehavior".to_string(),
@@ -325,29 +327,33 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
         let frame = PersistenceUtils::deserialize_concrete::<T>(
             &mut repr,
             "wrapped_frame",
-            "Cannot deserialize the wrapped task frame"
-        ).await?;
+            "Cannot deserialize the wrapped task frame",
+        )
+        .await?;
 
         let dependent_fail_behavior = PersistenceUtils::deserialize_dyn(
             &mut repr,
             "dependent_fail_behavior",
             RetrieveRegistries::retrieve_dependent_fail_behaviour,
-            "Cannot deserialize the DependentFailBehavior"
-        ).await?;
+            "Cannot deserialize the DependentFailBehavior",
+        )
+        .await?;
 
         let mut partially_serialized_dependencies =
             PersistenceUtils::deserialize_partially_field::<dyn FrameDependency>(
                 &mut repr,
                 "dependencies",
-                "Cannot deserialize the dependencies"
+                "Cannot deserialize the dependencies",
             )?;
 
         let dependencies: Vec<Value> = partially_serialized_dependencies
             .as_array_mut()
-            .ok_or_else(|| PersistenceUtils::create_retrieval_error::<dyn FrameDependency>(
-                &repr,
-                "Cannot deserialize the dependencies"
-            ))?
+            .ok_or_else(|| {
+                PersistenceUtils::create_retrieval_error::<dyn FrameDependency>(
+                    &repr,
+                    "Cannot deserialize the dependencies",
+                )
+            })?
             .drain(..)
             .collect();
 
@@ -355,10 +361,10 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
 
         for dep in dependencies {
             let dep = RetrieveRegistries::retrieve_frame_dependency(
-                    serde_json::from_value::<SerializedComponent>(dep)
-                        .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?,
-                )
-                .await?;
+                serde_json::from_value::<SerializedComponent>(dep)
+                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?,
+            )
+            .await?;
 
             deserialized_dependencies.push(dep)
         }
