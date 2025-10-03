@@ -1,15 +1,15 @@
-use std::any::{type_name, type_name_of_val};
-use std::fmt::Debug;
-use std::sync::Arc;
-use chrono::{DateTime, Local, TimeZone};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use serde_json::Map;
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
+use chrono::{DateTime, Local, TimeZone};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use serde_json::Map;
+use std::any::{type_name, type_name_of_val};
+use std::fmt::Debug;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub struct PersistenceUtils(());
 
@@ -18,13 +18,15 @@ impl PersistenceUtils {
         serde_json::to_value(val).map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)
     }
 
-    pub async fn serialize_persistent(val: &impl PersistentObject) -> Result<serde_json::Value, TaskError> {
+    pub async fn serialize_persistent(
+        val: &impl PersistentObject,
+    ) -> Result<serde_json::Value, TaskError> {
         serde_json::to_value(val.persist().await?)
             .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)
     }
 
     pub async fn serialize_potential_field(
-        val: &(impl AsPersistent + Send + Sync + ?Sized)
+        val: &(impl AsPersistent + Send + Sync + ?Sized),
     ) -> Result<serde_json::Value, TaskError> {
         serde_json::to_value(
             match val.as_persistent().await {
@@ -34,29 +36,30 @@ impl PersistenceUtils {
                         type_name_of_val(&val).to_string(),
                     )));
                 }
-            }.persist().await?
-        ).map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)
+            }
+            .persist()
+            .await?,
+        )
+        .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)
     }
 
     pub fn transform_serialized_to_map(
-        component: SerializedComponent
+        component: SerializedComponent,
     ) -> Result<Map<String, serde_json::Value>, TaskError> {
         let repr = component.into_ir();
 
         match repr {
             serde_json::Value::Object(map) => Ok(map),
-            other => {
-                Err(Arc::new(ChronographerErrors::NonObjectDeserialization(
-                    type_name_of_val(&other).to_string(),
-                    other,
-                )) as Arc<dyn Debug + Send + Sync>)
-            }
+            other => Err(Arc::new(ChronographerErrors::NonObjectDeserialization(
+                type_name_of_val(&other).to_string(),
+                other,
+            )) as Arc<dyn Debug + Send + Sync>),
         }
     }
 
     pub fn create_retrieval_error<T: ?Sized>(
         map: &Map<String, serde_json::Value>,
-        error_msg: &'_ str
+        error_msg: &'_ str,
     ) -> TaskError {
         Arc::new(ChronographerErrors::RetrievalFailed(
             type_name::<T>().to_string(),
@@ -68,12 +71,12 @@ impl PersistenceUtils {
     pub fn deserialize_partially_field<T: ?Sized>(
         map: &mut Map<String, serde_json::Value>,
         key: &'_ str,
-        on_retrieve_failed_msg: &'_ str
+        on_retrieve_failed_msg: &'_ str,
     ) -> Result<serde_json::Value, TaskError> {
         if map.contains_key(key) {
             return Err(Self::create_retrieval_error::<T>(
                 &map,
-                on_retrieve_failed_msg
+                on_retrieve_failed_msg,
             ));
         }
 
@@ -83,26 +86,26 @@ impl PersistenceUtils {
     pub fn deserialize_atomic<T: DeserializeOwned + ?Sized>(
         map: &mut Map<String, serde_json::Value>,
         key: &'_ str,
-        on_retrieve_failed_msg: &'_ str
+        on_retrieve_failed_msg: &'_ str,
     ) -> Result<T, TaskError> {
         let val = Self::deserialize_partially_field::<T>(map, key, on_retrieve_failed_msg)?;
-        serde_json::from_value::<T>(val)
-            .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)
+        serde_json::from_value::<T>(val).map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)
     }
 
     pub async fn deserialize_concrete<T: PersistentObject>(
         map: &mut Map<String, serde_json::Value>,
         key: &'_ str,
-        on_retrieve_failed_msg: &'_ str
+        on_retrieve_failed_msg: &'_ str,
     ) -> Result<T, TaskError> {
         let frame = Self::deserialize_partially_field::<T>(map, key, on_retrieve_failed_msg)?;
         T::retrieve(
             serde_json::from_value::<SerializedComponent>(frame)
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?,
-        ).await
+        )
+        .await
     }
 
-    pub async fn deserialize_dyn<T: ?Sized, Fut: Future<Output=Result<Arc<T>,TaskError>>>(
+    pub async fn deserialize_dyn<T: ?Sized, Fut: Future<Output = Result<Arc<T>, TaskError>>>(
         map: &mut Map<String, serde_json::Value>,
         key: &'_ str,
         retrieve_func: fn(SerializedComponent) -> Fut,
@@ -112,7 +115,8 @@ impl PersistenceUtils {
         retrieve_func(
             serde_json::from_value::<SerializedComponent>(val)
                 .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync + 'static>)?,
-        ).await
+        )
+        .await
     }
 }
 

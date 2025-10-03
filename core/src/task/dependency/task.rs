@@ -1,18 +1,18 @@
-use crate::task::{Debug};
+use crate::persistent_object::PersistentObject;
+use crate::retrieve_registers::RetrieveRegistries;
+use crate::serialized_component::SerializedComponent;
+use crate::task::Debug;
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
 use crate::task::{Task, TaskContext, TaskError};
+use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
+use serde_json::json;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use serde_json::json;
 use typed_builder::TypedBuilder;
-use crate::persistent_object::PersistentObject;
-use crate::serialized_component::SerializedComponent;
-use crate::retrieve_registers::RetrieveRegistries;
-use crate::utils::PersistenceUtils;
 
 /// [`TaskResolvent`] acts as a policy dictating how to manage the counting
 /// of relevant runs towards [`TaskDependency`], the [`TaskDependency`] has
@@ -84,7 +84,7 @@ macro_rules! implement_core_resolvent {
                 Ok(SerializedComponent::new::<Self>(json!({})))
             }
 
-            async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError>{
+            async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
                 Ok($name)
             }
         }
@@ -338,18 +338,18 @@ impl PersistentObject for TaskDependency {
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         let runs = PersistenceUtils::serialize_field(self.counter.load(Ordering::Relaxed))?;
         let min_runs = PersistenceUtils::serialize_field(self.minimum_runs.get())?;
-        let is_enabled = PersistenceUtils::serialize_field(self.is_enabled.load(Ordering::Relaxed))?;
-        let task_resolvent = PersistenceUtils::serialize_potential_field(&self.resolve_behavior).await?;
+        let is_enabled =
+            PersistenceUtils::serialize_field(self.is_enabled.load(Ordering::Relaxed))?;
+        let task_resolvent =
+            PersistenceUtils::serialize_potential_field(&self.resolve_behavior).await?;
         let task_id = PersistenceUtils::serialize_field(self.task.id().as_u128())?;
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "counted_runs": runs,
-                "minimum_runs": min_runs,
-                "is_enabled": is_enabled,
-                "task_resolvent": task_resolvent,
-                "task_id": task_id
-            })
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({
+            "counted_runs": runs,
+            "minimum_runs": min_runs,
+            "is_enabled": is_enabled,
+            "task_resolvent": task_resolvent,
+            "task_id": task_id
+        })))
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
@@ -358,35 +358,35 @@ impl PersistentObject for TaskDependency {
         let counted_runs = PersistenceUtils::deserialize_atomic::<u64>(
             &mut repr,
             "counted_runs",
-            "Cannot deserialize the counted runs"
+            "Cannot deserialize the counted runs",
         )?;
 
         let min_runs = PersistenceUtils::deserialize_atomic::<u64>(
             &mut repr,
             "minimum_runs",
-            "Cannot deserialize the minimum number of runs"
+            "Cannot deserialize the minimum number of runs",
         )?;
 
         let is_enabled = PersistenceUtils::deserialize_atomic::<bool>(
             &mut repr,
             "is_enabled",
-            "Cannot deserialize the data used for indicating if the dependency was enabled or not"
+            "Cannot deserialize the data used for indicating if the dependency was enabled or not",
         )?;
 
-        let task_resolvent =
-            PersistenceUtils::deserialize_dyn(
-                &mut repr,
-                "task_resolvent",
-                RetrieveRegistries::retrieve_task_resolvent,
-                "Cannot deserialize the task_resolvent"
-            ).await?;
+        let task_resolvent = PersistenceUtils::deserialize_dyn(
+            &mut repr,
+            "task_resolvent",
+            RetrieveRegistries::retrieve_task_resolvent,
+            "Cannot deserialize the task_resolvent",
+        )
+        .await?;
 
         Ok(TaskDependency {
             task: Arc::new(Task), // TODO: Find a way to retrieve a task from its ID
             minimum_runs: NonZeroU64::new(min_runs).ok_or_else(|| {
                 PersistenceUtils::create_retrieval_error::<u64>(
                     &repr,
-                    "Minimum number of runs was set to zero"
+                    "Minimum number of runs was set to zero",
                 )
             })?,
             counter: Arc::new(AtomicU64::new(counted_runs)),

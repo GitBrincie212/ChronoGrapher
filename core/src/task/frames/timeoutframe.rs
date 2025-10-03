@@ -1,11 +1,11 @@
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::utils::PersistenceUtils;
 
 /// Represents a **timeout task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the [`TaskFrame`] hierarchy, providing a timeout mechanism for execution.
@@ -132,14 +132,15 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for TimeoutTaskFrame<T> {
         let delay = PersistenceUtils::deserialize_atomic::<Duration>(
             &mut repr,
             "max_duration",
-            "Cannot deserialize the maximum delay"
+            "Cannot deserialize the maximum delay",
         )?;
 
         let frame = PersistenceUtils::deserialize_concrete::<T>(
             &mut repr,
             "wrapped_frame",
-            "Cannot deserialize the wrapped task frame"
-        ).await?;
+            "Cannot deserialize the wrapped task frame",
+        )
+        .await?;
 
         Ok(TimeoutTaskFrame::new(frame, delay))
     }

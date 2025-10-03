@@ -1,12 +1,12 @@
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
+#[allow(unused_imports)]
+use crate::task::*;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::any::type_name;
 use std::fmt::Debug;
 use std::sync::Arc;
-#[allow(unused_imports)]
-use crate::task::*;
 
 #[allow(unused_imports)]
 use crate::backend::PersistenceBackend;

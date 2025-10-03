@@ -1,10 +1,10 @@
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
-use crate::utils::PersistenceUtils;
 
 /// Represents a **fallback task frame** which wraps two other task frames. This task frame type acts as a
 /// **composite node** within the task frame hierarchy, providing a failover mechanism for execution.
@@ -143,14 +143,16 @@ where
         let primary_frame = PersistenceUtils::deserialize_concrete::<T>(
             &mut repr,
             "primary_frame",
-            "Cannot deserialize the primary wrapped task frame"
-        ).await?;
+            "Cannot deserialize the primary wrapped task frame",
+        )
+        .await?;
 
         let fallback_frame = PersistenceUtils::deserialize_concrete::<T2>(
             &mut repr,
             "fallback_frame",
-            "Cannot deserialize the primary wrapped task frame"
-        ).await?;
+            "Cannot deserialize the primary wrapped task frame",
+        )
+        .await?;
 
         Ok(FallbackTaskFrame::new(primary_frame, fallback_frame))
     }
