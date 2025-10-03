@@ -1,7 +1,6 @@
 #[allow(unused_imports)]
 use crate::backend::PersistenceBackend;
 use serde::{Deserialize, Serialize};
-use serde_json::Map;
 use crate::persistent_object::PersistentObject;
 
 /// [`SerializedComponent`] is a container that wraps a **unique** identifier (ID) corresponding
@@ -54,7 +53,7 @@ impl SerializedComponent {
     }
 
     /// Returns the **Intermediate Representation (IR)** in the form of JSON
-    pub fn into_ir(mut self) -> serde_json::Value {
+    pub fn into_ir(self) -> serde_json::Value {
         self.json
     }
 }
