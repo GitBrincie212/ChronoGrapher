@@ -15,6 +15,14 @@ macro_rules! deserialize_field {
 
         let $var_name = $repr.remove($target).unwrap();
     };
+
+    ($repr: expr, mut $var_name: ident, $target: expr, $target_type: ty, $error_msg: expr) => {
+        if $repr.contains_key($target) {
+            return Err(deserialization_err!($repr, $target_type, $error_msg));
+        }
+
+        let mut $var_name = $repr.remove($target).unwrap();
+    };
 }
 
 #[macro_export]
