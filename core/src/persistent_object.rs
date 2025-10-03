@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::any::type_name;
 use std::fmt::Debug;
 use std::sync::Arc;
-
 #[allow(unused_imports)]
 use crate::task::*;
 
@@ -53,7 +52,7 @@ pub trait PersistentObject: Send + Sync {
             .as_str()
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError>;
+    async fn persist(&self) -> Result<SerializedComponent, TaskError>;
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError>
     where
         Self: Sized;
@@ -61,19 +60,19 @@ pub trait PersistentObject: Send + Sync {
 
 #[async_trait]
 pub trait PersistentObjectDyn: Send + Sync {
-    async fn store(&self) -> Result<SerializedComponent, TaskError>;
+    async fn persist(&self) -> Result<SerializedComponent, TaskError>;
 }
 
 #[async_trait]
 impl<T: PersistentObject> PersistentObjectDyn for T {
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        self.store().await
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
+        self.persist().await
     }
 }
 
 #[async_trait]
 impl<T: Serialize + for<'de> Deserialize<'de> + Send + Sync> PersistentObject for T {
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         match serde_json::to_value(self) {
             Ok(res) => Ok(SerializedComponent::new::<T>(res)),
             Err(err) => Err(Arc::new(err)),
