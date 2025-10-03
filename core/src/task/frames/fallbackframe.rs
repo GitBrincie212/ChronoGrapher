@@ -122,16 +122,19 @@ where
 }
 
 #[async_trait]
-impl<T, T2> PersistentObject<FallbackTaskFrame<T, T2>> for FallbackTaskFrame<T, T2>
+impl<T, T2> PersistentObject for FallbackTaskFrame<T, T2>
 where
-    T: TaskFrame + 'static + PersistentObject<T>,
-    T2: TaskFrame + 'static + PersistentObject<T2>,
+    T: TaskFrame + 'static + PersistentObject,
+    T2: TaskFrame + 'static + PersistentObject,
 {
+    fn persistence_id() -> &'static str {
+        Self::PERSISTENCE_ID
+    }
+    
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let primary = to_json!(self.primary.store().await?);
         let fallback = to_json!(self.secondary.store().await?);
-        Ok(SerializedComponent::new(
-            FallbackTaskFrame::<T, T2>::PERSISTENCE_ID.to_string(),
+        Ok(SerializedComponent::new::<Self>(
             json!({
                 "primary_frame": primary,
                 "fallback_frame": fallback,
@@ -141,7 +144,7 @@ where
 
     async fn retrieve(
         component: SerializedComponent,
-    ) -> Result<FallbackTaskFrame<T, T2>, TaskError> {
+    ) -> Result<Self, TaskError> {
         let mut repr = acquire_mut_ir_map!(FallbackTaskFrame, component);
 
         deserialize_field!(

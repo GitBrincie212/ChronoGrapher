@@ -307,9 +307,6 @@ impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
 }
 
 impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2> {
-    /// A constant ID used for persisting the [`RetriableTaskFrame`]
-    pub const PERSISTENCE_ID: &'static str = stringify!(RetriableTaskFrame$chronographer_core);
-
     /// Creates / Constructs a [`RetriableTaskFrame`] that has a custom backoff strategy per retry
     ///
     /// # Argument(s)
@@ -383,11 +380,15 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
 }
 
 #[async_trait]
-impl<T1, T2> PersistentObject<RetriableTaskFrame<T1, T2>> for RetriableTaskFrame<T1, T2>
+impl<T1, T2> PersistentObject for RetriableTaskFrame<T1, T2>
 where
-    T1: TaskFrame + 'static + PersistentObject<T1>,
-    T2: RetryBackoffStrategy + PersistentObject<T2>,
+    T1: TaskFrame + 'static + PersistentObject,
+    T2: RetryBackoffStrategy + PersistentObject,
 {
+    fn persistence_id() -> &'static str {
+        "RetriableTaskFrame$chronographer_core"
+    }
+    
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let serialized_backoff_strat = to_json!(self.backoff_strat.store().await?);
 
@@ -399,15 +400,12 @@ where
             "retries": self.retries.get()
         });
 
-        Ok(SerializedComponent::new(
-            RetriableTaskFrame::<T1, T2>::PERSISTENCE_ID.to_string(),
-            payload,
-        ))
+        Ok(SerializedComponent::new::<Self>(payload))
     }
 
     async fn retrieve(
         component: SerializedComponent,
-    ) -> Result<RetriableTaskFrame<T1, T2>, TaskError> {
+    ) -> Result<Self, TaskError> {
         let mut repr = acquire_mut_ir_map!(DelayTaskFrame, component);
 
         deserialize_field!(

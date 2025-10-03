@@ -286,9 +286,6 @@ where
     T: TaskFrame + 'static + Send + Sync,
     T2: TaskFrame + 'static + Send + Sync,
 {
-    /// A constant ID used for persisting the [`ConditionalFrame`]
-    pub const PERSISTENCE_ID: &'static str = stringify!(ConditionalFrame$chronographer_core);
-
     /// Creates / Constructs a builder for the construction of [`ConditionalFrame`],
     /// that requires a fallback option. If one would wish to not supply the fallback
     /// option, then there is also [`ConditionalFrame::builder`] for that convenience purpose
@@ -340,11 +337,15 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
 }
 
 #[async_trait]
-impl<T, F> PersistentObject<ConditionalFrame<T, F>> for ConditionalFrame<T, F>
+impl<T, F> PersistentObject for ConditionalFrame<T, F>
 where
-    T: TaskFrame + 'static + PersistentObject<T>,
-    F: TaskFrame + 'static + PersistentObject<F>,
+    T: TaskFrame + 'static + PersistentObject,
+    F: TaskFrame + 'static + PersistentObject,
 {
+    fn persistence_id() -> &'static str {
+        "ConditionalFrame$chronographer_core"
+    }
+    
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let frame = to_json!(self.frame.store().await?);
         let fallback = to_json!(self.fallback.store().await?);
@@ -357,11 +358,10 @@ where
                 )));
             }
         }
-        .serialize()
+        .store()
         .await?
         .into_ir();
-        Ok(SerializedComponent::new(
-            ConditionalFrame::<T, F>::PERSISTENCE_ID.to_string(),
+        Ok(SerializedComponent::new::<Self>(
             json!({
                 "wrapped_primary": frame,
                 "wrapped_fallback": fallback,
@@ -373,7 +373,7 @@ where
 
     async fn retrieve(
         component: SerializedComponent,
-    ) -> Result<ConditionalFrame<T, F>, TaskError> {
+    ) -> Result<Self, TaskError> {
         let mut repr = acquire_mut_ir_map!(ConditionalFrame, component);
 
         deserialize_field!(

@@ -45,43 +45,41 @@ pub enum PersistenceCapability<'a> {
 /// - [`SerializedComponent`]
 /// - [`PersistenceBackend`]
 #[async_trait]
-pub trait PersistentObject<T>: Send + Sync {
-    fn persistence_id(&self) -> &'static str {
+pub trait PersistentObject: Send + Sync {
+    fn persistence_id() -> &'static str {
         use once_cell::sync::OnceCell;
         static CELL: OnceCell<String> = OnceCell::new();
-        CELL.get_or_init(|| type_name::<T>().to_string()).as_str()
+        CELL.get_or_init(|| type_name::<Self>().to_string()).as_str()
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError>;
-    async fn retrieve(component: SerializedComponent) -> Result<T, TaskError>;
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError>
+    where Self: Sized;
 }
 
 #[async_trait]
 pub trait PersistentObjectDyn: Send + Sync {
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError>;
+    async fn store(&self) -> Result<SerializedComponent, TaskError>;
 }
 
 #[async_trait]
-impl<T: PersistentObject<T>> PersistentObjectDyn for T {
-    async fn serialize(&self) -> Result<SerializedComponent, TaskError> {
+impl<T: PersistentObject> PersistentObjectDyn for T {
+    async fn store(&self) -> Result<SerializedComponent, TaskError> {
         self.store().await
     }
 }
 
 #[async_trait]
-impl<T: Serialize + for<'de> Deserialize<'de> + Send + Sync> PersistentObject<T> for T {
+impl<T: Serialize + for<'de> Deserialize<'de> + Send + Sync> PersistentObject for T {
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         match serde_json::to_value(self) {
-            Ok(res) => Ok(SerializedComponent::new(
-                self.persistence_id().to_string(),
-                res,
-            )),
+            Ok(res) => Ok(SerializedComponent::new::<T>(res)),
             Err(err) => Err(Arc::new(err)),
         }
     }
 
-    async fn retrieve(component: SerializedComponent) -> Result<T, TaskError> {
-        serde_json::from_value::<T>(component.into_ir())
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
+        serde_json::from_value::<Self>(component.into_ir())
             .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)
     }
 }

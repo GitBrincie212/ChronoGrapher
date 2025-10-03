@@ -190,15 +190,14 @@ impl From<f32> for TaskScheduleInterval {
 }
 
 #[async_trait]
-impl PersistentObject<TaskScheduleInterval> for TaskScheduleInterval {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for TaskScheduleInterval {
+    fn persistence_id() -> &'static str {
         "TaskScheduleInterval$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let secs = to_json!(self.0.as_seconds_f64());
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
+        Ok(SerializedComponent::new::<Self>(
             json!({
                 "interval_seconds": secs
             }),

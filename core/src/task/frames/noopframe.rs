@@ -29,11 +29,6 @@ use serde_json::json;
 #[derive(Default)]
 pub struct NoOperationTaskFrame;
 
-impl NoOperationTaskFrame {
-    /// A constant ID used for persisting the [`NoOperationTaskFrame`]
-    pub const PERSISTENCE_ID: &'static str = stringify!(NoOperationTaskFrame$chronographer_core);
-}
-
 #[async_trait]
 impl TaskFrame for NoOperationTaskFrame {
     async fn execute(&self, _ctx: Arc<TaskContext>) -> Result<(), TaskError> {
@@ -42,17 +37,18 @@ impl TaskFrame for NoOperationTaskFrame {
 }
 
 #[async_trait]
-impl PersistentObject<NoOperationTaskFrame> for NoOperationTaskFrame {
+impl PersistentObject for NoOperationTaskFrame {
+    fn persistence_id() -> &'static str {
+        "NoOperationTaskFrame$chronographer_core"
+    }
+
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            NoOperationTaskFrame::PERSISTENCE_ID.to_string(),
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
     async fn retrieve(
         _component: SerializedComponent,
-    ) -> Result<NoOperationTaskFrame, TaskError> {
+    ) -> Result<Self, TaskError> {
         Ok(NoOperationTaskFrame)
     }
 }

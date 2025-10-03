@@ -96,21 +96,18 @@ impl ScheduleStrategy for SequentialSchedulingPolicy {
 }
 
 #[async_trait]
-impl PersistentObject<SequentialSchedulingPolicy> for SequentialSchedulingPolicy {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for SequentialSchedulingPolicy {
+    fn persistence_id() -> &'static str {
         "SequentialSchedulingPolicy$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
     async fn retrieve(
         _component: SerializedComponent,
-    ) -> Result<SequentialSchedulingPolicy, TaskError> {
+    ) -> Result<Self, TaskError> {
         Ok(SequentialSchedulingPolicy)
     }
 }
@@ -140,21 +137,18 @@ impl ScheduleStrategy for ConcurrentSchedulingPolicy {
 }
 
 #[async_trait]
-impl PersistentObject<ConcurrentSchedulingPolicy> for ConcurrentSchedulingPolicy {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for ConcurrentSchedulingPolicy {
+    fn persistence_id() -> &'static str {
         "ConcurrentSchedulingPolicy$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
     async fn retrieve(
         _component: SerializedComponent,
-    ) -> Result<ConcurrentSchedulingPolicy, TaskError> {
+    ) -> Result<Self, TaskError> {
         Ok(ConcurrentSchedulingPolicy)
     }
 }
@@ -227,21 +221,18 @@ impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
 }
 
 #[async_trait]
-impl PersistentObject<CancelPreviousSchedulingPolicy> for CancelPreviousSchedulingPolicy {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for CancelPreviousSchedulingPolicy {
+    fn persistence_id() -> &'static str {
         "CancelPreviousSchedulingPolicy$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
     async fn retrieve(
         _component: SerializedComponent,
-    ) -> Result<CancelPreviousSchedulingPolicy, TaskError> {
+    ) -> Result<Self, TaskError> {
         Ok(CancelPreviousSchedulingPolicy::new())
     }
 }
@@ -308,21 +299,20 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
 }
 
 #[async_trait]
-impl PersistentObject<CancelCurrentSchedulingPolicy> for CancelCurrentSchedulingPolicy {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for CancelCurrentSchedulingPolicy {
+    fn persistence_id() -> &'static str {
         "CancelCurrentSchedulingPolicy$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
+        Ok(SerializedComponent::new::<Self>(
             json!({}),
         ))
     }
 
     async fn retrieve(
         _component: SerializedComponent,
-    ) -> Result<CancelCurrentSchedulingPolicy, TaskError> {
+    ) -> Result<Self, TaskError> {
         Ok(CancelCurrentSchedulingPolicy::new())
     }
 }

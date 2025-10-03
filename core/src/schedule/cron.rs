@@ -80,15 +80,14 @@ impl TaskSchedule for TaskScheduleCron {
 }
 
 #[async_trait]
-impl PersistentObject<TaskScheduleCron> for TaskScheduleCron {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for TaskScheduleCron {
+    fn persistence_id() -> &'static str {
         "TaskScheduleCron$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let cron = to_json!(self.0.as_str());
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
+        Ok(SerializedComponent::new::<Self>(
             json!({
                 "cron_expression": cron
             }),

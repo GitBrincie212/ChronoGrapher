@@ -72,21 +72,18 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
 }
 
 #[async_trait]
-impl PersistentObject<GroupedTaskFramesQuitOnSuccess> for GroupedTaskFramesQuitOnSuccess {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for GroupedTaskFramesQuitOnSuccess {
+    fn persistence_id() -> &'static str {
         "GroupedTaskFramesQuitOnSuccess$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
     async fn retrieve(
         _component: SerializedComponent,
-    ) -> Result<GroupedTaskFramesQuitOnSuccess, TaskError> {
+    ) -> Result<Self, TaskError> {
         Ok(GroupedTaskFramesQuitOnSuccess)
     }
 }
@@ -121,21 +118,18 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
 }
 
 #[async_trait]
-impl PersistentObject<GroupedTaskFramesQuitOnFailure> for GroupedTaskFramesQuitOnFailure {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for GroupedTaskFramesQuitOnFailure {
+    fn persistence_id() -> &'static str {
         "GroupedTaskFramesQuitOnFailure$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
     async fn retrieve(
         _component: SerializedComponent,
-    ) -> Result<GroupedTaskFramesQuitOnFailure, TaskError> {
+    ) -> Result<Self, TaskError> {
         Ok(GroupedTaskFramesQuitOnFailure)
     }
 }
@@ -167,21 +161,18 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
 }
 
 #[async_trait]
-impl PersistentObject<GroupedTaskFramesSilent> for GroupedTaskFramesSilent {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for GroupedTaskFramesSilent {
+    fn persistence_id() -> &'static str {
         "GroupedTaskFramesSilent$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
-            json!({}),
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
     async fn retrieve(
         _component: SerializedComponent,
-    ) -> Result<GroupedTaskFramesSilent, TaskError> {
+    ) -> Result<Self, TaskError> {
         Ok(GroupedTaskFramesSilent)
     }
 }

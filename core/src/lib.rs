@@ -27,3 +27,6 @@ pub mod serialized_component; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
 pub mod persistent_object; // skipcq: RS-D1001
+
+#[allow(missing_docs)]
+pub mod retrieve_registers; // skipcq: RS-D1001

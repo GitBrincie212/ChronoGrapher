@@ -38,14 +38,13 @@ impl TaskSchedule for TaskScheduleImmediate {
 }
 
 #[async_trait]
-impl PersistentObject<TaskScheduleImmediate> for TaskScheduleImmediate {
-    fn persistence_id(&self) -> &'static str {
+impl PersistentObject for TaskScheduleImmediate {
+    fn persistence_id() -> &'static str {
         "TaskScheduleImmediate$chronographer_core"
     }
 
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new(
-            self.persistence_id().to_string(),
+        Ok(SerializedComponent::new::<Self>(
             json!({}),
         ))
     }

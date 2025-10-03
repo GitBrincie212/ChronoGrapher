@@ -66,9 +66,6 @@ pub struct DelayTaskFrame<T: 'static> {
 }
 
 impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
-    /// A constant ID used for persisting the [`DelayTaskFrame`]
-    pub const PERSISTENCE_ID: &'static str = stringify!(DelayTaskFrame$chronographer_core);
-
     /// Constructs / Creates a new [`DelayTaskFrame`] instance
     ///
     /// # Argument(s)
@@ -116,12 +113,15 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
 }
 
 #[async_trait]
-impl<T: TaskFrame + PersistentObject<T>> PersistentObject<DelayTaskFrame<T>> for DelayTaskFrame<T> {
+impl<T: TaskFrame + PersistentObject> PersistentObject for DelayTaskFrame<T> {
+    fn persistence_id() -> &'static str {
+        "DelayTaskFrame$chronographer_core"
+    }
+    
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let frame = to_json!(self.frame.store().await?);
         let delay = to_json!(self.delay);
-        Ok(SerializedComponent::new(
-            DelayTaskFrame::<T>::PERSISTENCE_ID.to_string(),
+        Ok(SerializedComponent::new::<Self>(
             json!({
                 "wrapped_frame": frame,
                 "delay": delay
@@ -129,7 +129,7 @@ impl<T: TaskFrame + PersistentObject<T>> PersistentObject<DelayTaskFrame<T>> for
         ))
     }
 
-    async fn retrieve(component: SerializedComponent) -> Result<DelayTaskFrame<T>, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
         let mut repr = acquire_mut_ir_map!(DelayTaskFrame, component);
 
         deserialize_field!(

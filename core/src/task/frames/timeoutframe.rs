@@ -73,9 +73,6 @@ pub struct TimeoutTaskFrame<T: 'static> {
 }
 
 impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
-    /// A constant ID used for persisting the [`TimeoutTaskFrame`]
-    pub const PERSISTENCE_ID: &'static str = stringify!(TimeoutTaskFrame$chronographer_core);
-
     /// Constructs / Creates a new [`TimeoutTaskFrame`] instance
     ///
     /// # Argument(s)
@@ -117,14 +114,15 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
 }
 
 #[async_trait]
-impl<T: TaskFrame + PersistentObject<T>> PersistentObject<TimeoutTaskFrame<T>>
-    for TimeoutTaskFrame<T>
-{
+impl<T: TaskFrame + PersistentObject> PersistentObject for TimeoutTaskFrame<T> {
+    fn persistence_id() -> &'static str {
+        "TimeoutTaskFrame$chronographer_core"
+    }
+    
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let frame = to_json!(self.frame.store().await?);
         let max_duration = to_json!(self.max_duration);
-        Ok(SerializedComponent::new(
-            TimeoutTaskFrame::<T>::PERSISTENCE_ID.to_string(),
+        Ok(SerializedComponent::new::<Self>(
             json!({
                 "wrapped_frame": frame,
                 "max_duration": max_duration
@@ -132,7 +130,7 @@ impl<T: TaskFrame + PersistentObject<T>> PersistentObject<TimeoutTaskFrame<T>>
         ))
     }
 
-    async fn retrieve(component: SerializedComponent) -> Result<TimeoutTaskFrame<T>, TaskError> {
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
         let mut repr = acquire_mut_ir_map!(TimeoutTaskFrame, component);
 
         deserialize_field!(
