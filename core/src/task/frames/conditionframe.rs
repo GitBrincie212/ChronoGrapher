@@ -13,6 +13,7 @@ use typed_builder::TypedBuilder;
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
 use crate::{acquire_mut_ir_map, deserialize_field, to_json};
+use crate::retrieve_registers::RETRIEVE_REGISTRIES;
 
 /// [`ConditionalFramePredicate`] is a trait that works closely with [`ConditionalFrame`], it is the
 /// mechanism that returns true/false for the task to execute
@@ -345,22 +346,23 @@ where
     fn persistence_id() -> &'static str {
         "ConditionalFrame$chronographer_core"
     }
-    
+
     async fn store(&self) -> Result<SerializedComponent, TaskError> {
         let frame = to_json!(self.frame.store().await?);
         let fallback = to_json!(self.fallback.store().await?);
         let errors_on_false = to_json!(self.error_on_false);
-        let predicate = match self.predicate.as_persistent().await {
-            PersistenceCapability::Persistable(res) => res,
-            _ => {
-                return Err(Arc::new(ChronographerErrors::NonPersistentObject(
-                    "ConditionalFramePredicate".to_string(),
-                )));
+        let predicate = serde_json::to_value(
+            match self.predicate.as_persistent().await {
+                PersistenceCapability::Persistable(res) => res,
+                _ => {
+                    return Err(Arc::new(ChronographerErrors::NonPersistentObject(
+                        "ConditionalFramePredicate".to_string(),
+                    )));
+                }
             }
-        }
-        .store()
-        .await?
-        .into_ir();
+            .store()
+            .await?
+        ).map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?;
         Ok(SerializedComponent::new::<Self>(
             json!({
                 "wrapped_primary": frame,
@@ -420,6 +422,11 @@ where
         )
         .await?;
 
+        let predicate = RETRIEVE_REGISTRIES.retrieve_conditional_predicate(
+            serde_json::from_value::<SerializedComponent>(serialized_predicate)
+                .map_err(|err| Arc::new(err) as Arc<dyn Debug + Send + Sync>)?
+        ).await?;
+
         let error_on_false = serialized_error_on_false.as_bool().ok_or_else(|| {
             deserialization_err!(
                 repr,
@@ -428,11 +435,13 @@ where
             )
         })?;
 
-        Ok(ConditionalFrame::fallback_builder()
-            .frame(primary_frame)
-            .predicate() // TODO: Fill the argument with the deserialized predicate
-            .error_on_false(error_on_false)
-            .fallback(fallback_frame)
-            .build())
+        Ok(ConditionalFrame {
+            frame: Arc::new(primary_frame),
+            fallback: Arc::new(fallback_frame),
+            error_on_false,
+            predicate,
+            on_true: TaskEvent::new(),
+            on_false: TaskEvent::new(),
+        })
     }
 }
