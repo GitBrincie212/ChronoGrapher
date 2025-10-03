@@ -77,7 +77,7 @@ impl PersistentObject for GroupedTaskFramesQuitOnSuccess {
         "GroupedTaskFramesQuitOnSuccess$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
@@ -121,7 +121,7 @@ impl PersistentObject for GroupedTaskFramesQuitOnFailure {
         "GroupedTaskFramesQuitOnFailure$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
@@ -162,7 +162,7 @@ impl PersistentObject for GroupedTaskFramesSilent {
         "GroupedTaskFramesSilent$chronographer_core"
     }
 
-    async fn store(&self) -> Result<SerializedComponent, TaskError> {
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         Ok(SerializedComponent::new::<Self>(json!({})))
     }
 
