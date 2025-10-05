@@ -1,14 +1,14 @@
-use crate::task::dependency::{
-    FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
-};
-use async_trait::async_trait;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use serde_json::json;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
+use crate::task::dependency::{
+    FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
+};
 use crate::utils::PersistenceUtils;
+use async_trait::async_trait;
+use serde_json::json;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// [`FlagDependency`] is a dependency which can be enabled and disabled from outside, essentially
 /// acting more as a checkbox
@@ -105,12 +105,10 @@ impl PersistentObject for FlagDependency {
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         let is_resolved = PersistenceUtils::serialize_field(self.0.load(Ordering::Relaxed))?;
         let is_enabled = PersistenceUtils::serialize_field(self.1.load(Ordering::Relaxed))?;
-        Ok(SerializedComponent::new::<Self>(
-            json!({
-                "is_resolved": is_resolved,
-                "is_enabled": is_enabled
-            })
-        ))
+        Ok(SerializedComponent::new::<Self>(json!({
+            "is_resolved": is_resolved,
+            "is_enabled": is_enabled
+        })))
     }
 
     async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
@@ -118,18 +116,18 @@ impl PersistentObject for FlagDependency {
         let is_resolved = PersistenceUtils::deserialize_atomic::<bool>(
             &mut repr,
             "is_resolved",
-            "Cannot deserialize the data indicating if the dependency was resolved or not"
+            "Cannot deserialize the data indicating if the dependency was resolved or not",
         )?;
 
         let is_enabled = PersistenceUtils::deserialize_atomic::<bool>(
             &mut repr,
             "is_enabled",
-            "Cannot deserialize the data indicating if the dependency was enabled or not"
+            "Cannot deserialize the data indicating if the dependency was enabled or not",
         )?;
 
         Ok(FlagDependency(
             Arc::new(AtomicBool::new(is_resolved)),
-            Arc::new(AtomicBool::new(is_enabled))
+            Arc::new(AtomicBool::new(is_enabled)),
         ))
     }
 }
