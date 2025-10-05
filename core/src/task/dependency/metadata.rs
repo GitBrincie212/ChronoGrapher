@@ -209,7 +209,7 @@ impl<T: Send + Sync + 'static> PersistentObject for MetadataDependency<T> {
         let is_resolved =
             PersistenceUtils::serialize_field(self.is_resolved.load(Ordering::Relaxed))?;
         let metadata_resolver = PersistenceUtils::serialize_potential_field(&self.resolver).await?;
-        Ok(SerializedComponent::new(json!({
+        Ok(SerializedComponent::new::<Self>(json!({
             "value": value,
             "is_enabled": is_enabled,
             "is_resolved": is_resolved,
