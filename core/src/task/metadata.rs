@@ -15,7 +15,7 @@ use std::collections::HashMap;
 /// this trait, but due to their nature they cannot persist, as a result, it is advised to create
 /// your own struct and implement this trait
 ///
-/// # Usage Note(ss)
+/// # Usage Note(s)
 /// It is advised to be careful when modifying the metadata, listening to an event and (say ``on_remove`` as
 /// an example) and removing an observer field will retrigger this listener. This can potentially lead
 /// to infinite recursion on niche cases
@@ -212,7 +212,7 @@ impl<T: Send + Sync + 'static> ObserverField<T> {
     ///
     /// # Returns
     /// The constructed instance of [`ObserverField`]
-    pub fn new(key: Arc<str>, initial: T) -> Self {
+    fn new(key: Arc<str>, initial: T) -> Self {
         Self {
             key,
             value: ArcSwap::from_pointee(initial),
