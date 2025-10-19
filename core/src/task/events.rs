@@ -2,7 +2,12 @@ use crate::task::{TaskContext, TaskError};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::sync::Arc;
+use serde_json::json;
 use uuid::Uuid;
+use crate::persistent_object::PersistentObject;
+use crate::retrieve_registers::RetrieveRegistries;
+use crate::serialized_component::SerializedComponent;
+use crate::utils::PersistenceUtils;
 
 /// The ``on_start`` event type alias
 pub type TaskStartEvent = ArcTaskEvent<()>;
@@ -47,7 +52,7 @@ where
 }
 
 #[async_trait]
-impl<P: Send + Sync + 'static, E: TaskEventListener<P> + ?Sized> TaskEventListener<P> for Arc<E> {
+impl<P: Send + Sync + 'static, E: TaskEventListener<P>> TaskEventListener<P> for Arc<E> {
     async fn execute(&self, ctx: Arc<TaskContext<true>>, payload: Arc<P>) {
         self.as_ref().execute(ctx, payload).await;
     }
@@ -150,6 +155,76 @@ impl<P: Send + Sync + 'static> TaskEvent<P> {
     /// - [`TaskEvent::subscribe`]
     pub async fn unsubscribe(&self, id: &Uuid) {
         self.listeners.remove(id);
+    }
+}
+
+#[async_trait]
+impl<P: Send + Sync + 'static> PersistentObject for TaskEvent<P> {
+    fn persistence_id() -> &'static str {
+        "chronographer_core$TaskEvent"
+    }
+
+    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
+        let mut serialized = Vec::with_capacity(self.listeners.len());
+        for entry in self.listeners.iter() {
+            let id = entry.key();
+            let listener = entry.value();
+            let serialized_listener = PersistenceUtils::serialize_potential_field(listener).await?;
+            let serialized_id = PersistenceUtils::serialize_field(id.to_u128_le())?;
+            serialized.push(json!({
+                "id": serialized_id,
+                "listener": serialized_listener
+            }));
+        }
+        Ok(SerializedComponent::new::<Self>(
+            json!({
+                "listeners": PersistenceUtils::serialize_field(serialized)?
+            })
+        ))
+    }
+
+    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
+        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
+        let mut partially_serialized_listeners = PersistenceUtils::deserialize_partially_field::<Self>(
+            &mut repr,
+            "listeners",
+            "Cannot deserialize the listeners"
+        )?;
+
+        let serialized_listeners = partially_serialized_listeners
+            .as_array_mut()
+            .ok_or(PersistenceUtils::create_retrieval_error::<Self>(
+                &repr, "Cannot deserialize the listeners"
+            ))?;
+
+        let listeners = DashMap::new();
+
+        for entry in serialized_listeners.iter_mut() {
+            let mut entry = entry.as_object_mut()
+                .ok_or_else(|| PersistenceUtils::create_retrieval_error::<Self>(
+                    &repr,
+                    "Failed to deserialize a listener"
+                ))?;
+
+            let id = Uuid::from_u128_le(
+                PersistenceUtils::deserialize_atomic::<u128>(
+                    &mut entry,
+                    "id",
+                    "Failed to deserialize the ID of a listener"
+                )?
+            );
+
+            let listener = PersistenceUtils::deserialize_dyn(
+                &mut entry,
+                "listener",
+                RetrieveRegistries::retrieve_task_event_listener,
+                "Failed to deserialize the listener function"
+            ).await?;
+
+            listeners.insert(id, listener);
+        }
+
+        Ok(TaskEvent { listeners })
     }
 }
 
