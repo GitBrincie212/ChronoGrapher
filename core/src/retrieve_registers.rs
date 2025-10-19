@@ -1,4 +1,5 @@
-use std::any::Any;
+use crate::errors::ChronographerErrors;
+use crate::persistent_object::PersistentObject;
 use crate::schedule::TaskSchedule;
 use crate::scheduling_strats::ScheduleStrategy;
 use crate::serialized_component::SerializedComponent;
@@ -6,13 +7,15 @@ use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::{FrameDependency, MetadataDependencyResolver, TaskResolvent};
 use crate::task::dependencyframe::DependentFailBehavior;
 use crate::task::selectframe::SelectFrameAccessor;
-use crate::task::{MetadataEventListener, ObserverFieldListener, TaskError, TaskErrorHandler, TaskEventListener, TaskFrame};
+use crate::task::{
+    MetadataEventListener, ObserverFieldListener, TaskError, TaskErrorHandler, TaskEventListener,
+    TaskFrame,
+};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
+use std::any::Any;
 use std::pin::Pin;
 use std::sync::Arc;
-use crate::errors::ChronographerErrors;
-use crate::persistent_object::PersistentObject;
 
 pub static RETRIEVE_REGISTRIES: Lazy<RetrieveRegistries> =
     Lazy::new(|| RetrieveRegistries::default());
@@ -200,16 +203,19 @@ impl RetrieveRegistries {
     /// - [``]
     /// - [`RetrieveRegistries`]
     pub async fn retrieve_task_event_listener(
-    component: SerializedComponent
+        component: SerializedComponent,
     ) -> Result<Arc<dyn TaskEventListener<dyn Any + Send + Sync>>, TaskError> {
-        if let Some(retriever) =
-            RETRIEVE_REGISTRIES.task_event_listener_registries.get(component.id())
+        if let Some(retriever) = RETRIEVE_REGISTRIES
+            .task_event_listener_registries
+            .get(component.id())
         {
             let val = retriever.value()(component).await?;
-            return Ok(val)
+            return Ok(val);
         }
 
-        Err(Arc::new(ChronographerErrors::NonMatchingIDs(component.id().to_string())))
+        Err(Arc::new(ChronographerErrors::NonMatchingIDs(
+            component.id().to_string(),
+        )))
     }
 
     /// Registers a corresponding retrieval method (given the type implements PersistentObject
@@ -221,8 +227,12 @@ impl RetrieveRegistries {
     /// - [`SerializedComponent`]
     /// - [`TaskEventListener`]
     /// - [`RetrieveRegistries`]
-    pub fn register_task_event_listener<T: TaskEventListener<dyn Any + Send + Sync> + PersistentObject + 'static>() {
-        fn retrieve_wrapper<T: TaskEventListener<dyn Any + Send + Sync> + PersistentObject + 'static>(
+    pub fn register_task_event_listener<
+        T: TaskEventListener<dyn Any + Send + Sync> + PersistentObject + 'static,
+    >() {
+        fn retrieve_wrapper<
+            T: TaskEventListener<dyn Any + Send + Sync> + PersistentObject + 'static,
+        >(
             component: SerializedComponent,
         ) -> RetrievedFut<Arc<dyn TaskEventListener<dyn Any + Send + Sync>>> {
             Box::pin(async move {
@@ -231,7 +241,8 @@ impl RetrieveRegistries {
             })
         }
 
-        RETRIEVE_REGISTRIES.task_event_listener_registries
+        RETRIEVE_REGISTRIES
+            .task_event_listener_registries
             .insert(T::persistence_id(), retrieve_wrapper::<T>);
     }
 }
