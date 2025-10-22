@@ -9,7 +9,6 @@ use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDisp
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{Task, TaskEventEmitter};
-use arc_swap::ArcSwapOption;
 use once_cell::sync::Lazy;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
@@ -104,7 +103,7 @@ impl From<SchedulerConfig> for Scheduler {
             dispatcher: config.dispatcher,
             store: config.store,
             clock: config.clock,
-            process: ArcSwapOption::new(None),
+            process: Mutex::new(None),
             schedule_tx: Arc::new(schedule_tx),
             schedule_rx: Arc::new(Mutex::new(schedule_rx)),
             notifier: Arc::new(tokio::sync::Notify::new()),
@@ -174,7 +173,7 @@ pub struct Scheduler {
     dispatcher: Arc<dyn SchedulerTaskDispatcher>,
     store: Arc<dyn SchedulerTaskStore>,
     clock: Arc<dyn SchedulerClock>,
-    process: ArcSwapOption<JoinHandle<()>>,
+    process: Mutex<Option<JoinHandle<()>>>,
     schedule_tx: ArcSchedulerTX,
     schedule_rx: ArcSchedulerRX,
     notifier: Arc<tokio::sync::Notify>,
@@ -216,7 +215,7 @@ impl Scheduler {
     /// - [`Scheduler::abort`]
     /// - [`Scheduler::has_started`]
     pub async fn start(&self) {
-        if self.process.load().is_some() {
+        if self.process.lock().await.is_some() {
             return;
         }
         let emitter = Arc::new(TaskEventEmitter { _private: () });
@@ -226,7 +225,7 @@ impl Scheduler {
         let scheduler_send = self.schedule_tx.clone();
         let scheduler_receive = self.schedule_rx.clone();
         let notifier = self.notifier.clone();
-        self.process.store(Some(Arc::new(tokio::spawn(async move {
+        *self.process.lock().await = Some(tokio::spawn(async move {
             let double_clock_clone = clock_clone.clone();
             let double_store_clone = store_clone.clone();
             let double_notifier_clone = notifier.clone();
@@ -265,7 +264,7 @@ impl Scheduler {
                     }
                 }
             }
-        }))))
+        }))
     }
 
     /// Aborts the scheduler, it acts like pausing the task, i.e. It doesn't clear any remaining
@@ -278,7 +277,7 @@ impl Scheduler {
     /// - [`Scheduler::start`]
     /// - [`Scheduler::has_started`]
     pub async fn abort(&self) {
-        let process = self.process.swap(None);
+        let process = self.process.lock().await.take();
         if let Some(p) = process {
             p.abort();
         }
@@ -394,6 +393,6 @@ impl Scheduler {
     /// - [`Scheduler::start`]
     /// - [`Scheduler::abort`]
     pub async fn has_started(&self) -> bool {
-        self.process.load().is_some()
+        self.process.lock().await.is_some()
     }
 }

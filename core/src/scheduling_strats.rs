@@ -1,13 +1,13 @@
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::{Task, TaskError, TaskEventEmitter};
-use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use serde_json::json;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 /// [`ScheduleStrategy`] defines how the task should be rescheduled and how the task acts when being
@@ -168,11 +168,11 @@ impl PersistentObject for ConcurrentSchedulingPolicy {
 /// the [`Default`] trait which is the same as calling [`CancelPreviousSchedulingPolicy::new`]
 /// (since no other data is required to be specified at construction time). In addition,
 /// it implements the [`Debug`] trait as well
-pub struct CancelPreviousSchedulingPolicy(ArcSwapOption<JoinHandle<()>>);
+pub struct CancelPreviousSchedulingPolicy(Mutex<Option<JoinHandle<()>>>);
 
 impl Default for CancelPreviousSchedulingPolicy {
     fn default() -> Self {
-        Self(ArcSwapOption::new(None))
+        Self(Mutex::new(None))
     }
 }
 
@@ -195,24 +195,24 @@ impl CancelPreviousSchedulingPolicy {
     /// # See Also
     /// - [`CancelPreviousSchedulingPolicy`]
     pub fn new() -> Self {
-        Self(ArcSwapOption::new(None))
+        Self(Mutex::new(None))
     }
 }
 
 #[async_trait]
 impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
     async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
-        let old_handle = self.0.swap(None);
+        let old_handle = self.0.lock().await.take();
 
         if let Some(handle) = old_handle {
             handle.abort();
         }
 
-        let handle = tokio::spawn(async move {
+        let curr_handle = tokio::spawn(async move {
             task.run(emitter).await.ok();
         });
 
-        self.0.store(Some(Arc::new(handle)));
+        *self.0.lock().await = Some(curr_handle);
     }
 }
 
