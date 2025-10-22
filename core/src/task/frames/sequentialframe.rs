@@ -59,7 +59,7 @@ use crate::task::ParallelTaskFrame;
 ///     }
 /// );
 ///
-/// let parallel_frame = SequentialTaskFrame::new(
+/// let sequential_frame = SequentialTaskFrame::new(
 ///     vec![
 ///         Arc::new(primary_frame),
 ///         Arc::new(secondary_frame),
@@ -67,7 +67,7 @@ use crate::task::ParallelTaskFrame;
 ///     ]
 /// );
 ///
-/// let task = Task::define(TaskScheduleInterval::from_secs_f64(1.25), parallel_frame);
+/// let task = Task::define(TaskScheduleInterval::from_secs_f64(1.25), sequential_frame);
 ///
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
