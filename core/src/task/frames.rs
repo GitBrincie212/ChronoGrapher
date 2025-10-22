@@ -35,7 +35,7 @@ pub mod misc; // skipcq: RS-D1001
 pub mod delayframe; // skipcq: RS-D1001
 
 use crate::task::events::TaskEventEmitter;
-use crate::task::{Task, TaskMetadata, TaskPriority};
+use crate::task::{Task, TaskPriority};
 use async_trait::async_trait;
 pub use conditionframe::ConditionalFrame;
 pub use dependencyframe::DependencyTaskFrame;
@@ -87,7 +87,6 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - [`TaskEventEmitter`]
 #[derive(Clone)]
 pub struct TaskContext<const RESTRICTED: bool = false> {
-    pub(crate) metadata: Arc<TaskMetadata>,
     pub(crate) emitter: Arc<TaskEventEmitter>,
     pub(crate) priority: TaskPriority,
     pub(crate) runs: u64,
@@ -99,7 +98,6 @@ pub struct TaskContext<const RESTRICTED: bool = false> {
 impl<const T: bool> Debug for TaskContext<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TaskContext")
-            .field("metadata", self.metadata.as_ref())
             .field("priority", &self.priority)
             .field("runs", &self.runs)
             .field("debug_label", &&self.debug_label)
@@ -128,7 +126,6 @@ impl<const T: bool> TaskContext<T> {
     /// - [`TaskContext`]
     pub(crate) fn new(task: &Task, emitter: Arc<TaskEventEmitter>) -> Arc<Self> {
         Arc::new(Self {
-            metadata: task.metadata.clone(),
             emitter,
             priority: task.priority,
             runs: task.runs.load(Ordering::Relaxed),
@@ -136,18 +133,6 @@ impl<const T: bool> TaskContext<T> {
             max_runs: task.max_runs,
             id: Uuid::new_v4(),
         })
-    }
-
-    /// Accesses the metadata field, returning it in the process
-    ///
-    /// # Returns
-    /// The metadata field as an ``Arc<TaskMetadata>``
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    /// - [`TaskMetadata`]
-    pub fn metadata(&self) -> Arc<TaskMetadata> {
-        self.metadata.clone()
     }
 
     /// Accesses the priority field, returning it in the process
@@ -220,7 +205,6 @@ impl TaskContext {
     /// - [`TaskContext`]
     pub fn as_restricted(&self) -> Arc<TaskContext<true>> {
         Arc::new(TaskContext {
-            metadata: self.metadata.clone(),
             emitter: self.emitter.clone(),
             priority: self.priority,
             runs: self.runs,
