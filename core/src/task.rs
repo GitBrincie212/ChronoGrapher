@@ -2,16 +2,10 @@
 pub mod dependency; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod error_handler; // skipcq: RS-D1001
-
-#[allow(missing_docs)]
 pub mod events; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
 pub mod frames; // skipcq: RS-D1001
-
-#[allow(missing_docs)]
-pub mod metadata; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
 pub mod priority; // skipcq: RS-D1001
@@ -19,13 +13,16 @@ pub mod priority; // skipcq: RS-D1001
 #[allow(missing_docs)]
 pub mod frame_builder; // skipcq: RS-D1001
 
+#[allow(missing_docs)]
+pub mod extension; // skipcq: RS-D1001
+
+use std::any::TypeId;
 pub use crate::schedule::*;
-pub use error_handler::*;
 pub use events::*;
 pub use frame_builder::*;
 pub use frames::*;
-pub use metadata::*;
 pub use priority::*;
+pub use extension::*;
 
 use crate::scheduling_strats::*;
 use std::fmt::Debug;
@@ -37,7 +34,6 @@ use uuid::Uuid;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
-
 /*
     Quite a similar situation to ConditionalTaskFrame, tho this time I can save one builder and a
     from trait implementation, reducing the code and making it more maintainable
@@ -47,7 +43,13 @@ use crate::scheduler::Scheduler;
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task))]
+#[builder(mutators(
+    fn add_extension<E: TaskExtension>(&mut self, extension: impl AsRef<E>){
+        self.0.insert(TypeId::of::<E>(), Arc::new(extension) as Arc<dyn TaskExtension>);
+    }
+))]
 pub struct TaskConfig {
+    /*
     /// The [`TaskMetadata`], it is the <u>**State**</u> of the task and is a reactive container, allowing
     /// the outside parties to listen to fields changing via [`ObserverField`], making it a very powerful
     /// system. Multiple listeners can be attached per field. For triggering an action by changing
@@ -68,6 +70,9 @@ pub struct TaskConfig {
     /// - [`ObserverField`]
     #[builder(default = TaskMetadata::new())]
     metadata: Arc<TaskMetadata>,
+     */
+    #[builder(via_mutators)]
+    extensions: TaskExtenders,
 
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
     /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
@@ -127,6 +132,7 @@ pub struct TaskConfig {
     #[builder(setter(transform = |s: impl TaskSchedule + 'static| Arc::new(s) as Arc<dyn TaskSchedule>))]
     schedule: Arc<dyn TaskSchedule>,
 
+    /*
     /// [`TaskErrorHandler`] is the part which <u>**Handles Gracefully Any Errors / Failures That Happen
     /// Throughout The Task's Lifecycle**</u>. It has access to the error instance and is mostly meant to
     /// be used in case of cleanups, closing database connections... etc.
@@ -150,6 +156,7 @@ pub struct TaskConfig {
         setter(transform = |s: impl TaskErrorHandler + 'static| Arc::new(s) as Arc<dyn TaskErrorHandler>)
     )]
     error_handler: Arc<dyn TaskErrorHandler>,
+     */
 
     /// [`ScheduleStrategy`] is the part where <u>**It Controls How The Rescheduling Happens And How The Same
     /// Tasks Overlap With Each Other**</u>. There are various implementations, each suited for their own use
@@ -211,10 +218,9 @@ pub struct TaskConfig {
 impl From<TaskConfig> for Task {
     fn from(config: TaskConfig) -> Self {
         Task {
-            metadata: config.metadata,
             frame: config.frame,
             schedule: config.schedule,
-            error_handler: config.error_handler,
+            extenders: config.extensions,
             overlap_policy: config.schedule_strategy,
             priority: config.priority,
             runs: Arc::new(AtomicU64::new(0)),
@@ -293,16 +299,15 @@ impl From<TaskConfig> for Task {
 /// - [`ScheduleStrategy`]
 /// - [`TaskErrorHandler`]
 pub struct Task {
-    metadata: Arc<TaskMetadata>,
     frame: Arc<dyn TaskFrame>,
     schedule: Arc<dyn TaskSchedule>,
-    error_handler: Arc<dyn TaskErrorHandler>,
     overlap_policy: Arc<dyn ScheduleStrategy>,
     priority: TaskPriority,
     runs: Arc<AtomicU64>,
     debug_label: String,
     max_runs: Option<NonZeroU64>,
     id: Uuid,
+    extenders: TaskExtenders,
 
     /// Event fired when the [`Task`] starts execution
     pub on_start: TaskStartEvent,
@@ -338,7 +343,7 @@ impl Task {
     /// Task::define(
     ///     TaskScheduleImmediate,
     ///     ExecutionTaskFrame::new(|_| async {
-    ///         todo!()
+    ///         unimplemented!()
     ///     })
     /// );
     ///
@@ -352,9 +357,8 @@ impl Task {
     pub fn define(schedule: impl TaskSchedule + 'static, task: impl TaskFrame + 'static) -> Self {
         Self {
             frame: Arc::new(task),
-            metadata: TaskMetadata::new(),
             schedule: Arc::new(schedule),
-            error_handler: Arc::new(SilentTaskErrorHandler),
+            extenders: TaskExtenders::default(),
             overlap_policy: Arc::new(SequentialSchedulingPolicy),
             priority: TaskPriority::MODERATE,
             runs: Arc::new(AtomicU64::new(0)),
@@ -380,7 +384,7 @@ impl Task {
     /// Task::builder()
     ///     .schedule(TaskScheduleImmediate)
     ///     .frame(ExecutionTaskFrame::new(|_| async {
-    ///         todo!()
+    ///         unimplemented!()
     ///     }))
     ///     .error_handler(PanicTaskErrorHandler)
     ///     .build();
@@ -426,11 +430,6 @@ impl Task {
         result
     }
 
-    /// Gets the [`TaskMetadata`] for outside parties
-    pub fn metadata(&self) -> Arc<TaskMetadata> {
-        self.metadata.clone()
-    }
-
     /// Gets the [`TaskFrame`] for outside parties
     pub fn frame(&self) -> Arc<dyn TaskFrame> {
         self.frame.clone()
@@ -439,11 +438,6 @@ impl Task {
     /// Gets the [`TaskSchedule`] for outside parties
     pub fn schedule(&self) -> Arc<dyn TaskSchedule> {
         self.schedule.clone()
-    }
-
-    /// Gets the [`TaskErrorHandler`] for outside parties
-    pub fn error_handler(&self) -> Arc<dyn TaskErrorHandler> {
-        self.error_handler.clone()
     }
 
     /// Gets the [`ScheduleStrategy`] for outside parties

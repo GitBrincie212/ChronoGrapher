@@ -239,8 +239,8 @@ impl<T: Send + Sync + 'static> PersistentObject for MetadataDependency<T> {
         let metadata_resolver = PersistenceUtils::deserialize_dyn(
             &mut repr,
             "metadata_resolver",
-            RetrieveRegistries
-        )
+            RetrieveRegistries::
+        ).await?;
          */
 
         Ok(MetadataDependency {
