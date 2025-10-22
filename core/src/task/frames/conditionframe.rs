@@ -300,33 +300,27 @@ where
     }
 }
 
-macro_rules! execute_func_impl {
-    ($self: expr, $ctx: expr) => {
-        let result = $self.predicate.execute($ctx.clone()).await;
-        if result {
-            $ctx.emitter
-                .emit(
-                    $ctx.as_restricted(),
-                    $self.on_true.clone(),
-                    $self.frame.clone(),
-                )
-                .await;
-            return $self.frame.execute($ctx).await;
-        }
-        $ctx.emitter
-            .emit(
-                $ctx.as_restricted(),
-                $self.on_false.clone(),
-                $self.fallback.clone(),
-            )
-            .await;
-    };
-}
-
 #[async_trait]
 impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        execute_func_impl!(self, ctx);
+        let result = self.predicate.execute(ctx.clone()).await;
+        if result {
+            ctx.emitter
+                .emit(
+                    ctx.as_restricted(),
+                    self.on_true.clone(),
+                    self.frame.clone(),
+                )
+                .await;
+            return self.frame.execute(ctx).await;
+        }
+        ctx.emitter
+            .emit(
+                ctx.as_restricted(),
+                self.on_false.clone(),
+                self.fallback.clone(),
+            )
+            .await;
         let result = self.fallback.execute(ctx).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));
