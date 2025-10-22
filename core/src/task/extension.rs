@@ -1,11 +1,11 @@
 pub mod error_handler;
 pub mod metadata;
 
-use std::any::{TypeId};
-use std::sync::Arc;
+use crate::task::{TaskContext, TaskError};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use crate::task::{TaskContext, TaskError};
+use std::any::TypeId;
+use std::sync::Arc;
 
 /// [`TaskExtension`] is a trait for defining an extension, essentially a new part for [`Task`] to
 /// embody, it allows granular control over the task's lifecycle

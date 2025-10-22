@@ -16,13 +16,13 @@ pub mod frame_builder; // skipcq: RS-D1001
 #[allow(missing_docs)]
 pub mod extension; // skipcq: RS-D1001
 
-use std::any::TypeId;
 pub use crate::schedule::*;
 pub use events::*;
+pub use extension::*;
 pub use frame_builder::*;
 pub use frames::*;
 pub use priority::*;
-pub use extension::*;
+use std::any::TypeId;
 
 use crate::scheduling_strats::*;
 use std::fmt::Debug;
@@ -157,7 +157,6 @@ pub struct TaskConfig {
     )]
     error_handler: Arc<dyn TaskErrorHandler>,
      */
-
     /// [`ScheduleStrategy`] is the part where <u>**It Controls How The Rescheduling Happens And How The Same
     /// Tasks Overlap With Each Other**</u>. There are various implementations, each suited for their own use
     /// case which are documented thoroughly on [`ScheduleStrategy`]
