@@ -188,7 +188,7 @@ impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
 impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> {
     async fn compute(&self, retry: u32) -> Duration {
         let max_jitter = self.0.compute(retry).await.mul_f64(self.1);
-        Duration::from_secs_f64(rand::random::<f64>() * max_jitter.as_secs_f64())
+        Duration::from_secs_f64(fastrand::f64() * max_jitter.as_secs_f64())
     }
 }
 
@@ -255,12 +255,12 @@ pub struct RetriableTaskFrame<T: 'static, T2: RetryBackoffStrategy = ConstantBac
 
     /// Event fired when a retry occurs for the wrapped [`TaskFrame`],
     /// hosting the wrapped [`TaskFrame`] instance
-    pub on_retry_start: ArcTaskEvent<Arc<T>>,
+    pub on_retry_start: ArcTaskEvent<(u32, Arc<T>)>,
 
     /// Event fired when a retry ends for the wrapped [`TaskFrame`],
     /// hosting the wrapped [`TaskFrame`] instance as well as an option error
     /// it may have thrown
-    pub on_retry_end: ArcTaskEvent<(Arc<T>, Option<TaskError>)>,
+    pub on_retry_end: ArcTaskEvent<(u32, Arc<T>, Option<TaskError>)>,
 }
 
 impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
@@ -344,7 +344,7 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                     .emit(
                         restricted_context.clone(),
                         self.on_retry_start.clone(),
-                        self.frame.clone(),
+                        (retry, self.frame.clone()),
                     )
                     .await;
             }
@@ -355,7 +355,7 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                         .emit(
                             restricted_context.clone(),
                             self.on_retry_end.clone(),
-                            (self.frame.clone(), None),
+                            (retry, self.frame.clone(), None),
                         )
                         .await;
                     return Ok(());
@@ -366,7 +366,7 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                         .emit(
                             restricted_context.clone(),
                             self.on_retry_end.clone(),
-                            (self.frame.clone(), error.clone()),
+                            (retry, self.frame.clone(), error.clone()),
                         )
                         .await;
                 }
