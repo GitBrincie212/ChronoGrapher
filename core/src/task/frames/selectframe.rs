@@ -137,7 +137,7 @@ pub struct SelectTaskFrame {
 
     /// Event fired when a [`TaskFrame`] is successfully selected,
     /// without any errors (no index out of bounds)
-    pub on_select: ArcTaskEvent<Arc<dyn TaskFrame>>,
+    pub on_select: ArcTaskEvent<(usize, Arc<dyn TaskFrame>)>,
 }
 
 impl SelectTaskFrame {
@@ -173,7 +173,7 @@ impl TaskFrame for SelectTaskFrame {
         let idx = self.accessor.select(ctx.clone()).await;
         if let Some(frame) = self.frames.get(idx) {
             ctx.emitter
-                .emit(ctx.as_restricted(), self.on_select.clone(), frame.clone())
+                .emit(ctx.as_restricted(), self.on_select.clone(), (idx, frame.clone()))
                 .await;
             return frame.execute(ctx).await;
         }
