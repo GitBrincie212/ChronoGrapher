@@ -1,0 +1,463 @@
+# Brief Summary (https://github.com/GitBrincie212/ChronoGrapher/blob/master/README.md)
+ChronoGrapher is an unopinionated, extensible, performant, flexible, ease to use and durable scheduling / workflow
+library. Its main moto is "Enterprise Scheduling Done Right". To achieve this, it uses rust as its core and exposes multiple
+SDKs for other programming languages to use (such as Java, Python, JS/TS... etc.).
+
+# Architecture Of ChronoGrapher (https://github.com/GitBrincie212/ChronoGrapher/blob/master/ARCHITECTURE.md)
+Its architecture contains mainly 2 systems. Those being **Task** and **Scheduler**, which are structs hosting multiple
+composites. The most powerful of the two is Task and contains:
+- **TaskFrame (TRAIT):** This is one of the most important composites, as it defines the <u>Execution Logic</u> to
+run when the Task wants to be triggered. TaskFrame takes in a ``TaskContext`` which hosts relevant information as well as
+a mechanism to emit task events, and returns on success nothing and on failure an error. TaskFrame can be wrapped in a
+hierarchy to model a simple retry loop to more complex logic, which would otherwise be tiresome to write. One can build
+these chains / hierarchies of TaskFrames via
+[TaskFrameBuilder](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frame_builder.rs) or manually.
+TaskFrames are separated in 2 categories, those being **Leaf TaskFrame** and **Wrapper TaskFrame**, a TaskFrame can be in
+one or both categories at a time (depending on the implementation of the trait). The core TaskFrames are as follows:
+    1. **[ExecutionTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/executionframe.rs)**
+    Wraps a closure / function inside to execute when this task frame is executed. It contains no events to listen to, as it
+    only hosts a function, this TaskFrame is NOT PERSISTENT and is only a runtime object, this is useful for simple examples
+    or for runtime TaskFrame(s) **<Leaf TaskFrame>**
+    ```rust
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::executionframe::ExecutionTaskFrame;
+    use chronographer_core::task::Task;
+
+    let task_frame = ExecutionTaskFrame::new(
+        |_ctx| async {
+            println!("Hello from an execution task!");
+            Ok(())
+        }
+    );
+
+    let task = Task::define(TaskScheduleInterval::from_secs(2), task_frame);
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+
+    2. **[NoOperationTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/noopframe.rs)**
+    It acts as a placeholder (a purposefully empty vessel). It contains no events, and is useful in case
+    when a task frame is required, while you might not want to execute any code (just satisfy the needs of
+    a task frame wrapper). It also implements the Default trait from Rust. this TaskFrame IS PERSISTENT **<Leaf TaskFrame>**
+    ```rust
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::noopframe::NoOperationTaskFrame;
+    use chronographer_core::task::Task;
+
+    let nothing_task = Task::define(TaskScheduleInterval::from_secs(4), NoOperationTaskFrame);
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(nothing_task).await;
+    ```
+
+    3. **[DelayTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/delayframe.rs)**
+    Wraps a TaskFrame and instead of executing it directly, it delays its execution by a specified number of seconds
+    (float), essentially acting as a typical ``sleep`` function but for TaskFrame. When it comes to events, it contains 2
+    events, those being ``on_delay_start`` which executes when the sleep / delay starts, and ``on_delay_end`` which executes when
+    the sleep / delay ends and before the wrapped TaskFrame executes, both of the events contain a ``std::Duration``
+    parameter from Rust, indicating the duration of the delay / sleep **<Wrapper TaskFrame>**. this TaskFrame IS
+    PERSISTENT ONLY if the wrapped TaskFrame is also persistent **<Wrapper TaskFrame>**
+    ```rust
+    use std::time::Duration;
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::delayframe::DelayTaskFrame;
+    use chronographer_core::task::Task;
+
+    let timeout_frame = DelayTaskFrame::new(
+        SOME_TASK_FRAME,
+        Duration::from_secs(3)
+    ); // SOME_TASK_FRAME executes every 7 seconds (4 from interval plus 3 from delay) after
+
+    let task = Task::define(TaskScheduleInterval::from_secs(4), timeout_frame);
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+
+    4. **[TimeoutTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/timeoutframe.rs)**
+    Wraps a TaskFrame, executes it immediately but also keeps track of the time the wrapped task frame takes. If it takes
+    longer than a specified amount, it halts / terminates it and returns a ``ChronographerErrors::TimeoutError``. This is
+    useful when a TaskFrame must finish at a specific time. For events, it only has one, this being the ``on_timeout`` which is
+    triggered when a timeout occurs (the task frame takes longer than a specified time) and contains no payload. This
+    TaskFrame IS PERSISTENT ONLY if the wrapped TaskFrame is also persistent **<Wrapper TaskFrame>**
+    (due to a limitation this being the cooperative cancelling. The TaskFrame may still be completed if not enough cancellation
+    points are defined, i.e. If it is mostly CPU-Bound logic)
+    ```rust
+    use std::time::Duration;
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::timeoutframe::TimeoutTaskFrame;
+    use chronographer_core::task::Task;
+
+    let timeout_frame = TimeoutTaskFrame::new(
+        SOME_TASK_FRAME,
+        Duration::from_secs(3)
+    ); // SOME_TASK_FRAME can execute up to 3 seconds before terminated
+
+    let task = Task::define(TaskScheduleInterval::from_secs(2), timeout_frame);
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+
+    5. **[FallbackTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/fallbackframe.rs)**
+    Wraps two TaskFrames (primary and secondary), executes the primary immediately, if it fails it switches to the
+    secondary TaskFrame. Otherwise, if it succeeds, it returns the results from the primary TaskFrame, if both TaskFrames
+    fail, then the secondary result will be returned. This is useful when a TaskFrame performs something potentially fallible,
+    in which case it may need cleanup (i.e. Some other TaskFrame to gracefully handle stuff). This TaskFrame IS PERSISTENT
+    ONLY if BOTH wrapped TaskFrames are also persistent **<Wrapper TaskFrame>**
+    ```rust
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::{FallbackTaskFrame, Task};
+
+    let fallback_frame = FallbackTaskFrame::new(
+        SOME_PRIMARY_TASK_FRAME,
+        SOME_SECONDARY_TASK_FRAME
+    ); // Executes first SOME_PRIMARY_TASK_FRAME, if it fails, it executes SOME_SECONDARY_TASK_FRAME
+
+    let task = Task::define(TaskScheduleInterval::from_secs(6), fallback_frame);
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+
+    6. **[ConditionalFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/conditionframe.rs)**
+    Wraps one or two TaskFrames (primary and fallback) and hosts a predicate of type ``ConditionalFramePredicate``.
+    It first executes the predicate function which returns true/false to determine if it should execute the primary task
+    frame or not, if true, then it executes the primary task frame. If false, then depending on the configured behavior which
+    (if another fallback TaskFrame is defined, if ``error_on_false`` is set to true), it will execute that,
+    the result whenever it is a success or not can be configured via an ``error_on_false`` boolean, if it is false then
+    it uses the results from the fallback task frame, otherwise it errors out always with ``ChronographerErrors::TaskConditionFail``.
+    This differs from `FallbackTaskFrame`` where it executes the primary TaskFrame **NO MATTER WHAT**, this task
+    frame **MAY** execute the primary task frame. This is useful in case the execution of a TaskFrame depends on some state
+    outside of it, and if a false value is returned, then ConditionalFrame can be configured to do other actions. This hosts
+    2 events, those being ``on_true`` and on_false``. The former has a payload for the primary TaskFrame it will execute,
+    while the latter hosts the fallback TaskFrame it wants to execute (if not specified, then it will be Arc<NoOperationTaskFrame>).
+    This TaskFrame IS PERSISTENT ONLY if ALL wrapped TaskFrames AND ConditionalFramePredicate are also persistent **<Wrapper TaskFrame>**
+    ```rust
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::conditionframe::ConditionalFrame;
+    use chronographer_core::task::Task;
+
+    let conditional_frame: ConditionalFrame<...> =
+        ConditionalFrame::builder()
+            .task(SOME_PRIMARY_TASK_FRAME)
+            .fallback(SOME_SECONDARY_TASK_FRAME) // Remove this to not specify a fallback
+            .error_on_false(true) // Also an optional parameter, but can be useful in some cases
+            .predicate(SOME_PREDICATE_FUNC)
+            .build();
+
+    let task = Task::define(TaskScheduleInterval::from_secs_f64(3.21), conditional_frame);
+
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+
+    7. **[SelectTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/selectframe.rs)**
+    Wraps multiple TaskFrames and hosts an accessor of type ``SelectFrameAccessor``. It first executes the accessor function
+    which returns an index indicating which TaskFrame to execute at the current run, then it selects that corresponding
+    TaskFrame and runs it, if the index is out of bounds, a ``ChronographerErrors::TaskIndexOutOfBounds`` is returned.
+    This is useful in case a TaskFrame may host multiple ways of executing depending on state from outside without
+    having to deal with a monolithic TaskFrame via multiple if statements. This TaskFrame contains only one event, this
+    being the ``on_select`` which executes when the SelectFrameAccessor has returned an index that is **NOT** out of bounds,
+    the payload contains the TaskFrame to execute, as well as the index. This TaskFrame IS PERSISTENT ONLY if
+    ALL wrapped TaskFrames AND SelectFrameAccessor are also persistent **<Wrapper TaskFrame>**
+    ```ignore
+    use std::sync::Arc;
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::selectframe::SelectTaskFrame;
+    use chronographer_core::task::Task;
+
+    let select_frame = SelectTaskFrame::new(
+        vec![
+            Arc::new(SOME_PRIMARY_TASK_FRAME),
+            Arc::new(SOME_SECONDARY_TASK_FRAME),
+            Arc::new(SOME_TERTIARY_TASK_FRAME),
+            // ...
+        ],
+        SOME_ACCESSOR_FUNCTION
+    );
+
+    let task = Task::define(TaskScheduleInterval::from_secs_f64(0.58), select_frame);
+
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+
+    8. **[DependencyTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/dependencyframe.rs)**
+    Wraps one TaskFrame and hosts one or multiple FrameDependency. Before executing the TaskFrame, it verifies if the
+    dependencies are resolved or not. If they are then, it runs the wrapped TaskFrame, if not, depending on the configured
+    behavior, it will return some result (either that be a success or failure). This TaskFrame contains one event that being
+    ``on_dependency`` which is triggered when a dependency is evaluated, it hosts as payload the dependency as well as a
+    boolean value indicating if the dependency has successfully been resolved. This is useful for when a TaskFrame may depend
+    on state or some other Tasks around it to execute. This TaskFrame IS PERSISTENT ONLY if ALL wrapped TaskFrames AND
+    FrameDependency are also persistent **<Wrapper TaskFrame>**
+    ```rust
+    use std::sync::Arc;
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::{DependencyTaskFrame, Task};
+    use chronographer_core::task::dependency::TaskDependency;
+
+    let metrics_dependency = TaskDependency::builder()
+        .task(METRICS_TASK)
+        .build();
+
+    let dependent_frame = DependencyTaskFrame::builder()
+        .task(SOME_TASK_FRAME)
+        .dependencies(
+            vec![
+                Arc::new(metrics_dependency),
+                // ...
+            ]
+        )
+        .build();
+
+    let task2 = Task::define(TaskScheduleInterval::from_secs(5), dependent_frame);
+    CHRONOGRAPHER_SCHEDULER.schedule(task1.clone()).await;
+    ```
+
+    9. **[RetriableTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/retryframe.rs)**
+    Wraps one TaskFrame and hosts one RetryBackoffStrategy. It executes the wrapped TaskFrame, if it fails, then it executes
+    the RetryBackoffStrategy which determines how much it should delay (the delay can be zero, for an instant retry) the
+    retry before it tries again. This continues til it succeeds, or it exceeds the number of specified retries. This
+    TaskFrame contains one event this being ``on_retry_start`` which is triggered when a retry is about to start
+    (not including the first time the wrapped TaskFrame executes). It hosts as payload the current number of retry and the
+    wrapped task frame. In addition, it has the ``on_retry_end`` event, which is triggered when the retry ends, it hosts
+    as payload the current number of retry, the wrapped task frame and a potential error. This is useful when one wants
+    to retry a TaskFrame a number of times til it succeeds with an optional delay in-between per retry.
+    This TaskFrame IS PERSISTENT ONLY if the wrapped TaskFrame AND the RetryBackoffStrategy are also persistent **<Wrapper TaskFrame>**
+    ```rust
+    use std::num::NonZeroU32;
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::retryframe::RetriableTaskFrame;
+    use chronographer_core::task::Task;
+
+    let retriable_frame = RetriableTaskFrame::new_instant(
+        SOME_PRIMARY_TASK_FRAME,
+        NonZeroU32::new(3).unwrap(), // We know it isn't zero, so safe to unwrap
+    ); // It executes this SOME_PRIMARY_TASK_FRAME 3 times, and retries it instantly
+
+    let task = Task::define(TaskScheduleInterval::from_secs_f64(2.5), retriable_frame);
+
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+
+    10. **[SequentialTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/sequentialframe.rs)**
+    Wraps multiple TaskFrame and hosts one GroupedTaskFramesExecBehavior policy. It executes the tasks in an ordered sequential
+    manner, starting from the first towards the end, depending on the configured GroupedTaskFramesExecBehavior, it will
+    decide if the SequentialTaskFrame should quit or not its execution for the current child TaskFrame. This TaskFrame
+    contains two events, those being the ``on_child_start`` and ``on_child_end``. The former is triggered when the child
+    TaskFrame is about to start, it contains as payload the TaskFrame it executes. While the latter is triggered when
+    the child TaskFrame is finished and before, the GroupedTaskFramesExecBehavior policy works out if it should quit or not.
+    It hosts as payload the child TaskFrame it executed as well as a potential error from the TaskFrame, if it failed.
+    This is useful for executing multiple TaskFrame in an ordered sequential manner, where multiple TaskFrames are connected,
+    unlike ParallelTaskFrame which executes in an unordered parallel manner. This TaskFrame IS PERSISTENT ONLY if ALL
+    wrapped TaskFrames AND the GroupedTaskFramesExecBehavior are also persistent **<Wrapper TaskFrame>**
+    ```rust
+    use std::sync::Arc;
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::Task;
+    use chronographer_core::task::sequentialframe::SequentialTaskFrame;
+
+    let sequential_frame = SequentialTaskFrame::new(
+        vec![
+            Arc::new(SOME_PRIMARY_TASK_FRAME),
+            Arc::new(SOME_SECONDARY_TASK_FRAME),
+            Arc::new(SOME_TERTIARY_TASK_FRAME),
+            // ...
+        ]
+    );
+
+    let task = Task::define(TaskScheduleInterval::from_secs_f64(1.25), sequential_frame);
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+
+    11. **[ParallelTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/parallelframe.rs)**
+    Wraps multiple TaskFrame and hosts one GroupedTaskFramesExecBehavior policy. It executes the task frames in an unordered
+    parallel manner (making it ideal for performance when task frames don't depend on each other). Depending on the configured
+    GroupedTaskFramesExecBehavior, it will decide if the ParallelTaskFrame should quit or not its execution for the current
+    child TaskFrame. This TaskFrame contains two events, those being the ``on_child_start`` and ``on_child_end``. The former
+    is triggered when the child TaskFrame is about to start, it contains as payload the TaskFrame it executes. While the
+    latter is triggered when the child TaskFrame is finished and before, the GroupedTaskFramesExecBehavior policy works
+    out if it should quit or not. It hosts as payload the child TaskFrame it executed as well as a potential error from the
+    TaskFrame, if it failed. This is useful for executing multiple TaskFrame in an ordered sequential manner, where
+    multiple TaskFrames are connected, unlike SequentialTaskFrame which executes in an ordered sequential manner.
+    This TaskFrame IS PERSISTENT ONLY if ALL wrapped TaskFrames AND the GroupedTaskFramesExecBehavior are also
+    persistent **<Wrapper TaskFrame>**
+    ```rust
+    use std::sync::Arc;
+    use chronographer_core::schedule::TaskScheduleInterval;
+    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+    use chronographer_core::task::Task;
+    use chronographer_core::task::parallelframe::ParallelTaskFrame;
+
+    let parallel_frame = ParallelTaskFrame::new(
+        vec![
+            Arc::new(SOME_PRIMARY_TASK_FRAME),
+            Arc::new(SOME_SECONDARY_TASK_FRAME),
+            Arc::new(SOME_TERTIARY_TASK_FRAME),
+            // ...
+        ]
+    );
+
+    let task = Task::define(TaskScheduleInterval::from_secs_f64(1.12), parallel_frame);
+    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+    ```
+Some more complex examples are:
+```rust
+use std::num::NonZeroU32;
+use chronographer_core::schedule::TaskScheduleInterval;
+use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+use chronographer_core::task::retryframe::RetriableTaskFrame;
+use chronographer_core::task::timeoutframe::TimeoutTaskFrame;
+use chronographer_core::task::fallbackframe::FallbackTaskFrame;
+use chronographer_core::task::Task;
+
+let my_frame = RetriableTaskFrame::new_instant(
+    FallbackTaskFrame::new(
+        TimeoutTaskFrame::new(
+            SOME_PRIMARY_TASK_FRAME,
+            Duration::from_secs(3.25)
+        ),
+        SOME_SECONDARY_TASK_FRAME
+    )
+    NonZeroU32::new(3).unwrap(),
+);
+
+// ...
+```
+The above translates to "Run the following primary task frame for 3.25 seconds, if it fails then try
+the secondary task frame, if both fail then retry the entire thing instantly and repeat it for 3 times."
+
+```rust
+use std::num::NonZeroU32;
+use chronographer_core::schedule::TaskScheduleInterval;
+use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+use chronographer_core::task::conditionframe::ConditionalTaskFrame;
+use chronographer_core::task::timeoutframe::TimeoutTaskFrame;
+use chronographer_core::task::fallbackframe::FallbackTaskFrame;
+use chronographer_core::task::Task;
+
+let my_frame: ConditionalFrame<...> =
+    ConditionalFrame::builder()
+        .task(SOME_PRIMARY_TASK_FRAME)
+        .fallback(
+            DependencyTaskFrame::builder()
+                .task(SOME_SECONDARY_TASK_FRAME)
+                .dependencies(
+                    vec![
+                        Arc::new(dep1),
+                        Arc::new(dep2),
+                        // ...
+                    ]
+                )
+                .build();
+        )
+        .predicate(SOME_PREDICATE_FUNC)
+        .build();
+
+// ...
+```
+The above translates to "Run a predicate function, if it returns true then run the primary task frame, if false then
+check ofr the dependencies listed for the secondary task frame, if resolved then run, otherwise error"
+
+Both the above examples can be simplified using the utility TaskFrameBuilder, like so:
+```rust
+use std::num::NonZeroU32;
+use chronographer_core::schedule::TaskScheduleInterval;
+use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+use chronographer_core::task::retryframe::RetriableTaskFrame;
+use chronographer_core::task::timeoutframe::TimeoutTaskFrame;
+use chronographer_core::task::fallbackframe::FallbackTaskFrame;
+use chronographer_core::task::{Task, TaskFrameBuilder};
+
+let my_frame = TaskFrameBuilder::builder(SOME_PRIMARY_TASK_FRAME)
+    .with_timeout(Duration::from_secs_(3.25))
+    .with_fallback(SOME_SECONDARY_TASK_FRAME)
+    .with_instant_retry(NonZeroU32::new(3).unwrap())
+    .build();
+
+// ...
+```
+```rust
+use std::num::NonZeroU32;
+use chronographer_core::schedule::TaskScheduleInterval;
+use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
+use chronographer_core::task::retryframe::RetriableTaskFrame;
+use chronographer_core::task::timeoutframe::TimeoutTaskFrame;
+use chronographer_core::task::fallbackframe::FallbackTaskFrame;
+use chronographer_core::task::{Task, TaskFrameBuilder};
+
+let my_frame = TaskFrameBuilder::builder(SOME_PRIMARY_TASK_FRAME)
+    .with_timeout(Duration::from_secs_(3.25))
+    .with_fallback(SOME_SECONDARY_TASK_FRAME)
+    .with_instant_retry(NonZeroU32::new(3).unwrap())
+    .build();
+
+// ...
+```
+They have the same meaning as above, just more concise to read for the user. The drawback is its less customizable,
+which can be sort of mitigated via the new type pattern via Rust
+
+- **TaskEvent (STRUCT):** It is a mechanism for deriving events, it specifies the payload and contains a list of event
+listener(s) which have subscribed to the event. It manages subscription/unsubscription and CANNOT be emitted by itself,
+it specifically requires a ``TaskEventEmitter`` (a mostly private mechanism, it CANNOT be created by the user and only
+the TaskFrame and the scheduler have access to it). The payload type is a generic and can be anything, its main intention is
+to be used as a struct field inside a ``TaskFrame`` or in ``Task``. The source code can be found in the following link
+https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/events.rs
+
+- **TaskScheduleStrategy (TRAIT):** It is a mechanism for handling how ``Task``(s) should reschedule themselves, as well
+as how to handle when multiple same-instance ``Task``s overlap. The trait as well as the builtin implementations of this trait
+can be found in https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/scheduling_strats.rs and are as follows:
+    1. **SequentialSchedulingPolicy** The default go-to option, it tells the scheduler to execute the ``Task`` and once
+    it finishes, only then it reschedules it. Due to its simple sequential behavior, it CANNOT overlap with same
+    instance tasks. This is susceptible tho to time-drifts
+
+    2. **ConcurrentSchedulingPolicy** it tells the scheduler to execute the ``Task`` and while it is running in the background
+    (from a different thread), reschedule the same instance to run somewhere in the future. Due to its behavior, there is
+    a possibility for multiple same-instanced Tasks to overlap causing a thundering herd problem
+
+    3. **CancelPreviousSchedulingPolicy** Acts identical as ConcurrentSchedulingPolicy, in the sense, it also runs ``Task``
+    in an off-thread and at the same time reschedules the same instance to run somewhere in the future. However, if an
+    overlap happens, it will attempt to cancel the previous ``Task`` in favor of the current one, the exact opposite is
+    CancelCurrentSchedulingPolicy. While it prevents overlaps, it should be noted, there are scenarios for the same-instance
+    ``Task`` to never pass up to a certain point. In addition, it should be noted that there may be a case where the ``Task``
+     can be completed even if its supposedly canceled, this is due to cooperative cancelling
+
+    4. **CancelCurrentSchedulingPolicy** Acts identical as ConcurrentSchedulingPolicy, in the sense, it also runs ``Task``
+    in an off-thread and at the same time reschedules the same instance to run somewhere in the future. However, if an
+    overlap happens, it will not execute the current ``Task`` in favor of the previous already running ``Task`, the exact opposite is
+    CancelPreviousSchedulingPolicy. Due to its behavior, it FULLY prevents overlap with the same instance tasks
+
+- **TaskSchedule (TRAIT):** It is a mechanism for handling how to schedule / reschedule a ``Task`` to run at some future
+time. It is a function that accepts a reference to a chrono ``DateTime<Local>`` which is the time when the scheduler requests
+a rescheduling, it returns a ``Result<DateTime<Local>, Arc<dyn Error>>``. Where on success it calculates the datetime but on
+failure, it returns an error. The trait's source code can be found in the following link
+https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/schedule.rs, for the builtin implementation, they are as follows:
+    1. **[TaskScheduleImmediate](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/schedule/immediate.rs)**
+    When scheduling / rescheduling happens, it simply returns the same time as being provided with, effectively executing
+    the task immediately, While this is useful for immediate execution and for examples. It is not ideal for
+    infinite-running tasks, as it can consume the system's resources from running the same task multiple times.
+    Obviously, it does not store/keep track of any data and thus is persistent, it also implements the Debug, Default, Clone
+    and Copy traits from Rust
+
+    2. **[TaskScheduleInterval](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/schedule/interval.rs)**
+    When scheduling / rescheduling happens, it simply takes the provided time and adds on top a duration acting as the interval
+    and then returns the result of this addition. This is useful for an interval-based execution, where a task should execute
+    every couple of seconds/minutes/hours... etc. This TaskSchedule is persistent, and it also implements the Debug,
+    Clone, Eq, PartialEq, PartialOrd, Ord and Copy traits from Rust
+
+    3. **[TaskScheduleCron](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/schedule/interval.rs)**
+    When scheduling / rescheduling happens, it simply takes the provided time and runs it through a parsing algorithm for
+    CRON expressions to determine the new time to execute the Task at. This is useful mostly for migration and familiarity,
+    as CRON expressions are widely used, for second & millisecond precision, TaskScheduleCalendar should be preferred.
+    This TaskSchedule is persistent and also implements the Debug, Clone, Eq and PartialEq traits from Rust
+
+    4. **[TaskScheduleCalendar](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/schedule/calendar.rs)**
+    When scheduling / rescheduling happens, it simply takes the provided time and based on a built calendar, it calculates
+    the new future time to achieve this, each field TaskCalendarField trait, which defines how to calculate the calendar
+    field. The default implementations include TaskCalendarFieldIdentity to keep the current calendar field as is,
+    TaskCalendarFieldExact to modify the calendar field to an exact value and TaskCalendarFieldInterval for making it
+    interval-based. This calendar is second & millisecond precise unlike TaskScheduleCron, it is useful for
+    calendar-based execution, where the developer requires granular control over the individual timestamp fields.
+    This TaskSchedule is persistent and also implements the Clone trait. It should be noted that TaskCalendarFieldExact
+    DOES NOT set the previous fields to zero, as such explicit initialization to zero is needed for all fields that are
+    TaskCalendarFieldIdentity before TaskCalendarFieldExact
