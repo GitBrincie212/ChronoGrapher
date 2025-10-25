@@ -1,7 +1,5 @@
-#[allow(missing_docs)]
 pub mod system_clock;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod virtual_clock;  // skipcq: RS-D1001
 
 use std::fmt::Debug;

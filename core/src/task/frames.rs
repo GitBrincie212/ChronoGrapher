@@ -1,37 +1,25 @@
-#[allow(missing_docs)]
 pub mod conditionframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod dependencyframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod executionframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod fallbackframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod noopframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod parallelframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod retryframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod selectframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod sequentialframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod timeoutframe;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod misc;  // skipcq: RS-D1001
 
-#[allow(missing_docs)]
 pub mod delayframe;  // skipcq: RS-D1001
 
 use crate::task::{Task, TaskHookContainer, TaskHookEvent, TaskPriority};
