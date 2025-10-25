@@ -7,13 +7,9 @@ use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::{FrameDependency, MetadataDependencyResolver, TaskResolvent};
 use crate::task::dependencyframe::DependentFailBehavior;
 use crate::task::selectframe::SelectFrameAccessor;
-use crate::task::{
-    MetadataEventListener, ObserverFieldListener, TaskError, TaskErrorHandler, TaskEventListener,
-    TaskFrame,
-};
+use crate::task::{TaskError, TaskFrame};
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
-use std::any::Any;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -31,15 +27,7 @@ pub struct RetrieveRegistries {
     task_frame_registries: RetrieveRegisters<dyn TaskFrame>,
     frame_dependency_registries: RetrieveRegisters<dyn FrameDependency>,
     task_schedule_registries: RetrieveRegisters<dyn TaskSchedule>,
-    task_error_handler_registries: RetrieveRegisters<dyn TaskErrorHandler>,
     task_schedule_strategy_registries: RetrieveRegisters<dyn ScheduleStrategy>,
-    metadata_event_listener_registries: RetrieveRegisters<dyn MetadataEventListener>,
-    /*
-       TODO: Find a way to store arbitrary TaskEventListener and ObserverFieldListener,
-       TODO: and find some way to deserialize them while retaining their original payloads
-    */
-    task_event_listener_registries: RetrieveRegisters<dyn TaskEventListener<dyn Any + Send + Sync>>,
-    observer_event_listener_registries: RetrieveRegisters<dyn ObserverFieldListener<T>>,
     frame_dependent_fail_behaviour_registries: RetrieveRegisters<dyn DependentFailBehavior>,
     task_resolvent_registries: RetrieveRegisters<dyn TaskResolvent>,
     metadata_resolver_registries: RetrieveRegisters<dyn MetadataDependencyResolver<T>>,
@@ -143,24 +131,10 @@ implement_registries_for!(
 );
 
 implement_registries_for!(
-    register_task_error_handler,
-    retrieve_task_error_handler,
-    TaskErrorHandler,
-    task_error_handler_registries
-);
-
-implement_registries_for!(
     register_task_schedule_strategy,
     retrieve_task_schedule_strategy,
     ScheduleStrategy,
     task_schedule_strategy_registries
-);
-
-implement_registries_for!(
-    register_metadata_listener,
-    retrieve_metadata_listener,
-    MetadataEventListener,
-    metadata_event_listener_registries
 );
 
 implement_registries_for!(
@@ -183,66 +157,3 @@ implement_registries_for!(
     TaskResolvent,
     task_resolvent_registries
 );
-
-impl RetrieveRegistries {
-    /// Executes the corresponding retrieve method based on a serialized component ID
-    /// via the registry system. This is one of many methods to use when retrieving a specific type,
-    /// it should be used when one knows that their type will be [`TaskEventListener`]
-    ///
-    /// # Argument(s)
-    /// This method accepts one argument, that being the [`SerializedComponent`] as
-    /// ``component`` which contains the JSON data and the ID, forming an Intermediate
-    /// Representation (IR)
-    ///
-    /// # Returns
-    /// A result of the deserialized [`TaskEventListener`] if successful,otherwise an error
-    /// indicating where it could possibly have failed
-    ///
-    /// # See Also
-    /// - [`SerializedComponent`]
-    /// - [``]
-    /// - [`RetrieveRegistries`]
-    pub async fn retrieve_task_event_listener(
-        component: SerializedComponent,
-    ) -> Result<Arc<dyn TaskEventListener<dyn Any + Send + Sync>>, TaskError> {
-        if let Some(retriever) = RETRIEVE_REGISTRIES
-            .task_event_listener_registries
-            .get(component.id())
-        {
-            let val = retriever.value()(component).await?;
-            return Ok(val);
-        }
-
-        Err(Arc::new(ChronographerErrors::NonMatchingIDs(
-            component.id().to_string(),
-        )))
-    }
-
-    /// Registers a corresponding retrieval method (given the type implements PersistentObject
-    /// as well as the [`TaskEventListener`] trait). Registering it makes it possible to use in dynamic
-    /// context where the object's type is not known directly but rather via an ID stored in a
-    /// [`SerializedComponent`]
-    ///
-    /// # See Also
-    /// - [`SerializedComponent`]
-    /// - [`TaskEventListener`]
-    /// - [`RetrieveRegistries`]
-    pub fn register_task_event_listener<
-        T: TaskEventListener<dyn Any + Send + Sync> + PersistentObject + 'static,
-    >() {
-        fn retrieve_wrapper<
-            T: TaskEventListener<dyn Any + Send + Sync> + PersistentObject + 'static,
-        >(
-            component: SerializedComponent,
-        ) -> RetrievedFut<Arc<dyn TaskEventListener<dyn Any + Send + Sync>>> {
-            Box::pin(async move {
-                let concrete = T::retrieve(component).await?;
-                Ok(Arc::new(concrete) as Arc<dyn TaskEventListener<dyn Any + Send + Sync>>)
-            })
-        }
-
-        RETRIEVE_REGISTRIES
-            .task_event_listener_registries
-            .insert(T::persistence_id(), retrieve_wrapper::<T>);
-    }
-}
