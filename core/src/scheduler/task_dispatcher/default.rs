@@ -1,5 +1,5 @@
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
-use crate::task::{Task, TaskEventEmitter, TaskPriority};
+use crate::task::{Task, TaskPriority};
 use async_trait::async_trait;
 use multipool::pool::ThreadPool;
 use multipool::pool::modes::PriorityWorkStealingMode;
@@ -88,7 +88,6 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
     async fn dispatch(
         self: Arc<Self>,
         sender: Arc<broadcast::Sender<usize>>,
-        emitter: Arc<TaskEventEmitter>,
         task: Arc<Task>,
         idx: usize,
     ) {
@@ -106,12 +105,11 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
                 let idx_clone = idx_clone;
                 let task_clone = task.clone();
                 let sender_clone = sender.clone();
-                let emitter_clone = emitter.clone();
                 async move {
                     task_clone
                         .clone()
                         .schedule_strategy()
-                        .handle(task_clone.clone(), emitter_clone)
+                        .handle(task_clone.clone())
                         .await;
                     sender_clone.send(idx_clone).unwrap();
                 }

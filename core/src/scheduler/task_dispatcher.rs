@@ -4,7 +4,7 @@ pub mod default; // skipcq: RS-D1001
 pub use default::*;
 use std::fmt::Debug;
 
-use crate::task::{Task, TaskEventEmitter};
+use crate::task::Task;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::broadcast::Sender;
@@ -51,7 +51,6 @@ pub trait SchedulerTaskDispatcher: Debug + Send + Sync {
     async fn dispatch(
         self: Arc<Self>,
         sender: Arc<Sender<usize>>,
-        emitter: Arc<TaskEventEmitter>,
         task: Arc<Task>,
         idx: usize,
     );
@@ -62,13 +61,12 @@ impl<TD: SchedulerTaskDispatcher + ?Sized> SchedulerTaskDispatcher for Arc<TD> {
     async fn dispatch(
         self: Arc<Self>,
         sender: Arc<Sender<usize>>,
-        emitter: Arc<TaskEventEmitter>,
         task: Arc<Task>,
         idx: usize,
     ) {
         self.as_ref()
             .clone()
-            .dispatch(sender, emitter, task, idx)
+            .dispatch(sender, task, idx)
             .await
     }
 }
