@@ -3,10 +3,7 @@ use crate::task::TaskError;
 #[allow(unused_imports)]
 use crate::task::*;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::any::type_name;
-use std::fmt::Debug;
-use std::sync::Arc;
 
 #[allow(unused_imports)]
 use crate::backend::PersistenceBackend;
@@ -67,21 +64,6 @@ pub trait PersistentObjectDyn: Send + Sync {
 impl<T: PersistentObject> PersistentObjectDyn for T {
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         self.persist().await
-    }
-}
-
-#[async_trait]
-impl<T: Serialize + for<'de> Deserialize<'de> + Send + Sync> PersistentObject for T {
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        match serde_json::to_value(self) {
-            Ok(res) => Ok(SerializedComponent::new::<T>(res)),
-            Err(err) => Err(Arc::new(err)),
-        }
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        serde_json::from_value::<Self>(component.into_ir())
-            .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)
     }
 }
 
