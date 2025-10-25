@@ -35,12 +35,13 @@ pub mod misc; // skipcq: RS-D1001
 pub mod delayframe; // skipcq: RS-D1001
 
 use crate::task::{Task, TaskHookContainer, TaskHookEvent, TaskPriority};
+use crate::utils::emit_event;
 use async_trait::async_trait;
 pub use conditionframe::*;
+pub use delayframe::*;
 pub use dependencyframe::*;
 pub use executionframe::*;
 pub use fallbackframe::*;
-pub use delayframe::*;
 pub use misc::*;
 pub use noopframe::*;
 pub use parallelframe::*;
@@ -54,7 +55,6 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 pub use timeoutframe::*;
 use uuid::Uuid;
-use crate::utils::emit_event;
 
 /// A task-related error (i.e. A task failure)
 pub type TaskError = Arc<dyn Debug + Send + Sync>;
@@ -194,7 +194,7 @@ impl TaskContext {
     pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload) {
         emit_event(self.hooks_container.as_ref(), payload).await;
     }
-    
+
     /// Restricts this [`TaskContext`] to not be able to access and use the
     /// [`TaskEventEmitter`]
     ///

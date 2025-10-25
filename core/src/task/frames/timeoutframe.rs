@@ -1,14 +1,14 @@
-use crate::task::TaskHookEvent;
+use crate::define_event;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
+use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use serde::{Serialize, Deserialize};
-use crate::define_event;
 
 define_event!(
     /// # Event Triggering
@@ -97,7 +97,7 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
     pub fn new(frame: T, max_duration: Duration) -> Self {
         TimeoutTaskFrame {
             frame,
-            max_duration
+            max_duration,
         }
     }
 }

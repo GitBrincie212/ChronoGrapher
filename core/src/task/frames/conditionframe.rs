@@ -1,18 +1,18 @@
-use crate::task::TaskHookEvent;
-use serde::Serialize;
-use serde::Deserialize;
+use crate::define_event;
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::PersistentObject;
 use crate::retrieve_registers::RetrieveRegistries;
 use crate::serialized_component::SerializedComponent;
+use crate::task::TaskHookEvent;
 use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use crate::define_event;
 
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;

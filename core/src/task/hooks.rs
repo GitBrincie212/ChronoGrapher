@@ -1,17 +1,17 @@
 pub mod error_handler;
 pub mod metadata;
 
-use async_trait::async_trait;
-use dashmap::DashMap;
-use std::any::{Any, TypeId};
-use std::fmt::Debug;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 use crate::define_event;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::{Task, TaskError};
 use crate::utils::emit_event;
+use async_trait::async_trait;
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::any::{Any, TypeId};
+use std::fmt::Debug;
 
 #[allow(unused_imports)]
 use crate::task::frames::*;
@@ -132,11 +132,7 @@ impl<T: TaskHookEvent> PersistentObject for T {
 /// - [`TaskFrame`]
 #[async_trait]
 pub trait TaskHook<E: TaskHookEvent>: Send + Sync {
-    async fn on_event(
-        &self,
-        event: E,
-        payload: &E::Payload
-    );
+    async fn on_event(&self, event: E, payload: &E::Payload);
 }
 
 #[async_trait]
@@ -267,7 +263,9 @@ impl<'a, E: TaskHookEvent> TaskHookEvent for OnHookDetach<E> {
 /// - [`TaskHookEvent`]
 /// - [`Task`]
 /// - [`TaskFrame`]
-pub struct TaskHookContainer(pub(crate) DashMap<TypeId, DashMap<TypeId, &'static dyn ErasedTaskHook>>);
+pub struct TaskHookContainer(
+    pub(crate) DashMap<TypeId, DashMap<TypeId, &'static dyn ErasedTaskHook>>,
+);
 
 impl TaskHookContainer {
     /// Attaches a [`TaskHook`] onto the container, when attached, the [`TaskHook`]
@@ -284,7 +282,8 @@ impl TaskHookContainer {
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
     pub async fn attach<E: TaskHookEvent>(&self, hook: &impl TaskHook<E>) {
-        self.0.entry(TypeId::of::<E>())
+        self.0
+            .entry(TypeId::of::<E>())
             .or_default()
             .insert(hook.type_id(), hook);
         emit_event::<OnHookAttach<E>>(self, &()).await;
@@ -301,7 +300,10 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<&T> {
-        self.0.get(&TypeId::of::<E>())?.get(&TypeId::of::<T>()).as_ref()
+        self.0
+            .get(&TypeId::of::<E>())?
+            .get(&TypeId::of::<T>())
+            .as_ref()
     }
 
     /// Gets the [`TaskHook`] in the container as mutable,
@@ -315,7 +317,10 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     pub fn get_mut<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<&mut T> {
-        self.0.get(&TypeId::of::<E>())?.get_mut(&TypeId::of::<T>()).as_ref()
+        self.0
+            .get(&TypeId::of::<E>())?
+            .get_mut(&TypeId::of::<T>())
+            .as_ref()
     }
 
     /// Detaches a [`TaskHook`] from the container, when detached, the [`TaskHook`]
@@ -328,7 +333,8 @@ impl TaskHookContainer {
     /// - [`TaskHook`]
     /// - [`OnHookDetach`]
     pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self) {
-        self.0.get_mut(&TypeId::of::<E>())
+        self.0
+            .get_mut(&TypeId::of::<E>())
             .map(|mut x| x.remove(&TypeId::of::<T>()));
         emit_event::<OnHookDetach<E>>(self, &()).await;
     }
