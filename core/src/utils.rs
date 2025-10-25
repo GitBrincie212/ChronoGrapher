@@ -6,7 +6,7 @@ use chrono::{DateTime, Local, TimeZone};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Map;
-use std::any::{type_name, type_name_of_val, TypeId};
+use std::any::{TypeId, type_name, type_name_of_val};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -199,8 +199,13 @@ pub(crate) fn date_time_to_system_time(dt: DateTime<impl TimeZone>) -> SystemTim
     }
 }
 
-pub(crate) async fn emit_event<E: TaskHookEvent>(hooks_container: &TaskHookContainer, payload: &E::Payload) {
-    let hooks = hooks_container.0.get(&TypeId::of::<E>())
+pub(crate) async fn emit_event<E: TaskHookEvent>(
+    hooks_container: &TaskHookContainer,
+    payload: &E::Payload,
+) {
+    let hooks = hooks_container
+        .0
+        .get(&TypeId::of::<E>())
         .map(|x| x.value())
         .unwrap_or_default();
 

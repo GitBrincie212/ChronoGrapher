@@ -1,6 +1,7 @@
+use crate::define_event;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::{TaskContext, TaskError, TaskHookEvent, TaskFrame};
+use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -10,7 +11,6 @@ use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::define_event;
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -347,16 +347,19 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
         for retry in 0u32..self.retries.get() {
-            ctx.emit::<OnRetryAttemptStart>(&(retry, self.frame.clone())).await;
+            ctx.emit::<OnRetryAttemptStart>(&(retry, self.frame.clone()))
+                .await;
             let result = self.frame.execute(ctx.clone()).await;
             match result {
                 Ok(_) => {
-                    ctx.emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), None)).await;
+                    ctx.emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), None))
+                        .await;
                     return Ok(());
                 }
                 Err(err) => {
                     error = Some(err.clone());
-                    ctx.emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), error.clone())).await;
+                    ctx.emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), error.clone()))
+                        .await;
                 }
             }
             let delay = self.backoff_strat.compute(retry).await;

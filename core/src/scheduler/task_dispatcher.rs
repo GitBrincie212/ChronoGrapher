@@ -48,25 +48,12 @@ pub trait SchedulerTaskDispatcher: Debug + Send + Sync {
     /// - [`Task`]
     /// - [`Scheduler`]
     /// - [`SchedulerTaskDispatcher`]
-    async fn dispatch(
-        self: Arc<Self>,
-        sender: Arc<Sender<usize>>,
-        task: Arc<Task>,
-        idx: usize,
-    );
+    async fn dispatch(self: Arc<Self>, sender: Arc<Sender<usize>>, task: Arc<Task>, idx: usize);
 }
 
 #[async_trait]
 impl<TD: SchedulerTaskDispatcher + ?Sized> SchedulerTaskDispatcher for Arc<TD> {
-    async fn dispatch(
-        self: Arc<Self>,
-        sender: Arc<Sender<usize>>,
-        task: Arc<Task>,
-        idx: usize,
-    ) {
-        self.as_ref()
-            .clone()
-            .dispatch(sender, task, idx)
-            .await
+    async fn dispatch(self: Arc<Self>, sender: Arc<Sender<usize>>, task: Arc<Task>, idx: usize) {
+        self.as_ref().clone().dispatch(sender, task, idx).await
     }
 }

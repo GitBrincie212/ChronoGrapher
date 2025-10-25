@@ -1,10 +1,10 @@
+#[allow(unused_imports)]
+use crate::task::SequentialTaskFrame;
 use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure};
 use crate::task::{OnChildEnd, OnChildStart, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::mpsc;
-#[allow(unused_imports)]
-use crate::task::SequentialTaskFrame;
 
 /// Represents a **parallel task frame** which wraps multiple [`TaskFrame`] to execute at the same time.
 /// This task frame type acts as a **composite node** within the [`TaskFrame`] hierarchy, facilitating a
@@ -150,11 +150,13 @@ impl TaskFrame for ParallelTaskFrame {
                         let result_tx = result_tx.clone();
                         s.spawn(move || {
                             tokio::spawn(async move {
-                                context_clone.emit::<OnChildStart>(frame_clone.as_ref()).await;
+                                context_clone
+                                    .emit::<OnChildStart>(frame_clone.as_ref())
+                                    .await;
                                 let result = frame_clone.execute(context_clone.clone()).await;
-                                context_clone.emit::<OnChildEnd>(
-                                    &(frame_clone, result.err().clone())
-                                ).await;
+                                context_clone
+                                    .emit::<OnChildEnd>(&(frame_clone, result.err().clone()))
+                                    .await;
                                 let _ = result_tx.send(result);
                             })
                         });

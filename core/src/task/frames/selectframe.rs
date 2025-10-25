@@ -1,9 +1,9 @@
+use crate::define_event;
 use crate::errors::ChronographerErrors;
 use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
-use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::define_event;
 
 /// [`SelectFrameAccessor`] is a trait for selecting a task frame
 /// along a list of potential candidates and is tied to [`SelectTaskFrame`]
@@ -179,7 +179,8 @@ impl TaskFrame for SelectTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let idx = self.accessor.select(ctx.clone()).await;
         if let Some(frame) = self.frames.get(idx) {
-            ctx.emit::<OnTaskFrameSelection>(&(idx, frame.clone())).await;
+            ctx.emit::<OnTaskFrameSelection>(&(idx, frame.clone()))
+                .await;
             return frame.execute(ctx).await;
         }
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
