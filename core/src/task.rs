@@ -2,9 +2,6 @@
 pub mod dependency; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod events; // skipcq: RS-D1001
-
-#[allow(missing_docs)]
 pub mod frames; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
@@ -14,11 +11,10 @@ pub mod priority; // skipcq: RS-D1001
 pub mod frame_builder; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod extension; // skipcq: RS-D1001
+pub mod hooks; // skipcq: RS-D1001
 
 pub use crate::schedule::*;
-pub use events::*;
-pub use extension::*;
+pub use hooks::*;
 pub use frame_builder::*;
 pub use frames::*;
 pub use priority::*;
@@ -29,50 +25,25 @@ use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use dashmap::DashMap;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
-/*
-    Quite a similar situation to ConditionalTaskFrame, tho this time I can save one builder and a
-    from trait implementation, reducing the code and making it more maintainable
-*/
 
 /// [`TaskConfig`] is simply used as a builder to construct [`Task`], <br />
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task))]
 #[builder(mutators(
-    fn add_extension<E: TaskExtension>(&mut self, extension: impl AsRef<E>){
-        self.0.insert(TypeId::of::<E>(), Arc::new(extension) as Arc<dyn TaskExtension>);
+    fn hook<E: TaskHook>(&mut self, hook: impl AsRef<E>){
+        self.0.insert(TypeId::of::<E>(), Arc::new(hook) as Arc<dyn TaskHook>);
     }
 ))]
 pub struct TaskConfig {
-    /*
-    /// The [`TaskMetadata`], it is the <u>**State**</u> of the task and is a reactive container, allowing
-    /// the outside parties to listen to fields changing via [`ObserverField`], making it a very powerful
-    /// system. Multiple listeners can be attached per field. For triggering an action by changing
-    /// multiple fields, multiple listeners will need to be attached per field, and these listeners
-    /// will need their own state and based on it either do nothing or execute a specific logic
-    ///
-    /// # Default Value
-    /// By default, the value uses [`TaskMetadata`], which is an implementation of [`TaskMetadata],
-    /// hosting the minimum number of fields that define a metadata container
-    ///
-    /// # Method Behavior
-    /// This builder parameter method cannot be chained, as it is a typed builder,
-    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
-    /// inner workings under the hood, just sets the value
-    ///
-    /// # See Also
-    /// - [`TaskMetadata`]
-    /// - [`ObserverField`]
-    #[builder(default = TaskMetadata::new())]
-    metadata: Arc<TaskMetadata>,
-     */
     #[builder(via_mutators)]
-    extensions: TaskExtenders,
+    hooks: TaskHookContainer,
 
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
     /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
@@ -132,31 +103,6 @@ pub struct TaskConfig {
     #[builder(setter(transform = |s: impl TaskSchedule + 'static| Arc::new(s) as Arc<dyn TaskSchedule>))]
     schedule: Arc<dyn TaskSchedule>,
 
-    /*
-    /// [`TaskErrorHandler`] is the part which <u>**Handles Gracefully Any Errors / Failures That Happen
-    /// Throughout The Task's Lifecycle**</u>. It has access to the error instance and is mostly meant to
-    /// be used in case of cleanups, closing database connections... etc.
-    ///
-    /// # Default Value
-    /// By default, every task has the error handler [`SilentTaskErrorHandler`], which silently ignores
-    /// any error (i.e. Doesn't gracefully handle it), for any demos this is fine, but for any application
-    /// **THIS SHOULD BE AVOIDED AND INSTEAD IDIOMATICALLY HANDLE THE ERROR YOURSELF**
-    ///
-    /// # Method Behavior
-    /// This builder parameter method cannot be chained, as it is a typed builder,
-    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
-    /// inner workings under the hood, just sets the value
-    ///
-    /// # See Also
-    /// - [`TaskErrorHandler`]
-    /// - [`SilentTaskErrorHandler`]
-    /// - [`PanicTaskErrorHandler`]
-    #[builder(
-        default = Arc::new(SilentTaskErrorHandler),
-        setter(transform = |s: impl TaskErrorHandler + 'static| Arc::new(s) as Arc<dyn TaskErrorHandler>)
-    )]
-    error_handler: Arc<dyn TaskErrorHandler>,
-     */
     /// [`ScheduleStrategy`] is the part where <u>**It Controls How The Rescheduling Happens And How The Same
     /// Tasks Overlap With Each Other**</u>. There are various implementations, each suited for their own use
     /// case which are documented thoroughly on [`ScheduleStrategy`]
@@ -219,14 +165,12 @@ impl From<TaskConfig> for Task {
         Task {
             frame: config.frame,
             schedule: config.schedule,
-            extenders: config.extensions,
+            hooks: Arc::new(config.hooks),
             overlap_policy: config.schedule_strategy,
             priority: config.priority,
             runs: Arc::new(AtomicU64::new(0)),
             debug_label: config.debug_label,
             max_runs: config.max_runs,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             id: Uuid::new_v4(),
         }
     }
@@ -306,13 +250,7 @@ pub struct Task {
     debug_label: String,
     max_runs: Option<NonZeroU64>,
     id: Uuid,
-    extenders: TaskExtenders,
-
-    /// Event fired when the [`Task`] starts execution
-    pub on_start: TaskStartEvent,
-
-    /// Event fired when the [`Task`] ends its execution
-    pub on_end: TaskEndEvent,
+    hooks: Arc<TaskHookContainer>,
 }
 
 impl Debug for Task {
@@ -357,14 +295,12 @@ impl Task {
         Self {
             frame: Arc::new(task),
             schedule: Arc::new(schedule),
-            extenders: TaskExtenders::default(),
+            hooks: Arc::new(TaskHookContainer(DashMap::default())),
             overlap_policy: Arc::new(SequentialSchedulingPolicy),
             priority: TaskPriority::MODERATE,
             runs: Arc::new(AtomicU64::new(0)),
             debug_label: Uuid::new_v4().to_string(),
             max_runs: None,
-            on_start: TaskEvent::new(),
-            on_end: TaskEvent::new(),
             id: Uuid::new_v4(),
         }
     }
@@ -405,26 +341,14 @@ impl Task {
     /// # See Also
     /// - [`TaskEventEmitter`]
     /// - [`Scheduler`]
-    pub async fn run(&self, emitter: Arc<TaskEventEmitter>) -> Result<(), TaskError> {
-        let ctx = TaskContext::new(self, emitter.clone());
+    pub async fn run(&self) -> Result<(), TaskError> {
+        let ctx = TaskContext::new(self);
         self.runs.fetch_add(1, Ordering::Relaxed);
-        emitter
-            .emit(ctx.as_restricted(), self.on_start.clone(), ())
-            .await;
-        let result = self.frame().execute(ctx.clone()).await;
+        ctx.emit::<OnTaskStart>(self.as_ref()).await;
+        let result = self.frame.execute(ctx.clone()).await;
         let err = result.clone().err();
 
-        emitter
-            .emit(ctx.as_restricted(), self.on_end.clone(), err.clone())
-            .await;
-
-        if let Some(error) = err {
-            let error_ctx = TaskErrorContext {
-                error,
-                metadata: self.metadata(),
-            };
-            self.error_handler().on_error(Arc::new(error_ctx)).await;
-        }
+        ctx.emit::<OnTaskEnd>(&(self, err)).await;
 
         result
     }
@@ -462,5 +386,26 @@ impl Task {
     /// Gets the ID associated with the [`Task`]
     pub fn id(&self) -> &Uuid {
         &self.id
+    }
+
+    /// Gets the hooks container the [`Task`] has
+    pub fn hooks(&self) -> Arc<TaskHookContainer> {
+        self.hooks.clone()
+    }
+
+    pub async fn attach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self, hook: T) {
+        self.hooks.attach(hook).await;
+    }
+
+    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<&T> {
+        self.hooks.get::<E, T>()
+    }
+
+    pub fn get_mut_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<&mut T> {
+        self.hooks.get_mut::<E, T>()
+    }
+
+    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self) {
+        self.hooks.detach::<E, T>().await;
     }
 }
