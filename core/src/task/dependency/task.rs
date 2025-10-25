@@ -179,7 +179,7 @@ impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
 impl From<TaskDependencyConfig> for TaskDependency {
     fn from(config: TaskDependencyConfig) -> Self {
         let tracker = Arc::new(TaskDependencyTracker {
-            run_count: Arc::new(Default::default()),
+            run_count: Arc::new(AtomicU64::default()),
             minimum_runs: config.minimum_runs,
             resolve_behavior: config.resolve_behavior,
         });
@@ -189,7 +189,7 @@ impl From<TaskDependencyConfig> for TaskDependency {
 
         tokio::task::spawn_blocking(move || {
             async move {
-                cloned_task.hooks.attach::<OnTaskEnd>(cloned_tracker.as_ref()).await;
+                cloned_task.hooks.attach::<OnTaskEnd>(cloned_tracker).await;
             }
         });
 
