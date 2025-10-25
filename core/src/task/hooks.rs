@@ -4,7 +4,7 @@ pub mod metadata;
 use crate::define_event;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::{Task, TaskError};
+use crate::task::TaskError;
 use crate::utils::emit_event;
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
-
+use std::marker::PhantomData;
+use std::sync::Arc;
 #[allow(unused_imports)]
 use crate::task::frames::*;
 
@@ -91,6 +92,7 @@ pub trait TaskHookEvent: Send + Sync + Default + 'static {
     const PERSISTENCE_ID: &'static str;
 }
 
+#[async_trait]
 impl<T: TaskHookEvent> PersistentObject for T {
     fn persistence_id() -> &'static str {
         Self::PERSISTENCE_ID
@@ -101,7 +103,7 @@ impl<T: TaskHookEvent> PersistentObject for T {
     }
 
     async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Self
+        Ok(Self::default())
     }
 }
 
@@ -131,33 +133,42 @@ impl<T: TaskHookEvent> PersistentObject for T {
 /// - [`Task`]
 /// - [`TaskFrame`]
 #[async_trait]
-pub trait TaskHook<E: TaskHookEvent>: Send + Sync {
+pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
     async fn on_event(&self, event: E, payload: &E::Payload);
 }
+
+#[derive(Clone)]
+struct ErasedTaskHookWrapper<E: TaskHookEvent>(Arc<dyn TaskHook<E>>, PhantomData<E>);
 
 #[async_trait]
 pub trait ErasedTaskHook: Send + Sync {
     async fn on_emit(&self, payload: &(dyn Any + Send + Sync));
+    fn as_arc_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }
 
 #[async_trait]
-impl<E: TaskHookEvent> ErasedTaskHook for dyn TaskHook<E> {
+impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
     async fn on_emit(&self, payload: &(dyn Any + Send + Sync)) {
         let payload = payload
-            .downcast::<E::Payload>()
+            .downcast_ref::<E::Payload>()
             .expect("Invalid payload type passed to TaskHook");
-        self.on_event(E::default(), &payload).await;
+
+        self.0.on_event(E::default(), payload).await;
+    }
+
+    fn as_arc_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
+        self
     }
 }
 
 define_event!(
     /// # See Also
-    OnTaskStart, Task
+    OnTaskStart, Arc<TaskContext>
 );
 
 define_event!(
     /// # See Also
-    OnTaskEnd, (&'static Task, Option<TaskError>)
+    OnTaskEnd, (Arc<TaskContext>, Option<TaskError>)
 );
 
 /// [`OnHookAttach`] is an implementation of [`TaskHookEvent`] (a system used closely with,
@@ -183,16 +194,16 @@ define_event!(
 /// - [`Task`]
 /// - [`TaskFrame`]
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-pub struct OnHookAttach<E: TaskHookEvent>;
+pub struct OnHookAttach<E: TaskHookEvent>(PhantomData<E>);
 
 impl<E: TaskHookEvent> Default for OnHookAttach<E> {
     fn default() -> Self {
-        OnHookAttach
+        OnHookAttach(PhantomData)
     }
 }
 
-impl<'a, E: TaskHookEvent> TaskHookEvent for OnHookAttach<E> {
-    type Payload = &'a E;
+impl<E: TaskHookEvent> TaskHookEvent for OnHookAttach<E> {
+    type Payload = E;
     const PERSISTENCE_ID: &'static str = "chronographer_core#OnHookAttach";
 }
 
@@ -219,16 +230,16 @@ impl<'a, E: TaskHookEvent> TaskHookEvent for OnHookAttach<E> {
 /// - [`Task`]
 /// - [`TaskFrame`]
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-pub struct OnHookDetach<E: TaskHookEvent>;
+pub struct OnHookDetach<E: TaskHookEvent>(PhantomData<E>);
 
 impl<E: TaskHookEvent> Default for OnHookDetach<E> {
     fn default() -> Self {
-        OnHookDetach
+        OnHookDetach(PhantomData)
     }
 }
 
-impl<'a, E: TaskHookEvent> TaskHookEvent for OnHookDetach<E> {
-    type Payload = &'a E;
+impl<E: TaskHookEvent> TaskHookEvent for OnHookDetach<E> {
+    type Payload = E;
     const PERSISTENCE_ID: &'static str = "chronographer_core#OnHookDetach";
 }
 
@@ -264,7 +275,7 @@ impl<'a, E: TaskHookEvent> TaskHookEvent for OnHookDetach<E> {
 /// - [`Task`]
 /// - [`TaskFrame`]
 pub struct TaskHookContainer(
-    pub(crate) DashMap<TypeId, DashMap<TypeId, &'static dyn ErasedTaskHook>>,
+    pub(crate) DashMap<&'static str, DashMap<TypeId, Arc<dyn ErasedTaskHook>>>,
 );
 
 impl TaskHookContainer {
@@ -281,12 +292,15 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach<E: TaskHookEvent>(&self, hook: &impl TaskHook<E>) {
+    pub async fn attach<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
+        let hook_id = hook.type_id();
+        let hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook, PhantomData));
+
         self.0
-            .entry(TypeId::of::<E>())
+            .entry(E::persistence_id())
             .or_default()
-            .insert(hook.type_id(), hook);
-        emit_event::<OnHookAttach<E>>(self, &()).await;
+            .insert(hook_id, hook);
+        emit_event::<OnHookAttach<E>>(self, &E::default()).await;
     }
 
     /// Gets the [`TaskHook`] in the container as immutable,
@@ -299,28 +313,16 @@ impl TaskHookContainer {
     /// - [`TaskHookContainer`]
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
-    pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<&T> {
-        self.0
-            .get(&TypeId::of::<E>())?
-            .get(&TypeId::of::<T>())
-            .as_ref()
-    }
+    pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
+        let interested_event_container = self.0
+            .get(E::persistence_id())?;
 
-    /// Gets the [`TaskHook`] in the container as mutable,
-    /// based on the [`TaskHook`] type and [`TaskHookEvent`] type
-    ///
-    /// # Returns
-    /// The corresponding [`TaskHook`] instance based on the 2 generics supplied
-    ///
-    /// # See Also
-    /// - [`TaskHookContainer`]
-    /// - [`TaskHookEvent`]
-    /// - [`TaskHook`]
-    pub fn get_mut<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<&mut T> {
-        self.0
-            .get(&TypeId::of::<E>())?
-            .get_mut(&TypeId::of::<T>())
-            .as_ref()
+        let entry = interested_event_container
+            .get(&TypeId::of::<T>())?;
+
+        let entry = entry.value();
+
+        entry.clone().as_arc_any().downcast::<T>().ok()
     }
 
     /// Detaches a [`TaskHook`] from the container, when detached, the [`TaskHook`]
@@ -334,8 +336,8 @@ impl TaskHookContainer {
     /// - [`OnHookDetach`]
     pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self) {
         self.0
-            .get_mut(&TypeId::of::<E>())
-            .map(|mut x| x.remove(&TypeId::of::<T>()));
-        emit_event::<OnHookDetach<E>>(self, &()).await;
+            .get_mut(E::persistence_id())
+            .map(|x| x.remove(&TypeId::of::<T>()));
+        emit_event::<OnHookDetach<E>>(self, &E::default()).await;
     }
 }
