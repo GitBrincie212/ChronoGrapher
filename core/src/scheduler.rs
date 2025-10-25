@@ -8,7 +8,7 @@ use crate::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{Task, TaskEventEmitter};
+use crate::task::Task;
 use once_cell::sync::Lazy;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
@@ -218,7 +218,6 @@ impl Scheduler {
         if self.process.lock().await.is_some() {
             return;
         }
-        let emitter = Arc::new(TaskEventEmitter { _private: () });
         let store_clone = self.store.clone();
         let clock_clone = self.clock.clone();
         let dispatcher_clone = self.dispatcher.clone();
@@ -253,7 +252,7 @@ impl Scheduler {
                             store_clone.pop().await;
                             if !store_clone.exists(&idx).await { continue; }
                             dispatcher_clone.clone()
-                                .dispatch(scheduler_send.clone(), emitter.clone(), task, idx)
+                                .dispatch(scheduler_send.clone(), task, idx)
                                 .await;
                             continue;
                         }

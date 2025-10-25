@@ -1,10 +1,24 @@
+use crate::task::TaskHookEvent;
+use serde::Serialize;
+use serde::Deserialize;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{TaskContext, TaskError, TaskFrame};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use crate::define_event;
+
+define_event!(
+    /// # Event Triggering
+    /// [`OnFallbackEvent`] is triggered when the [`FallbackTaskFrame`]'s wrapped
+    /// primary [`TaskFrame`] fails and switches to the wrapped secondary / fallback [`TaskFrame`]
+    ///
+    /// # See Also
+    /// - [`FallbackTaskFrame`]
+    OnFallbackEvent, (Arc<dyn TaskFrame>, TaskError)
+);
 
 /// Represents a **fallback task frame** which wraps two other task frames. This task frame type acts as a
 /// **composite node** within the task frame hierarchy, providing a failover mechanism for execution.
@@ -53,14 +67,7 @@ use std::sync::Arc;
 /// let task = Task::define(TaskScheduleInterval::from_secs(1), fallback_frame);
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
-pub struct FallbackTaskFrame<T: 'static, T2: 'static> {
-    primary: T,
-    secondary: Arc<T2>,
-
-    /// An event fired when the fallback is executed
-    /// (i.e. The primary task frame failed)
-    pub on_fallback: ArcTaskEvent<(Arc<T2>, TaskError)>,
-}
+pub struct FallbackTaskFrame<T: 'static, T2: 'static>(T, Arc<T2>);
 
 impl<T, T2> FallbackTaskFrame<T, T2>
 where
@@ -85,11 +92,7 @@ where
     /// # See Also
     /// - [`ExecutionTaskFrame`]
     pub fn new(primary: T, secondary: T2) -> Self {
-        Self {
-            primary,
-            secondary: Arc::new(secondary),
-            on_fallback: TaskEvent::new(),
-        }
+        Self(primary, Arc::new(secondary))
     }
 }
 
@@ -100,18 +103,11 @@ where
     T2: TaskFrame + 'static,
 {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let primary_result = self.primary.execute(ctx.clone()).await;
+        let primary_result = self.0.execute(ctx.clone()).await;
         match primary_result {
             Err(err) => {
-                ctx.emitter
-                    .emit(
-                        ctx.as_restricted(),
-                        self.on_fallback.clone(),
-                        (self.secondary.clone(), err),
-                    )
-                    .await;
-
-                self.secondary.execute(ctx).await
+                ctx.emit::<OnFallbackEvent>(&(self.1.clone(), err)).await;
+                self.1.execute(ctx).await
             }
             res => res,
         }
@@ -129,8 +125,8 @@ where
     }
 
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let primary = PersistenceUtils::serialize_persistent(&self.primary).await?;
-        let fallback = PersistenceUtils::serialize_persistent(self.secondary.as_ref()).await?;
+        let primary = PersistenceUtils::serialize_persistent(&self.0).await?;
+        let fallback = PersistenceUtils::serialize_persistent(self.1.as_ref()).await?;
         Ok(SerializedComponent::new::<Self>(json!({
             "primary_frame": primary,
             "fallback_frame": fallback,

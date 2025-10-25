@@ -34,26 +34,27 @@ pub mod misc; // skipcq: RS-D1001
 #[allow(missing_docs)]
 pub mod delayframe; // skipcq: RS-D1001
 
-use crate::task::events::TaskEventEmitter;
-use crate::task::{Task, TaskPriority};
+use crate::task::{Task, TaskHookContainer, TaskHookEvent, TaskPriority};
 use async_trait::async_trait;
-pub use conditionframe::ConditionalFrame;
-pub use dependencyframe::DependencyTaskFrame;
-pub use executionframe::ExecutionTaskFrame;
-pub use fallbackframe::FallbackTaskFrame;
+pub use conditionframe::*;
+pub use dependencyframe::*;
+pub use executionframe::*;
+pub use fallbackframe::*;
+pub use delayframe::*;
 pub use misc::*;
-pub use noopframe::NoOperationTaskFrame;
-pub use parallelframe::ParallelTaskFrame;
-pub use retryframe::RetriableTaskFrame;
-pub use selectframe::SelectTaskFrame;
-pub use sequentialframe::SequentialTaskFrame;
+pub use noopframe::*;
+pub use parallelframe::*;
+pub use retryframe::*;
+pub use selectframe::*;
+pub use sequentialframe::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-pub use timeoutframe::TimeoutTaskFrame;
+pub use timeoutframe::*;
 use uuid::Uuid;
+use crate::utils::emit_event;
 
 /// A task-related error (i.e. A task failure)
 pub type TaskError = Arc<dyn Debug + Send + Sync>;
@@ -87,12 +88,12 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - [`TaskEventEmitter`]
 #[derive(Clone)]
 pub struct TaskContext<const RESTRICTED: bool = false> {
-    pub(crate) emitter: Arc<TaskEventEmitter>,
-    pub(crate) priority: TaskPriority,
-    pub(crate) runs: u64,
-    pub(crate) debug_label: String,
-    pub(crate) max_runs: Option<NonZeroU64>,
-    pub(crate) id: Uuid,
+    hooks_container: Arc<TaskHookContainer>,
+    priority: TaskPriority,
+    runs: u64,
+    debug_label: String,
+    max_runs: Option<NonZeroU64>,
+    id: Uuid,
 }
 
 impl<const T: bool> Debug for TaskContext<T> {
@@ -124,9 +125,9 @@ impl<const T: bool> TaskContext<T> {
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
     /// - [`TaskContext`]
-    pub(crate) fn new(task: &Task, emitter: Arc<TaskEventEmitter>) -> Arc<Self> {
+    pub(crate) fn new(task: &Task) -> Arc<Self> {
         Arc::new(Self {
-            emitter,
+            hooks_container: task.hooks,
             priority: task.priority,
             runs: task.runs.load(Ordering::Relaxed),
             debug_label: task.debug_label.clone(),
@@ -190,10 +191,10 @@ impl TaskContext {
     /// # See Also
     /// - [`TaskContext`]
     /// - [`TaskEventEmitter`]
-    pub fn emitter(&self) -> Arc<TaskEventEmitter> {
-        self.emitter.clone()
+    pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload) {
+        emit_event(self.hooks_container.as_ref(), payload).await;
     }
-
+    
     /// Restricts this [`TaskContext`] to not be able to access and use the
     /// [`TaskEventEmitter`]
     ///
@@ -203,15 +204,8 @@ impl TaskContext {
     ///
     /// # See Also
     /// - [`TaskContext`]
-    pub fn as_restricted(&self) -> Arc<TaskContext<true>> {
-        Arc::new(TaskContext {
-            emitter: self.emitter.clone(),
-            priority: self.priority,
-            runs: self.runs,
-            debug_label: self.debug_label.clone(),
-            max_runs: self.max_runs,
-            id: Uuid::new_v4(),
-        })
+    pub fn as_restricted(&self) -> &TaskContext {
+        self
     }
 }
 

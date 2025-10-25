@@ -1,7 +1,9 @@
 use crate::errors::ChronographerErrors;
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
+use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
 use std::sync::Arc;
+use crate::define_event;
 
 /// [`SelectFrameAccessor`] is a trait for selecting a task frame
 /// along a list of potential candidates and is tied to [`SelectTaskFrame`]
@@ -58,6 +60,16 @@ where
         self(ctx).await
     }
 }
+
+define_event!(
+    /// # Event Triggering
+    /// [`OnTaskFrameSelection`] is triggered when the [`SelectTaskFrame`] has
+    /// successfully selected a [`TaskFrame`] (without an index out of bounds error)
+    ///
+    /// # See Also
+    /// - [`SelectTaskFrame`]
+    OnTaskFrameSelection, (usize, Arc<dyn TaskFrame>)
+);
 
 /// Represents a **select task frame** which wraps multiple [`TaskFrame`] and picks one [`TaskFrame`] based
 /// on an [`SelectFrameAccessor`]. This task frame type acts as a **composite node** within the [`TaskFrame`]
@@ -134,10 +146,6 @@ where
 pub struct SelectTaskFrame {
     frames: Vec<Arc<dyn TaskFrame>>,
     accessor: Arc<dyn SelectFrameAccessor>,
-
-    /// Event fired when a [`TaskFrame`] is successfully selected,
-    /// without any errors (no index out of bounds)
-    pub on_select: ArcTaskEvent<(usize, Arc<dyn TaskFrame>)>,
 }
 
 impl SelectTaskFrame {
@@ -162,7 +170,6 @@ impl SelectTaskFrame {
         Self {
             frames,
             accessor: Arc::new(accessor),
-            on_select: TaskEvent::new(),
         }
     }
 }
@@ -172,13 +179,7 @@ impl TaskFrame for SelectTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let idx = self.accessor.select(ctx.clone()).await;
         if let Some(frame) = self.frames.get(idx) {
-            ctx.emitter
-                .emit(
-                    ctx.as_restricted(),
-                    self.on_select.clone(),
-                    (idx, frame.clone()),
-                )
-                .await;
+            ctx.emit::<OnTaskFrameSelection>(&(idx, frame.clone())).await;
             return frame.execute(ctx).await;
         }
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(

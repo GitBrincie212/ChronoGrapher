@@ -1,14 +1,18 @@
+use crate::task::TaskHookEvent;
+use serde::Serialize;
+use serde::Deserialize;
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::PersistentObject;
 use crate::retrieve_registers::RetrieveRegistries;
 use crate::serialized_component::SerializedComponent;
 use crate::task::noopframe::NoOperationTaskFrame;
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{TaskContext, TaskError, TaskFrame};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
+use crate::define_event;
 
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
@@ -147,6 +151,28 @@ where
     error_on_false: bool,
 }
 
+define_event!(
+    /// # Event Triggering
+    /// [`OnTruthyValueEvent`] is triggered when the [`ConditionalFrame`]'s predicate function
+    /// (which is [`ConditionalFramePredicate`]) returns a true boolean value
+    ///
+    /// # See Also
+    /// - [`ConditionalFrame`]
+    /// - [`ConditionalFramePredicate`]
+    OnTruthyValueEvent, Arc<dyn TaskFrame>
+);
+
+define_event!(
+    /// # Event Triggering
+    /// [`OnFalseyValueEvent`] is triggered when the [`ConditionalFrame`]'s predicate function
+    /// (which is [`ConditionalFramePredicate`]) returns a false boolean value
+    ///
+    /// # See Also
+    /// - [`ConditionalFrame`]
+    /// - [`ConditionalFramePredicate`]
+    OnFalseyValueEvent, Arc<dyn TaskFrame>
+);
+
 impl<T, T2> From<ConditionalFrameConfig<T, T2>> for ConditionalFrame<T, T2>
 where
     T: TaskFrame + 'static + Send + Sync,
@@ -158,8 +184,6 @@ where
             fallback: config.fallback,
             predicate: config.predicate,
             error_on_false: config.error_on_false,
-            on_true: TaskEvent::new(),
-            on_false: TaskEvent::new(),
         }
     }
 }
@@ -243,12 +267,6 @@ pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
     fallback: Arc<T2>,
     predicate: Arc<dyn ConditionalFramePredicate>,
     error_on_false: bool,
-
-    /// Event fired for when [`ConditionalFramePredicate`] returns true
-    pub on_true: ArcTaskEvent<Arc<T>>,
-
-    /// Event fired for when [`ConditionalFramePredicate`] returns false
-    pub on_false: ArcTaskEvent<Arc<T2>>,
 }
 
 /// A type alias to alleviate the immense typing required to specify that
@@ -305,22 +323,10 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let result = self.predicate.execute(ctx.clone()).await;
         if result {
-            ctx.emitter
-                .emit(
-                    ctx.as_restricted(),
-                    self.on_true.clone(),
-                    self.frame.clone(),
-                )
-                .await;
+            ctx.emit::<OnTruthyValueEvent>(self.frame.as_ref()).await;
             return self.frame.execute(ctx).await;
         }
-        ctx.emitter
-            .emit(
-                ctx.as_restricted(),
-                self.on_false.clone(),
-                self.fallback.clone(),
-            )
-            .await;
+        ctx.emit::<OnFalseyValueEvent>(self.fallback.as_ref()).await;
         let result = self.fallback.execute(ctx).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));
@@ -389,8 +395,6 @@ where
             fallback: Arc::new(fallback_frame),
             error_on_false,
             predicate,
-            on_true: TaskEvent::new(),
-            on_false: TaskEvent::new(),
         })
     }
 }

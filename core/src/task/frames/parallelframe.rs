@@ -1,9 +1,8 @@
 use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure};
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{OnChildEnd, OnChildStart, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::mpsc;
-
 #[allow(unused_imports)]
 use crate::task::SequentialTaskFrame;
 
@@ -80,12 +79,6 @@ use crate::task::SequentialTaskFrame;
 pub struct ParallelTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
     policy: Arc<dyn GroupedTaskFramesExecBehavior>,
-
-    /// Event fired for when a child [`TaskFrame`] starts execution
-    pub on_child_start: ArcTaskEvent<Arc<dyn TaskFrame>>,
-
-    /// Event fired for when a child [`TaskFrame`] has ended execution
-    pub on_child_end: ArcTaskEvent<(Arc<dyn TaskFrame>, Option<TaskError>)>,
 }
 
 impl ParallelTaskFrame {
@@ -137,8 +130,6 @@ impl ParallelTaskFrame {
         Self {
             tasks,
             policy: Arc::new(policy),
-            on_child_end: TaskEvent::new(),
-            on_child_start: TaskEvent::new(),
         }
     }
 }
@@ -157,30 +148,13 @@ impl TaskFrame for ParallelTaskFrame {
                         let frame_clone = frame.clone();
                         let context_clone = ctx.clone();
                         let result_tx = result_tx.clone();
-                        let child_start = self.on_child_start.clone();
-                        let child_end = self.on_child_end.clone();
                         s.spawn(move || {
                             tokio::spawn(async move {
-                                let restricted_context = context_clone.as_restricted();
-                                context_clone
-                                    .emitter
-                                    .clone()
-                                    .emit(
-                                        restricted_context.clone(),
-                                        child_start,
-                                        frame_clone.clone(),
-                                    )
-                                    .await;
+                                context_clone.emit::<OnChildStart>(frame_clone.as_ref()).await;
                                 let result = frame_clone.execute(context_clone.clone()).await;
-                                context_clone
-                                    .emitter
-                                    .clone()
-                                    .emit(
-                                        restricted_context.clone(),
-                                        child_end,
-                                        (frame_clone, result.clone().err()),
-                                    )
-                                    .await;
+                                context_clone.emit::<OnChildEnd>(
+                                    &(frame_clone, result.err().clone())
+                                ).await;
                                 let _ = result_tx.send(result);
                             })
                         });

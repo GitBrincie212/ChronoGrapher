@@ -1,15 +1,19 @@
+use crate::task::TaskHookEvent;
+use serde::Serialize;
+use serde::Deserialize;
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
 use crate::retrieve_registers::RetrieveRegistries;
 use crate::serialized_component::SerializedComponent;
 use crate::task::Debug;
 use crate::task::dependency::FrameDependency;
-use crate::task::{Arc, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
+use crate::define_event;
 
 /// [`DependentFailBehavior`] is a trait for implementing a behavior when dependencies aren't resolved
 /// in [`DependencyTaskFrame`]. It takes nothing and returns a result for the [`DependencyTaskFrame`] to
@@ -138,10 +142,15 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
             frame: config.task,
             dependencies: config.dependencies,
             dependent_behaviour: config.dependent_behaviour,
-            on_dependency: TaskEvent::new(),
         }
     }
 }
+
+define_event!(
+    /// # See Also
+    /// - [`DependencyTaskFrame`]
+    OnDependencyValidation, (Arc<dyn FrameDependency>, bool)
+);
 
 /// Represents an **dependent task frame** that directly wraps a task frame and executes it only if
 /// all dependencies are resolved. This task frame type acts asa **wrapper node** within the task frame
@@ -220,11 +229,6 @@ pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,
     dependencies: Vec<Arc<dyn FrameDependency>>,
     dependent_behaviour: Arc<dyn DependentFailBehavior>,
-
-    /// Event fired for when [`FrameDependency`] finishes the resolve process,
-    /// it contains both the target dependency, and a boolean indicating if it
-    /// has been resolved or not
-    pub on_dependency: Arc<TaskEvent<(Arc<dyn FrameDependency>, bool)>>,
 }
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
@@ -255,22 +259,14 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             let dep = self.dependencies[index].clone();
             match handle.await {
                 Ok(res) => {
-                    ctx.emitter
-                        .emit(ctx.as_restricted(), self.on_dependency.clone(), (dep, res))
-                        .await;
+                    ctx.emit::<OnDependencyValidation>(&(dep, res)).await;
                     if !res {
                         is_resolved = false;
                         break;
                     }
                 }
                 Err(_) => {
-                    ctx.emitter
-                        .emit(
-                            ctx.as_restricted(),
-                            self.on_dependency.clone(),
-                            (dep, false),
-                        )
-                        .await;
+                    ctx.emit::<OnDependencyValidation>(&(dep, false)).await;
                     is_resolved = false;
                     break;
                 }
@@ -372,7 +368,6 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
         Ok(DependencyTaskFrame {
             dependencies: deserialized_dependencies,
             dependent_behaviour: dependent_fail_behavior,
-            on_dependency: TaskEvent::new(),
             frame,
         })
     }

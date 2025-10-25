@@ -1,11 +1,27 @@
+use crate::task::TaskHookEvent;
+use serde::Serialize;
+use serde::Deserialize;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{TaskContext, TaskError, TaskFrame};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::define_event;
+
+define_event!(
+    /// # See Also
+    /// - [`DelayTaskFrame`]
+    OnDelayStart, Duration
+);
+
+define_event!(
+    /// # See Also
+    /// - [`DelayTaskFrame`]
+    OnDelayEnd, Duration
+);
 
 /// Represents a **delay task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the [`TaskFrame`] hierarchy, providing a delay mechanism for execution.
@@ -15,8 +31,8 @@ use std::time::Duration;
 /// which accepts a [`TaskFrame`] along with a delay
 ///
 /// # Events
-/// [`DelayTaskFrame`] defines two events, and that is [`DelayTaskFrame::on_delay_start`] and
-/// [`DelayTaskFrame::on_delay_end`], the former is triggered when the delay starts while the
+/// [`DelayTaskFrame`] defines two events, and those are [`OnDelayStart`] and
+/// [`OnDelayEnd`], the former is triggered when the delay starts while the
 /// latter is fired when the delay ends
 ///
 /// # Trait Implementation(s)
@@ -52,16 +68,7 @@ use std::time::Duration;
 ///
 /// # See Also
 /// - [`TaskFrame`]
-pub struct DelayTaskFrame<T: 'static> {
-    frame: T,
-    delay: Duration,
-
-    /// Event fired when the delay is triggered
-    pub on_delay_start: ArcTaskEvent<Duration>,
-
-    /// Event fired when the delay ends
-    pub on_delay_end: ArcTaskEvent<Duration>,
-}
+pub struct DelayTaskFrame<T: 'static>(T, Duration);
 
 impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
     /// Constructs / Creates a new [`DelayTaskFrame`] instance
@@ -78,35 +85,17 @@ impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
     /// - [`TaskFrame`]
     /// - [`DelayTaskFrame`]
     pub fn new(frame: T, delay: Duration) -> Self {
-        DelayTaskFrame {
-            frame,
-            delay,
-            on_delay_start: TaskEvent::new(),
-            on_delay_end: TaskEvent::new(),
-        }
+        DelayTaskFrame(frame, delay)
     }
 }
 
 #[async_trait]
 impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let restricted_ctx = ctx.as_restricted();
-        ctx.emitter
-            .emit(
-                restricted_ctx.clone(),
-                self.on_delay_start.clone(),
-                self.delay,
-            )
-            .await;
-        tokio::time::sleep(self.delay).await;
-        ctx.emitter
-            .emit(
-                restricted_ctx.clone(),
-                self.on_delay_end.clone(),
-                self.delay,
-            )
-            .await;
-        self.frame.execute(ctx.clone()).await
+        ctx.emit::<OnDelayStart>(&self.1).await;
+        tokio::time::sleep(self.1).await;
+        ctx.emit::<OnDelayEnd>(&self.1).await;
+        self.0.execute(ctx.clone()).await
     }
 }
 
@@ -117,8 +106,8 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DelayTaskFrame<T> {
     }
 
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = PersistenceUtils::serialize_persistent(&self.frame).await?;
-        let delay = PersistenceUtils::serialize_field(self.delay)?;
+        let frame = PersistenceUtils::serialize_persistent(&self.0).await?;
+        let delay = PersistenceUtils::serialize_field(self.1)?;
         Ok(SerializedComponent::new::<Self>(json!({
             "wrapped_frame": frame,
             "delay": delay

@@ -1,11 +1,24 @@
+use crate::task::TaskHookEvent;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{TaskContext, TaskError, TaskFrame};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
+use serde::{Serialize, Deserialize};
+use crate::define_event;
+
+define_event!(
+    /// # Event Triggering
+    /// [`OnTimeout`] is triggered when the [`TimeoutTaskFrame`] sees
+    /// the wrapped [`TaskFrame`] has exceeded its maximum duration limit
+    ///
+    /// # See Also
+    /// - [`TimeoutTaskFrame`]
+    OnTimeout, ()
+);
 
 /// Represents a **timeout task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the [`TaskFrame`] hierarchy, providing a timeout mechanism for execution.
@@ -65,9 +78,6 @@ use std::time::Duration;
 pub struct TimeoutTaskFrame<T: 'static> {
     frame: T,
     max_duration: Duration,
-
-    /// Event fired when a timeout occurs (i.e. The [`TaskFrame`] takes longer)
-    pub on_timeout: ArcTaskEvent<()>,
 }
 
 impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
@@ -87,8 +97,7 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
     pub fn new(frame: T, max_duration: Duration) -> Self {
         TimeoutTaskFrame {
             frame,
-            max_duration,
-            on_timeout: TaskEvent::new(),
+            max_duration
         }
     }
 }
@@ -101,9 +110,7 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
         if let Ok(inner) = result {
             return inner;
         }
-        ctx.emitter
-            .emit(ctx.as_restricted(), self.on_timeout.clone(), ())
-            .await;
+        ctx.emit::<OnTimeout>(&()).await;
         Err(Arc::new(std::io::Error::new(
             std::io::ErrorKind::TimedOut,
             "Task timed out",

@@ -1,6 +1,6 @@
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::{Task, TaskError, TaskEventEmitter};
+use crate::task::{Task, TaskError};
 use async_trait::async_trait;
 use serde_json::json;
 use std::fmt::{Debug, Formatter};
@@ -59,7 +59,7 @@ pub trait ScheduleStrategy: Send + Sync {
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
     /// - [`ScheduleStrategy`]
-    async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>);
+    async fn handle(&self, task: Arc<Task>);
 }
 
 #[async_trait]
@@ -68,8 +68,8 @@ where
     S: Deref + Send + Sync,
     S::Target: ScheduleStrategy,
 {
-    async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
-        self.deref().handle(task, emitter).await;
+    async fn handle(&self, task: Arc<Task>) {
+        self.deref().handle(task).await;
     }
 }
 
@@ -90,8 +90,8 @@ pub struct SequentialSchedulingPolicy;
 
 #[async_trait]
 impl ScheduleStrategy for SequentialSchedulingPolicy {
-    async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
-        task.run(emitter).await.ok();
+    async fn handle(&self, task: Arc<Task>) {
+        task.run().await.ok();
     }
 }
 
@@ -127,9 +127,9 @@ pub struct ConcurrentSchedulingPolicy;
 
 #[async_trait]
 impl ScheduleStrategy for ConcurrentSchedulingPolicy {
-    async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
+    async fn handle(&self, task: Arc<Task>) {
         tokio::spawn(async move {
-            task.run(emitter).await.ok();
+            task.run().await.ok();
         });
     }
 }
@@ -201,7 +201,7 @@ impl CancelPreviousSchedulingPolicy {
 
 #[async_trait]
 impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
-    async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
+    async fn handle(&self, task: Arc<Task>) {
         let old_handle = self.0.lock().await.take();
 
         if let Some(handle) = old_handle {
@@ -209,7 +209,7 @@ impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
         }
 
         let curr_handle = tokio::spawn(async move {
-            task.run(emitter).await.ok();
+            task.run().await.ok();
         });
 
         *self.0.lock().await = Some(curr_handle);
@@ -278,7 +278,7 @@ impl CancelCurrentSchedulingPolicy {
 
 #[async_trait]
 impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
-    async fn handle(&self, task: Arc<Task>, emitter: Arc<TaskEventEmitter>) {
+    async fn handle(&self, task: Arc<Task>) {
         let is_free = &self.0;
         if !is_free.load(Ordering::Relaxed) {
             return;
@@ -286,7 +286,7 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
         is_free.store(false, Ordering::Relaxed);
         let is_free_clone = is_free.clone();
         tokio::spawn(async move {
-            task.run(emitter).await.ok();
+            task.run().await.ok();
             is_free_clone.store(true, Ordering::Relaxed);
         });
     }

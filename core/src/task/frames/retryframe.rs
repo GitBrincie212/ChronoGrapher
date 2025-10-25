@@ -1,6 +1,6 @@
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
-use crate::task::{ArcTaskEvent, TaskContext, TaskError, TaskEvent, TaskFrame};
+use crate::task::{TaskContext, TaskError, TaskHookEvent, TaskFrame};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,7 @@ use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::define_event;
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -192,6 +193,27 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
     }
 }
 
+define_event!(
+    /// # Event Triggering
+    /// [`OnRetryAttemptStart`] is triggered when the [`RetriableTaskFrame`] is attempting
+    /// to retry executing the wrapped [`TaskFrame`] in an effort to see if it succeeds or fails
+    ///
+    /// # See Also
+    /// - [`RetriableTaskFrame`]
+    OnRetryAttemptStart, (u32, Arc<dyn TaskFrame>)
+);
+
+define_event!(
+    /// # Event Triggering
+    /// [`OnRetryAttemptEnd`] is triggered when the [`RetriableTaskFrame`] has attempted
+    /// to retry executing the wrapped [`TaskFrame`] and the results came in (i.e. A potential
+    /// error from the execution)
+    ///
+    /// # See Also
+    /// - [`RetriableTaskFrame`]
+    OnRetryAttemptEnd, (u32, Arc<dyn TaskFrame>, Option<TaskError>)
+);
+
 /// Represents a **retriable task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the task frame hierarchy, providing a retry mechanism for execution.
 ///
@@ -252,15 +274,6 @@ pub struct RetriableTaskFrame<T: 'static, T2: RetryBackoffStrategy = ConstantBac
     frame: Arc<T>,
     retries: NonZeroU32,
     backoff_strat: T2,
-
-    /// Event fired when a retry occurs for the wrapped [`TaskFrame`],
-    /// hosting the wrapped [`TaskFrame`] instance
-    pub on_retry_start: ArcTaskEvent<(u32, Arc<T>)>,
-
-    /// Event fired when a retry ends for the wrapped [`TaskFrame`],
-    /// hosting the wrapped [`TaskFrame`] instance as well as an option error
-    /// it may have thrown
-    pub on_retry_end: ArcTaskEvent<(u32, Arc<T>, Option<TaskError>)>,
 }
 
 impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
@@ -282,8 +295,6 @@ impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
             frame: Arc::new(frame),
             retries,
             backoff_strat: ConstantBackoffStrategy::new(delay),
-            on_retry_end: TaskEvent::new(),
-            on_retry_start: TaskEvent::new(),
         }
     }
 
@@ -327,8 +338,6 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2>
             frame: Arc::new(task),
             retries,
             backoff_strat,
-            on_retry_end: TaskEvent::new(),
-            on_retry_start: TaskEvent::new(),
         }
     }
 }
@@ -337,38 +346,17 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2>
 impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
-        let restricted_context = ctx.as_restricted();
         for retry in 0u32..self.retries.get() {
-            if retry != 0 {
-                ctx.emitter
-                    .emit(
-                        restricted_context.clone(),
-                        self.on_retry_start.clone(),
-                        (retry, self.frame.clone()),
-                    )
-                    .await;
-            }
+            ctx.emit::<OnRetryAttemptStart>(&(retry, self.frame.clone())).await;
             let result = self.frame.execute(ctx.clone()).await;
             match result {
                 Ok(_) => {
-                    ctx.emitter
-                        .emit(
-                            restricted_context.clone(),
-                            self.on_retry_end.clone(),
-                            (retry, self.frame.clone(), None),
-                        )
-                        .await;
+                    ctx.emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), None)).await;
                     return Ok(());
                 }
                 Err(err) => {
                     error = Some(err.clone());
-                    ctx.emitter
-                        .emit(
-                            restricted_context.clone(),
-                            self.on_retry_end.clone(),
-                            (retry, self.frame.clone(), error.clone()),
-                        )
-                        .await;
+                    ctx.emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), error.clone())).await;
                 }
             }
             let delay = self.backoff_strat.compute(retry).await;

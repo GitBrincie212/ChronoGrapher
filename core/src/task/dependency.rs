@@ -54,13 +54,13 @@ use crate::task::DependencyTaskFrame;
 /// run count has surpassed the maximum threshold
 ///
 /// # Extension Trait(s)
-/// Currently [`FrameDependency`] has 2 extension traits for managing manual resolving and
+/// Currently [`FrameDependency`] has 2 hooks traits for managing manual resolving and
 /// unresolving of a [`FrameDependency`] those being [`ResolvableFrameDependency`] and
 /// [`UnresolvableFrameDependency`] respectively. The former is for automatic resolving of
 /// a dependency while the latter is effectively resetting the frame dependency to not resolved
 ///
 /// The reason these are 2 separate traits is due to the fact, some dependencies can be
-/// manually resolved but not unresolved or the opposite. They are also extension traits because
+/// manually resolved but not unresolved or the opposite. They are also hooks traits because
 /// some dependencies may not allow manual resolve or manual unresolve, instead, handling it themselves
 ///
 /// # Object Safety
@@ -166,7 +166,7 @@ where
 ///
 /// # Supertrait(s)
 /// For implementing this trait, one has to also implement the [`FrameDependency`] since
-/// this is an extension of a dependency to allow resolving it manually
+/// this is an hooks of a dependency to allow resolving it manually
 ///
 /// # Trait Implementation(s)
 /// Specifically, there are 3 dependencies which implement [`ResolvableFrameDependency`], those being:
@@ -199,7 +199,7 @@ pub trait ResolvableFrameDependency: FrameDependency {
 ///
 /// # Supertrait(s)
 /// For implementing this trait, one has to also implement the [`FrameDependency`] since
-/// this is an extension of a dependency to allow unresolving it manually
+/// this is an hooks of a dependency to allow unresolving it manually
 ///
 /// # Trait Implementation(s)
 /// Specifically, there are 3 dependencies which implement [`UnresolvableFrameDependency`], those being:

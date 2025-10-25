@@ -1,7 +1,4 @@
-use crate::task::{
-    ArcTaskEvent, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure, TaskContext,
-    TaskError, TaskEvent, TaskFrame,
-};
+use crate::task::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure, OnChildEnd, OnChildStart, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -79,12 +76,6 @@ use crate::task::ParallelTaskFrame;
 pub struct SequentialTaskFrame {
     tasks: Vec<Arc<dyn TaskFrame>>,
     policy: Arc<dyn GroupedTaskFramesExecBehavior>,
-
-    /// Event fired for when a child [`TaskFrame`] starts execution
-    pub on_child_start: ArcTaskEvent<Arc<dyn TaskFrame>>,
-
-    /// Event fired for when a child [`TaskFrame`] has ended execution
-    pub on_child_end: ArcTaskEvent<(Arc<dyn TaskFrame>, Option<TaskError>)>,
 }
 
 impl SequentialTaskFrame {
@@ -136,8 +127,6 @@ impl SequentialTaskFrame {
         Self {
             tasks,
             policy: Arc::new(sequential_policy),
-            on_child_end: TaskEvent::new(),
-            on_child_start: TaskEvent::new(),
         }
     }
 }
@@ -145,25 +134,10 @@ impl SequentialTaskFrame {
 #[async_trait]
 impl TaskFrame for SequentialTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let restricted_context = ctx.as_restricted();
         for task in self.tasks.iter() {
-            ctx.emitter
-                .clone()
-                .emit(
-                    restricted_context.clone(),
-                    self.on_child_start.clone(),
-                    task.clone(),
-                )
-                .await;
+            ctx.emit::<OnChildStart>(task.as_ref()).await;
             let result = task.execute(ctx.clone()).await;
-            ctx.emitter
-                .clone()
-                .emit(
-                    restricted_context.clone(),
-                    self.on_child_end.clone(),
-                    (task.clone(), result.clone().err()),
-                )
-                .await;
+            ctx.emit::<OnChildEnd>(&(task.clone(), result.clone().err())).await;
             let should_quit = self.policy.should_quit(result).await;
             if let Some(res) = should_quit {
                 return res;
