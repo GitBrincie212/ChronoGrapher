@@ -28,8 +28,6 @@ one specific thing. Use the special sections wisely for documentation:
 
 ## Struct Documentation Sections
 This has to do with documentation on a ``struct`` specifically (**NOT** its methods):
-- ``# Example`` For example(s) section, list relevant simple examples, it must be used for any complex systems, 
-    One should always start from simplest to more complex **(MUST)**
 - ``# Implementation Detail(s)``  In case it is needed to explain the way the struct is implemented. This should be
   used sparingly and shouldn't be the main focus **(OPTIONAL)**
 - ``# Struct Field(s)`` It is used to describe some of the non-internal fields (non-internal fields can count
@@ -49,8 +47,6 @@ This has to do with documentation on builder pattern, <u>specifically the builde
 
 ## Enum Documentation Sections
 This has to do with documentation on ``enum`` specifically (**NOT** its methods):
-- ``# Example`` For example(s) section, list relevant simple examples, it must be used for any complex systems,
-  One should always start from simplest to more complex **(MUST)**
 - ``# Variants`` Demonstrates the various variants this enum has, what they are, how do they function, what they
     represent and so on so fourth **(MUST)**
 - ``# Implementation Detail(s)``  In case it is needed to explain the way the struct is implemented. This should be
@@ -86,6 +82,8 @@ add onto the existing trait **(HIGH RECOMMEND)**
 ## Miscellaneous Documentation Sections
 This has to do with any miscellaneous sections that fit either in many of them or don't fit, these can be used
 anywhere unlike the other documentation sections which are restricted:
+- ``# Example`` For example(s) section, list relevant simple examples, it must be used for any complex systems,
+  One should always start from simplest to more complex **(HIGH RECOMMEND)**
 - ``# See Also`` Lists any relevant ``struct``, ``enum``, ``trait``, ``methods``, ``type-alias``, ``constants``... etc.
 That are either mentioned on the documentation or are recommended to be seen, for using this on methods, list as well the
 parent ``struct``, ``enum`` or ``trait`` **(MUST)**
