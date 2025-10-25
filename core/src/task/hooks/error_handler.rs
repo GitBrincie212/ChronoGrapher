@@ -1,4 +1,4 @@
-use crate::task::{TaskError, TaskMetadata};
+use crate::task::TaskError;
 use async_trait::async_trait;
 use std::sync::Arc;
 

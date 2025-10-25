@@ -1,11 +1,10 @@
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 #[allow(unused_imports)]
-use crate::task::TaskMetadata;
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
-use crate::task::{ObserverField, TaskError};
+use crate::task::TaskError;
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde_json::json;
@@ -116,13 +115,14 @@ where
 /// - [`ResolvableFrameDependency`]
 /// - [`MetadataDependency::new`]
 pub struct MetadataDependency<T: Send + Sync + 'static> {
-    field: ObserverField<T>,
+    field: (), // ObserverField<T>,
     is_resolved: Arc<AtomicBool>,
     resolver: Arc<dyn MetadataDependencyResolver<T>>,
     is_enabled: Arc<AtomicBool>,
 }
 
 impl<T: Send + Sync> MetadataDependency<T> {
+    /*
     /// Creates / Constructs a new [`MetadataDependency`] instance
     ///
     /// # Argument(s)
@@ -159,6 +159,7 @@ impl<T: Send + Sync> MetadataDependency<T> {
 
         slf
     }
+     */
 }
 
 #[async_trait]
@@ -203,7 +204,7 @@ impl<T: Send + Sync + 'static> PersistentObject for MetadataDependency<T> {
     }
 
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let value = PersistenceUtils::serialize_field(self.field.key())?;
+        let value = (); // PersistenceUtils::serialize_field(self.field.key())?;
         let is_enabled =
             PersistenceUtils::serialize_field(self.is_enabled.load(Ordering::Relaxed))?;
         let is_resolved =
