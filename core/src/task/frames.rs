@@ -87,7 +87,7 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - [`TaskPriority`]
 /// - [`TaskEventEmitter`]
 #[derive(Clone)]
-pub struct TaskContext<const RESTRICTED: bool = false> {
+pub struct TaskContext {
     hooks_container: Arc<TaskHookContainer>,
     priority: TaskPriority,
     runs: u64,
@@ -96,7 +96,7 @@ pub struct TaskContext<const RESTRICTED: bool = false> {
     id: Uuid,
 }
 
-impl<const T: bool> Debug for TaskContext<T> {
+impl Debug for TaskContext {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TaskContext")
             .field("priority", &self.priority)
@@ -107,7 +107,7 @@ impl<const T: bool> Debug for TaskContext<T> {
     }
 }
 
-impl<const T: bool> TaskContext<T> {
+impl TaskContext {
     /// Constructs / Creates a new [`TaskContext`] instance based for use inside [`TaskFrame`],
     /// unlike most constructors, this mechanism is sealed and accessible only in the library's
     /// internal code
@@ -127,7 +127,7 @@ impl<const T: bool> TaskContext<T> {
     /// - [`TaskContext`]
     pub(crate) fn new(task: &Task) -> Arc<Self> {
         Arc::new(Self {
-            hooks_container: task.hooks,
+            hooks_container: task.hooks.clone(),
             priority: task.priority,
             runs: task.runs.load(Ordering::Relaxed),
             debug_label: task.debug_label.clone(),
@@ -180,9 +180,7 @@ impl<const T: bool> TaskContext<T> {
     pub fn max_runs(&self) -> Option<NonZeroU64> {
         self.max_runs
     }
-}
 
-impl TaskContext {
     /// Accesses the event emitter field, returning it in the process
     ///
     /// # Returns
@@ -192,20 +190,7 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskEventEmitter`]
     pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload) {
-        emit_event(self.hooks_container.as_ref(), payload).await;
-    }
-
-    /// Restricts this [`TaskContext`] to not be able to access and use the
-    /// [`TaskEventEmitter`]
-    ///
-    /// # Returns
-    /// A restricted variation of this context object that disallows
-    /// event emission
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    pub fn as_restricted(&self) -> &TaskContext {
-        self
+        emit_event::<E>(self.hooks_container.as_ref(), payload).await;
     }
 }
 
