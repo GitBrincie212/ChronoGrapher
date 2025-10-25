@@ -18,7 +18,6 @@ pub use frame_builder::*;
 pub use frames::*;
 pub use hooks::*;
 pub use priority::*;
-use std::any::TypeId;
 
 use crate::scheduling_strats::*;
 use dashmap::DashMap;
@@ -37,12 +36,12 @@ use crate::scheduler::Scheduler;
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task))]
 #[builder(mutators(
-    fn hook<E: TaskHook>(&mut self, hook: impl AsRef<E>){
-        self.0.insert(TypeId::of::<E>(), Arc::new(hook) as Arc<dyn TaskHook>);
+    fn hook<E: TaskHookEvent>(&mut self, hook: Arc<dyn TaskHook<E>>){
+        self.hooks.attach::<E>(hook);
     }
 ))]
 pub struct TaskConfig {
-    #[builder(via_mutators)]
+    #[builder(via_mutators(init = TaskHookContainer(DashMap::default())))]
     hooks: TaskHookContainer,
 
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
@@ -344,11 +343,11 @@ impl Task {
     pub async fn run(&self) -> Result<(), TaskError> {
         let ctx = TaskContext::new(self);
         self.runs.fetch_add(1, Ordering::Relaxed);
-        ctx.emit::<OnTaskStart>(self.as_ref()).await;
+        ctx.emit::<OnTaskStart>(&ctx.clone()).await;
         let result = self.frame.execute(ctx.clone()).await;
         let err = result.clone().err();
 
-        ctx.emit::<OnTaskEnd>(&(self, err)).await;
+        ctx.clone().emit::<OnTaskEnd>(&(ctx, err)).await;
 
         result
     }
@@ -393,16 +392,12 @@ impl Task {
         self.hooks.clone()
     }
 
-    pub async fn attach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self, hook: T) {
+    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
         self.hooks.attach(hook).await;
     }
 
-    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<&T> {
+    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
         self.hooks.get::<E, T>()
-    }
-
-    pub fn get_mut_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<&mut T> {
-        self.hooks.get_mut::<E, T>()
     }
 
     pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self) {
