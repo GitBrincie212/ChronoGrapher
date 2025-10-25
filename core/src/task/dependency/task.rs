@@ -1,7 +1,7 @@
 use crate::persistent_object::PersistentObject;
 use crate::retrieve_registers::RetrieveRegistries;
 use crate::serialized_component::SerializedComponent;
-use crate::task::Debug;
+use crate::task::{Debug, OnTaskEnd, TaskHook, TaskHookEvent};
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
@@ -55,7 +55,7 @@ pub trait TaskResolvent: Send + Sync {
     /// - [`TaskDependency`]
     /// - [`TaskContext`]
     /// - [`TaskResolvent`]
-    async fn should_count(&self, ctx: Arc<TaskContext<true>>, result: Option<TaskError>) -> bool;
+    async fn should_count(&self, ctx: Arc<TaskContext>, result: Option<TaskError>) -> bool;
 }
 
 macro_rules! implement_core_resolvent {
@@ -67,7 +67,7 @@ macro_rules! implement_core_resolvent {
         impl TaskResolvent for $name {
             async fn should_count(
                 &self,
-                ctx: Arc<TaskContext<true>>,
+                ctx: Arc<TaskContext>,
                 result: Option<TaskError>,
             ) -> bool {
                 $code(ctx, result)
@@ -93,11 +93,11 @@ macro_rules! implement_core_resolvent {
 
 implement_core_resolvent!(
     TaskResolveSuccessOnly,
-    (|_ctx: Arc<TaskContext<true>>, result: Option<TaskError>| result.is_none())
+    (|_ctx: Arc<TaskContext>, result: Option<TaskError>| result.is_none())
 );
 implement_core_resolvent!(
     TaskResolveFailureOnly,
-    (|_ctx: Arc<TaskContext<true>>, result: Option<TaskError>| result.is_some())
+    (|_ctx: Arc<TaskContext>, result: Option<TaskError>| result.is_some())
 );
 implement_core_resolvent!(TaskResolveIdentityOnly, (|_, _| true));
 
@@ -155,51 +155,49 @@ pub struct TaskDependencyConfig {
     resolve_behavior: Arc<dyn TaskResolvent>,
 }
 
+struct TaskDependencyTracker {
+    run_count: Arc<AtomicU64>,
+    minimum_runs: NonZeroU64,
+    resolve_behavior: Arc<dyn TaskResolvent>
+}
+
+#[async_trait]
+impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
+    async fn on_event(&self, _event: OnTaskEnd, payload: &<OnTaskEnd as TaskHookEvent>::Payload) {
+        let should_increment = self.resolve_behavior
+            .should_count(payload.0.clone(), payload.1.clone())
+            .await;
+
+        if should_increment {
+            return;
+        }
+
+        self.run_count.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
 impl From<TaskDependencyConfig> for TaskDependency {
     fn from(config: TaskDependencyConfig) -> Self {
-        let slf = Self {
-            task: config.task,
+        let tracker = Arc::new(TaskDependencyTracker {
+            run_count: Arc::new(Default::default()),
             minimum_runs: config.minimum_runs,
-            counter: Arc::new(AtomicU64::new(0)),
-            is_enabled: Arc::new(AtomicBool::new(true)),
             resolve_behavior: config.resolve_behavior,
-        };
+        });
 
-        let counter_clone = slf.counter.clone();
-        let resolve_behavior_clone = slf.resolve_behavior.clone();
-        let task_clone = slf.task.clone();
+        let cloned_task = config.task.clone();
+        let cloned_tracker = tracker.clone();
 
         tokio::task::spawn_blocking(move || {
-            let counter_clone = counter_clone.clone();
-            let resolve_behavior_clone = resolve_behavior_clone.clone();
-            let task_clone = task_clone.clone();
-
             async move {
-                task_clone
-                    .on_end
-                    .subscribe(
-                        move |ctx: Arc<TaskContext<true>>, payload: Arc<Option<TaskError>>| {
-                            let counter_clone = counter_clone.clone();
-                            let resolve_behavior_clone = resolve_behavior_clone.clone();
-                            let payload_cloned = payload.as_ref().clone();
-                            let context_cloned = ctx.clone();
-
-                            async move {
-                                let should_increment = resolve_behavior_clone
-                                    .should_count(context_cloned, payload_cloned)
-                                    .await;
-                                if should_increment {
-                                    return;
-                                }
-                                counter_clone.fetch_add(1, Ordering::Relaxed);
-                            }
-                        },
-                    )
-                    .await;
+                cloned_task.hooks.attach::<OnTaskEnd>(cloned_tracker.as_ref()).await;
             }
         });
 
-        slf
+        Self {
+            task: config.task.clone(),
+            task_dependency_tracker: tracker.clone(),
+            is_enabled: Arc::new(AtomicBool::new(true)),
+        }
     }
 }
 
@@ -254,10 +252,8 @@ impl From<TaskDependencyConfig> for TaskDependency {
 /// - [`UnresolvableFrameDependency`]
 pub struct TaskDependency {
     task: Arc<Task>,
-    minimum_runs: NonZeroU64,
-    counter: Arc<AtomicU64>,
+    task_dependency_tracker: Arc<TaskDependencyTracker>,
     is_enabled: Arc<AtomicBool>,
-    resolve_behavior: Arc<dyn TaskResolvent>,
 }
 
 impl TaskDependency {
@@ -298,7 +294,8 @@ impl TaskDependency {
 #[async_trait]
 impl FrameDependency for TaskDependency {
     async fn is_resolved(&self) -> bool {
-        self.counter.load(Ordering::Relaxed) >= self.minimum_runs.get()
+        self.task_dependency_tracker.run_count.load(Ordering::Relaxed)
+            >= self.task_dependency_tracker.minimum_runs.get()
     }
 
     async fn disable(&self) {
@@ -317,15 +314,15 @@ impl FrameDependency for TaskDependency {
 #[async_trait]
 impl ResolvableFrameDependency for TaskDependency {
     async fn resolve(&self) {
-        self.counter
-            .store(self.minimum_runs.get(), Ordering::Relaxed);
+        self.task_dependency_tracker.run_count
+            .store(self.task_dependency_tracker.minimum_runs.get(), Ordering::Relaxed);
     }
 }
 
 #[async_trait]
 impl UnresolvableFrameDependency for TaskDependency {
     async fn unresolve(&self) {
-        self.counter.store(0, Ordering::Relaxed);
+        self.task_dependency_tracker.run_count.store(0, Ordering::Relaxed);
     }
 }
 
@@ -336,12 +333,18 @@ impl PersistentObject for TaskDependency {
     }
 
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let runs = PersistenceUtils::serialize_field(self.counter.load(Ordering::Relaxed))?;
-        let min_runs = PersistenceUtils::serialize_field(self.minimum_runs.get())?;
+        let runs = PersistenceUtils::serialize_field(
+            self.task_dependency_tracker.run_count.load(Ordering::Relaxed)
+        )?;
+        let min_runs = PersistenceUtils::serialize_field(
+            self.task_dependency_tracker.minimum_runs.get()
+        )?;
         let is_enabled =
             PersistenceUtils::serialize_field(self.is_enabled.load(Ordering::Relaxed))?;
         let task_resolvent =
-            PersistenceUtils::serialize_potential_field(&self.resolve_behavior).await?;
+            PersistenceUtils::serialize_potential_field(
+                &self.task_dependency_tracker.resolve_behavior
+            ).await?;
         let task_id = PersistenceUtils::serialize_field(self.task.id().as_u128())?;
         Ok(SerializedComponent::new::<Self>(json!({
             "counted_runs": runs,
@@ -383,15 +386,17 @@ impl PersistentObject for TaskDependency {
 
         Ok(TaskDependency {
             task: Arc::new(Task), // TODO: Find a way to retrieve a task from its ID
-            minimum_runs: NonZeroU64::new(min_runs).ok_or_else(|| {
-                PersistenceUtils::create_retrieval_error::<u64>(
-                    &repr,
-                    "Minimum number of runs was set to zero",
-                )
-            })?,
-            counter: Arc::new(AtomicU64::new(counted_runs)),
+            task_dependency_tracker: Arc::new(TaskDependencyTracker {
+                minimum_runs: NonZeroU64::new(min_runs).ok_or_else(|| {
+                    PersistenceUtils::create_retrieval_error::<u64>(
+                        &repr,
+                        "Minimum number of runs was set to zero",
+                    )
+                })?,
+                run_count: Arc::new(AtomicU64::new(counted_runs)),
+                resolve_behavior: task_resolvent
+            }),
             is_enabled: Arc::new(AtomicBool::new(is_enabled)),
-            resolve_behavior: task_resolvent,
         })
     }
 }
