@@ -293,9 +293,7 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
 
         for dep in &self.dependencies {
             let persistent_obj = PersistenceUtils::serialize_potential_field(dep.as_ref()).await?;
-
-            let serialized = persistent_obj.persist().await?;
-            dependencies.push(serialized.into_ir());
+            dependencies.push(persistent_obj);
         }
 
         let dependent_fail_behavior = match self.dependent_behaviour.as_persistent().await {
