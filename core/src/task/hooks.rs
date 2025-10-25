@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use crate::define_event;
@@ -268,7 +267,7 @@ impl<'a, E: TaskHookEvent> TaskHookEvent for OnHookDetach<E> {
 /// - [`TaskHookEvent`]
 /// - [`Task`]
 /// - [`TaskFrame`]
-pub struct TaskHookContainer(pub(crate) DashMap<TypeId, DashMap<TypeId, Arc<dyn ErasedTaskHook>>>);
+pub struct TaskHookContainer(pub(crate) DashMap<TypeId, DashMap<TypeId, &'static dyn ErasedTaskHook>>);
 
 impl TaskHookContainer {
     /// Attaches a [`TaskHook`] onto the container, when attached, the [`TaskHook`]
@@ -284,7 +283,7 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach<E: TaskHookEvent>(&self, hook: impl TaskHook<E>) {
+    pub async fn attach<E: TaskHookEvent>(&self, hook: &impl TaskHook<E>) {
         self.0.entry(TypeId::of::<E>())
             .or_default()
             .insert(hook.type_id(), hook);
