@@ -182,23 +182,6 @@ impl Debug for CancelPreviousSchedulingPolicy {
     }
 }
 
-impl CancelPreviousSchedulingPolicy {
-    /// Creates / Constructs a new [`CancelPreviousSchedulingPolicy`] instance and returns it
-    /// for the developer to use throughout their codebase
-    ///
-    /// # Arguments
-    /// No arguments must be supplied
-    ///
-    /// # Returns
-    /// The constructed instance of [`CancelPreviousSchedulingPolicy`]
-    ///
-    /// # See Also
-    /// - [`CancelPreviousSchedulingPolicy`]
-    pub fn new() -> Self {
-        Self(Mutex::new(None))
-    }
-}
-
 #[async_trait]
 impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
     async fn handle(&self, task: Arc<Task>) {
@@ -227,7 +210,7 @@ impl PersistentObject for CancelPreviousSchedulingPolicy {
     }
 
     async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(CancelPreviousSchedulingPolicy::new())
+        Ok(CancelPreviousSchedulingPolicy::default())
     }
 }
 
@@ -259,23 +242,6 @@ impl Debug for CancelCurrentSchedulingPolicy {
     }
 }
 
-impl CancelCurrentSchedulingPolicy {
-    /// Creates / Constructs a new [`CancelCurrentSchedulingPolicy`] instance and returns it
-    /// for the developer to use throughout their codebase
-    ///
-    /// # Arguments
-    /// No arguments must be supplied
-    ///
-    /// # Returns
-    /// The constructed instance of [`CancelCurrentSchedulingPolicy`]
-    ///
-    /// # See Also
-    /// - [`CancelCurrentSchedulingPolicy`]
-    pub fn new() -> Self {
-        Self(Arc::new(AtomicBool::new(true)))
-    }
-}
-
 #[async_trait]
 impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
     async fn handle(&self, task: Arc<Task>) {
@@ -303,6 +269,6 @@ impl PersistentObject for CancelCurrentSchedulingPolicy {
     }
 
     async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(CancelCurrentSchedulingPolicy::new())
+        Ok(CancelCurrentSchedulingPolicy::default())
     }
 }
