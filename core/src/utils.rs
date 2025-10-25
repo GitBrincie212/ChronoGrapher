@@ -6,7 +6,7 @@ use chrono::{DateTime, Local, TimeZone};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Map;
-use std::any::{type_name, type_name_of_val, Any};
+use std::any::{Any, type_name, type_name_of_val};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -204,7 +204,9 @@ pub(crate) async fn emit_event<E: TaskHookEvent>(
 ) {
     if let Some(entry) = hooks_container.0.get(E::persistence_id()) {
         for hook in entry.value().iter() {
-            hook.value().on_emit(payload as &(dyn Any + Send + Sync)).await;
+            hook.value()
+                .on_emit(payload as &(dyn Any + Send + Sync))
+                .await;
         }
     }
 }

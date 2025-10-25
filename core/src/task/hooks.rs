@@ -5,6 +5,8 @@ use crate::define_event;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
+#[allow(unused_imports)]
+use crate::task::frames::*;
 use crate::utils::emit_event;
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -14,8 +16,6 @@ use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
-#[allow(unused_imports)]
-use crate::task::frames::*;
 
 /// [`TaskHookEvent`] is a trait used for describing [`Task`] or [`TaskFrame`] events for [`TaskHook`]
 /// instances to hook into. It is meant to be implemented in the form of a marker struct. It contains
@@ -314,11 +314,9 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
-        let interested_event_container = self.0
-            .get(E::persistence_id())?;
+        let interested_event_container = self.0.get(E::persistence_id())?;
 
-        let entry = interested_event_container
-            .get(&TypeId::of::<T>())?;
+        let entry = interested_event_container.get(&TypeId::of::<T>())?;
 
         let entry = entry.value();
 
