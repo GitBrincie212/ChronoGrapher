@@ -1,17 +1,17 @@
 #[allow(missing_docs)]
-pub mod dynamic;  // skipcq: RS-D1001
+pub mod dynamic; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod flag;  // skipcq: RS-D1001
+pub mod flag; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod logical;  // skipcq: RS-D1001
+pub mod logical; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod metadata;  // skipcq: RS-D1001
+pub mod metadata; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod task;  // skipcq: RS-D1001
+pub mod task; // skipcq: RS-D1001
 
 pub use dynamic::*;
 pub use flag::*;

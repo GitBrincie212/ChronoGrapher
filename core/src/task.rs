@@ -1,17 +1,17 @@
 #[allow(missing_docs)]
-pub mod dependency;  // skipcq: RS-D1001
+pub mod dependency; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod frames;  // skipcq: RS-D1001
+pub mod frames; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod priority;  // skipcq: RS-D1001
+pub mod priority; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod frame_builder;  // skipcq: RS-D1001
+pub mod frame_builder; // skipcq: RS-D1001
 
 #[allow(missing_docs)]
-pub mod hooks;  // skipcq: RS-D1001
+pub mod hooks; // skipcq: RS-D1001
 
 pub use crate::schedule::*;
 pub use frame_builder::*;

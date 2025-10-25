@@ -1,5 +1,5 @@
 #[allow(missing_docs)]
-pub mod default;  // skipcq: RS-D1001
+pub mod default; // skipcq: RS-D1001
 
 pub use default::*;
 use std::fmt::Debug;

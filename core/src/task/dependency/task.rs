@@ -1,10 +1,10 @@
 use crate::persistent_object::PersistentObject;
 use crate::retrieve_registers::RetrieveRegistries;
 use crate::serialized_component::SerializedComponent;
-use crate::task::{Debug, OnTaskEnd, TaskHook, TaskHookEvent};
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
+use crate::task::{Debug, OnTaskEnd, TaskHook, TaskHookEvent};
 use crate::task::{Task, TaskContext, TaskError};
 use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
@@ -65,11 +65,7 @@ macro_rules! implement_core_resolvent {
 
         #[async_trait]
         impl TaskResolvent for $name {
-            async fn should_count(
-                &self,
-                ctx: Arc<TaskContext>,
-                result: Option<TaskError>,
-            ) -> bool {
+            async fn should_count(&self, ctx: Arc<TaskContext>, result: Option<TaskError>) -> bool {
                 $code(ctx, result)
             }
         }
@@ -158,13 +154,14 @@ pub struct TaskDependencyConfig {
 struct TaskDependencyTracker {
     run_count: Arc<AtomicU64>,
     minimum_runs: NonZeroU64,
-    resolve_behavior: Arc<dyn TaskResolvent>
+    resolve_behavior: Arc<dyn TaskResolvent>,
 }
 
 #[async_trait]
 impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
     async fn on_event(&self, _event: OnTaskEnd, payload: &<OnTaskEnd as TaskHookEvent>::Payload) {
-        let should_increment = self.resolve_behavior
+        let should_increment = self
+            .resolve_behavior
             .should_count(payload.0.clone(), payload.1.clone())
             .await;
 
@@ -187,10 +184,8 @@ impl From<TaskDependencyConfig> for TaskDependency {
         let cloned_task = config.task.clone();
         let cloned_tracker = tracker.clone();
 
-        tokio::task::spawn_blocking(move || {
-            async move {
-                cloned_task.hooks.attach::<OnTaskEnd>(cloned_tracker).await;
-            }
+        tokio::task::spawn_blocking(move || async move {
+            cloned_task.hooks.attach::<OnTaskEnd>(cloned_tracker).await;
         });
 
         Self {
@@ -294,7 +289,9 @@ impl TaskDependency {
 #[async_trait]
 impl FrameDependency for TaskDependency {
     async fn is_resolved(&self) -> bool {
-        self.task_dependency_tracker.run_count.load(Ordering::Relaxed)
+        self.task_dependency_tracker
+            .run_count
+            .load(Ordering::Relaxed)
             >= self.task_dependency_tracker.minimum_runs.get()
     }
 
@@ -314,15 +311,19 @@ impl FrameDependency for TaskDependency {
 #[async_trait]
 impl ResolvableFrameDependency for TaskDependency {
     async fn resolve(&self) {
-        self.task_dependency_tracker.run_count
-            .store(self.task_dependency_tracker.minimum_runs.get(), Ordering::Relaxed);
+        self.task_dependency_tracker.run_count.store(
+            self.task_dependency_tracker.minimum_runs.get(),
+            Ordering::Relaxed,
+        );
     }
 }
 
 #[async_trait]
 impl UnresolvableFrameDependency for TaskDependency {
     async fn unresolve(&self) {
-        self.task_dependency_tracker.run_count.store(0, Ordering::Relaxed);
+        self.task_dependency_tracker
+            .run_count
+            .store(0, Ordering::Relaxed);
     }
 }
 
@@ -334,17 +335,18 @@ impl PersistentObject for TaskDependency {
 
     async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         let runs = PersistenceUtils::serialize_field(
-            self.task_dependency_tracker.run_count.load(Ordering::Relaxed)
+            self.task_dependency_tracker
+                .run_count
+                .load(Ordering::Relaxed),
         )?;
-        let min_runs = PersistenceUtils::serialize_field(
-            self.task_dependency_tracker.minimum_runs.get()
-        )?;
+        let min_runs =
+            PersistenceUtils::serialize_field(self.task_dependency_tracker.minimum_runs.get())?;
         let is_enabled =
             PersistenceUtils::serialize_field(self.is_enabled.load(Ordering::Relaxed))?;
-        let task_resolvent =
-            PersistenceUtils::serialize_potential_field(
-                &self.task_dependency_tracker.resolve_behavior
-            ).await?;
+        let task_resolvent = PersistenceUtils::serialize_potential_field(
+            &self.task_dependency_tracker.resolve_behavior,
+        )
+        .await?;
         let task_id = PersistenceUtils::serialize_field(self.task.id().as_u128())?;
         Ok(SerializedComponent::new::<Self>(json!({
             "counted_runs": runs,
@@ -394,7 +396,7 @@ impl PersistentObject for TaskDependency {
                     )
                 })?,
                 run_count: Arc::new(AtomicU64::new(counted_runs)),
-                resolve_behavior: task_resolvent
+                resolve_behavior: task_resolvent,
             }),
             is_enabled: Arc::new(AtomicBool::new(is_enabled)),
         })
