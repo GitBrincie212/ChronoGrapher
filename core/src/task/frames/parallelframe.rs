@@ -151,11 +151,11 @@ impl TaskFrame for ParallelTaskFrame {
                         s.spawn(move || {
                             tokio::spawn(async move {
                                 context_clone
-                                    .emit::<OnChildStart>(frame_clone.as_ref())
+                                    .emit::<OnChildEnd>(&frame_clone)
                                     .await;
                                 let result = frame_clone.execute(context_clone.clone()).await;
                                 context_clone
-                                    .emit::<OnChildEnd>(&(frame_clone, result.err().clone()))
+                                    .emit::<OnChildEnd>(&(frame_clone, result.clone().err()))
                                     .await;
                                 let _ = result_tx.send(result);
                             })
