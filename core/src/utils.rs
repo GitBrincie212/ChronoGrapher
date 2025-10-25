@@ -1,16 +1,15 @@
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
 use crate::serialized_component::SerializedComponent;
-use crate::task::{TaskError, TaskHook, TaskHookContainer, TaskHookEvent};
+use crate::task::{TaskError, TaskHookContainer, TaskHookEvent};
 use chrono::{DateTime, Local, TimeZone};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Map;
-use std::any::{TypeId, type_name, type_name_of_val};
+use std::any::{type_name, type_name_of_val, Any};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::task::JoinSet;
 
 pub struct PersistenceUtils(());
 
@@ -203,17 +202,9 @@ pub(crate) async fn emit_event<E: TaskHookEvent>(
     hooks_container: &TaskHookContainer,
     payload: &E::Payload,
 ) {
-    let hooks = hooks_container
-        .0
-        .get(&TypeId::of::<E>())
-        .map(|x| x.value())
-        .unwrap_or_default();
-
-    let mut set = JoinSet::new();
-
-    for hook in hooks {
-        set.spawn(hook.on_emit(&payload));
+    if let Some(entry) = hooks_container.0.get(E::persistence_id()) {
+        for hook in entry.value().iter() {
+            hook.value().on_emit(payload as &(dyn Any + Send + Sync)).await;
+        }
     }
-
-    set.join_all().await;
 }
