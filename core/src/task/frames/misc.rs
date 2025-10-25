@@ -1,3 +1,7 @@
+use crate::task::TaskHookEvent;
+use serde::Deserialize;
+use serde::Serialize;
+use std::sync::Arc;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
@@ -5,6 +9,7 @@ use crate::task::TaskError;
 use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
 use async_trait::async_trait;
 use serde_json::json;
+use crate::define_event;
 
 /// [`GroupedTaskFrameExecBehavior`] is a mechanism used in conjunction with [`ParallelTaskFrame`]
 /// and [`SequentialTaskFrame`] **(we call them grouped task frames)**, it defines the behavior for
@@ -170,3 +175,25 @@ impl PersistentObject for GroupedTaskFramesSilent {
         Ok(GroupedTaskFramesSilent)
     }
 }
+
+define_event!(
+    /// # Event Triggering
+    /// [`OnChildStart`] is triggered when the [`ParallelTaskFrame`]'s / [`SequentialTaskFrame`]
+    /// wrapped child [`TaskFrame`] started its execution
+    ///
+    /// # See Also
+    /// - [`ParallelTaskFrame`]
+    /// - [`SequentialTaskFrame`]
+    OnChildStart, Arc<dyn TaskFrame>
+);
+
+define_event!(
+    /// # Event Triggering
+    /// [`OnChildStart`] is triggered when the [`ParallelTaskFrame`]'s / [`SequentialTaskFrame`]
+    /// wrapped child [`TaskFrame`] ended its execution with a potential error
+    ///
+    /// # See Also
+    /// - [`ParallelTaskFrame`]
+    /// - [`SequentialTaskFrame`]
+    OnChildEnd, (Arc<dyn TaskFrame>, Option<TaskError>)
+);
