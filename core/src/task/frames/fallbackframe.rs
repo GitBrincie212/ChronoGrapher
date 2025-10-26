@@ -106,7 +106,9 @@ where
         let primary_result = self.0.execute(ctx.clone()).await;
         match primary_result {
             Err(err) => {
-                ctx.clone().emit::<OnFallbackEvent>(&(self.1.clone(), err)).await;
+                ctx.clone()
+                    .emit::<OnFallbackEvent>(&(self.1.clone(), err))
+                    .await;
                 self.1.execute(ctx).await
             }
             res => res,
