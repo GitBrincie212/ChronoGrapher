@@ -30,13 +30,8 @@ use crate::scheduler::Scheduler;
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task))]
-#[builder(mutators(
-    fn hook<E: TaskHookEvent>(&mut self, hook: Arc<dyn TaskHook<E>>){
-        self.hooks.attach::<E>(hook);
-    }
-))]
 pub struct TaskConfig {
-    #[builder(via_mutators(init = TaskHookContainer(DashMap::default())))]
+    #[builder(default = TaskHookContainer(DashMap::default()))]
     hooks: TaskHookContainer,
 
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
@@ -338,11 +333,11 @@ impl Task {
     pub async fn run(&self) -> Result<(), TaskError> {
         let ctx = TaskContext::new(self);
         self.runs.fetch_add(1, Ordering::Relaxed);
-        ctx.emit::<OnTaskStart>(&ctx.clone()).await;
+        ctx.clone().emit::<OnTaskStart>(&()).await;
         let result = self.frame.execute(ctx.clone()).await;
         let err = result.clone().err();
 
-        ctx.clone().emit::<OnTaskEnd>(&(ctx, err)).await;
+        ctx.emit::<OnTaskEnd>(&err).await;
 
         result
     }
@@ -388,14 +383,21 @@ impl Task {
     }
 
     pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
-        self.hooks.attach(hook).await;
+        let ctx = TaskContext::new(self);
+        self.hooks.attach(ctx, hook).await;
     }
 
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
         self.hooks.get::<E, T>()
     }
 
-    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self) {
-        self.hooks.detach::<E, T>().await;
+    pub async fn emit_hook_event<E: TaskHookEvent>(&self, payload: &E::Payload) {
+        let ctx = TaskContext::new(self);
+        self.hooks.emit::<E>(ctx, payload).await;
+    }
+
+    pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
+        let ctx = TaskContext::new(self);
+        self.hooks.detach::<E, T>(ctx).await;
     }
 }
