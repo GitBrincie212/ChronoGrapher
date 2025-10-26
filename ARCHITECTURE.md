@@ -24,26 +24,29 @@ use the underlying composites
 ![Task Abstraction Map](assets/Task%20Abstraction.png) <br />
 Task is the most in-depth compared to the scheduler and is broken down to several parts to ensure
 extensibility. Mainly being:
-- **TaskMetadata** This is a container for wrapping relevant dynamic state the task needs to track throughout its
-lifetime. It is mostly a reactive container where fields are wrapped via ``ObservableField`` which other
-code pieces can listen to upcoming changes to the value
+- **TaskFrame** This is a trait for the main unit of execution, it is also the second most flexible out of all other composites
+for tasks. The power comes from composing **TaskFrame Chains** where TaskFrames wrap other TaskFrames, creating a tree 
+hierarchy form, each TaskFrame influences the wrapped result depending on its order, configuration... etc. TaskFrames can
+work with another system called TaskHooks
 <br /> <br />
-- **TaskFrame** This is a trait for the main unit of execution, it is also one of the most flexible out of all other composites
-for tasks. It contains <u>lifecycle task events</u> (start and end more specifically) and <u>local task frame events</u>
-(they depend on the type of task frame), task frames can also be wrapped by other task frames (which will be explained soon)
+- **TaskHooks** This is also a trait, by far the most extensible composite Task has to offer, while not necessarily 
+required, it enhances a Task by observing behavior / events from one or multiple of these categories:
+    1. **Lifecycle Task Events** For when a task starts and when it ends
+    2. **TaskHook Events** For when a task hook is attached and detached 
+    3. **Local TaskFrame Events** For when a retry attempt starts, a timeout occurs... etc.
+
+    The main gimmick of TaskHooks is they are independent entities from TaskFrame, they are not required,
+    in fact, they are optional enhancements. TaskFrames can work with the system too, by attaching/detaching their own
+    hooks and even getting a specific TaskHook instance. TaskHooks can also work in harmony 
 <br /> <br />
 - **TaskSchedule** This is a trait which computes the next time the task shall be executed, it is called when the scheduler
 requests a <u>reschedule</u> and it can be non-deterministic (via an implementation of the trait)
-<br /> <br />
-- **TaskErrorHandler** A simple handler that is called when the task fails, it is mainly used to handle stuff such
-as closing database connections, cleaning up... etc. By default, it silently ignores the error, which can be changed by
-implementing the trait
 <br /> <br />
 - **TaskPriority** It is a simple enum dictating the importance of the task, the more importance, the greater the chances
 for it to execute exactly on time (of course, under heavy workflow shall be used). This is the only composite which cannot
 be extended
 <br /> <br />
-- **SchedulerStrategy** This trait tells how to handle rescheduling and tasks of the same instance being overlapped, 
+- **TaskScheduleStrategy** This trait tells how to handle rescheduling and tasks of the same instance being overlapped, 
 should it be rescheduled when completed? Should it cancel the previous running task then run this current?
 
 ## Scheduler Hierarchy
@@ -69,7 +72,7 @@ The loop of the scheduler is simple:
 - Repeat this process for every other task
 
 # TaskFrame Chains
-The ``TaskFrame`` trait is the most flexible composite, one of its killer features is the wrapping of multiple task frames
+The ``TaskFrame`` trait is the second most flexible composite, one of its killer features is the wrapping of multiple task frames
 to create complex execution mechanisms and reuse them throughout other tasks. There are 2 approaches to building a chain:
 
 **TaskFrameBuilder:** By far the simplest way but limited to default task frame implementations and can't
