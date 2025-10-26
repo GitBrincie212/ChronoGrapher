@@ -7,7 +7,6 @@ use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
-use crate::utils::emit_event;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -134,7 +133,7 @@ impl<T: TaskHookEvent> PersistentObject for T {
 /// - [`TaskFrame`]
 #[async_trait]
 pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
-    async fn on_event(&self, event: E, payload: &E::Payload);
+    async fn on_event(&self, event: E, ctx: Arc<TaskContext>, payload: &E::Payload);
 }
 
 #[derive(Clone)]
@@ -142,18 +141,18 @@ struct ErasedTaskHookWrapper<E: TaskHookEvent>(Arc<dyn TaskHook<E>>, PhantomData
 
 #[async_trait]
 pub trait ErasedTaskHook: Send + Sync {
-    async fn on_emit(&self, payload: &(dyn Any + Send + Sync));
+    async fn on_emit(&self, ctx: Arc<TaskContext>, payload: &(dyn Any + Send + Sync));
     fn as_arc_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }
 
 #[async_trait]
 impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
-    async fn on_emit(&self, payload: &(dyn Any + Send + Sync)) {
+    async fn on_emit(&self, ctx: Arc<TaskContext>, payload: &(dyn Any + Send + Sync)) {
         let payload = payload
             .downcast_ref::<E::Payload>()
             .expect("Invalid payload type passed to TaskHook");
 
-        self.0.on_event(E::default(), payload).await;
+        self.0.on_event(E::default(), ctx, payload).await;
     }
 
     fn as_arc_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
@@ -163,12 +162,12 @@ impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
 
 define_event!(
     /// # See Also
-    OnTaskStart, Arc<TaskContext>
+    OnTaskStart, ()
 );
 
 define_event!(
     /// # See Also
-    OnTaskEnd, (Arc<TaskContext>, Option<TaskError>)
+    OnTaskEnd, Option<TaskError>
 );
 
 /// [`OnHookAttach`] is an implementation of [`TaskHookEvent`] (a system used closely with,
@@ -292,7 +291,7 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
+    pub async fn attach<E: TaskHookEvent>(&self, ctx: Arc<TaskContext>, hook: Arc<dyn TaskHook<E>>) {
         let hook_id = hook.type_id();
         let hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook, PhantomData));
 
@@ -300,7 +299,7 @@ impl TaskHookContainer {
             .entry(E::persistence_id())
             .or_default()
             .insert(hook_id, hook);
-        emit_event::<OnHookAttach<E>>(self, &E::default()).await;
+        self.emit::<OnHookAttach<E>>(ctx, &E::default()).await;
     }
 
     /// Gets the [`TaskHook`] in the container as immutable,
@@ -332,10 +331,20 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookDetach`]
-    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self) {
+    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: Arc<TaskContext>) {
         self.0
             .get_mut(E::persistence_id())
             .map(|x| x.remove(&TypeId::of::<T>()));
-        emit_event::<OnHookDetach<E>>(self, &E::default()).await;
+        self.emit::<OnHookDetach<E>>(ctx, &E::default()).await;
+    }
+
+    pub async fn emit<E: TaskHookEvent>(&self, ctx: Arc<TaskContext>, payload: &E::Payload) {
+        if let Some(entry) = self.0.get(E::persistence_id()) {
+            for hook in entry.value().iter() {
+                hook.value()
+                    .on_emit(ctx.clone(), payload as &(dyn Any + Send + Sync))
+                    .await;
+            }
+        }
     }
 }
