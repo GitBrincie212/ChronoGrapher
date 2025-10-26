@@ -163,9 +163,13 @@ struct TaskDependencyTracker {
 
 #[async_trait]
 impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
-    async fn on_event(&self, _event: OnTaskEnd, payload: &<OnTaskEnd as TaskHookEvent>::Payload) {
+    async fn on_event(
+        &self, _event: OnTaskEnd,
+        ctx: Arc<TaskContext>,
+        payload: &<OnTaskEnd as TaskHookEvent>::Payload
+    ) {
         let should_increment = self.resolve_behavior
-            .should_count(payload.0.clone(), payload.1.clone())
+            .should_count(ctx.clone(), payload.clone())
             .await;
 
         if should_increment {
@@ -189,7 +193,7 @@ impl From<TaskDependencyConfig> for TaskDependency {
 
         tokio::task::spawn_blocking(move || {
             async move {
-                cloned_task.hooks.attach::<OnTaskEnd>(cloned_tracker).await;
+                cloned_task.attach_hook::<OnTaskEnd>(cloned_tracker).await;
             }
         });
 
