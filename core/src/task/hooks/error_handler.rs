@@ -1,30 +1,10 @@
-use crate::task::TaskError;
-use async_trait::async_trait;
+use std::ops::Deref;
 use std::sync::Arc;
+use crate::task::{OnTaskEnd, TaskContext, TaskError, TaskHook, TaskHookEvent};
+use async_trait::async_trait;
 
 #[allow(unused_imports)]
 use crate::task::Task;
-
-/// A [`TaskErrorContext`] which is sealed and exposes relevant information to [`TaskErrorHandler`]
-///
-/// # Constructor(s)
-/// it cannot be created by outside parties and is handed by the scheduling strategy to control.
-/// The error context contains the error and an exposed set of metadata in which the fields can
-/// be accessed via [`TaskErrorContext::error`] and [`TaskErrorContext::metadata`] respectively
-///
-/// # Struct Field(s)
-/// - **error** The error returned from [`Task`]'s [`TaskFrame`] (when it fails)
-/// - **metadata** The task metadata associated with the [`Task`]
-///
-/// # See Also
-/// - [`Task`]
-/// - [`TaskError`]
-/// - [`TaskMetadata`]
-/// - [`TaskErrorHandler`]
-pub struct TaskErrorContext {
-    pub error: TaskError,
-    pub metadata: Arc<TaskMetadata>,
-}
 
 /// [`TaskErrorHandler`] is a logic part that deals with any errors, it is invoked when a task has
 /// returned an error. It is executed after the `on_end` [`TaskEvent`], the handler returns nothing
@@ -33,12 +13,6 @@ pub struct TaskErrorContext {
 ///
 /// # Trait Implementation(s)
 /// There are 2 noteworthy implementations to list for the [`TaskErrorHandler`], those being:
-/// - [`SilentTaskErrorHandler`] Where it effectively is a no-op, and fully ignores the error,
-///   this is the default option for [`Task`]. **HOWEVER**, just because its default doesn't mean
-///   you should stick with it, for small demos it is fine, but for production environments.
-///   It is more smart and wise to handle the errors gracefully yourself via implementing
-///   the [`TaskErrorHandler`] trait
-///
 /// - [`PanicTaskErrorHandler`] Used mostly for debugging, where it panics if it encounters an error,
 ///   effectively stopping the execution of the program. It also **SHOULD NOT** be used in production
 ///   environments over a manual implementation of [`TaskErrorHandler`]
@@ -53,14 +27,32 @@ pub struct TaskErrorContext {
 /// - [`TaskEvent`]
 /// - [`SilentTaskErrorHandler`]
 #[async_trait]
-pub trait TaskErrorHandler: Send + Sync {
-    async fn on_error(&self, ctx: Arc<TaskErrorContext>);
+pub trait TaskErrorHandler: Send + Sync + 'static {
+    async fn on_error(&self, ctx: Arc<TaskContext>, error: TaskError);
 }
 
 #[async_trait]
-impl<E: TaskErrorHandler + ?Sized> TaskErrorHandler for Arc<E> {
-    async fn on_error(&self, ctx: Arc<TaskErrorContext>) {
-        self.as_ref().on_error(ctx).await;
+impl<T: TaskErrorHandler> TaskHook<OnTaskEnd> for T {
+    async fn on_event(
+        &self,
+        _event: OnTaskEnd,
+        ctx: Arc<TaskContext>,
+        payload: &<OnTaskEnd as TaskHookEvent>::Payload
+    ) {
+        if let Some(err) = payload {
+            self.on_error(ctx.clone(), err.clone()).await;
+        }
+    }
+}
+
+#[async_trait]
+impl<E> TaskErrorHandler for E
+where
+    E: Deref + Send + Sync + 'static,
+    E::Target: TaskErrorHandler
+{
+    async fn on_error(&self, ctx: Arc<TaskContext>, error: TaskError) {
+        self.deref().on_error(ctx, error).await;
     }
 }
 
@@ -83,28 +75,7 @@ pub struct PanicTaskErrorHandler;
 
 #[async_trait]
 impl TaskErrorHandler for PanicTaskErrorHandler {
-    async fn on_error(&self, ctx: Arc<TaskErrorContext>) {
-        panic!("{:?}", ctx.error);
+    async fn on_error(&self, _ctx: Arc<TaskContext>, error: TaskError) {
+        panic!("{:?}", error);
     }
-}
-
-/// An implementation of [`TaskErrorHandler`] to silently ignore errors, in most cases, this
-/// should not be used in production-grade applications as it makes debugging harder. However,
-/// for small demos, or if all the possible errors do not contain any valuable information
-///
-/// # Constructor(s)
-/// One can simply construct an instance by using rust's struct initialization or via
-/// [`PanicTaskErrorHandler::default`] from [`Default`]
-///
-/// # Trait Implementation(s)
-/// [`PanicTaskErrorHandler`] implements [`Default`], [`Clone`] and [`Copy`]
-///
-/// # See Also
-/// - [`Task`]
-/// - [`TaskErrorHandler`]
-pub struct SilentTaskErrorHandler;
-
-#[async_trait]
-impl TaskErrorHandler for SilentTaskErrorHandler {
-    async fn on_error(&self, _ctx: Arc<TaskErrorContext>) {}
 }
