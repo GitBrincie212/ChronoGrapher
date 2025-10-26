@@ -323,11 +323,13 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let result = self.predicate.execute(ctx.clone()).await;
         if result {
-            ctx.emit::<OnTruthyValueEvent>(&(self.frame.clone() as Arc<dyn TaskFrame>))
+            ctx.clone()
+                .emit::<OnTruthyValueEvent>(&(self.frame.clone() as Arc<dyn TaskFrame>))
                 .await;
             return self.frame.execute(ctx).await;
         }
-        ctx.emit::<OnFalseyValueEvent>(&(self.fallback.clone() as Arc<dyn TaskFrame>))
+        ctx.clone()
+            .emit::<OnFalseyValueEvent>(&(self.fallback.clone() as Arc<dyn TaskFrame>))
             .await;
         let result = self.fallback.execute(ctx).await;
         if self.error_on_false && result.is_ok() {

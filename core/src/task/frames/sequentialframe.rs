@@ -138,9 +138,10 @@ impl SequentialTaskFrame {
 impl TaskFrame for SequentialTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         for task in self.tasks.iter() {
-            ctx.emit::<OnChildStart>(task).await;
+            ctx.clone().emit::<OnChildStart>(task).await;
             let result = task.execute(ctx.clone()).await;
-            ctx.emit::<OnChildEnd>(&(task.clone(), result.clone().err()))
+            ctx.clone()
+                .emit::<OnChildEnd>(&(task.clone(), result.clone().err()))
                 .await;
             let should_quit = self.policy.should_quit(result).await;
             if let Some(res) = should_quit {

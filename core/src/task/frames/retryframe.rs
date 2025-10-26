@@ -347,7 +347,8 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
         for retry in 0u32..self.retries.get() {
-            ctx.emit::<OnRetryAttemptStart>(&(retry, self.frame.clone()))
+            ctx.clone()
+                .emit::<OnRetryAttemptStart>(&(retry, self.frame.clone()))
                 .await;
             let result = self.frame.execute(ctx.clone()).await;
             match result {
@@ -358,7 +359,8 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                 }
                 Err(err) => {
                     error = Some(err.clone());
-                    ctx.emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), error.clone()))
+                    ctx.clone()
+                        .emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), error.clone()))
                         .await;
                 }
             }

@@ -179,7 +179,8 @@ impl TaskFrame for SelectTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let idx = self.accessor.select(ctx.clone()).await;
         if let Some(frame) = self.frames.get(idx) {
-            ctx.emit::<OnTaskFrameSelection>(&(idx, frame.clone()))
+            ctx.clone()
+                .emit::<OnTaskFrameSelection>(&(idx, frame.clone()))
                 .await;
             return frame.execute(ctx).await;
         }
