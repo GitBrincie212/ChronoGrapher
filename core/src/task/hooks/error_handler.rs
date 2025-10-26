@@ -1,7 +1,7 @@
-use std::ops::Deref;
-use std::sync::Arc;
 use crate::task::{OnTaskEnd, TaskContext, TaskError, TaskHook, TaskHookEvent};
 use async_trait::async_trait;
+use std::ops::Deref;
+use std::sync::Arc;
 
 #[allow(unused_imports)]
 use crate::task::Task;
@@ -37,7 +37,7 @@ impl<T: TaskErrorHandler> TaskHook<OnTaskEnd> for T {
         &self,
         _event: OnTaskEnd,
         ctx: Arc<TaskContext>,
-        payload: &<OnTaskEnd as TaskHookEvent>::Payload
+        payload: &<OnTaskEnd as TaskHookEvent>::Payload,
     ) {
         if let Some(err) = payload {
             self.on_error(ctx.clone(), err.clone()).await;
@@ -49,7 +49,7 @@ impl<T: TaskErrorHandler> TaskHook<OnTaskEnd> for T {
 impl<E> TaskErrorHandler for E
 where
     E: Deref + Send + Sync + 'static,
-    E::Target: TaskErrorHandler
+    E::Target: TaskErrorHandler,
 {
     async fn on_error(&self, ctx: Arc<TaskContext>, error: TaskError) {
         self.deref().on_error(ctx, error).await;

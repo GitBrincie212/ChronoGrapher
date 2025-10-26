@@ -92,13 +92,9 @@ impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        ctx.clone()
-            .emit::<OnDelayStart>(&self.1)
-            .await;
+        ctx.clone().emit::<OnDelayStart>(&self.1).await;
         tokio::time::sleep(self.1).await;
-        ctx.clone()
-            .emit::<OnDelayEnd>(&self.1)
-            .await;
+        ctx.clone().emit::<OnDelayEnd>(&self.1).await;
         self.0.execute(ctx).await
     }
 }

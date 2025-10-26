@@ -22,7 +22,7 @@ pub mod misc; // skipcq: RS-D1001
 
 pub mod delayframe; // skipcq: RS-D1001
 
-use crate::task::{Task, TaskHookContainer, TaskHookEvent, TaskHook, TaskPriority};
+use crate::task::{Task, TaskHook, TaskHookContainer, TaskHookEvent, TaskPriority};
 use async_trait::async_trait;
 pub use conditionframe::*;
 pub use delayframe::*;
@@ -186,7 +186,7 @@ impl TaskContext {
     /// ergonomic method-alias to the relevant [`TaskHookContainer::attach`] method
     ///
     /// # Arguments
-    /// The method accepts one argument, that being the [`TaskHook`] instance 
+    /// The method accepts one argument, that being the [`TaskHook`] instance
     /// to supply, which will subscribe to the [`TaskHookEvent`]
     ///
     /// # See Also
@@ -214,7 +214,7 @@ impl TaskContext {
     /// # Returns
     /// An optional [`TaskHook`] instance, if it doesn't exist ``None`` is returned,
     /// if it does, then it returns ``Some(TaskHook)``
-    /// 
+    ///
     /// # See Also
     /// - [`TaskContext`]
     /// - [`TaskHook`]

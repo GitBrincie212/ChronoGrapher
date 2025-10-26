@@ -291,7 +291,11 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach<E: TaskHookEvent>(&self, ctx: Arc<TaskContext>, hook: Arc<dyn TaskHook<E>>) {
+    pub async fn attach<E: TaskHookEvent>(
+        &self,
+        ctx: Arc<TaskContext>,
+        hook: Arc<dyn TaskHook<E>>,
+    ) {
         let hook_id = hook.type_id();
         let hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook, PhantomData));
 
