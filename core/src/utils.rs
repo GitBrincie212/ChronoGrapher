@@ -1,12 +1,12 @@
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
 use crate::serialized_component::SerializedComponent;
-use crate::task::{TaskError, TaskHookContainer, TaskHookEvent};
+use crate::task::{TaskError, TaskHookEvent};
 use chrono::{DateTime, Local, TimeZone};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Map;
-use std::any::{Any, type_name, type_name_of_val};
+use std::any::{type_name, type_name_of_val};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -195,18 +195,5 @@ pub(crate) fn date_time_to_system_time(dt: DateTime<impl TimeZone>) -> SystemTim
         UNIX_EPOCH + Duration::from_nanos(duration_since_epoch as u64)
     } else {
         UNIX_EPOCH - Duration::from_nanos((-duration_since_epoch) as u64)
-    }
-}
-
-pub(crate) async fn emit_event<E: TaskHookEvent>(
-    hooks_container: &TaskHookContainer,
-    payload: &E::Payload,
-) {
-    if let Some(entry) = hooks_container.0.get(E::persistence_id()) {
-        for hook in entry.value().iter() {
-            hook.value()
-                .on_emit(payload as &(dyn Any + Send + Sync))
-                .await;
-        }
     }
 }
