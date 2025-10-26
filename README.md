@@ -18,10 +18,10 @@ the license in a nutshell says:
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">What Is ChronoGrapher?</h1>
 
-Dreaming of a **powerful, unopinionated polyglot scheduler**? Chronographer delivers, achieve 
+Dreaming of a **powerful, unopinionated polyglot scheduler**? ChronoGrapher delivers, achieve 
 **Rust-Level Efficiency** while scheduling thousands of tasks across all your projects. 
 With native bindings for Python, Rust, JavaScript/TypeScript, and Java, 
-it combines raw power with incredible ease of use and flexibility via a composition-based architecture
+it combines raw power with incredible ergonomics and flexibility via a composition-based architecture
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">The Architecture Of ChronoGrapher</h1>
@@ -29,13 +29,9 @@ Since Chronographer is a fully featured scheduling / orchestration workflow libr
 features out of the box by default:
 
 ## 🧩 Task Composition
-Instead of thinking a task is just some executable, Chronographer thinks of tasks as components in a group instead, allowing 
+Instead of thinking a task is just some executable. Chronographer thinks of tasks as components in a group instead, allowing 
 the expression and reuse of complex logic easily while also separating concerns and giving overall flexibility, tasks 
-consist of:
-  - ***Task Metadata:*** The <ins>State</ins> of the task, it contains dynamic / runtime fields and is reactive to changes.
-  Outside parties can listen to changes made into a field and be notified accordingly, one can also add other fields to the
-  metadata container. The metadata can be accessed and modified at any point throughout the task's execution and from outside
-  <br /> <br />
+consist of the core components:
   - ***Task Frame:*** The Task Frame is the core embodiment of a task. It defines <ins>What</ins> needs to be done. Think of it 
   as the immutable recipe or the instruction set for a specific unit of work. Task frames can access the metadata of the
   task, task frames can also be decorated / wrapped, allowing for flexibility with minimal boilerplate footprint and code
@@ -48,24 +44,20 @@ consist of:
   should it reschedule the same instance now? Should it do it once the instance finishes execution? Should it cancel
   the previous running task? All these questions are answered by the policy, by default it uses the sequential policy
   <br /> <br />
-  - **Task Error Handler:** This handles errors gracefully when a task fails, it is meant as a recovery from any potential 
-  error, examples include rollbacks, cleanups, state reset management, and so on. While the default error handler used is
-  for silently ignoring them, in production environments it is advised to make your own error handler
-  <br /> <br />
-  - **Task Priority:** Defines the importance of a task. Chronographer offers 5 levels of priority which are
+  - **Task Priority:** Defines the importance of a task. ChronoGrapher offers 5 levels of priority which are
   ``LOW``, ``MEDIUM``, ``HIGH``, ``IMPORTANT``, ``CRITICAL``. These priority levels make Chronographer responsive even under
   heavy workflow, as it optimizes the execution of tasks, as low priority tasks may execute a bit later, whereas critical
   tasks in most scenarios will immediately execute
   <br /> <br />
-  - **Task Dependencies:** While for task frames, you can use ``ParallelTaskFrame`` and ``SequentialTaskFrame`` together,
-  there may be cases where you want Task C to wait for Task A and Task B to finish before scheduling it for execution.
-    Chronographer has this area covered as well. By default, there are no task dependencies for tasks
-  
-## 🔄 Task Behavior And Management
-Fine grain control over task behavior, listening to lifecycle task events or local task frame events, controlling how 
-the task is rescheduled via scheduling strategies, controlling dependencies of a task on **ANY POINT**... etc. 
-Want to dynamically re-schedule, remove or schedule tasks at any point throughout your program? Chronographer has 
-you covered
+  - **TaskHook System:** If the core components are not enough. ChronoGrapher includes an **Extremely Powerful** system
+  called ``TaskHooks``, these have the ability to observe various events and react to them, hold state and even interact
+  with other task hooks. The real power comes from task hooks **being independent of the task's business logic** and
+  can act as an optional enhancement as opposed to a strict requirement, in addition to this, ``TaskFrames`` can also
+  attach onto their respective Task, their **OWN** TaskHooks, get task hook instance and detach TaskHooks as they please
+
+That is it! with these 4 core components (plus priority, tho mostly serves as metadata) of Task, you can shape
+your own tasks, no more boilerplate, no more complexity and no more barricading yourself in unscalable & unmaintainable 
+systems. Your imagination is truly the only barrier
 
 ## 📋 Scheduler Composition
 Just like tasks. Chronographer gives the ability to also restructure schedulers to fit your needs, no need to depend
@@ -94,29 +86,35 @@ Why use Chronographer when other scheduling libraries exist in other programming
 / strength points which you might consider to use Chronographer over other scheduling libraries are:
 <br /> <br />
 
-- **🌐 Multi-language Support:** Chronographer is available in Python, Rust, JavaScript/TypeScript, and Java. 
+1. **🌐 Multi-language Support:** Chronographer is available in Python, Rust, JavaScript/TypeScript, and Java. 
 Switch between languages without rewriting scheduling logic and learning a new framework. No more trying to combat the limitations of different 
-schedulers
+schedulers, one universal scheduler library to rule them all
 <br /> <br />
-- **🛠️ Extensible:** Chronographer's architecture has extensibility in mind, as such you are not restricted to using the
-default implementation of the scheduler, task frames, and even schedules. You can build extensions 
-for Chronographer in your favourite programming language ecosystem
+2. **🛠️ Immeasurable Extensible:** Chronographer's architecture has extensibility in mind, as such you are not restricted to 
+using the default implementation of the scheduler, task frames, and even schedules. You can build extensions 
+for Chronographer in your favourite programming language ecosystem, you can write your own TaskHooks... etc.
 <br /> <br />
-- **↔️ Horizontal Scaling** Chronographer makes it easy and intuitive to scale the scheduling infrastructure horizontally,
-across multiple servers located in multiple regions. Chronographer handles multiple timezones and converting them in-between
+3. **↔️ Horizontal Scaling** Chronographer makes it easy and intuitive to scale the scheduling infrastructure horizontally,
+across multiple servers located in multiple regions. Chronographer handles multiple timezones and converting them in-between,
+while also supporting Kubernetes and other widely used tools in distributed systems 
 <br /> <br />
-- **🚀 Lightweight & Efficient:** Minimal overhead ensures it won’t bloat your project, while still providing reliable 
-timing and execution for thousands of tasks with the power, flexibility and safety of <u>_Rust_</u> under the hood as
-its core.
+4. **🚀 Performance To The Moon:** The core as well as the core extensions are severely optimized to handle multiple
+tasks concurrently. Some optimizations include tickless scheduling, persisting state lazily, keeping an in-memory copy
+of the current program's state, no **D**ependency **A**cyclic **G**raph overhead for tasks that don't need it, and so on so fourth
 <br /> <br />
-- **🔧 Developer-Friendly:** Clear API, intuitive task registration, vast documentation, life shouldn't be harder than
-it needs to be. No complications, no trickery, what you write in code is what you will get in the production environment
+5. **💾 Undeterred Durability:** ChronoGrapher offers near deterministic durability. The way the state is managed, the way
+the execution state is kept and the persistence system as a whole makes it possible to store on disk the entire state
+of the scheduler and restore it after a shutdown as if the program simply paused
+<br /> <br />
+6. **🔧 Developer-Friendly:** Clear API, intuitive task registration, vast documentation. The design of ChronoGrapher is 
+simplicity and minimalism above all, life shouldn't be harder than it needs to be. No complications, no trickery, what you 
+write in code is what you will get in the production environment
 <br /><br />
-- **⏰ Millisecond Precision:** Chronographer is also designed to be millisecond precise, which makes it very practical for
-frequent scheduled tasks, it attempts to maintain this precision even when clogged by multiple tasks (tho no gurantees of
-fetching exactly at the specified millisecond under heavy workload)
+7. **⏰ Second & Millisecond Precision:** Chronographer is also designed to be not only second but also millisecond precise,
+which makes it ideal for scheduled tasks that frequently execute, it attempts to maintain this precision even when clogged 
+by multiple tasks (tho no guarantees of fetching exactly at the specified millisecond under heavy workload)
 <br /> <br />
-- **📦 Tiny But Mighty** Tired of large sized packages, taking forever to compile, consuming disk space and so on? We too,
+8. **📦 Tiny But Mighty** Tired of large sized packages, taking forever to compile, consuming disk space and so on? We too,
 as such, Chronographer is tiny about **~1MB** in size
 <br /> <br />
 <img align="center" src="assets/Chronographer Divider.png" />
