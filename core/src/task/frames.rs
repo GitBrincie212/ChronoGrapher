@@ -22,8 +22,7 @@ pub mod misc; // skipcq: RS-D1001
 
 pub mod delayframe; // skipcq: RS-D1001
 
-use crate::task::{Task, TaskHookContainer, TaskHookEvent, TaskPriority};
-use crate::utils::emit_event;
+use crate::task::{Task, TaskHookContainer, TaskHookEvent, TaskHook, TaskPriority};
 use async_trait::async_trait;
 pub use conditionframe::*;
 pub use delayframe::*;
@@ -169,16 +168,59 @@ impl TaskContext {
         self.max_runs
     }
 
-    /// Accesses the event emitter field, returning it in the process
+    /// Emits an event to relevant [`TaskHook(s)`] that have subscribed to it
     ///
-    /// # Returns
-    /// The event emitter field as an ``Arc<TaskEventEmitter>``
+    /// # Arguments
+    /// The method accepts one argument, that being the payload to supply
+    /// from the generic ``E`` where it is the [`TaskHookEvent`] type
     ///
     /// # See Also
     /// - [`TaskContext`]
-    /// - [`TaskEventEmitter`]
-    pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload) {
-        emit_event::<E>(self.hooks_container.as_ref(), payload).await;
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub async fn emit<E: TaskHookEvent>(self: Arc<Self>, payload: &E::Payload) {
+        self.hooks_container.emit::<E>(self.clone(), payload).await;
+    }
+
+    /// Attaches a [`TaskHook`] to a specific [`TaskHookEvent`]. This is a much more
+    /// ergonomic method-alias to the relevant [`TaskHookContainer::attach`] method
+    ///
+    /// # Arguments
+    /// The method accepts one argument, that being the [`TaskHook`] instance 
+    /// to supply, which will subscribe to the [`TaskHookEvent`]
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub async fn attach_hook<E: TaskHookEvent>(self: Arc<Self>, hook: Arc<dyn TaskHook<E>>) {
+        self.hooks_container.attach(self.clone(), hook).await;
+    }
+
+    /// Detaches a [`TaskHook`] from a specific [`TaskHookEvent`]. This is a much more
+    /// ergonomic method-alias to the relevant [`TaskHookContainer::detach`] method
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(self: Arc<Self>) {
+        self.hooks_container.detach::<E, T>(self.clone()).await;
+    }
+
+    /// Gets a [`TaskHook`] instance from a specific [`TaskHookEvent`]. This is a much more
+    /// ergonomic method-alias to the relevant [`TaskHookContainer::get`] method
+    ///
+    /// # Returns
+    /// An optional [`TaskHook`] instance, if it doesn't exist ``None`` is returned,
+    /// if it does, then it returns ``Some(TaskHook)``
+    /// 
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(self: Arc<Self>) -> Option<Arc<T>> {
+        self.hooks_container.get::<E, T>()
     }
 }
 
