@@ -460,21 +460,47 @@ https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/schedule.rs,
 its composites. One can attach/detach or get the ``TaskHook`` instance, attaching works by subscribing to a specified
 ``TaskHookEvent`` and supplying a reference to the ``TaskHook`` instance as seen:
 ```rust
-pub async fn attach<E: TaskHookEvent>(&self, hook: &impl TaskHook<E>)
+async fn attach<E: TaskHookEvent>(&self, ctx: Arc<TaskContext>, hook: Arc<dyn TaskHook<E>>)
 ```
+}
 The detaching process can be summed up via:
 ```rust
-pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self)
+async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: Arc<TaskContext>)
 ```
-Where the developer simply supplies the TaskHookEvent as well as the TaskHook type to detach. When attaching / detaching,
-the ``TaskHook`` knows what event it got attached to or detached from, as there are ``OnHookAttach`` and ``OnHookDetach``
-which deal with the lifetime of the ``TaskHook``. ``TaskHook`` is not limited to one event, as it can listen to multiple
-of them concurrently. This is done by implementing the trait ``TaskHook`` and supplying the generic with the specified event,
-then simply attaching the instance onto the TaskHookContainer. A ``TaskHook`` can be registered to listen to all
-types of events by simply using a generic based implementation. ``TaskHookEvent`` can be mocked from other ``TaskFrames``
-which means the event may not necessarily come from the ``TaskFrame`` which controls it. All events have a payload
-associated with them, where it is used to deliver information about the event to the ``TaskHooks`` that have subscribed to
-it. A list of the task hook events:
+You can also get the instance of a ``TaskHook`` that has subscribed to a specific event via:
+```rust
+fn get<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>>
+```
+and even emit events to TaskHooks via:
+```rust
+async fn emit<E: TaskHookEvent>(&self, ctx: Arc<TaskContext>, payload: &E::Payload)
+```
+These functions are only for TaskHookContainer, much more ergonomic versions can be found in
+[TaskContext](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames.rs) and
+[Task](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task.rs), specifically for
+Task, it contains:
+```rust
+async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>)
+```
+for detaching:
+```rust
+async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self)
+```
+for getting the instance:
+```rust
+fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>>
+``
+and for emitting events:
+```rust
+async fn emit_hook_event<E: TaskHookEvent>(&self, payload: &E::Payload)
+```
+
+For TaskContext, similar methods are found there. The power of TaskHooks comes from the fact they are not
+bound to business logic of a ``Task``, they are autonomous entities, while they can integrate with business logic
+via listening to specific events. They are more powerful as other TaskHooks can emit their own events, in addition, it
+allows the mocking of events (some irrelevant system emits an event that doesn't necessarily come from the intended one).
+TaskHooks can also attach/detach and get other TaskHook instances, making it possible to coordinate and integrate TaskHooks.
+A list of the task hook events that are in the core library are:
     1. **``OnHookAttach``** - Triggered when a ``TaskHook`` is attached
     2. **``OnHookDetach``** - Triggered when a ``TaskHook`` is detached
     3. **``OnTaskStart``** - Triggered when a ```Task`` starts execution
@@ -488,7 +514,7 @@ it. A list of the task hook events:
     11. **``OnDelayEnd``** - Triggers when the idling process ends in ```DelayTaskFrame``
     12. **``OnChildStart``** - Triggers when a wrapped child ```TaskFrame`` from
     ``SequentialTaskFrame`` / ``ParallelTaskFrame`` starts
-    13. [`OnChildEnd`] - Triggers when a wrapped child ``TaskFrame`` from
+    13. ```OnChildEnd`` - Triggers when a wrapped child ``TaskFrame`` from
     ``SequentialTaskFrame`` / ``ParallelTaskFrame`` ends
     14. ``OnTaskFrameSelection`` - Triggers when a ``TaskFrame`` is selected from ``SelectTaskFrame``
     15. ``OnFallbackEvent`` - Triggers when the primar ``TaskFrame`` fails in ``FallbackTaskFrame``
@@ -499,7 +525,6 @@ There are also core components which instead of being present in ``Task``, they 
 optional enhancements and not a core composite. These specifically are:
     1. **TaskReactiveState** [TODO DESCRIBE IT]
     2. **TaskErrorHandler** [TODO DESCRIBE IT]
-
 
 More specifically, the form of the Task is:
 ```rust
@@ -518,7 +543,7 @@ More specifically, the form of the Task is:
 priority is for determining how much impact does the ``Task`` have, runs is an internal counter for tracking the number
 of runs that have occurred on this task, debug_label is a human-readable label to define the task, max_runs can be controlled
 by the user and specifies a threshold for how many times a task should run, id is a unique identifier for the ``Task`` which
-is used to distinguish it from others. Finally, ``on_start`` and ``on_end`` are simple events for ``Task`` which one can listen
-to. Task can be constructed via ``Task::define`` for configuring the very core fields (those being ``TaskFrame`` and ``TaskSchedule``)
-as well as ``Task::builder`` for a more builder-style and granular control approach
+is used to distinguish it from others. Task can be constructed via ``Task::define`` for configuring the very core
+fields (those being ``TaskFrame`` and ``TaskSchedule``) as well as ``Task::builder`` for a more builder-style and
+granular control approach
 
