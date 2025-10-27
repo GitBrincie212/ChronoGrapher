@@ -4,7 +4,7 @@ use crate::task::TaskError;
 use crate::task::*;
 use async_trait::async_trait;
 use std::any::type_name;
-
+use std::sync::OnceLock;
 #[allow(unused_imports)]
 use crate::backend::PersistenceBackend;
 
@@ -43,8 +43,7 @@ pub enum PersistenceCapability<'a> {
 #[async_trait]
 pub trait PersistentObject: Send + Sync {
     fn persistence_id() -> &'static str {
-        use once_cell::sync::OnceCell;
-        static CELL: OnceCell<String> = OnceCell::new();
+        static CELL: OnceLock<String> = OnceLock::new();
         CELL.get_or_init(|| type_name::<Self>().to_string())
             .as_str()
     }

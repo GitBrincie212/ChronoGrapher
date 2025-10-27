@@ -7,9 +7,8 @@ use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDisp
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::Task;
-use once_cell::sync::Lazy;
 use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
@@ -17,8 +16,8 @@ use typed_builder::TypedBuilder;
 /// The default scheduler, it uses all the provided default components to build the scheduler.
 /// Due to non-backend storage and system clock. This should **NOT** be used over
 /// a different built scheduler
-pub static CHRONOGRAPHER_SCHEDULER: Lazy<Arc<Scheduler>> =
-    Lazy::new(|| Arc::new(Scheduler::builder().build()));
+pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<Scheduler>> =
+    LazyLock::new(|| Arc::new(Scheduler::builder().build()));
 
 /// This is the builder configs to use for building a [`Scheduler`] instance.
 /// By itself it should not be used, and it resides in [`Scheduler::builder`]

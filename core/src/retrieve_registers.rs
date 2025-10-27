@@ -4,17 +4,16 @@ use crate::schedule::TaskSchedule;
 use crate::scheduling_strats::ScheduleStrategy;
 use crate::serialized_component::SerializedComponent;
 use crate::task::conditionframe::ConditionalFramePredicate;
-use crate::task::dependency::{FrameDependency, MetadataDependencyResolver, TaskResolvent};
+use crate::task::dependency::{FrameDependency, TaskResolvent};
 use crate::task::dependencyframe::DependentFailBehavior;
 use crate::task::selectframe::SelectFrameAccessor;
 use crate::task::{TaskError, TaskFrame};
 use dashmap::DashMap;
-use once_cell::sync::Lazy;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
-pub static RETRIEVE_REGISTRIES: Lazy<RetrieveRegistries> =
-    Lazy::new(|| RetrieveRegistries::default());
+pub static RETRIEVE_REGISTRIES: LazyLock<RetrieveRegistries> =
+    LazyLock::new(|| RetrieveRegistries::default());
 
 pub type RetrievedFut<T> = Pin<Box<dyn Future<Output = Result<Arc<T>, TaskError>> + Send>>;
 pub type RetrieveFunc<T> = fn(SerializedComponent) -> RetrievedFut<T>;
@@ -30,7 +29,6 @@ pub struct RetrieveRegistries {
     task_schedule_strategy_registries: RetrieveRegisters<dyn ScheduleStrategy>,
     frame_dependent_fail_behaviour_registries: RetrieveRegisters<dyn DependentFailBehavior>,
     task_resolvent_registries: RetrieveRegisters<dyn TaskResolvent>,
-    metadata_resolver_registries: RetrieveRegisters<dyn MetadataDependencyResolver<T>>,
 }
 
 macro_rules! implement_registries_for {
