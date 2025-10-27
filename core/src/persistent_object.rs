@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+use crate::backend::PersistenceBackend;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
 #[allow(unused_imports)]
@@ -5,8 +7,6 @@ use crate::task::*;
 use async_trait::async_trait;
 use std::any::type_name;
 use std::sync::OnceLock;
-#[allow(unused_imports)]
-use crate::backend::PersistenceBackend;
 
 /// [`PersistenceCapability`] is a small utility for controlling the purpose of an object,
 ///
