@@ -1,6 +1,3 @@
-pub mod error_handler;
-pub mod metadata;
-
 use crate::define_event;
 use crate::persistent_object::PersistentObject;
 use crate::serialized_component::SerializedComponent;
@@ -56,6 +53,12 @@ use std::sync::Arc;
 /// - [`OnFallbackEvent`] - Triggers when the primary [`TaskFrame`] fails in [`FallbackTaskFrame`]
 /// - [`OnDependencyValidation`] - Triggers when a [`TaskDependency`] is validated in [`DependencyTaskFrame`]
 ///
+/// It should also be noted that ``()`` implements the [`TaskHookEvent`] trait as well. The intention
+/// of this is to indicate a [`TaskHook`] is not meant to listen to any event (while still implementing
+/// the [`TaskHook`] trait). As such, ``()`` cannot be emitted as an event via [`TaskHookContainer::emit`]
+/// or similar method aliases. For readability, when implementing ``TaskHook<()>``, one can use
+/// [`NonObserverTaskHook`] trait to avoid boilerplate code and make it more concise
+///
 /// # Supertrait(s)
 /// When implementing the [`TaskHookEvent`] trait, one has to supply an implementation for the
 /// [`Default`] trait from core Rust (since this system requires to instantiate an instance of the
@@ -70,6 +73,7 @@ use std::sync::Arc;
 /// - [`TaskHook`]
 /// - [`Task`]
 /// - [`TaskFrame`]
+/// - [`TaskHookContainer`]
 /// - [`OnHookAttach`]
 /// - [`OnHookDetach`]
 /// - [`OnTaskStart`]
@@ -90,6 +94,14 @@ pub trait TaskHookEvent: Send + Sync + Default + 'static {
     type Payload: Send + Sync;
     const PERSISTENCE_ID: &'static str;
 }
+
+pub enum NonEmissible {}
+
+impl TaskHookEvent for () {
+    type Payload = NonEmissible;
+    const PERSISTENCE_ID: &'static str = "";
+}
+
 
 #[async_trait]
 impl<T: TaskHookEvent> PersistentObject for T {
@@ -134,6 +146,39 @@ impl<T: TaskHookEvent> PersistentObject for T {
 #[async_trait]
 pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
     async fn on_event(&self, event: E, ctx: Arc<TaskContext>, payload: &E::Payload);
+}
+
+/// [`NonObserverTaskHook`] is an alias for [`TaskHook`] where the event type is
+/// ``()`` (i.e. No event). This is the same as doing:
+/// ```rust
+/// #[async_trait]
+/// impl TaskHook<()> for T {
+///     async fn on_event(
+///         &self,
+///         _event: (),
+///         _ctx: Arc<TaskContext>,
+///         _payload: &<() as TaskHookEvent>::Payload)
+///     {}
+/// }
+/// ```
+/// The only purpose it has, is to just serves to save boilerplate hustle and separate an
+/// observer task hook versus a non observer task hook. Refer to the documentation for
+/// [`TaskHook`], [`TaskHookContainer`] and [`TaskHookEvent`] to learn more about the task hook system
+///
+/// # See Also
+/// - [`TaskHook`]
+/// - [`TaskHookEvent`]
+/// - [`TaskHookContainer`]
+pub trait NonObserverTaskHook: Send + Sync + 'static {}
+
+#[async_trait]
+impl<T: NonObserverTaskHook> TaskHook<()> for T {
+    async fn on_event(
+        &self,
+        _event: (),
+        _ctx: Arc<TaskContext>,
+        _payload: &<() as TaskHookEvent>::Payload)
+    {}
 }
 
 #[derive(Clone)]
