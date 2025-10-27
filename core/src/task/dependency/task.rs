@@ -332,6 +332,7 @@ impl UnresolvableFrameDependency for TaskDependency {
     }
 }
 
+/*
 #[async_trait]
 impl PersistentObject for TaskDependency {
     fn persistence_id() -> &'static str {
@@ -407,3 +408,4 @@ impl PersistentObject for TaskDependency {
         })
     }
 }
+*/
