@@ -1,7 +1,7 @@
 use crate::errors::ChronographerErrors;
 use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
 use crate::serialized_component::SerializedComponent;
-use crate::task::{TaskError, TaskHookEvent};
+use crate::task::TaskError;
 use chrono::{DateTime, Local, TimeZone};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
