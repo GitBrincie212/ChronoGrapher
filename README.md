@@ -2,8 +2,8 @@
 <img src="./assets/Chronographer Banner.png" alt="Chronographer Banner" />
 
 > [!IMPORTANT]  
-> The project is in its infancy, it is not out there, as its being worked on and crafted meticulously. If you plan to
-> contribute to the project, now is the time to provide a good helping hand for the hardworking team. When it comes to
+> The project is in its infancy, it is not out there, as its being worked on and crafted meticulously. **If you plan to
+> contribute to the project, Now is the time** to provide a good helping hand for the hardworking team. When it comes to
 integrating with other programming languages, we mainly focus on rust then slowly make the features available in other 
 languages
 > 
