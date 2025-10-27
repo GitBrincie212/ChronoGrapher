@@ -102,7 +102,6 @@ impl TaskHookEvent for () {
     const PERSISTENCE_ID: &'static str = "";
 }
 
-
 #[async_trait]
 impl<T: TaskHookEvent> PersistentObject for T {
     fn persistence_id() -> &'static str {
@@ -177,8 +176,9 @@ impl<T: NonObserverTaskHook> TaskHook<()> for T {
         &self,
         _event: (),
         _ctx: Arc<TaskContext>,
-        _payload: &<() as TaskHookEvent>::Payload)
-    {}
+        _payload: &<() as TaskHookEvent>::Payload,
+    ) {
+    }
 }
 
 #[derive(Clone)]

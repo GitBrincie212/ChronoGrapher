@@ -167,12 +167,12 @@ impl TaskContext {
     pub fn max_runs(&self) -> Option<NonZeroU64> {
         self.max_runs
     }
-    
+
     /// Accesses the [`TaskHooksContainer`], returning it in the process
-    /// 
+    ///
     /// # Returns
     /// The [`TaskHooksContainer`] to use
-    /// 
+    ///
     /// # See Also
     /// - [`TaskHooksContainer`]
     /// - [`TaskContext`]
