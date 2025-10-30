@@ -33,8 +33,8 @@ Instead of thinking a task is just some executable. Chronographer thinks of task
 the expression and reuse of complex logic easily while also separating concerns and giving overall flexibility, tasks 
 consist of the core components:
   - ***Task Frame:*** The Task Frame is the core embodiment of a task. It defines <ins>What</ins> needs to be done. Think of it 
-  as the immutable recipe or the instruction set for a specific unit of work. Task frames can access the metadata of the
-  task, task frames can also be decorated / wrapped, allowing for flexibility with minimal boilerplate footprint and code
+  as the immutable recipe or the instruction set for a specific unit of work. TaskFrames can access information regarding the Task.
+  TaskFrames can also be decorated / wrapped, allowing for flexibility with minimal boilerplate footprint and code
   <br /> <br />
   - **Task Schedule:** This defines <ins>When</ins> the task needs to be executed, schedules can be as simple as an
   interval, to a cron expression and even a calendar. Given a specific time, they calculate based on the time provided, when
