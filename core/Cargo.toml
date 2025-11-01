@@ -2,9 +2,18 @@
 name = "chronographer"
 version = "0.1.0"
 edition = "2024"
+license = "BSL-1"
+license-file = "LICENSE"
+homepage = "https://github.com/GitBrincie212/ChronoGrapher"
+authors = ["McBrincie212"]
+description = "The core library (acts as a foundation) for the ChronoGrapher scheduling platform"
+readme = "README.md"
+repository = "https://github.com/GitBrincie212/ChronoGrapher"
+keywords = ["ChronoGrapher", "scheduler", "scheduling", "workflow", "schedule"]
+categories = ["embedded", "asynchronous"]
 
 [lib]
-name = "chronographer_core"
+name = "chronographer"
 crate-type = ["rlib"]
 
 [dependencies]
@@ -20,4 +29,3 @@ dashmap = "7.0.0-rc2"
 multipool = "0.2.8"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 rocksdb = "0.24.0"
-serde_json = "1.0.145"
