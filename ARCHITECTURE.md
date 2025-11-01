@@ -135,6 +135,61 @@ FallbackTaskFrame::new(
 // new-type pattern and provide a method yourself
 ```
 
+# TaskHook System
+``TaskHook`` is probably the most extensible component present in Task. It's a reliable system
+to use in specific cases, this is more of a system addressing limitations which advanced enterprise infrastructure needs. 
+For simple use cases, the TaskHook system mind as well not exist
+
+## High-Level Overview
+![TaskHook System](./assets/TaskHook%20System.png)
+
+TaskHooks are components which register themselves on **TaskHookContainer**. They act as event listeners, listening
+to various events which they are interested. There are 2 phases to create a TaskHook and subscribe to an event
+1. **Implementing The TaskHook Trait** The user has to implement the TaskHook trait for a struct/enum they have, the
+  TaskHook trait requires a generic which indicates what kind of event the TaskHook is interested in listening to
+2. **TaskHook Registration** If you have an instance of the TaskHook, you can add it to a Task via calling 
+   ``Task::attach_hook``, a taskhook as the same instance can also be attached to multiple other tasks
+
+What separates it tho from the old event system? To put it simply, there are 6 key differences that make this a much better 
+system overall:
+1. **TaskHooks Live In Task** As opposed to registering TaskHooks by knowing the TaskFrame (or Task) instance, one 
+can simply register it in the Task. This makes it much more maintainable as there are cases which you might know a
+TaskFrame instance (maybe it is deep below the TaskFrame chain)
+2. **TaskHooks Can Be Fetched** Not only they are an event-system solution. They can be fetched by outside parties,
+by other TaskHooks or inside the TaskFrame chain by specifying the concrete type of it and the event the TaskHook may
+have subscribed to. This makes it possible for TaskFrame to integrate TaskHooks as enhancements, TaskHooks working 
+together and much more
+3. **TaskHooks Know Where They Live** A TaskHook knows which event and which Task it has been attached to / detached from,
+which it can execute side effects to initialize, attach other TaskHooks... etc. Making it highly flexible
+4. **TaskHooks Aren't Only Event-Based** A TaskHook can also be used as a state management solution, not just an event
+listener. Effectively, it can be created for one area or both of these areas
+5. **TaskHook Registration Can Be Automated** If there is too much boilerplate, one can register <u>Global TaskHooks</u>,
+these live in the Scheduler and when a Task wants to be scheduled, it automatically attaches those TaskHooks to their
+corresponding events 
+6. **TaskHook is much more unified** There is no need to implement a ton of different traits, but functionally they share
+the same goal, to provide an API for event listening on ONE event. TaskHooks act on multiple events
+
+There is some special syntax sugar which should be documented. Mainly two of them (psuedo rust-code):
+```rust
+impl<E: TaskHookEvent> TaskHook<E> for MyCoolTaskHook {
+  // ...
+}
+```
+This tells the task hook to care for all relevant events. While this makes the TaskHook basically compatible with any event,
+the drawback is you can't know the concrete type of the payload, only that it comes from the generic ``E``. You can take
+this a step further with **TaskHookEvent Groups** which are marker traits for grouping relevant TaskHookEvent(s) under
+one alias
+
+The second syntax sugar is:
+```rust
+impl TaskHook<()> for MyCoolTaskHook2 {
+  // ...
+}
+```
+Its more nuisance, ``()`` implements TaskHookEvent so this is allowed. This translates to "MyCoolTaskHook2 is not
+interested in ANY TaskHookEvent". This is useful for state management only TaskHooks, so it is more niche, but still
+worth a mention. While the ``()`` is a TaskHookEvent, it cannot be emitted which is why its unique
+
 # Library Splitting
 Instead of forcing everyone to download one single monolithic library, the project is split into
 multiple libraries which all use the ``core``. the ``core`` contains the main traits, type aliases, 
