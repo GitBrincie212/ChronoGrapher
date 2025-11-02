@@ -6,6 +6,7 @@ use crate::task::TaskError;
 use crate::task::*;
 use async_trait::async_trait;
 use std::any::type_name;
+use std::ops::{Deref, DerefMut};
 use std::sync::OnceLock;
 
 /// [`PersistenceCapability`] is a small utility for controlling the purpose of an object,

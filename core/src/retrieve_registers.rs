@@ -1,5 +1,5 @@
 use crate::errors::ChronographerErrors;
-use crate::persistent_object::PersistentObject;
+use crate::persistence::PersistentObject;
 use crate::schedule::TaskSchedule;
 use crate::scheduling_strats::ScheduleStrategy;
 use crate::serialized_component::SerializedComponent;

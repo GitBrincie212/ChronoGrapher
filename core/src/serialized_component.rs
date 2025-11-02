@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use crate::backend::PersistenceBackend;
-use crate::persistent_object::PersistentObject;
+use crate::persistence::PersistentObject;
 use serde::{Deserialize, Serialize};
 
 /// [`SerializedComponent`] is a container that wraps a **unique** identifier (ID) corresponding

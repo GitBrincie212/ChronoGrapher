@@ -1,4 +1,4 @@
-use crate::persistent_object::PersistentObject;
+use crate::persistence::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::{Task, TaskError};
 use async_trait::async_trait;

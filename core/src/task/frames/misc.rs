@@ -1,5 +1,5 @@
 use crate::define_event;
-use crate::persistent_object::PersistentObject;
+use crate::persistence::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
 use crate::task::TaskHookEvent;

@@ -1,4 +1,4 @@
-use crate::persistent_object::PersistentObject;
+use crate::persistence::PersistentObject;
 use crate::schedule::TaskSchedule;
 use crate::serialized_component::SerializedComponent;
 #[allow(unused_imports)]

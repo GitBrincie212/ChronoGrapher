@@ -1,6 +1,6 @@
 use crate::define_event;
 use crate::errors::ChronographerErrors;
-use crate::persistent_object::PersistentObject;
+use crate::persistence::PersistentObject;
 use crate::retrieve_registers::RetrieveRegistries;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskHookEvent;
