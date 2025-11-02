@@ -31,9 +31,6 @@ use crate::scheduler::Scheduler;
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task))]
 pub struct TaskConfig {
-    #[builder(default = TaskHookContainer(DashMap::default()))]
-    hooks: TaskHookContainer,
-
     /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
     /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
     /// generally prioritize it over others. Priorities are separated to multiple tiers which are further
@@ -154,7 +151,7 @@ impl From<TaskConfig> for Task {
         Task {
             frame: config.frame,
             schedule: config.schedule,
-            hooks: Arc::new(config.hooks),
+            hooks: Arc::new(TaskHookContainer(DashMap::default())),
             overlap_policy: config.schedule_strategy,
             priority: config.priority,
             runs: Arc::new(AtomicU64::new(0)),
