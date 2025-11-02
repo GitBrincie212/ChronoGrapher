@@ -2,16 +2,20 @@ pub mod task_dispatcher; // skipcq: RS-D1001
 
 pub mod task_store; // skipcq: RS-D1001
 
+use std::any::{Any, TypeId};
 use crate::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::Task;
+use crate::task::{ErasedTaskHook, ErasedTaskHookWrapper, Task, TaskHook, TaskHookEvent};
 use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 use std::sync::{Arc, LazyLock};
+use dashmap::DashMap;
 use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
+use crate::persistence::PersistentObject;
 
 /// The default scheduler, it uses all the provided default components to build the scheduler.
 /// Due to non-backend storage and system clock. This should **NOT** be used over
@@ -101,6 +105,7 @@ impl From<SchedulerConfig> for Scheduler {
             store: config.store,
             clock: config.clock,
             process: Mutex::new(None),
+            global_hooks: Arc::new(DashMap::default()),
             schedule_tx: Arc::new(schedule_tx),
             schedule_rx: Arc::new(Mutex::new(schedule_rx)),
             notifier: Arc::new(tokio::sync::Notify::new()),
@@ -173,6 +178,7 @@ pub struct Scheduler {
     process: Mutex<Option<JoinHandle<()>>>,
     schedule_tx: ArcSchedulerTX,
     schedule_rx: ArcSchedulerRX,
+    global_hooks: Arc<DashMap<&'static str, DashMap<TypeId, Arc<dyn ErasedTaskHook>>>>,
     notifier: Arc<tokio::sync::Notify>,
 }
 
@@ -313,7 +319,22 @@ impl Scheduler {
     /// - [`SchedulerTaskStore`]
     /// - [`Task`]
     pub async fn schedule(&self, task: Arc<Task>) -> usize {
-        self.store.store(self.clock.clone(), task).await
+        let hook_container = task.hooks().0;
+        let idx = self.store.store(self.clock.clone(), task.clone()).await;
+        for entry in self.global_hooks.iter() {
+            let hooks = entry.value();
+            let event = *entry.key();
+            for hook in hooks {
+                let hook = hook.value();
+                let hook_id = hook.type_id();
+
+                hook_container
+                    .entry(event)
+                    .or_default()
+                    .insert(hook_id, hook.clone());
+            }
+        }
+        idx
     }
 
     /// Schedules an owned [`Task`] to run on the [`Scheduler`], if one wishes to schedule
@@ -390,5 +411,21 @@ impl Scheduler {
     /// - [`Scheduler::abort`]
     pub async fn has_started(&self) -> bool {
         self.process.lock().await.is_some()
+    }
+
+    pub async fn attach_global_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
+        let hook_id = hook.type_id();
+        let hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook, PhantomData));
+
+        self.global_hooks
+            .entry(E::persistence_id())
+            .or_default()
+            .insert(hook_id, hook);
+    }
+
+    pub async fn detach_global_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
+        self.global_hooks
+            .get_mut(E::persistence_id())
+            .map(|x| x.remove(&TypeId::of::<T>()));
     }
 }
