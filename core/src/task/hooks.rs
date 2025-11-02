@@ -1,9 +1,9 @@
-use crate::{define_event, define_generic_event};
 use crate::persistence::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
+use crate::{define_event, define_generic_event};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -184,7 +184,7 @@ impl<T: NonObserverTaskHook> TaskHook<()> for T {
 #[derive(Clone)]
 pub(crate) struct ErasedTaskHookWrapper<E: TaskHookEvent>(
     pub(crate) Arc<dyn TaskHook<E>>,
-    pub(crate) PhantomData<E>
+    pub(crate) PhantomData<E>,
 );
 
 #[async_trait]

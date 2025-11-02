@@ -2,20 +2,20 @@ pub mod task_dispatcher; // skipcq: RS-D1001
 
 pub mod task_store; // skipcq: RS-D1001
 
-use std::any::{Any, TypeId};
 use crate::clock::*;
+use crate::persistence::PersistentObject;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ErasedTaskHook, ErasedTaskHookWrapper, Task, TaskHook, TaskHookEvent};
+use dashmap::DashMap;
+use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::sync::{Arc, LazyLock};
-use dashmap::DashMap;
 use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
-use crate::persistence::PersistentObject;
 
 /// The default scheduler, it uses all the provided default components to build the scheduler.
 /// Due to non-backend storage and system clock. This should **NOT** be used over
