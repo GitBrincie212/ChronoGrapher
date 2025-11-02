@@ -1,7 +1,7 @@
 use crate::errors::ChronographerErrors;
-use crate::persistent_object::{AsPersistent, PersistenceCapability, PersistentObject};
+use crate::persistence::{AsPersistent, PersistenceCapability, PersistentObject};
 use crate::serialized_component::SerializedComponent;
-use crate::task::TaskError;
+use crate::task::{TaskError, TaskFrame, TaskHook, TaskHookEvent};
 use chrono::{DateTime, Local, TimeZone};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -118,6 +118,63 @@ impl PersistenceUtils {
         )
         .await
     }
+}
+
+#[macro_export]
+macro_rules! define_generic_event {
+    ($name: ident) => {
+        #[doc =
+            concat!(
+                "[`", stringify!($name), "`] is an implementation of [`TaskHookEvent`] (a system used \
+                closely with [`TaskHook`]). The concrete payload type of [`", stringify!($name),
+                "`] is ``TaskHookEvent<P>``. Unlike most events, this is generic-based TaskEvent, it has \
+                to do with lifecycle of TaskHooks"
+            )
+        ]
+        ///
+        /// # Constructor(s)
+        #[doc =
+            concat!(
+                "When constructing a [`", stringify!($name), "`] due to the fact this is a marker ``struct``, \
+                making it as such zero-sized, one can either use [`", stringify!($name), "::default`]
+                or via simply pasting the struct name ([`", stringify!($name), "`])"
+            )
+        ]
+        ///
+        /// # Trait Implementation(s)
+        #[doc =
+            concat!(
+                "It is obvious that [`", stringify!($name), "`] implements the [`TaskHookEvent`], but also many \
+                other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`] \
+                and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]"
+            )
+        ]
+        ///
+        /// # Cloning Semantics
+        #[doc = concat!(
+            "When cloning / copy a [`", stringify!($name), "`] it fully creates a \
+            new independent version of that instance"
+        )]
+        ///
+        /// # See Also
+        /// - [`TaskHook`]
+        /// - [`TaskHookEvent`]
+        /// - [`Task`]
+        /// - [`TaskFrame`]
+        #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+        pub struct $name<E: TaskHookEvent>(PhantomData<E>);
+
+        impl<E: TaskHookEvent> Default for $name<E> {
+            fn default() -> Self {
+                $name(PhantomData)
+            }
+        }
+
+        impl<E: TaskHookEvent> TaskHookEvent for $name<E> {
+            type Payload = E;
+            const PERSISTENCE_ID: &'static str = concat!("chronographer_core#", stringify!($name));
+        }
+    };
 }
 
 #[macro_export]
