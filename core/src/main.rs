@@ -9,7 +9,7 @@ async fn main() {
         ExecutionTaskFrame::new(|_ctx| async {
             println!("Hello World");
             Ok(())
-        })
+        }),
     );
 
     CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
