@@ -1,5 +1,5 @@
-use crate::define_event;
-use crate::persistent_object::PersistentObject;
+use crate::{define_event, define_generic_event};
+use crate::persistence::PersistentObject;
 use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
 #[allow(unused_imports)]
@@ -182,7 +182,10 @@ impl<T: NonObserverTaskHook> TaskHook<()> for T {
 }
 
 #[derive(Clone)]
-struct ErasedTaskHookWrapper<E: TaskHookEvent>(Arc<dyn TaskHook<E>>, PhantomData<E>);
+pub(crate) struct ErasedTaskHookWrapper<E: TaskHookEvent>(
+    pub(crate) Arc<dyn TaskHook<E>>,
+    pub(crate) PhantomData<E>
+);
 
 #[async_trait]
 pub trait ErasedTaskHook: Send + Sync {
@@ -215,77 +218,8 @@ define_event!(
     OnTaskEnd, Option<TaskError>
 );
 
-/// [`OnHookAttach`] is an implementation of [`TaskHookEvent`] (a system used closely with,
-/// [`TaskHook`]). The concrete payload type of [`OnHookAttach`] is ``TaskHookEvent<P>``
-///
-/// # Constructor(s)
-/// When constructing a [`OnHookAttach`], due to the fact this is a marker ``struct``,
-/// making it as such zero-sized, one can either use [`OnHookAttach::default`]
-/// or via simply pasting the struct name ([`OnHookAttach`])
-///
-/// # Trait Implementation(s)
-/// It is obvious that [`OnHookAttach`] implements the [`TaskHookEvent`], but also many
-/// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
-/// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
-///
-/// # Cloning Semantics
-/// When cloning / copy a [`OnHookAttach`], it fully creates a
-/// new independent version of that instance
-///
-/// # See Also
-/// - [`TaskHook`]
-/// - [`TaskHookEvent`]
-/// - [`Task`]
-/// - [`TaskFrame`]
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-pub struct OnHookAttach<E: TaskHookEvent>(PhantomData<E>);
-
-impl<E: TaskHookEvent> Default for OnHookAttach<E> {
-    fn default() -> Self {
-        OnHookAttach(PhantomData)
-    }
-}
-
-impl<E: TaskHookEvent> TaskHookEvent for OnHookAttach<E> {
-    type Payload = E;
-    const PERSISTENCE_ID: &'static str = "chronographer_core#OnHookAttach";
-}
-
-/// [`OnHookAttach`] is an implementation of [`TaskHookEvent`] (a system used closely with,
-/// [`TaskHook`]). The concrete payload type of [`OnHookAttach`] is ``TaskHookEvent<P>``
-///
-/// # Constructor(s)
-/// When constructing a [`OnHookAttach`], due to the fact this is a marker ``struct``,
-/// making it as such zero-sized, one can either use [`OnHookAttach::default`]
-/// or via simply pasting the struct name ([`OnHookAttach`])
-///
-/// # Trait Implementation(s)
-/// It is obvious that [`OnHookAttach`] implements the [`TaskHookEvent`], but also many
-/// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
-/// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
-///
-/// # Cloning Semantics
-/// When cloning / copy a [`OnHookAttach`], it fully creates a
-/// new independent version of that instance
-///
-/// # See Also
-/// - [`TaskHook`]
-/// - [`TaskHookEvent`]
-/// - [`Task`]
-/// - [`TaskFrame`]
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-pub struct OnHookDetach<E: TaskHookEvent>(PhantomData<E>);
-
-impl<E: TaskHookEvent> Default for OnHookDetach<E> {
-    fn default() -> Self {
-        OnHookDetach(PhantomData)
-    }
-}
-
-impl<E: TaskHookEvent> TaskHookEvent for OnHookDetach<E> {
-    type Payload = E;
-    const PERSISTENCE_ID: &'static str = "chronographer_core#OnHookDetach";
-}
+define_generic_event!(OnHookAttach);
+define_generic_event!(OnHookDetach);
 
 /// [`TaskHookContainer`] is a container that hosts one or multiple [`TaskHook`] instance(s)
 /// which have subscribed to one or multiple [`TaskHookEvent(s)`]. This system is utilized
