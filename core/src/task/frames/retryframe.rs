@@ -1,16 +1,13 @@
 use crate::define_event;
-use crate::persistence::PersistentObject;
-use crate::serialized_component::SerializedComponent;
 use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
-use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::clone::Clone;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::persistence::PersistenceObject;
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -200,7 +197,7 @@ define_event!(
     ///
     /// # See Also
     /// - [`RetriableTaskFrame`]
-    OnRetryAttemptStart, (u32, Arc<dyn TaskFrame>)
+    OnRetryAttemptStart, u32
 );
 
 define_event!(
@@ -211,7 +208,7 @@ define_event!(
     ///
     /// # See Also
     /// - [`RetriableTaskFrame`]
-    OnRetryAttemptEnd, (u32, Arc<dyn TaskFrame>, Option<TaskError>)
+    OnRetryAttemptEnd, (u32, Option<TaskError>)
 );
 
 /// Represents a **retriable task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
@@ -239,7 +236,9 @@ define_event!(
 ///
 /// # Trait Implementation(s)
 /// It is obvious that the [`RetriableTaskFrame`] implements [`TaskFrame`] since this
-/// is a part of the default provided implementations, however there are many others
+/// is a part of the default provided implementations, however, it also implements
+/// [`PersistenceObject`], [`Serialize`] and [`Deserialize`]. ONLY if the underlying
+/// [`TaskFrame`] and [`RetryBackoffStrategy`] are persistable
 ///
 /// # Example
 /// ```ignore
@@ -270,7 +269,8 @@ define_event!(
 /// # See Also
 /// - [`TaskFrame`]
 /// - [`RetryBackoffStrategy`]
-pub struct RetriableTaskFrame<T: 'static, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
+#[derive(Serialize, Deserialize)]
+pub struct RetriableTaskFrame<T: TaskFrame + 'static, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
     frame: Arc<T>,
     retries: NonZeroU32,
     backoff_strat: T2,
@@ -346,21 +346,24 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2>
 impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
+        let subdivided_ctx = ctx.subdivide(self.frame.clone());
         for retry in 0u32..self.retries.get() {
-            ctx.clone()
-                .emit::<OnRetryAttemptStart>(&(retry, self.frame.clone()))
+            subdivided_ctx.clone()
+                .emit::<OnRetryAttemptStart>(&retry)
                 .await;
-            let result = self.frame.execute(ctx.clone()).await;
+            let result = self.frame.execute(subdivided_ctx.clone()).await;
             match result {
                 Ok(_) => {
-                    ctx.emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), None))
+                    subdivided_ctx
+                        .emit::<OnRetryAttemptEnd>(&(retry, None))
                         .await;
                     return Ok(());
                 }
                 Err(err) => {
                     error = Some(err.clone());
-                    ctx.clone()
-                        .emit::<OnRetryAttemptEnd>(&(retry, self.frame.clone(), error.clone()))
+                    subdivided_ctx
+                        .clone()
+                        .emit::<OnRetryAttemptEnd>(&(retry, error.clone()))
                         .await;
                 }
             }
@@ -372,57 +375,10 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
 }
 
 #[async_trait]
-impl<T1, T2> PersistentObject for RetriableTaskFrame<T1, T2>
+impl<T1, T2> PersistenceObject for RetriableTaskFrame<T1, T2>
 where
-    T1: TaskFrame + 'static + PersistentObject,
-    T2: RetryBackoffStrategy + PersistentObject,
+    T1: TaskFrame + 'static + PersistenceObject,
+    T2: RetryBackoffStrategy + PersistenceObject,
 {
-    fn persistence_id() -> &'static str {
-        "RetriableTaskFrame$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let serialized_backoff_strat =
-            PersistenceUtils::serialize_persistent(&self.backoff_strat).await?;
-        let serialized_frame = PersistenceUtils::serialize_persistent(self.frame.as_ref()).await?;
-        let retries = PersistenceUtils::serialize_field(self.retries.get())?;
-
-        Ok(SerializedComponent::new::<Self>(json!({
-            "retry_backoff_strategy": serialized_backoff_strat,
-            "wrapped_task_frame": serialized_frame,
-            "retries": retries
-        })))
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
-
-        let retries = NonZeroU32::new(PersistenceUtils::deserialize_atomic::<u64>(
-            &mut repr,
-            "retries",
-            "Cannot deserialize the number of retries",
-        )? as u32)
-        .ok_or_else(|| {
-            PersistenceUtils::create_retrieval_error::<u32>(
-                &repr,
-                "Cannot deserialize the number of retries (as it is zero)",
-            )
-        })?;
-
-        let frame = PersistenceUtils::deserialize_concrete::<T1>(
-            &mut repr,
-            "wrapped_task_frame",
-            "Cannot deserialize the wrapped task frame",
-        )
-        .await?;
-
-        let backoff_strat = PersistenceUtils::deserialize_concrete::<T2>(
-            &mut repr,
-            "retry_backoff_strategy",
-            "Cannot deserialize the retry backoff strategy",
-        )
-        .await?;
-
-        Ok(RetriableTaskFrame::new_with(frame, retries, backoff_strat))
-    }
+    const PERSISTENCE_ID: &'static str = "chronographer::RetriableTaskFrame#92b11283-b132-491d-85f3-417a84e9242e";
 }
