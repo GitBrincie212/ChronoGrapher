@@ -2,9 +2,9 @@ use crate::persistence::PersistenceObject;
 use crate::schedule::TaskSchedule;
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 
 /// [`TaskScheduleCron`] is an implementation of the [`TaskSchedule`] trait that executes [`Task`]
 /// instances, according to a cron expression. Learn more about cron expression in
@@ -82,5 +82,6 @@ impl TaskSchedule for TaskScheduleCron {
 
 #[async_trait]
 impl PersistenceObject for TaskScheduleCron {
-    const PERSISTENCE_ID: &'static str = "chronographer::TaskScheduleCron#ede44f5f-a3bc-464c-9284-f3c666470cc7";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::TaskScheduleCron#ede44f5f-a3bc-464c-9284-f3c666470cc7";
 }

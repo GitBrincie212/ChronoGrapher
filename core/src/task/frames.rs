@@ -132,7 +132,7 @@ impl TaskContext {
             max_runs: self.max_runs,
             frame: frame.clone(),
             id: self.id,
-            depth: self.depth + 1
+            depth: self.depth + 1,
         })
     }
 
@@ -197,7 +197,6 @@ impl TaskContext {
     pub fn hooks(&self) -> Arc<TaskHookContainer> {
         self.hooks_container.clone()
     }
-
 
     pub fn frame(&self) -> Arc<dyn TaskFrame> {
         self.frame.clone()
@@ -359,7 +358,7 @@ pub trait TaskFrame: Send + Sync {
 impl<F, T> TaskFrame for F
 where
     F: Fn(Arc<TaskContext>) -> T + Send + Sync,
-    T: Future<Output = Result<(), TaskError>> + 'static
+    T: Future<Output = Result<(), TaskError>> + 'static,
 {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         self(ctx).await

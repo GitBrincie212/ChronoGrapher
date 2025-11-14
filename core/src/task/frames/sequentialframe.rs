@@ -141,7 +141,8 @@ impl TaskFrame for SequentialTaskFrame {
             let subdivided_ctx = ctx.subdivide(taskframe.clone());
             subdivided_ctx.clone().emit::<OnChildStart>(&()).await;
             let result = taskframe.execute(subdivided_ctx.clone()).await;
-            subdivided_ctx.clone()
+            subdivided_ctx
+                .clone()
                 .emit::<OnChildEnd>(&result.clone().err())
                 .await;
             let should_quit = self.policy.should_quit(result).await;

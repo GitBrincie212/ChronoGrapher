@@ -180,7 +180,8 @@ impl TaskFrame for SelectTaskFrame {
         let idx = self.accessor.select(ctx.clone()).await;
         if let Some(frame) = self.frames.get(idx) {
             let subdivided = ctx.subdivide(frame.clone());
-            subdivided.clone()
+            subdivided
+                .clone()
                 .emit::<OnTaskFrameSelection>(&(idx, frame.clone()))
                 .await;
             return frame.execute(subdivided).await;

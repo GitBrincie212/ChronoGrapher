@@ -1,15 +1,15 @@
-use serde::{Deserialize, Serialize};
+use crate::persistence::PersistenceObject;
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
 use crate::task::{Debug, OnTaskEnd, TaskHook, TaskHookEvent};
 use crate::task::{Task, TaskContext, TaskError};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
-use crate::persistence::PersistenceObject;
 
 /// [`TaskResolvent`] acts as a policy dictating how to manage the counting
 /// of relevant runs towards [`TaskDependency`], the [`TaskDependency`] has
@@ -69,20 +69,27 @@ macro_rules! implement_core_resolvent {
 
         #[async_trait]
         impl PersistenceObject for $name {
-            const PERSISTENCE_ID: &'static str = concat!("chronographer::", stringify!($name), "#", stringify!($uuid));
+            const PERSISTENCE_ID: &'static str =
+                concat!("chronographer::", stringify!($name), "#", stringify!($uuid));
         }
     };
 }
 
 implement_core_resolvent!(
-    TaskResolveSuccessOnly, "0b9473f5-9ce2-49d2-ba68-f4462d605e51",
+    TaskResolveSuccessOnly,
+    "0b9473f5-9ce2-49d2-ba68-f4462d605e51",
     (|_ctx: Arc<TaskContext>, result: Option<TaskError>| result.is_none())
 );
 implement_core_resolvent!(
-    TaskResolveFailureOnly, "d5a9db33-9b4e-407e-b2a3-f1487f10be1c",
+    TaskResolveFailureOnly,
+    "d5a9db33-9b4e-407e-b2a3-f1487f10be1c",
     (|_ctx: Arc<TaskContext>, result: Option<TaskError>| result.is_some())
 );
-implement_core_resolvent!(TaskResolveIdentityOnly, "053ce742-4ca6-4f32-8bee-6ede0724137d", (|_, _| true));
+implement_core_resolvent!(
+    TaskResolveIdentityOnly,
+    "053ce742-4ca6-4f32-8bee-6ede0724137d",
+    (|_, _| true)
+);
 
 /// [`TaskDependencyConfig`] is simply used as a builder to construct [`TaskDependency`], <br />
 /// it isn't meant to be used by itself, you may refer to [`TaskDependency::builder`]

@@ -4,8 +4,8 @@ use crate::schedule::TaskSchedule;
 use crate::task::Task;
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// [`TaskScheduleImmediate`] is an implementation of the [`TaskSchedule`] trait
 /// that executes any [`Task`] instance immediately once scheduled / rescheduled
@@ -42,5 +42,6 @@ impl TaskSchedule for TaskScheduleImmediate {
 
 #[async_trait]
 impl PersistenceObject for TaskScheduleImmediate {
-    const PERSISTENCE_ID: &'static str = "chronographer::TaskScheduleImmediate#74c56b86-2a45-4d18-abc7-d2da47218a28";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::TaskScheduleImmediate#74c56b86-2a45-4d18-abc7-d2da47218a28";
 }
