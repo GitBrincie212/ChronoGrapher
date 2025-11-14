@@ -26,6 +26,16 @@ plans, which can be summarized in this checklist (from highest to lowest priorit
   - [ ] Sentry
   - [ ] Datadog
   - [ ] Celery
+- [ ] Website
+  - [ ] Documentation
+    - [ ] Getting Started
+    - [ ] General Concepts
+    - [ ] Advanced Concepts
+    - [ ] Common Patterns And Practices
+    - [ ] List Of Integrations / Extensions (with docs about)
+  - [ ] Landing Page
+  - [ ] Info Page
+  - [ ] Integrations / Extensions Page
 
 ## Distributed Systems Library
 The goal of this library is simple, bridge the gap between the in-process core and enterprise-level 
@@ -34,6 +44,15 @@ distributed systems used in various applications. The features of the library ar
 - Support leader election and task coordination (e.g., via Kafka or Redis)
 - Offer hooks for custom load-balancing, horizontal scaling... etc.
 - Maintain core architectural principles (composition, modularity, and low coupling)
+
+## Web Dashboard Library
+The goal for this library is to be able to start up a server with the ability to preview information regarding the
+current process of scheduling in a modern easy to read interface, with visualizations and metrics. The features of the
+library are as follows:
+- Visualization of TaskFrame structure
+- Metrics regarding which tasks started, finished... etc.
+- Configuration over the dashboard's features
+- (And other features not considered as of now)
 
 ## Future Considerations
 - [ ] **Plugin / Extension Marketplace** A dedicated section to ChronoGrapher's website for community plugins
