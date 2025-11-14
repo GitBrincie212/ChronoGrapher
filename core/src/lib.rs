@@ -14,8 +14,6 @@ pub mod utils; // skipcq: RS-D1001
 
 pub mod backend; // skipcq: RS-D1001
 
-pub mod serialized_component; // skipcq: RS-D1001
-
 pub mod persistence; // skipcq: RS-D1001
 
 pub mod retrieve_registers; // skipcq: RS-D1001
