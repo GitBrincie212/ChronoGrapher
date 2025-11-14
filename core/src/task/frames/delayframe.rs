@@ -1,15 +1,14 @@
 use crate::define_event;
-use crate::persistence::PersistentObject;
-use crate::serialized_component::SerializedComponent;
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
-use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::time::Instant;
+use tokio::sync::Mutex;
+use crate::persistence::PersistenceObject;
 
 define_event!(
     /// # See Also
@@ -68,7 +67,8 @@ define_event!(
 ///
 /// # See Also
 /// - [`TaskFrame`]
-pub struct DelayTaskFrame<T: 'static>(T, Duration);
+#[derive(Serialize, Deserialize)]
+pub struct DelayTaskFrame<T: TaskFrame + 'static>(Arc<T>, Duration, Mutex<Option<Instant>>);
 
 impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
     /// Constructs / Creates a new [`DelayTaskFrame`] instance
@@ -85,7 +85,7 @@ impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
     /// - [`TaskFrame`]
     /// - [`DelayTaskFrame`]
     pub fn new(frame: T, delay: Duration) -> Self {
-        DelayTaskFrame(frame, delay)
+        DelayTaskFrame(Arc::new(frame), delay, Mutex::new(None))
     }
 }
 
@@ -93,43 +93,16 @@ impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
 impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         ctx.clone().emit::<OnDelayStart>(&self.1).await;
-        tokio::time::sleep(self.1).await;
+        let deadline = Instant::now() + self.1;
+        self.2.lock().await.replace(deadline);
+        tokio::time::sleep_until(deadline).await;
+        self.2.lock().await.take();
         ctx.clone().emit::<OnDelayEnd>(&self.1).await;
-        self.0.execute(ctx).await
+        ctx.subdivide_exec(self.0).await
     }
 }
 
 #[async_trait]
-impl<T: TaskFrame + PersistentObject> PersistentObject for DelayTaskFrame<T> {
-    fn persistence_id() -> &'static str {
-        "DelayTaskFrame$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = PersistenceUtils::serialize_persistent(&self.0).await?;
-        let delay = PersistenceUtils::serialize_field(self.1)?;
-        Ok(SerializedComponent::new::<Self>(json!({
-            "wrapped_frame": frame,
-            "delay": delay
-        })))
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
-
-        let delay = PersistenceUtils::deserialize_atomic::<Duration>(
-            &mut repr,
-            "delay",
-            "Cannot deserialize the delay",
-        )?;
-
-        let frame = PersistenceUtils::deserialize_concrete::<T>(
-            &mut repr,
-            "wrapped_frame",
-            "Cannot deserialize the wrapped task frame",
-        )
-        .await?;
-
-        Ok(DelayTaskFrame::new(frame, delay))
-    }
+impl<T: TaskFrame + PersistenceObject> PersistenceObject for DelayTaskFrame<T> {
+    const PERSISTENCE_ID: &'static str = "chronographer::DelayTaskFrame#08656c89-041e-4b22-9c53-bb5a5e02a9f1";
 }
