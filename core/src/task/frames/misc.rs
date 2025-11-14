@@ -1,6 +1,4 @@
 use crate::define_event;
-use crate::persistence::PersistentObject;
-use crate::serialized_component::SerializedComponent;
 use crate::task::TaskError;
 use crate::task::TaskHookEvent;
 #[allow(unused_imports)]
@@ -8,8 +6,7 @@ use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
-use std::sync::Arc;
+use crate::persistence::PersistenceObject;
 
 /// [`GroupedTaskFrameExecBehavior`] is a mechanism used in conjunction with [`ParallelTaskFrame`]
 /// and [`SequentialTaskFrame`] **(we call them grouped task frames)**, it defines the behavior for
@@ -22,7 +19,7 @@ use std::sync::Arc;
 /// indicates not to quit with any result and continue the execution
 ///
 /// # Trait Implementation(s)
-/// By default [`GroupedTaskFrameExecBehavior`] has 3 implementations of this trait. Those being:
+/// By default [`GroupedTaskFrameExecBehavior`] has 3 implementations of this trait. Those are:
 /// - [`GroupedTaskFramesQuitOnSuccess`] Quits the grouped task frame, if at least one child [`TaskFrame`] succeeds
 /// - [`GroupedTaskFramesQuitOnFailure`] Quits the grouped task frame, if at least one child [`TaskFrame`] fails
 /// - [`GroupedTaskFramesSilent`] Does not care about the results of every child [`TaskFrame`]
@@ -57,13 +54,20 @@ pub trait GroupedTaskFramesExecBehavior: Send + Sync {
 ///
 /// # Trait Implementation(s)
 /// Obviously, as discussed above, [`GroupedTaskFramesQuitOnSuccess`] implements [`GroupedTaskFramesExecBehavior`]
-/// but it also implements [`Default`] (again as discussed), in addition, [`Clone`], [`Copy`] and [`Debug`]
+/// but also:
+/// - [`Debug`] (just prints the name, nothing more, nothing less)
+/// - [`Clone`]
+/// - [`Copy`]
+/// - [`Default`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
 ///
 /// # See Also
 /// - [`ParallelTaskFrame`]
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct GroupedTaskFramesQuitOnSuccess;
 
 #[async_trait]
@@ -77,18 +81,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
 }
 
 #[async_trait]
-impl PersistentObject for GroupedTaskFramesQuitOnSuccess {
-    fn persistence_id() -> &'static str {
-        "GroupedTaskFramesQuitOnSuccess$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(GroupedTaskFramesQuitOnSuccess)
-    }
+impl PersistenceObject for GroupedTaskFramesQuitOnSuccess {
+    const PERSISTENCE_ID: &'static str = "chronographer::GroupedTaskFramesQuitOnSuccess#8895d78d-5552-464f-9e21-66771be396a5";
 }
 
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -102,12 +96,20 @@ impl PersistentObject for GroupedTaskFramesQuitOnSuccess {
 ///
 /// # Trait Implementation(s)
 /// Obviously, as discussed above, [`GroupedTaskFramesQuitOnFailure`] implements [`GroupedTaskFramesExecBehavior`]
-/// but it also implements [`Default`] (again as discussed), in addition, [`Clone`], [`Copy`] and [`Debug`]
+/// but also:
+/// - [`Debug`] (just prints the name, nothing more, nothing less)
+/// - [`Clone`]
+/// - [`Copy`]
+/// - [`Default`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
 ///
 /// # See Also
 /// - [`ParallelTaskFrame`]
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct GroupedTaskFramesQuitOnFailure;
 
 #[async_trait]
@@ -121,18 +123,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
 }
 
 #[async_trait]
-impl PersistentObject for GroupedTaskFramesQuitOnFailure {
-    fn persistence_id() -> &'static str {
-        "GroupedTaskFramesQuitOnFailure$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(GroupedTaskFramesQuitOnFailure)
-    }
+impl PersistenceObject for GroupedTaskFramesQuitOnFailure {
+    const PERSISTENCE_ID: &'static str = "chronographer::GroupedTaskFramesQuitOnFailure#c2834489-7a63-4fda-bbc6-4ffe50b9733a";
 }
 
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -152,6 +144,7 @@ impl PersistentObject for GroupedTaskFramesQuitOnFailure {
 /// - [`ParallelTaskFrame`]
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct GroupedTaskFramesSilent;
 
 #[async_trait]
@@ -162,18 +155,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
 }
 
 #[async_trait]
-impl PersistentObject for GroupedTaskFramesSilent {
-    fn persistence_id() -> &'static str {
-        "GroupedTaskFramesSilent$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(GroupedTaskFramesSilent)
-    }
+impl PersistenceObject for GroupedTaskFramesSilent {
+    const PERSISTENCE_ID: &'static str = "chronographer::GroupedTaskFramesSilent#59034b8a-d96e-4c42-933b-10d7aec14c88";
 }
 
 define_event!(
@@ -184,7 +167,7 @@ define_event!(
     /// # See Also
     /// - [`ParallelTaskFrame`]
     /// - [`SequentialTaskFrame`]
-    OnChildStart, Arc<dyn TaskFrame>
+    OnChildStart, ()
 );
 
 define_event!(
@@ -195,5 +178,5 @@ define_event!(
     /// # See Also
     /// - [`ParallelTaskFrame`]
     /// - [`SequentialTaskFrame`]
-    OnChildEnd, (Arc<dyn TaskFrame>, Option<TaskError>)
+    OnChildEnd, Option<TaskError>
 );
