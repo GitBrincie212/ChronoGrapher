@@ -330,7 +330,7 @@ impl Task {
     pub async fn run(&self) -> Result<(), TaskError> {
         let ctx = TaskContext::new(self);
         self.runs.fetch_add(1, Ordering::Relaxed);
-        ctx.clone().emit::<OnTaskStart>(&()).await;
+        ctx.clone().emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
         let result = self.frame.execute(ctx.clone()).await;
         let err = result.clone().err();
 
