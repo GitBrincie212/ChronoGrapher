@@ -1,13 +1,10 @@
-use crate::persistence::PersistentObject;
+use crate::persistence::PersistenceObject;
 use crate::schedule::TaskSchedule;
-use crate::serialized_component::SerializedComponent;
-use crate::task::TaskError;
-use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use chrono::{DateTime, Local};
-use serde_json::json;
 use std::fmt::Debug;
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 
 /// [`TaskScheduleCron`] is an implementation of the [`TaskSchedule`] trait that executes [`Task`]
 /// instances, according to a cron expression. Learn more about cron expression in
@@ -29,8 +26,14 @@ use std::sync::Arc;
 /// which requires a cron expression as a string
 ///
 /// # Trait Implementation(s)
-/// Apart from implementing [`TaskSchedule`], [`TaskScheduleCron`] also implements the [`Debug`] trait,
-/// the [`Clone`] trait, the [`Eq`] trait and subsequently the [`PartialEq`] trait
+/// Apart from implementing [`TaskSchedule`], [`TaskScheduleCron`] also implements:
+/// - [`Debug`],
+/// - [`Clone`]
+/// - [`Eq`]
+/// - [`PartialEq`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
 ///
 /// # Examples
 ///
@@ -48,7 +51,7 @@ use std::sync::Arc;
 /// - [`Task`]
 /// - [`ScheduleCalendar`]
 /// - [`TaskSchedule`]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TaskScheduleCron(String);
 
 impl TaskScheduleCron {
@@ -78,27 +81,6 @@ impl TaskSchedule for TaskScheduleCron {
 }
 
 #[async_trait]
-impl PersistentObject for TaskScheduleCron {
-    fn persistence_id() -> &'static str {
-        "TaskScheduleCron$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let cron = PersistenceUtils::serialize_field(self.0.as_str())?;
-        Ok(SerializedComponent::new::<Self>(json!({
-            "cron_expression": cron
-        })))
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<TaskScheduleCron, TaskError> {
-        let mut map = PersistenceUtils::transform_serialized_to_map(component)?;
-
-        let cron = PersistenceUtils::deserialize_atomic::<String>(
-            &mut map,
-            "cron_expression",
-            "Cannot deserialize the cron_expression field",
-        )?;
-
-        Ok(TaskScheduleCron::new(cron))
-    }
+impl PersistenceObject for TaskScheduleCron {
+    const PERSISTENCE_ID: &'static str = "chronographer::TaskScheduleCron#ede44f5f-a3bc-464c-9284-f3c666470cc7";
 }
