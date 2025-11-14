@@ -1,16 +1,12 @@
-use crate::persistence::PersistentObject;
+use crate::persistence::PersistenceObject;
 use crate::schedule::TaskSchedule;
-use crate::serialized_component::SerializedComponent;
-use crate::task::TaskError;
-use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use chrono::{DateTime, Local, TimeDelta};
-use serde_json::json;
 use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 use std::time::Duration;
-
+use serde::{Deserialize, Serialize};
 #[allow(unused_imports)]
 use crate::task::Task;
 
@@ -50,6 +46,9 @@ use crate::task::Task;
 /// - [`PartialEq`]
 /// - [`PartialOrd`]
 /// - [`Ord`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
 ///
 /// In addition, it implements ``From`` trait for various integers and float numbers, those being:
 /// - ``u8``
@@ -61,7 +60,7 @@ use crate::task::Task;
 /// # See also
 /// - [`Task`]
 /// - [`TaskSchedule`]
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy, Serialize, Deserialize)]
 pub struct TaskScheduleInterval(pub(crate) TimeDelta);
 
 impl TaskScheduleInterval {
@@ -190,27 +189,6 @@ impl From<f32> for TaskScheduleInterval {
 }
 
 #[async_trait]
-impl PersistentObject for TaskScheduleInterval {
-    fn persistence_id() -> &'static str {
-        "TaskScheduleInterval$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let secs = PersistenceUtils::serialize_field(self.0.as_seconds_f64())?;
-        Ok(SerializedComponent::new::<Self>(json!({
-            "interval_seconds": secs
-        })))
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<TaskScheduleInterval, TaskError> {
-        let mut map = PersistenceUtils::transform_serialized_to_map(component)?;
-
-        let interval = PersistenceUtils::deserialize_atomic::<f64>(
-            &mut map,
-            "seconds",
-            "Cannot deserialize the interval_seconds field",
-        )?;
-
-        Ok(TaskScheduleInterval::from_secs_f64(interval))
-    }
+impl PersistenceObject for TaskScheduleInterval {
+    const PERSISTENCE_ID: &'static str = "chronographer::TaskScheduleInterval#3cec23ef-0567-4640-ac66-a920a3b86674";
 }
