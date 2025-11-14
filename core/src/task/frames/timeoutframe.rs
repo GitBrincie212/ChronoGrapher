@@ -112,7 +112,7 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
             return inner;
         }
 
-        ctx.emit::<OnTimeout>(&()).await;
+        ctx.emit::<OnTimeout>(&()).await;  // skipcq: RS-E1015
         Err(Arc::new(std::io::Error::new(
             std::io::ErrorKind::TimedOut,
             "Task timed out",
