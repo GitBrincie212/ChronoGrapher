@@ -3,9 +3,9 @@ use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use serde::{Deserialize, Serialize};
 
 /// [`FlagDependency`] is a dependency which can be enabled and disabled from outside, essentially
 /// acting more as a checkbox
@@ -97,5 +97,6 @@ impl UnresolvableFrameDependency for FlagDependency {
 
 #[async_trait]
 impl PersistenceObject for FlagDependency {
-    const PERSISTENCE_ID: &'static str = "chronographer::FlagDependency#8e932fba-afec-40c6-b73d-1c048f382ab8";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::FlagDependency#8e932fba-afec-40c6-b73d-1c048f382ab8";
 }

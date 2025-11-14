@@ -1,4 +1,5 @@
 use crate::define_event;
+use crate::persistence::PersistenceObject;
 use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,6 @@ use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::persistence::PersistenceObject;
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -270,7 +270,10 @@ define_event!(
 /// - [`TaskFrame`]
 /// - [`RetryBackoffStrategy`]
 #[derive(Serialize, Deserialize)]
-pub struct RetriableTaskFrame<T: TaskFrame + 'static, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
+pub struct RetriableTaskFrame<
+    T: TaskFrame + 'static,
+    T2: RetryBackoffStrategy = ConstantBackoffStrategy,
+> {
     frame: Arc<T>,
     retries: NonZeroU32,
     backoff_strat: T2,
@@ -348,7 +351,8 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
         let mut error: Option<TaskError> = None;
         let subdivided_ctx = ctx.subdivide(self.frame.clone());
         for retry in 0u32..self.retries.get() {
-            subdivided_ctx.clone()
+            subdivided_ctx
+                .clone()
                 .emit::<OnRetryAttemptStart>(&retry)
                 .await;
             let result = self.frame.execute(subdivided_ctx.clone()).await;
@@ -380,5 +384,6 @@ where
     T1: TaskFrame + 'static + PersistenceObject,
     T2: RetryBackoffStrategy + PersistenceObject,
 {
-    const PERSISTENCE_ID: &'static str = "chronographer::RetriableTaskFrame#92b11283-b132-491d-85f3-417a84e9242e";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::RetriableTaskFrame#92b11283-b132-491d-85f3-417a84e9242e";
 }

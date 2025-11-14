@@ -285,7 +285,8 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame + PersistenceObject> PersistenceObject for DependencyTaskFrame<T> {
-    const PERSISTENCE_ID: &'static str = "chronographer::DependencyTaskFrame#efd76154-9690-40b9-be03-39186c74d579";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::DependencyTaskFrame#efd76154-9690-40b9-be03-39186c74d579";
 }
 
 /*
