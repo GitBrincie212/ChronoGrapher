@@ -1,5 +1,4 @@
-use crate::persistence::PersistentObject;
-use crate::serialized_component::SerializedComponent;
+use crate::persistence::PersistenceObject;
 use crate::task::TaskError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
@@ -7,7 +6,6 @@ use crate::{define_event, define_generic_event};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -90,7 +88,7 @@ use std::sync::Arc;
 /// - [`OnTaskFrameSelection`]
 /// - [`OnFallbackEvent`]
 /// - [`OnDependencyValidation`]
-pub trait TaskHookEvent: Send + Sync + Default + 'static {
+pub trait TaskHookEvent: Send + Sync + Default + 'static + Serialize + for<'de> Deserialize<'de> {
     type Payload: Send + Sync;
     const PERSISTENCE_ID: &'static str;
 }
@@ -103,18 +101,8 @@ impl TaskHookEvent for () {
 }
 
 #[async_trait]
-impl<T: TaskHookEvent> PersistentObject for T {
-    fn persistence_id() -> &'static str {
-        Self::PERSISTENCE_ID
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(Self::default())
-    }
+impl<T: TaskHookEvent> PersistenceObject for T {
+    const PERSISTENCE_ID: &'static str = Self::PERSISTENCE_ID;
 }
 
 /// [`TaskHook`] is a trait for defining a task hook, task hooks listens to events emitted by the
@@ -279,7 +267,7 @@ impl TaskHookContainer {
         let hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook, PhantomData));
 
         self.0
-            .entry(E::persistence_id())
+            .entry(E::PERSISTENCE_ID)
             .or_default()
             .insert(hook_id, hook);
         self.emit::<OnHookAttach<E>>(ctx, &E::default()).await;
@@ -296,7 +284,7 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
-        let interested_event_container = self.0.get(E::persistence_id())?;
+        let interested_event_container = self.0.get(E::PERSISTENCE_ID)?;
 
         let entry = interested_event_container.get(&TypeId::of::<T>())?;
 
@@ -316,13 +304,13 @@ impl TaskHookContainer {
     /// - [`OnHookDetach`]
     pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: Arc<TaskContext>) {
         self.0
-            .get_mut(E::persistence_id())
+            .get_mut(E::PERSISTENCE_ID)
             .map(|x| x.remove(&TypeId::of::<T>()));
         self.emit::<OnHookDetach<E>>(ctx, &E::default()).await;
     }
 
     pub async fn emit<E: TaskHookEvent>(&self, ctx: Arc<TaskContext>, payload: &E::Payload) {
-        if let Some(entry) = self.0.get(E::persistence_id()) {
+        if let Some(entry) = self.0.get(E::PERSISTENCE_ID) {
             for hook in entry.value().iter() {
                 hook.value()
                     .on_emit(ctx.clone(), payload as &(dyn Any + Send + Sync))
