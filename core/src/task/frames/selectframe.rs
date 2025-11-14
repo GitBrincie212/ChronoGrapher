@@ -68,7 +68,7 @@ define_event!(
     ///
     /// # See Also
     /// - [`SelectTaskFrame`]
-    OnTaskFrameSelection, (usize, Arc<dyn TaskFrame>)
+    OnTaskFrameSelection, usize
 );
 
 /// Represents a **select task frame** which wraps multiple [`TaskFrame`] and picks one [`TaskFrame`] based
@@ -179,10 +179,11 @@ impl TaskFrame for SelectTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let idx = self.accessor.select(ctx.clone()).await;
         if let Some(frame) = self.frames.get(idx) {
-            ctx.clone()
+            let subdivided = ctx.subdivide(frame.clone());
+            subdivided.clone()
                 .emit::<OnTaskFrameSelection>(&(idx, frame.clone()))
                 .await;
-            return frame.execute(ctx).await;
+            return frame.execute(subdivided).await;
         }
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,
