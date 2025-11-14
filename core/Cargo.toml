@@ -2,7 +2,6 @@
 name = "chronographer"
 version = "0.1.0"
 edition = "2024"
-license = "BSL-1"
 license-file = "LICENSE"
 homepage = "https://github.com/GitBrincie212/ChronoGrapher"
 authors = ["McBrincie212"]
@@ -22,10 +21,10 @@ thiserror = "2.0.16"
 typed-builder = "0.23.0"
 tokio = { version = "1.47.1", features = ["time", "rt-multi-thread", "macros", "sync"] }
 chrono = { version = "0.4.41", features = ["now"] }
-cron-parser = "0.10.0"
+cron-parser = "0.11.0"
 uuid = { version = "1.18.1", features = ["v4"] }
 fastrand = "2.3.0"
 dashmap = "7.0.0-rc2"
 multipool = "0.2.8"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
-rocksdb = "0.24.0"
+sled = "0.34.7"
