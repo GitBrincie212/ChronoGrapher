@@ -2,8 +2,6 @@ pub mod conditionframe; // skipcq: RS-D1001
 
 pub mod dependencyframe; // skipcq: RS-D1001
 
-pub mod executionframe; // skipcq: RS-D1001
-
 pub mod fallbackframe; // skipcq: RS-D1001
 
 pub mod noopframe; // skipcq: RS-D1001
@@ -27,7 +25,6 @@ use async_trait::async_trait;
 pub use conditionframe::*;
 pub use delayframe::*;
 pub use dependencyframe::*;
-pub use executionframe::*;
 pub use fallbackframe::*;
 pub use misc::*;
 pub use noopframe::*;
@@ -37,7 +34,6 @@ pub use selectframe::*;
 pub use sequentialframe::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
-use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 pub use timeoutframe::*;
@@ -78,8 +74,10 @@ pub struct TaskContext {
     hooks_container: Arc<TaskHookContainer>,
     priority: TaskPriority,
     runs: u64,
+    depth: u64,
     debug_label: String,
     max_runs: Option<NonZeroU64>,
+    frame: Arc<dyn TaskFrame>,
     id: Uuid,
 }
 
@@ -117,10 +115,30 @@ impl TaskContext {
             hooks_container: task.hooks.clone(),
             priority: task.priority,
             runs: task.runs.load(Ordering::Relaxed),
+            depth: 0,
             debug_label: task.debug_label.clone(),
             max_runs: task.max_runs,
-            id: Uuid::new_v4(),
+            frame: task.frame.clone(),
+            id: task.id.clone(),
         })
+    }
+
+    pub fn subdivide(&self, frame: Arc<dyn TaskFrame>) -> Arc<Self> {
+        Arc::new(Self {
+            hooks_container: self.hooks_container,
+            priority: self.priority,
+            runs: self.runs,
+            debug_label: self.debug_label,
+            max_runs: self.max_runs,
+            frame: frame.clone(),
+            id: self.id,
+            depth: self.depth + 1
+        })
+    }
+
+    pub async fn subdivide_exec(&self, frame: Arc<dyn TaskFrame>) -> Result<(), TaskError> {
+        let child_ctx = self.subdivide(frame.clone());
+        frame.execute(child_ctx).await
     }
 
     /// Accesses the priority field, returning it in the process
@@ -178,6 +196,11 @@ impl TaskContext {
     /// - [`TaskContext`]
     pub fn hooks(&self) -> Arc<TaskHookContainer> {
         self.hooks_container.clone()
+    }
+
+
+    pub fn frame(&self) -> Arc<dyn TaskFrame> {
+        self.frame.clone()
     }
 
     /// Emits an event to relevant [`TaskHook(s)`] that have subscribed to it
@@ -333,12 +356,12 @@ pub trait TaskFrame: Send + Sync {
 }
 
 #[async_trait]
-impl<F> TaskFrame for F
+impl<F, T> TaskFrame for F
 where
-    F: ?Sized + Deref + Send + Sync,
-    F::Target: TaskFrame,
+    F: Fn(Arc<TaskContext>) -> T + Send + Sync,
+    T: Future<Output = Result<(), TaskError>> + 'static
 {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        self.deref().execute(ctx).await
+        self(ctx).await
     }
 }
