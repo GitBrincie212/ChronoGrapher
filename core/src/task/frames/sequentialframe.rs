@@ -139,7 +139,9 @@ impl TaskFrame for SequentialTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         for taskframe in self.tasks.iter() {
             let subdivided_ctx = ctx.subdivide(taskframe.clone());
-            subdivided_ctx.clone().emit::<OnChildStart>(&()).await;
+            subdivided_ctx.clone()
+                .emit::<OnChildStart>(&())
+                .await; // skipcq: RS-E1015
             let result = taskframe.execute(subdivided_ctx.clone()).await;
             subdivided_ctx.clone()
                 .emit::<OnChildEnd>(&result.clone().err())

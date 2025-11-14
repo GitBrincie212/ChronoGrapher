@@ -322,14 +322,14 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
             let subdivided_ctx = ctx.subdivide(self.frame.clone());
             subdivided_ctx.clone()
                 .emit::<OnTruthyValueEvent>(&())
-                .await;
+                .await;  // skipcq: RS-E1015
             return self.frame.execute(subdivided_ctx).await;
         }
 
         let subdivided_ctx = ctx.subdivide(self.fallback.clone());
         subdivided_ctx.clone()
             .emit::<OnFalseyValueEvent>(&())
-            .await;
+            .await;  // skipcq: RS-E1015
         let result = self.fallback.execute(subdivided_ctx).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));

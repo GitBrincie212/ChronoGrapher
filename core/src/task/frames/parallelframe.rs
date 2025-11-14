@@ -153,11 +153,11 @@ impl TaskFrame for ParallelTaskFrame {
                                 subdivided_ctx
                                     .clone()
                                     .emit::<OnChildStart>(&())
-                                    .await;
+                                    .await; // skipcq: RS-E1015
                                 let result = frame_clone.execute(subdivided_ctx.clone()).await;
                                 subdivided_ctx
                                     .emit::<OnChildEnd>(&result.clone().err())
-                                    .await;
+                                    .await; // skipcq: RS-E1015
                                 let _ = result_tx.send(result);
                             })
                         });
