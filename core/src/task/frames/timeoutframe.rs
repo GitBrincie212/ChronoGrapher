@@ -105,15 +105,14 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let subdivided = ctx.subdivide(self.frame);
         let result =
-            tokio::time::timeout(self.max_duration, self.frame.execute(subdivided.clone())).await;
+            tokio::time::timeout(self.max_duration, ctx.subdivide_exec(self.frame)).await;
 
         if let Ok(inner) = result {
             return inner;
         }
 
-        subdivided.emit::<OnTimeout>(&()).await;
+        ctx.emit::<OnTimeout>(&()).await;
         Err(Arc::new(std::io::Error::new(
             std::io::ErrorKind::TimedOut,
             "Task timed out",
