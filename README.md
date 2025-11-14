@@ -209,7 +209,7 @@ mod tests {
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Getting Started</h1>
-One can install the package via:
+One can install the package via (NOT AVAILAIBLE NOW):
 
 ```bash
 cargo add chronographer # Rust
