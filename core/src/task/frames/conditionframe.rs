@@ -319,18 +319,16 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let result = self.predicate.execute(ctx.clone()).await;
         if result {
-            let subdivided_ctx = ctx.subdivide(self.frame.clone());
-            subdivided_ctx.clone()
+            ctx.clone()
                 .emit::<OnTruthyValueEvent>(&())
                 .await;  // skipcq: RS-E1015
-            return self.frame.execute(subdivided_ctx).await;
+            return ctx.subdivide_exec(self.frame).await;
         }
 
-        let subdivided_ctx = ctx.subdivide(self.fallback.clone());
-        subdivided_ctx.clone()
+        ctx.clone()
             .emit::<OnFalseyValueEvent>(&())
             .await;  // skipcq: RS-E1015
-        let result = self.fallback.execute(subdivided_ctx).await;
+        let result = ctx.subdivide_exec(self.fallback).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));
         }
