@@ -208,6 +208,24 @@ mod tests {
 ```
 
 <img align="center" src="assets/Chronographer Divider.png" />
+<h1 align="center">Getting Started</h1>
+One can install the package via:
+
+```bash
+cargo add chronographer # Rust
+pip install chronographer # Python
+npm install chronographer # JS/TS (also available in yarn, bun, pnpm...)
+```
+
+Then ChronoGrapher is configured for one machine!
+To scale it more, it is advised to check the multiple integrations 
+and extensions offered by us or other third-parties
+
+With that said, the next steps are:
+- Full Documentation (Coming Soon)
+- API Reference (Coming Soon)
+- Examples Gallery (Coming Soon)
+<img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Contributing And License</h1>
 
 > [!IMPORTANT]  
