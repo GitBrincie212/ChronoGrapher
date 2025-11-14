@@ -1,5 +1,8 @@
 use crate::define_event;
 use crate::errors::ChronographerErrors;
+use crate::persistence::PersistenceObject;
+#[allow(unused_imports)]
+use crate::task::FallbackTaskFrame;
 use crate::task::TaskHookEvent;
 use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{TaskContext, TaskError, TaskFrame};
@@ -8,9 +11,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use crate::persistence::PersistenceObject;
-#[allow(unused_imports)]
-use crate::task::FallbackTaskFrame;
 
 /// [`ConditionalFramePredicate`] is a trait that works closely with [`ConditionalFrame`], it is the
 /// mechanism that returns true/false for the task to execute
@@ -320,16 +320,12 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
         let result = self.predicate.execute(ctx.clone()).await;
         if result {
             let subdivided_ctx = ctx.subdivide(self.frame.clone());
-            subdivided_ctx.clone()
-                .emit::<OnTruthyValueEvent>(&())
-                .await;
+            subdivided_ctx.clone().emit::<OnTruthyValueEvent>(&()).await;
             return self.frame.execute(subdivided_ctx).await;
         }
 
         let subdivided_ctx = ctx.subdivide(self.fallback.clone());
-        subdivided_ctx.clone()
-            .emit::<OnFalseyValueEvent>(&())
-            .await;
+        subdivided_ctx.clone().emit::<OnFalseyValueEvent>(&()).await;
         let result = self.fallback.execute(subdivided_ctx).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));
@@ -344,5 +340,6 @@ where
     T: TaskFrame + 'static + PersistenceObject,
     F: TaskFrame + 'static + PersistenceObject,
 {
-    const PERSISTENCE_ID: &'static str = "chronographer::ConditionalFrame#251f88d9-cecd-475d-85d3-0601657aedf4";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::ConditionalFrame#251f88d9-cecd-475d-85d3-0601657aedf4";
 }

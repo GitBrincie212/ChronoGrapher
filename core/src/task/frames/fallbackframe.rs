@@ -107,7 +107,8 @@ where
         match primary_result {
             Err(err) => {
                 let subdivide_ctx = ctx.subdivide(self.1.clone());
-                subdivide_ctx.clone()
+                subdivide_ctx
+                    .clone()
                     .emit::<OnFallbackEvent>(&(self.1.clone(), err))
                     .await;
                 self.1.execute(subdivide_ctx).await
@@ -123,5 +124,6 @@ where
     T: TaskFrame + 'static + PersistenceObject,
     T2: TaskFrame + 'static + PersistenceObject,
 {
-    const PERSISTENCE_ID: &'static str = "chronographer::FallbackTaskFrame#5ce04991-ae3d-4d54-861d-6a8379d251ac";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::FallbackTaskFrame#5ce04991-ae3d-4d54-861d-6a8379d251ac";
 }

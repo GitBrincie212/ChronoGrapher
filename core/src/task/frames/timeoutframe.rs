@@ -106,10 +106,8 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
 impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let subdivided = ctx.subdivide(self.frame);
-        let result = tokio::time::timeout(
-            self.max_duration, 
-            self.frame.execute(subdivided.clone())
-        ).await;
+        let result =
+            tokio::time::timeout(self.max_duration, self.frame.execute(subdivided.clone())).await;
 
         if let Ok(inner) = result {
             return inner;
@@ -125,5 +123,6 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame + PersistenceObject> PersistenceObject for TimeoutTaskFrame<T> {
-    const PERSISTENCE_ID: &'static str = "chronographer::TimeoutTaskFrame#cfbcfb94-5370-4b72-af3d-ceee31f7cea3";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::TimeoutTaskFrame#cfbcfb94-5370-4b72-af3d-ceee31f7cea3";
 }

@@ -1,4 +1,5 @@
 use crate::define_event;
+use crate::persistence::PersistenceObject;
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
@@ -6,9 +7,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::Instant;
 use tokio::sync::Mutex;
-use crate::persistence::PersistenceObject;
+use tokio::time::Instant;
 
 define_event!(
     /// # See Also
@@ -104,5 +104,6 @@ impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame + PersistenceObject> PersistenceObject for DelayTaskFrame<T> {
-    const PERSISTENCE_ID: &'static str = "chronographer::DelayTaskFrame#08656c89-041e-4b22-9c53-bb5a5e02a9f1";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::DelayTaskFrame#08656c89-041e-4b22-9c53-bb5a5e02a9f1";
 }

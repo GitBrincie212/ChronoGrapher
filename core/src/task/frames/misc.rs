@@ -1,4 +1,5 @@
 use crate::define_event;
+use crate::persistence::PersistenceObject;
 use crate::task::TaskError;
 use crate::task::TaskHookEvent;
 #[allow(unused_imports)]
@@ -6,7 +7,6 @@ use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
-use crate::persistence::PersistenceObject;
 
 /// [`GroupedTaskFrameExecBehavior`] is a mechanism used in conjunction with [`ParallelTaskFrame`]
 /// and [`SequentialTaskFrame`] **(we call them grouped task frames)**, it defines the behavior for
@@ -82,7 +82,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
 
 #[async_trait]
 impl PersistenceObject for GroupedTaskFramesQuitOnSuccess {
-    const PERSISTENCE_ID: &'static str = "chronographer::GroupedTaskFramesQuitOnSuccess#8895d78d-5552-464f-9e21-66771be396a5";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::GroupedTaskFramesQuitOnSuccess#8895d78d-5552-464f-9e21-66771be396a5";
 }
 
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -124,7 +125,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
 
 #[async_trait]
 impl PersistenceObject for GroupedTaskFramesQuitOnFailure {
-    const PERSISTENCE_ID: &'static str = "chronographer::GroupedTaskFramesQuitOnFailure#c2834489-7a63-4fda-bbc6-4ffe50b9733a";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::GroupedTaskFramesQuitOnFailure#c2834489-7a63-4fda-bbc6-4ffe50b9733a";
 }
 
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -156,7 +158,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
 
 #[async_trait]
 impl PersistenceObject for GroupedTaskFramesSilent {
-    const PERSISTENCE_ID: &'static str = "chronographer::GroupedTaskFramesSilent#59034b8a-d96e-4c42-933b-10d7aec14c88";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::GroupedTaskFramesSilent#59034b8a-d96e-4c42-933b-10d7aec14c88";
 }
 
 define_event!(

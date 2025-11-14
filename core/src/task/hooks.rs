@@ -88,7 +88,9 @@ use std::sync::Arc;
 /// - [`OnTaskFrameSelection`]
 /// - [`OnFallbackEvent`]
 /// - [`OnDependencyValidation`]
-pub trait TaskHookEvent: Send + Sync + Default + 'static + Serialize + for<'de> Deserialize<'de> {
+pub trait TaskHookEvent:
+    Send + Sync + Default + 'static + Serialize + for<'de> Deserialize<'de>
+{
     type Payload: Send + Sync;
     const PERSISTENCE_ID: &'static str;
 }

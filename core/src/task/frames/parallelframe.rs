@@ -150,10 +150,7 @@ impl TaskFrame for ParallelTaskFrame {
                         let subdivided_ctx = ctx.subdivide(frame.clone());
                         s.spawn(move || {
                             tokio::spawn(async move {
-                                subdivided_ctx
-                                    .clone()
-                                    .emit::<OnChildStart>(&())
-                                    .await;
+                                subdivided_ctx.clone().emit::<OnChildStart>(&()).await;
                                 let result = frame_clone.execute(subdivided_ctx.clone()).await;
                                 subdivided_ctx
                                     .emit::<OnChildEnd>(&result.clone().err())
