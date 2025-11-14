@@ -1,17 +1,13 @@
 use crate::define_event;
 use crate::errors::ChronographerErrors;
-use crate::persistence::{AsPersistent, PersistenceCapability, PersistentObject};
-use crate::retrieve_registers::RetrieveRegistries;
-use crate::serialized_component::SerializedComponent;
+use crate::persistence::PersistenceObject;
 use crate::task::Debug;
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
 use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
-use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
@@ -94,6 +90,7 @@ pub struct DependencyTaskFrameConfig<T: TaskFrame> {
     /// # See Also
     /// - [`TaskFrame`]
     /// - [`FrameDependency`]
+    #[builder(setter(transform = |x: T| Arc::new(x)))]
     task: T,
 
     /// A collection of [`FrameDependency`] tied to the inner [`TaskFrame`]. Where
@@ -225,11 +222,12 @@ define_event!(
 /// - [`TaskEvent`]
 /// - [`DependentFailBehavior`]
 /// - [`DependencyTaskFrame::builder`]
+#[derive(Serialize, Deserialize)]
 pub struct DependencyTaskFrame<T: TaskFrame> {
-    frame: T,
+    frame: Arc<T>,
     dependencies: Vec<Arc<dyn FrameDependency>>,
     dependent_behaviour: Arc<dyn DependentFailBehavior>,
-}
+} // TODO: Check why it compiles successfully (potential bug)
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
     /// Creates / Constructs a builder for the construction of [`DependencyTaskFrame`],
@@ -281,17 +279,17 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             return self.dependent_behaviour.execute().await;
         }
 
-        self.frame.execute(ctx).await
+        ctx.subdivide_exec(self.frame).await
     }
 }
 
 #[async_trait]
-impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T> {
-    fn persistence_id() -> &'static str {
-        "DependencyTaskFrame$chronographer_core"
-    }
+impl<T: TaskFrame + PersistenceObject> PersistenceObject for DependencyTaskFrame<T> {
+    const PERSISTENCE_ID: &'static str = "chronographer::DependencyTaskFrame#efd76154-9690-40b9-be03-39186c74d579";
+}
 
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
+/*
+async fn persist(&self) -> Result<SerializedComponent, TaskError> {
         let wrapped_frame = PersistenceUtils::serialize_persistent(&self.frame).await?;
         let mut dependencies = Vec::with_capacity(self.dependencies.len());
 
@@ -373,4 +371,4 @@ impl<T: TaskFrame + PersistentObject> PersistentObject for DependencyTaskFrame<T
             frame,
         })
     }
-}
+ */
