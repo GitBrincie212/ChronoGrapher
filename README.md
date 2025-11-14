@@ -96,7 +96,7 @@ Some of the available task frame types are:
 
 - **🔄 RetriableFrame:** Automatic retries for a TaskFrame with configurable backoff strategies
 - **⏱️ TimeoutFrame:** Enforce execution time limits on a TaskFrame (otherwise a timeout error is thrown if exceeded)
-- **🔄 FallbackFrame:** If the primary TaskFrame fails, switch to a secondary TaskFrame
+- **🚫 FallbackFrame:** If the primary TaskFrame fails, switch to a secondary TaskFrame
 - **🎯 ConditionalFrame:** Conditional execution of a TaskFrame via an outside predicate
 - **📋 SequentialFrame:** Executes multiple TaskFrames sequentially
 - **⚡ ParallelFrame:** Executes multiple TaskFrames in parallel
