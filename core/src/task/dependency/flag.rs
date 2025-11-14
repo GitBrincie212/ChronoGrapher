@@ -1,14 +1,11 @@
-use crate::persistence::PersistentObject;
-use crate::serialized_component::SerializedComponent;
-use crate::task::TaskError;
+use crate::persistence::PersistenceObject;
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
-use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
-use serde_json::json;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use serde::{Deserialize, Serialize};
 
 /// [`FlagDependency`] is a dependency which can be enabled and disabled from outside, essentially
 /// acting more as a checkbox
@@ -20,7 +17,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// # Trait Implementation(s)
 /// It is clear as day that [`FlagDependency`] implements the [`FrameDependency`] trait,
 /// but it also implements the extension traits [`ResolvableFrameDependency`] and [`UnresolvableFrameDependency`]
-/// for developers to manually resolve and unresolve
+/// for developers to manually resolve and unresolve. Additionally, serde's [`Serialize`], [`Deserialize`]
+/// traits and [`PersistenceObject`]
 ///
 /// # Example
 /// ```ignore
@@ -44,6 +42,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// - [`FlagDependency::new`]
 /// - [`ResolvableFrameDependency`]
 /// - [`UnresolvableFrameDependency`]
+#[derive(Serialize, Deserialize)]
 pub struct FlagDependency(Arc<AtomicBool>, Arc<AtomicBool>);
 
 impl FlagDependency {
@@ -97,37 +96,6 @@ impl UnresolvableFrameDependency for FlagDependency {
 }
 
 #[async_trait]
-impl PersistentObject for FlagDependency {
-    fn persistence_id() -> &'static str {
-        "FlagDependency$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let is_resolved = PersistenceUtils::serialize_field(self.0.load(Ordering::Relaxed))?;
-        let is_enabled = PersistenceUtils::serialize_field(self.1.load(Ordering::Relaxed))?;
-        Ok(SerializedComponent::new::<Self>(json!({
-            "is_resolved": is_resolved,
-            "is_enabled": is_enabled
-        })))
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
-        let is_resolved = PersistenceUtils::deserialize_atomic::<bool>(
-            &mut repr,
-            "is_resolved",
-            "Cannot deserialize the data indicating if the dependency was resolved or not",
-        )?;
-
-        let is_enabled = PersistenceUtils::deserialize_atomic::<bool>(
-            &mut repr,
-            "is_enabled",
-            "Cannot deserialize the data indicating if the dependency was enabled or not",
-        )?;
-
-        Ok(FlagDependency(
-            Arc::new(AtomicBool::new(is_resolved)),
-            Arc::new(AtomicBool::new(is_enabled)),
-        ))
-    }
+impl PersistenceObject for FlagDependency {
+    const PERSISTENCE_ID: &'static str = "chronographer::FlagDependency#8e932fba-afec-40c6-b73d-1c048f382ab8";
 }
