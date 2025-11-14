@@ -3,7 +3,6 @@ pub mod task_dispatcher; // skipcq: RS-D1001
 pub mod task_store; // skipcq: RS-D1001
 
 use crate::clock::*;
-use crate::persistence::PersistentObject;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
@@ -418,14 +417,14 @@ impl Scheduler {
         let hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook, PhantomData));
 
         self.global_hooks
-            .entry(E::persistence_id())
+            .entry(E::PERSISTENCE_ID)
             .or_default()
             .insert(hook_id, hook);
     }
 
     pub async fn detach_global_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
         self.global_hooks
-            .get_mut(E::persistence_id())
+            .get_mut(E::PERSISTENCE_ID)
             .map(|x| x.remove(&TypeId::of::<T>()));
     }
 }
