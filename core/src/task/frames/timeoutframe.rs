@@ -1,12 +1,9 @@
 use crate::define_event;
-use crate::persistence::PersistentObject;
-use crate::serialized_component::SerializedComponent;
+use crate::persistence::PersistenceObject;
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
-use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -44,7 +41,9 @@ define_event!(
 ///
 /// # Trait Implementation(s)
 /// It is obvious that the [`TimeoutTaskFrame`] implements [`TaskFrame`] since this
-/// is a part of the default provided implementations, however there are many others
+/// is a part of the default provided implementations, however, it also implements
+/// [`PersistenceObject`], [`Serialize`] and [`Deserialize`]. ONLY if the underlying
+/// [`TaskFrame`] is persistable
 ///
 /// # Example
 /// ```ignore
@@ -75,10 +74,11 @@ define_event!(
 ///
 /// # See Also
 /// - [`TaskFrame`]
+#[derive(Serialize, Deserialize)]
 pub struct TimeoutTaskFrame<T: 'static> {
-    frame: T,
+    frame: Arc<T>,
     max_duration: Duration,
-}
+} // TODO: Find a way to store the deadline of timeout
 
 impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
     /// Constructs / Creates a new [`TimeoutTaskFrame`] instance
@@ -96,7 +96,7 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
     /// - [`TimeoutTaskFrame`]
     pub fn new(frame: T, max_duration: Duration) -> Self {
         TimeoutTaskFrame {
-            frame,
+            frame: Arc::new(frame),
             max_duration,
         }
     }
@@ -105,12 +105,17 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let result = tokio::time::timeout(self.max_duration, self.frame.execute(ctx.clone())).await;
+        let subdivided = ctx.subdivide(self.frame);
+        let result = tokio::time::timeout(
+            self.max_duration, 
+            self.frame.execute(subdivided.clone())
+        ).await;
 
         if let Ok(inner) = result {
             return inner;
         }
-        ctx.emit::<OnTimeout>(&()).await;
+
+        subdivided.emit::<OnTimeout>(&()).await;
         Err(Arc::new(std::io::Error::new(
             std::io::ErrorKind::TimedOut,
             "Task timed out",
@@ -119,36 +124,6 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
 }
 
 #[async_trait]
-impl<T: TaskFrame + PersistentObject> PersistentObject for TimeoutTaskFrame<T> {
-    fn persistence_id() -> &'static str {
-        "TimeoutTaskFrame$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = PersistenceUtils::serialize_persistent(&self.frame).await?;
-        let max_duration = PersistenceUtils::serialize_field(self.max_duration)?;
-        Ok(SerializedComponent::new::<Self>(json!({
-            "wrapped_frame": frame,
-            "max_duration": max_duration
-        })))
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
-
-        let delay = PersistenceUtils::deserialize_atomic::<Duration>(
-            &mut repr,
-            "max_duration",
-            "Cannot deserialize the maximum delay",
-        )?;
-
-        let frame = PersistenceUtils::deserialize_concrete::<T>(
-            &mut repr,
-            "wrapped_frame",
-            "Cannot deserialize the wrapped task frame",
-        )
-        .await?;
-
-        Ok(TimeoutTaskFrame::new(frame, delay))
-    }
+impl<T: TaskFrame + PersistenceObject> PersistenceObject for TimeoutTaskFrame<T> {
+    const PERSISTENCE_ID: &'static str = "chronographer::TimeoutTaskFrame#cfbcfb94-5370-4b72-af3d-ceee31f7cea3";
 }
