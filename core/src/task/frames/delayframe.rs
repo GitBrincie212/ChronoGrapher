@@ -92,13 +92,14 @@ impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        ctx.clone().emit::<OnDelayStart>(&self.1).await;
+        let subdivided_ctx = ctx.subdivide(self.0);
+        subdivided_ctx.clone().emit::<OnDelayStart>(&self.1).await;
         let deadline = Instant::now() + self.1;
         self.2.lock().await.replace(deadline);
         tokio::time::sleep_until(deadline).await;
         self.2.lock().await.take();
-        ctx.clone().emit::<OnDelayEnd>(&self.1).await;
-        ctx.subdivide_exec(self.0).await
+        subdivided_ctx.clone().emit::<OnDelayEnd>(&self.1).await;
+        self.0.execute(subdivided_ctx).await
     }
 }
 
