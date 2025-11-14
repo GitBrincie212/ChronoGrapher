@@ -1,19 +1,14 @@
 use crate::define_event;
 use crate::errors::ChronographerErrors;
-use crate::persistence::PersistentObject;
-use crate::retrieve_registers::RetrieveRegistries;
-use crate::serialized_component::SerializedComponent;
 use crate::task::TaskHookEvent;
 use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{TaskContext, TaskError, TaskFrame};
-use crate::utils::PersistenceUtils;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json::json;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-
+use crate::persistence::PersistenceObject;
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
 
@@ -159,7 +154,7 @@ define_event!(
     /// # See Also
     /// - [`ConditionalFrame`]
     /// - [`ConditionalFramePredicate`]
-    OnTruthyValueEvent, Arc<dyn TaskFrame>
+    OnTruthyValueEvent, ()
 );
 
 define_event!(
@@ -170,7 +165,7 @@ define_event!(
     /// # See Also
     /// - [`ConditionalFrame`]
     /// - [`ConditionalFramePredicate`]
-    OnFalseyValueEvent, Arc<dyn TaskFrame>
+    OnFalseyValueEvent, ()
 );
 
 impl<T, T2> From<ConditionalFrameConfig<T, T2>> for ConditionalFrame<T, T2>
@@ -262,12 +257,13 @@ where
 /// - [`ConditionalFrame::fallback_builder`]
 /// - [`TaskEvent`]
 /// - [`FallbackTaskFrame`]
+#[derive(Serialize, Deserialize)]
 pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
     frame: Arc<T>,
     fallback: Arc<T2>,
     predicate: Arc<dyn ConditionalFramePredicate>,
     error_on_false: bool,
-}
+} // TODO: Check why this compiles successfully (possible bug)
 
 /// A type alias to alleviate the immense typing required to specify that
 /// the [`ConditionalFrameConfigBuilder`] has already filled the fallback parameter
@@ -323,15 +319,18 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let result = self.predicate.execute(ctx.clone()).await;
         if result {
-            ctx.clone()
-                .emit::<OnTruthyValueEvent>(&(self.frame.clone() as Arc<dyn TaskFrame>))
+            let subdivided_ctx = ctx.subdivide(self.frame.clone());
+            subdivided_ctx.clone()
+                .emit::<OnTruthyValueEvent>(&())
                 .await;
-            return self.frame.execute(ctx).await;
+            return self.frame.execute(subdivided_ctx).await;
         }
-        ctx.clone()
-            .emit::<OnFalseyValueEvent>(&(self.fallback.clone() as Arc<dyn TaskFrame>))
+
+        let subdivided_ctx = ctx.subdivide(self.fallback.clone());
+        subdivided_ctx.clone()
+            .emit::<OnFalseyValueEvent>(&())
             .await;
-        let result = self.fallback.execute(ctx).await;
+        let result = self.fallback.execute(subdivided_ctx).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));
         }
@@ -340,65 +339,10 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
 }
 
 #[async_trait]
-impl<T, F> PersistentObject for ConditionalFrame<T, F>
+impl<T, F> PersistenceObject for ConditionalFrame<T, F>
 where
-    T: TaskFrame + 'static + PersistentObject,
-    F: TaskFrame + 'static + PersistentObject,
+    T: TaskFrame + 'static + PersistenceObject,
+    F: TaskFrame + 'static + PersistenceObject,
 {
-    fn persistence_id() -> &'static str {
-        "ConditionalFrame$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let frame = PersistenceUtils::serialize_persistent(self.frame.as_ref()).await?;
-        let fallback = PersistenceUtils::serialize_persistent(self.fallback.as_ref()).await?;
-        let errors_on_false = PersistenceUtils::serialize_field(self.error_on_false)?;
-        let predicate =
-            PersistenceUtils::serialize_potential_field(self.predicate.as_ref()).await?;
-        Ok(SerializedComponent::new::<Self>(json!({
-            "wrapped_primary": frame,
-            "wrapped_fallback": fallback,
-            "errors_on_false": errors_on_false,
-            "predicate": predicate,
-        })))
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
-
-        let primary_frame = PersistenceUtils::deserialize_concrete::<T>(
-            &mut repr,
-            "wrapped_primary",
-            "Cannot deserialize the primary wrapped task frame",
-        )
-        .await?;
-
-        let fallback_frame = PersistenceUtils::deserialize_concrete::<F>(
-            &mut repr,
-            "wrapped_fallback",
-            "Cannot deserialize the fallback wrapped task frame",
-        )
-        .await?;
-
-        let error_on_false = PersistenceUtils::deserialize_atomic::<bool>(
-            &mut repr,
-            "error_on_false",
-            "Cannot deserialize the boolean to decide whenever or not to error on false",
-        )?;
-
-        let predicate = PersistenceUtils::deserialize_dyn(
-            &mut repr,
-            "predicate",
-            RetrieveRegistries::retrieve_conditional_predicate,
-            "Cannot deserialize the conditional predicate",
-        )
-        .await?;
-
-        Ok(ConditionalFrame {
-            frame: Arc::new(primary_frame),
-            fallback: Arc::new(fallback_frame),
-            error_on_false,
-            predicate,
-        })
-    }
+    const PERSISTENCE_ID: &'static str = "chronographer::ConditionalFrame#251f88d9-cecd-475d-85d3-0601657aedf4";
 }
