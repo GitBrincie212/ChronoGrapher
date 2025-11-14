@@ -146,17 +146,17 @@ impl TaskFrame for ParallelTaskFrame {
                 std::thread::scope(|s| {
                     for frame in self.tasks.iter() {
                         let frame_clone = frame.clone();
-                        let context_clone = ctx.clone();
                         let result_tx = result_tx.clone();
+                        let subdivided_ctx = ctx.subdivide(frame.clone());
                         s.spawn(move || {
                             tokio::spawn(async move {
-                                context_clone
+                                subdivided_ctx
                                     .clone()
-                                    .emit::<OnChildStart>(&frame_clone)
+                                    .emit::<OnChildStart>(&())
                                     .await;
-                                let result = frame_clone.execute(context_clone.clone()).await;
-                                context_clone
-                                    .emit::<OnChildEnd>(&(frame_clone, result.clone().err()))
+                                let result = frame_clone.execute(subdivided_ctx.clone()).await;
+                                subdivided_ctx
+                                    .emit::<OnChildEnd>(&result.clone().err())
                                     .await;
                                 let _ = result_tx.send(result);
                             })
