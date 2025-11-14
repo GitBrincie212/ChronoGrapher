@@ -1,8 +1,7 @@
-use crate::persistence::PersistentObject;
-use crate::serialized_component::SerializedComponent;
+use crate::persistence::PersistenceObject;
 use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 
 /// Represents a **no-operation task frame** that does nothing. This task frame type
 /// acts as a **leaf node** within the task frame hierarchy. Its primary role is to
@@ -20,13 +19,19 @@ use serde_json::json;
 ///
 /// # Trait Implementation(s)
 /// It is obvious that the [`NoOperationTaskFrame`] implements [`TaskFrame`] since this
-/// is a part of the default provided implementations, however, there are many others.
-/// [`NoOperationTaskFrame`] also implements [`Default`]
+/// is a part of the default provided implementations, but also:
+/// - [`Debug`] (just prints the name, nothing more, nothing less)
+/// - [`Clone`]
+/// - [`Copy`]
+/// - [`Default`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
 ///
 /// # See Also
 /// - [`TaskFrame`]
 /// - [`NoOperationTaskFrame::default`]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct NoOperationTaskFrame;
 
 #[async_trait]
@@ -37,16 +42,6 @@ impl TaskFrame for NoOperationTaskFrame {
 }
 
 #[async_trait]
-impl PersistentObject for NoOperationTaskFrame {
-    fn persistence_id() -> &'static str {
-        "NoOperationTaskFrame$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(NoOperationTaskFrame)
-    }
+impl PersistenceObject for NoOperationTaskFrame {
+    const PERSISTENCE_ID: &'static str = "chronographer::NoOperationTaskFrame#25ce069e-d1be-47aa-a68e-f5e659ffdb27";
 }
