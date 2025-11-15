@@ -174,6 +174,7 @@ TaskHook Events Include:
 - Timeout events
 - Dependency resolution status events
 - Conditional branching decisions
+...
 
 ### Millisecond Calendar-Based Schedules
 Finite control over how a Task executes via a ``TaskScheduleCalendar``
