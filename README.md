@@ -196,7 +196,7 @@ Ensure critical tasks get resources when needed:
 ```rust
 let critical_task = Task::builder()
     .frame(alert_system)
-    .priority(Priority::CRITICAL)  // Jumps to front of queue
+    .priority(TaskPriority::CRITICAL)  // Jumps to front of queue
     .schedule(...)
     .build();
 ```
