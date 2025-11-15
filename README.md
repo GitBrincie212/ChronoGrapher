@@ -107,7 +107,10 @@ Some of the available task frame types are:
 Monitor tasks at a deep level by reacting to relevant events emitted:
 
 ```rust
-// A basic example for integration with Prometheus
+/*
+ A basic example for integration with Prometheus,
+ it involves defining the TaskHook as well as the events it supports
+*/
 struct PrometheusMetricsHook;
 
 /*
@@ -139,8 +142,30 @@ impl TaskHook<OnTaskEnd> for PrometheusMetricsHook {
   }
 }
 
-// Attach to any task
-task.attach_hook(Arc::new(PrometheusMetricsHook)).await;
+impl TaskHook<OnTimeout> for PrometheusMetricsHook {
+    async fn on_event(&self, event: OnTimeout, ctx: Arc<TaskContext>, payload: &OnTimeout::Payload) {
+        // ...Executes when a TimeoutTaskFrame throws a timeout...
+    }
+}
+
+impl TaskHook<OnHookAttach<OnTaskStart>> for PrometheusMetricsHook {
+    async fn on_event(
+        &self, event:
+        OnHookAttach<OnTaskStart>,
+        ctx: Arc<TaskContext>,
+        payload: &OnHookAttach<OnTaskStart>::Payload
+    ) {
+        // ...You can initialize logic for when it is attached to a OnTaskStart event...
+    }
+}
+
+/*
+ The second phase is actually attaching the hook to
+ the relevant events of a Task
+*/
+let hook = Arc::new(PrometheusMetricsHook);
+task.attach_hook::<OnTaskStart>(hook).await;
+task.attach_hook::<OnTimeout>(hook).await;
 ```
 TaskHook Events Include:
 - TaskHook attach/detach events
