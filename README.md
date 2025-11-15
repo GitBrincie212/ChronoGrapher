@@ -187,6 +187,8 @@ let schedule = TaskScheduleCalendar::builder()
     .minute(Arc::new(TaskCalendarFieldExact::new(0)))      // At minute 0
     .hour(Arc::new(TaskCalendarFieldRange::new(9..=17)))   // Business hours only
     .build();
+
+// Note: Currently TaskCalendarFieldRange does not exist, however, it will be added in the future
 ```
 
 ### Priority-Aware Execution
