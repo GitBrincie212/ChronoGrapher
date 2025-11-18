@@ -67,7 +67,6 @@ macro_rules! implement_core_resolvent {
             }
         }
 
-        #[async_trait]
         impl PersistenceObject for $name {
             const PERSISTENCE_ID: &'static str =
                 concat!("chronographer::", stringify!($name), "#", stringify!($uuid));
