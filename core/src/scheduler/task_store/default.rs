@@ -103,7 +103,8 @@ pub struct DefaultSchedulerTaskStore<T: PersistenceBackend = ()> {
 
 impl<T: PersistenceBackend> Debug for DefaultSchedulerTaskStore<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
+        write!(
+            f,
             "EphemeralDefaultTaskStore [{:?}]",
             self.earliest_sorted
                 .blocking_lock()
@@ -111,7 +112,7 @@ impl<T: PersistenceBackend> Debug for DefaultSchedulerTaskStore<T> {
                 .rev()
                 .map(|x| x.0.0.clone())
                 .collect::<Vec<_>>()
-        ))
+        )
     }
 }
 
