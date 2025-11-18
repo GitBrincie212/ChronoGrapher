@@ -76,7 +76,7 @@ impl TaskSchedule for TaskScheduleCron {
         &self,
         time: &DateTime<Local>,
     ) -> Result<DateTime<Local>, Arc<dyn std::error::Error + 'static>> {
-        Ok(cron_parser::parse(&self.0, time).unwrap())
+        cron_parser::parse(&self.0, time).map_err(Arc::new)
     }
 }
 
