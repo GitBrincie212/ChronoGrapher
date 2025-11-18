@@ -355,26 +355,20 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
                 .clone()
                 .emit::<OnRetryAttemptStart>(&retry)
                 .await;
-            let result = self.frame.execute(subdivided_ctx.clone()).await;
-            match result {
-                Ok(_) => {
-                    subdivided_ctx
-                        .emit::<OnRetryAttemptEnd>(&(retry, None))
-                        .await;
-                    return Ok(());
-                }
-                Err(err) => {
-                    error = Some(err.clone());
-                    subdivided_ctx
-                        .clone()
-                        .emit::<OnRetryAttemptEnd>(&(retry, error.clone()))
-                        .await;
-                }
+
+            error = self.frame.execute(subdivided_ctx.clone()).await.err();
+            subdivided_ctx
+                .clone()
+                .emit::<OnRetryAttemptEnd>(&(retry, error.clone()))
+                .await;
+            if error.is_none() {
+                return Ok(());
             }
             let delay = self.backoff_strat.compute(retry).await;
             tokio::time::sleep(delay).await;
         }
-        Err(error.unwrap())
+
+        error.map_or(Ok(()), Err)
     }
 }
 
