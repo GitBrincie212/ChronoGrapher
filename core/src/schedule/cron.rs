@@ -1,6 +1,5 @@
 use crate::persistence::PersistenceObject;
 use crate::schedule::TaskSchedule;
-use async_trait::async_trait;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -76,11 +75,10 @@ impl TaskSchedule for TaskScheduleCron {
         &self,
         time: &DateTime<Local>,
     ) -> Result<DateTime<Local>, Arc<dyn std::error::Error + 'static>> {
-        Ok(cron_parser::parse(&self.0, time).unwrap())
+        cron_parser::parse(&self.0, time).map_err(Arc::new)
     }
 }
 
-#[async_trait]
 impl PersistenceObject for TaskScheduleCron {
     const PERSISTENCE_ID: &'static str =
         "chronographer::TaskScheduleCron#ede44f5f-a3bc-464c-9284-f3c666470cc7";

@@ -41,7 +41,6 @@ impl TaskFrame for NoOperationTaskFrame {
     }
 }
 
-#[async_trait]
 impl PersistenceObject for NoOperationTaskFrame {
     const PERSISTENCE_ID: &'static str =
         "chronographer::NoOperationTaskFrame#25ce069e-d1be-47aa-a68e-f5e659ffdb27";

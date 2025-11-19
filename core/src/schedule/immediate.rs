@@ -2,7 +2,6 @@ use crate::persistence::PersistenceObject;
 use crate::schedule::TaskSchedule;
 #[allow(unused_imports)]
 use crate::task::Task;
-use async_trait::async_trait;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -40,7 +39,6 @@ impl TaskSchedule for TaskScheduleImmediate {
     }
 }
 
-#[async_trait]
 impl PersistenceObject for TaskScheduleImmediate {
     const PERSISTENCE_ID: &'static str =
         "chronographer::TaskScheduleImmediate#74c56b86-2a45-4d18-abc7-d2da47218a28";

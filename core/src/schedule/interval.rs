@@ -2,7 +2,6 @@ use crate::persistence::PersistenceObject;
 use crate::schedule::TaskSchedule;
 #[allow(unused_imports)]
 use crate::task::Task;
-use async_trait::async_trait;
 use chrono::{DateTime, Local, TimeDelta};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -188,7 +187,6 @@ impl From<f32> for TaskScheduleInterval {
     }
 }
 
-#[async_trait]
 impl PersistenceObject for TaskScheduleInterval {
     const PERSISTENCE_ID: &'static str =
         "chronographer::TaskScheduleInterval#3cec23ef-0567-4640-ac66-a920a3b86674";

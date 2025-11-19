@@ -95,7 +95,6 @@ impl UnresolvableFrameDependency for FlagDependency {
     }
 }
 
-#[async_trait]
 impl PersistenceObject for FlagDependency {
     const PERSISTENCE_ID: &'static str =
         "chronographer::FlagDependency#8e932fba-afec-40c6-b73d-1c048f382ab8";

@@ -80,7 +80,6 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
     }
 }
 
-#[async_trait]
 impl PersistenceObject for GroupedTaskFramesQuitOnSuccess {
     const PERSISTENCE_ID: &'static str =
         "chronographer::GroupedTaskFramesQuitOnSuccess#8895d78d-5552-464f-9e21-66771be396a5";
@@ -123,7 +122,6 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
     }
 }
 
-#[async_trait]
 impl PersistenceObject for GroupedTaskFramesQuitOnFailure {
     const PERSISTENCE_ID: &'static str =
         "chronographer::GroupedTaskFramesQuitOnFailure#c2834489-7a63-4fda-bbc6-4ffe50b9733a";
@@ -156,7 +154,6 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
     }
 }
 
-#[async_trait]
 impl PersistenceObject for GroupedTaskFramesSilent {
     const PERSISTENCE_ID: &'static str =
         "chronographer::GroupedTaskFramesSilent#59034b8a-d96e-4c42-933b-10d7aec14c88";
