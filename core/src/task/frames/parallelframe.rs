@@ -4,7 +4,6 @@ use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFrames
 use crate::task::{OnChildEnd, OnChildStart, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 /// Represents a **parallel task frame** which wraps multiple [`TaskFrame`] to execute at the same time.
 /// This task frame type acts as a **composite node** within the [`TaskFrame`] hierarchy, facilitating a
@@ -137,23 +136,23 @@ impl ParallelTaskFrame {
 #[async_trait]
 impl TaskFrame for ParallelTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let js = tokio::task::JoinSet::new();
+        let mut js = tokio::task::JoinSet::new();
 
         for frame in self.tasks.iter() {
-            let subdivided_ctx = ctx.subdivide(frame.clone());
+            let frame_clone = frame.clone();
+            let subdivided_ctx = ctx.subdivide(frame_clone.clone());
             js.spawn(async move {
                 subdivided_ctx.clone().emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
-                let result = frame.execute(subdivided_ctx.clone()).await;
+                let result = frame_clone.execute(subdivided_ctx.clone()).await;
                 subdivided_ctx
                     .emit::<OnChildEnd>(&result.clone().err())
                     .await; // skipcq: RS-E1015
                 result
-            })
+            });
         }
 
         while let Some(result) = js.join_next().await {
             let Ok(k) = result else {
-                // TODO: Add some logging here
                 continue;
             };
             let should_quit = self.policy.should_quit(k).await;
