@@ -137,36 +137,26 @@ impl ParallelTaskFrame {
 #[async_trait]
 impl TaskFrame for ParallelTaskFrame {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let (result_tx, mut result_rx) = mpsc::unbounded_channel();
+        let js = tokio::task::JoinSet::new();
 
-        match self.tasks.len() {
-            0 => {}
-            1 => self.tasks[0].execute(ctx.clone()).await?,
-            _ => {
-                std::thread::scope(|s| {
-                    for frame in self.tasks.iter() {
-                        let frame_clone = frame.clone();
-                        let result_tx = result_tx.clone();
-                        let subdivided_ctx = ctx.subdivide(frame.clone());
-                        s.spawn(move || {
-                            tokio::spawn(async move {
-                                subdivided_ctx.clone().emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
-                                let result = frame_clone.execute(subdivided_ctx.clone()).await;
-                                subdivided_ctx
-                                    .emit::<OnChildEnd>(&result.clone().err())
-                                    .await; // skipcq: RS-E1015
-                                let _ = result_tx.send(result);
-                            })
-                        });
-                    }
-                });
-            }
+        for frame in self.tasks.iter() {
+            let subdivided_ctx = ctx.subdivide(frame.clone());
+            js.spawn(async move {
+                subdivided_ctx.clone().emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
+                let result = frame.execute(subdivided_ctx.clone()).await;
+                subdivided_ctx
+                    .emit::<OnChildEnd>(&result.clone().err())
+                    .await; // skipcq: RS-E1015
+                result
+            })
         }
 
-        drop(result_tx);
-
-        while let Some(result) = result_rx.recv().await {
-            let should_quit = self.policy.should_quit(result).await;
+        while let Some(result) = js.join_next().await {
+            let Ok(k) = result else {
+                // TODO: Add some logging here
+                continue;
+            };
+            let should_quit = self.policy.should_quit(k).await;
             if let Some(res) = should_quit {
                 return res;
             }
