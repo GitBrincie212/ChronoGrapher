@@ -12,7 +12,8 @@ plans, which can be summarized in this checklist (from highest to lowest priorit
   - [ ] Rust
   - [ ] JavaScript/TypeScript
 - [ ] Integrations
-  - [ ] RocksDB (default, used in core for performance)
+  - [ ] RocksDB
+  - [ ] Sled (default used for performance, minimal package... etc.)
   - [ ] Redis
   - [ ] Apache Kafka (probably will be used by default)
   - [ ] RabbitMQ
@@ -35,7 +36,7 @@ plans, which can be summarized in this checklist (from highest to lowest priorit
     - [ ] List Of Integrations / Extensions (with docs about)
   - [ ] Landing Page
   - [ ] Info Page
-  - [ ] Integrations / Extensions Page
+  - [ ] Integrations / Extensions Page (First-Party)
 
 ## Distributed Systems Library
 The goal of this library is simple, bridge the gap between the in-process core and enterprise-level 
