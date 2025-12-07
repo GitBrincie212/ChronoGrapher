@@ -16,7 +16,7 @@ offered as optional extensions.
 
 4. **Scale Effortlessly:** Rust-powered engine handles from single machines to distributed clusters seamlessly.
 
-5. **Crash-Resistant Durability:** Never lose task progress again—state persistence ensures continuity through failures.
+5. **Crash-Resistant Durability:** Never lose task progress again, state persistence ensures continuity through failures.
 
 **Get started in 30 seconds**, here's a simple "Hello World" example in ChronoGrapher written in Rust 
 (other languages look similar):
