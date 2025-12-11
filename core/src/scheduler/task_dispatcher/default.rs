@@ -1,8 +1,6 @@
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
-use crate::task::{Task, TaskPriority};
+use crate::task::ErasedTask;
 use async_trait::async_trait;
-use multipool::pool::ThreadPool;
-use multipool::pool::modes::PriorityWorkStealingMode;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -37,9 +35,8 @@ use crate::scheduler::Scheduler;
 /// - [`Scheduler`]
 /// - [`Task`]
 /// - [`SchedulerTaskDispatcher`]
-pub struct DefaultTaskDispatcher {
-    pool: ThreadPool<PriorityWorkStealingMode>,
-}
+#[derive(Default)]
+pub struct DefaultTaskDispatcher;
 
 impl Debug for DefaultTaskDispatcher {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -47,74 +44,22 @@ impl Debug for DefaultTaskDispatcher {
     }
 }
 
-impl Default for DefaultTaskDispatcher {
-    fn default() -> Self {
-        let pool = multipool::ThreadPoolBuilder::new()
-            .set_work_stealing()
-            .enable_priority()
-            .num_threads(16)
-            .build();
-        Self { pool }
-    }
-}
-
-impl DefaultTaskDispatcher {
-    /// Creates / Constructs a [`DefaultTaskDispatcher`] instance
-    ///
-    /// # Argument(s)
-    /// This method requests only one argument, that is the number of workers / threads via ``workers``
-    /// to allocate for [`DefaultTaskDispatcher`]. The more workers / threads, the more CPU power
-    /// it consumes but handles more tasks concurrently, minimizing major time drifts under heavy
-    /// workflow
-    ///
-    /// # Return(s)
-    /// The newly created [`DefaultTaskDispatcher`] instance with a configured number of
-    /// workers / threads set to ``workers``
-    ///
-    /// # See Also
-    /// - [`DefaultTaskDispatcher`]
-    pub fn new(workers: usize) -> Self {
-        let pool = multipool::ThreadPoolBuilder::new()
-            .set_work_stealing()
-            .enable_priority()
-            .num_threads(workers)
-            .build();
-        Self { pool }
-    }
-}
-
 #[async_trait]
 impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
     async fn dispatch(
-        self: Arc<Self>,
+        &self,
         sender: Arc<broadcast::Sender<usize>>,
-        task: Arc<Task>,
+        task: Arc<ErasedTask>,
         idx: usize,
     ) {
-        let target_priority = match task.priority() {
-            TaskPriority::CRITICAL => 0,
-            TaskPriority::IMPORTANT => 100,
-            TaskPriority::HIGH => 200,
-            TaskPriority::MODERATE => 300,
-            TaskPriority::LOW => 400,
-        };
+        // let target_priority = task.priority();
 
         let idx_clone = idx;
-        self.pool.spawn_with_priority(
-            move || {
-                let idx_clone = idx_clone;
-                let task_clone = task.clone();
-                let sender_clone = sender.clone();
-                async move {
-                    task_clone
-                        .clone()
-                        .schedule_strategy()
-                        .handle(task_clone.clone())
-                        .await;
-                    sender_clone.send(idx_clone).unwrap();
-                }
-            },
-            target_priority,
-        );
+        task
+            .clone()
+            .schedule_strategy()
+            .handle(task.clone())
+            .await;
+        sender.send(idx_clone).unwrap();
     }
 }
