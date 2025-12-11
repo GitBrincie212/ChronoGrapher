@@ -1,7 +1,21 @@
-use serde::{Deserialize, Serialize};
+pub mod backend; // skipcq: RS-D1001
 
-#[allow(unused_imports)]
-use crate::backend::PersistenceBackend;
+pub use backend::PersistenceBackend;
+pub use backend::PersistPath;
+
+use std::pin::Pin;
+use erased_serde::Serialize as ErasedSerialized;
+use serde::{Deserialize, Serialize, Serializer};
+
+pub struct PersistenceContext(
+    pub(crate) fn(PersistPath, &dyn erased_serde::Serialize) -> Pin<Box<dyn Future<Output = ()>>>
+);
+
+impl PersistenceContext {
+    pub async fn update_field(&self, path: PersistPath, value: &dyn ErasedSerialized) {
+        self.0(path, value).await;
+    }
+}
 
 /// [`PersistenceObject`] is a trait used for serialization and deserialization (via serde) while
 /// also having an associated Persistence ID (Identifier), which is used for tracking the concrete type via
@@ -13,6 +27,11 @@ use crate::backend::PersistenceBackend;
 /// For UUID generation, we recommend using https://www.uuidgenerator.net/version4.
 /// The system is used closely with [`PersistenceBackend`]
 ///
+/// # Required Method(s)
+/// When implementing the [`PersistenceObject`], one has to supply an implementation
+/// to the method [`PersistenceObject::inject_context`] which notifies what the communication layer
+/// is between each [`PersistentTracker`] field and the backend via a [`PersistenceContext`] object
+///
 /// # Supertrait(s)
 /// When implementing [`PersistenceObject`], one has to also implement [`Serialize`] and
 /// [`Deserialize`] traits, as they are the backbone to what allows serialization and deserialization
@@ -23,6 +42,8 @@ use crate::backend::PersistenceBackend;
 ///
 /// # See Also
 /// - [`PersistenceBackend`]
-pub trait PersistenceObject: Serialize + for<'de> Deserialize<'de> + Send + Sync {
+pub trait PersistenceObject: Serialize + Deserialize<'static> + Send + Sync {
     const PERSISTENCE_ID: &'static str;
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
