@@ -20,7 +20,9 @@ pub mod misc; // skipcq: RS-D1001
 
 pub mod delayframe; // skipcq: RS-D1001
 
-use crate::task::{Task, TaskHook, TaskHookContainer, TaskHookEvent, TaskPriority};
+pub mod dynamicframe; // skipcq: RS-D1001
+
+use crate::task::{ScheduleStrategy, Task, TaskHook, TaskHookContainer, TaskHookEvent, TaskSchedule};
 use async_trait::async_trait;
 pub use conditionframe::*;
 pub use delayframe::*;
@@ -34,6 +36,7 @@ pub use selectframe::*;
 pub use sequentialframe::*;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
+use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 pub use timeoutframe::*;
@@ -69,16 +72,30 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - [`TaskMetadata`]
 /// - [`TaskPriority`]
 /// - [`TaskEventEmitter`]
-#[derive(Clone)]
 pub struct TaskContext {
-    hooks_container: Arc<TaskHookContainer>,
-    priority: TaskPriority,
+    hooks_container: &'static TaskHookContainer,
+    priority: usize,
     runs: u64,
     depth: u64,
-    debug_label: String,
+    debug_label: &'static str,
     max_runs: Option<NonZeroU64>,
-    frame: Arc<dyn TaskFrame>,
+    frame: &'static dyn TaskFrame,
     id: Uuid,
+}
+
+impl Clone for TaskContext {
+    fn clone(&self) -> Self {
+        Self {
+            hooks_container: self.hooks_container,
+            priority: self.priority,
+            runs: self.runs,
+            depth: self.depth,
+            debug_label: self.debug_label.clone(),
+            max_runs: self.max_runs.clone(),
+            frame: self.frame.clone(),
+            id: self.id.clone(),
+        }
+    }
 }
 
 impl Debug for TaskContext {
@@ -110,46 +127,45 @@ impl TaskContext {
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
     /// - [`TaskContext`]
-    pub(crate) fn new(task: &Task) -> Arc<Self> {
-        Arc::new(Self {
-            hooks_container: task.hooks.clone(),
+    pub(crate) fn new(task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>) -> Self {
+        Self {
+            hooks_container: &task.hooks,
             priority: task.priority,
             runs: task.runs.load(Ordering::Relaxed),
             depth: 0,
-            debug_label: task.debug_label.clone(),
+            debug_label: &task.debug_label,
             max_runs: task.max_runs,
-            frame: task.frame.clone(),
+            frame: &task.frame,
             id: task.id.clone(),
-        })
+        }
     }
 
-    pub fn subdivide(&self, frame: Arc<dyn TaskFrame>) -> Arc<Self> {
-        Arc::new(Self {
-            hooks_container: self.hooks_container,
+    pub(crate) fn subdivided_ctx(&self, frame: &'static dyn TaskFrame) -> Self {
+        Self {
+            hooks_container: self.hooks_container.clone(),
             priority: self.priority,
             runs: self.runs,
-            debug_label: self.debug_label,
+            debug_label: self.debug_label.clone(),
             max_runs: self.max_runs,
-            frame: frame.clone(),
+            frame,
             id: self.id,
             depth: self.depth + 1,
-        })
+        }
     }
 
-    pub async fn subdivide_exec(&self, frame: Arc<dyn TaskFrame>) -> Result<(), TaskError> {
-        let child_ctx = self.subdivide(frame.clone());
-        frame.execute(child_ctx).await
+    pub async fn subdivide(&self, frame: &'static dyn TaskFrame) -> Result<(), TaskError> {
+        let child_ctx = self.subdivided_ctx(frame);
+        frame.execute(&child_ctx).await
     }
 
     /// Accesses the priority field, returning it in the process
     ///
     /// # Returns
-    /// The priority field as an [`TaskPriority`]
+    /// The priority field
     ///
     /// # See Also
     /// - [`TaskContext`]
-    /// - [`TaskPriority`]
-    pub fn priority(&self) -> TaskPriority {
+    pub fn priority(&self) -> usize {
         self.priority
     }
 
@@ -171,8 +187,8 @@ impl TaskContext {
     ///
     /// # See Also
     /// - [`TaskContext`]
-    pub fn debug_label(&self) -> &str {
-        self.debug_label.as_str()
+    pub fn debug_label(&self) -> &'static str {
+        &self.debug_label
     }
 
     /// Accesses the max_runs field, returning it in the process
@@ -194,12 +210,12 @@ impl TaskContext {
     /// # See Also
     /// - [`TaskHooksContainer`]
     /// - [`TaskContext`]
-    pub fn hooks(&self) -> Arc<TaskHookContainer> {
-        self.hooks_container.clone()
+    pub fn hooks(&self) -> &TaskHookContainer {
+        &self.hooks_container
     }
 
-    pub fn frame(&self) -> Arc<dyn TaskFrame> {
-        self.frame.clone()
+    pub fn frame(&self) -> &dyn TaskFrame {
+        &self.frame
     }
 
     /// Emits an event to relevant [`TaskHook(s)`] that have subscribed to it
@@ -212,8 +228,8 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub async fn emit<E: TaskHookEvent>(self: Arc<Self>, payload: &E::Payload) {
-        self.hooks_container.emit::<E>(self.clone(), payload).await;
+    pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload) {
+        self.hooks_container.emit::<E>(self, payload).await;
     }
 
     /// Attaches a [`TaskHook`] to a specific [`TaskHookEvent`]. This is a much more
@@ -227,8 +243,8 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub async fn attach_hook<E: TaskHookEvent>(self: Arc<Self>, hook: Arc<dyn TaskHook<E>>) {
-        self.hooks_container.attach(self.clone(), hook).await;
+    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
+        self.hooks_container.attach(self, hook).await;
     }
 
     /// Detaches a [`TaskHook`] from a specific [`TaskHookEvent`]. This is a much more
@@ -238,8 +254,8 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(self: Arc<Self>) {
-        self.hooks_container.detach::<E, T>(self.clone()).await;
+    pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
+        self.hooks_container.detach::<E, T>(self).await;
     }
 
     /// Gets a [`TaskHook`] instance from a specific [`TaskHookEvent`]. This is a much more
@@ -253,7 +269,7 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(self: Arc<Self>) -> Option<Arc<T>> {
+    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
         self.hooks_container.get::<E, T>()
     }
 }
@@ -334,7 +350,7 @@ impl TaskContext {
 /// - [`SelectTaskFrame`]
 /// - [`Task`]
 #[async_trait]
-pub trait TaskFrame: Send + Sync {
+pub trait TaskFrame: 'static + Send + Sync {
     /// The execution logic of the [`TaskFrame`] and subsequentially [`Task`]
     ///
     /// # Argument(s)
@@ -351,16 +367,16 @@ pub trait TaskFrame: Send + Sync {
     /// - [`Task`]
     /// - [`TaskContext`]
     /// - [`TaskFrame`]
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError>;
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError>;
 }
 
 #[async_trait]
-impl<F, T> TaskFrame for F
+impl<S> TaskFrame for S
 where
-    F: Fn(Arc<TaskContext>) -> T + Send + Sync,
-    T: Future<Output = Result<(), TaskError>> + 'static,
+    S: Deref + Send + Sync + 'static,
+    S::Target: TaskFrame,
 {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        self(ctx).await
+    async fn execute(&self, task: &TaskContext) -> Result<(), TaskError> {
+        self.deref().execute(task).await
     }
 }
