@@ -3,12 +3,12 @@ pub mod default;
 
 pub use default::*;
 
-use crate::clock::SchedulerClock;
-use crate::task::Task;
+use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::SystemTime;
+use crate::scheduler::clock::SchedulerClock;
 
 #[allow(unused_imports)]
 use crate::task::TaskSchedule;
@@ -47,6 +47,8 @@ use crate::task::TaskSchedule;
 /// - [`SchedulerTaskStore::clear`]
 #[async_trait]
 pub trait SchedulerTaskStore: Debug + Send + Sync {
+    async fn init(&self) {}
+
     /// Retrieves / Peeks the earliest task, without modifying any internal storage
     ///
     /// # Returns
@@ -56,7 +58,7 @@ pub trait SchedulerTaskStore: Debug + Send + Sync {
     /// # See Also
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
-    async fn retrieve(&self) -> Option<(Arc<Task>, SystemTime, usize)>;
+    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, usize)>;
 
     /// Gets the task based on an index
     ///
@@ -70,7 +72,7 @@ pub trait SchedulerTaskStore: Debug + Send + Sync {
     ///
     /// # See Also
     /// - [`SchedulerTaskStore`]
-    async fn get(&self, idx: &usize) -> Option<Arc<Task>>;
+    async fn get(&self, idx: &usize) -> Option<Arc<ErasedTask>>;
 
     /// Pops the earliest task by modifying any internal storage. This mechanism
     /// is kept separate from [`SchedulerTaskStore::retrieve`] due to the fact that one might
@@ -127,7 +129,7 @@ pub trait SchedulerTaskStore: Debug + Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
-    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: Arc<Task>) -> usize;
+    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: Arc<ErasedTask>) -> usize;
 
     /// Removes a task based on an index, depending on the implementation,
     /// it may handle differently the case where the index does not exist
@@ -147,39 +149,4 @@ pub trait SchedulerTaskStore: Debug + Send + Sync {
     /// # See Also
     /// - [`SchedulerTaskStore`]
     async fn clear(&self);
-}
-
-#[async_trait]
-impl<TS: SchedulerTaskStore + 'static> SchedulerTaskStore for Arc<TS> {
-    async fn retrieve(&self) -> Option<(Arc<Task>, SystemTime, usize)> {
-        self.as_ref().retrieve().await
-    }
-
-    async fn get(&self, idx: &usize) -> Option<Arc<Task>> {
-        self.as_ref().get(idx).await
-    }
-
-    async fn pop(&self) {
-        self.as_ref().pop().await
-    }
-
-    async fn exists(&self, idx: &usize) -> bool {
-        self.as_ref().exists(idx).await
-    }
-
-    async fn reschedule(&self, clock: Arc<dyn SchedulerClock>, idx: &usize) {
-        self.as_ref().reschedule(clock, idx).await
-    }
-
-    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: Arc<Task>) -> usize {
-        self.as_ref().store(clock, task).await
-    }
-
-    async fn remove(&self, idx: &usize) {
-        self.as_ref().remove(idx).await
-    }
-
-    async fn clear(&self) {
-        self.as_ref().clear().await
-    }
 }

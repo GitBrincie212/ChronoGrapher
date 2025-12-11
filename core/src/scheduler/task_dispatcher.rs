@@ -3,7 +3,7 @@ pub mod default; // skipcq: RS-D1001
 pub use default::*;
 use std::fmt::Debug;
 
-use crate::task::Task;
+use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::broadcast::Sender;
@@ -33,6 +33,8 @@ use crate::scheduler::Scheduler;
 /// - [`DefaultTaskDispatcher`]
 #[async_trait]
 pub trait SchedulerTaskDispatcher: Debug + Send + Sync {
+    async fn init(&self) {}
+    
     /// The main logic of the [`SchedulerTaskDispatcher`]. This is where it handles
     /// how to execute a specified task and notify the [`Scheduler`] accordingly
     ///
@@ -47,12 +49,5 @@ pub trait SchedulerTaskDispatcher: Debug + Send + Sync {
     /// - [`Task`]
     /// - [`Scheduler`]
     /// - [`SchedulerTaskDispatcher`]
-    async fn dispatch(self: Arc<Self>, sender: Arc<Sender<usize>>, task: Arc<Task>, idx: usize);
-}
-
-#[async_trait]
-impl<TD: SchedulerTaskDispatcher + ?Sized> SchedulerTaskDispatcher for Arc<TD> {
-    async fn dispatch(self: Arc<Self>, sender: Arc<Sender<usize>>, task: Arc<Task>, idx: usize) {
-        self.as_ref().clone().dispatch(sender, task, idx).await
-    }
+    async fn dispatch(&self, sender: Arc<Sender<usize>>, task: Arc<ErasedTask>, idx: usize);
 }
