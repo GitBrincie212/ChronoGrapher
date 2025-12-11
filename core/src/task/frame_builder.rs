@@ -56,7 +56,9 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     pub fn new(frame: T) -> Self {
         Self(frame)
     }
+}
 
+impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// Stacks this [`TaskFrame`] with an instant [`RetriableTaskFrame`], i.e.
     /// it retries the task frame a total of ``retries`` specified times, and each retry is an instant
     ///
@@ -253,7 +255,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ) -> TaskFrameBuilder<ConditionalFrame<T>> {
         let condition: ConditionalFrame<T> = ConditionalFrame::<T>::builder()
             .predicate(predicate)
-            .frame(self.0)
+            .frame(&self.0)
             .error_on_false(false)
             .build();
         TaskFrameBuilder(condition)
@@ -295,8 +297,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ) -> TaskFrameBuilder<ConditionalFrame<T, T2>> {
         let condition: ConditionalFrame<T, T2> = ConditionalFrame::<T, T2>::fallback_builder()
             .predicate(predicate)
-            .frame(self.0)
-            .fallback(fallback)
+            .frame(&self.0)
+            .fallback(&fallback)
             .error_on_false(false)
             .build();
         TaskFrameBuilder(condition)
