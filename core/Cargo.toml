@@ -25,6 +25,6 @@ cron-parser = "0.11.0"
 uuid = { version = "1.18.1", features = ["v4"] }
 fastrand = "2.3.0"
 dashmap = "7.0.0-rc2"
-multipool = "0.2.8"
 serde = { version = "1.0.228", features = ["derive", "rc"] }
+erased-serde = "0.4.9"
 sled = "0.34.7"
