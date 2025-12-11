@@ -6,9 +6,9 @@ pub mod task; // skipcq: RS-D1001
 pub use dynamic::*;
 pub use flag::*;
 pub use logical::*;
-use std::ops::Deref;
 pub use task::*;
 
+use std::ops::Deref;
 use async_trait::async_trait;
 
 #[allow(unused_imports)]
