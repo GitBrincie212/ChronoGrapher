@@ -2,52 +2,58 @@ pub mod dependency; // skipcq: RS-D1001
 
 pub mod frames; // skipcq: RS-D1001
 
-pub mod priority; // skipcq: RS-D1001
-
 pub mod frame_builder; // skipcq: RS-D1001
 
 pub mod hooks; // skipcq: RS-D1001
 
-pub use crate::schedule::*;
+pub mod scheduling_strats; // skipcq: RS-D1001
+
+pub mod schedule; // skipcq: RS-D1001
+
+pub use schedule::*;
 pub use frame_builder::*;
 pub use frames::*;
 pub use hooks::*;
-pub use priority::*;
+pub use scheduling_strats::*;
 
-use crate::scheduling_strats::*;
+use std::fmt;
 use dashmap::DashMap;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use serde::ser::SerializeStruct;
+use serde::Serialize;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 
+pub type ErasedTask = Task<
+    Arc<dyn TaskFrame>,
+    Box<dyn TaskSchedule>,
+    Box<dyn ScheduleStrategy>
+>;
+
 /// [`TaskConfig`] is simply used as a builder to construct [`Task`], <br />
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
 #[derive(TypedBuilder)]
-#[builder(build_method(into = Task))]
-pub struct TaskConfig {
-    /// [`TaskPriority`] is a mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
+#[builder(build_method(into = Task<T1, T2, T3>))]
+pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
+    /// A mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
     /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
-    /// generally prioritize it over others. Priorities are separated to multiple tiers which are further
-    /// explained in [`TaskPriority`] on what each variant serves
+    /// generally prioritize it over others
     ///
     /// # Default Value
-    /// By default, every task is [`TaskPriority::MODERATE`]
+    /// By default, every task has priority 0 (the lowest)
     ///
     /// # Method Behavior
     /// This builder parameter method cannot be chained, as it is a typed builder,
     /// once set, you can never chain it. Since it is a typed builder, it has no fancy
     /// inner workings under the hood, just sets the value
-    ///
-    /// # See Also
-    /// - [`TaskPriority`]
-    #[builder(default = TaskPriority::MODERATE)]
-    priority: TaskPriority,
+    #[builder(default = 0)]
+    priority: usize,
 
     /// [`TaskFrame`] is the <u>**Main Logic Part Of The Task**</u>, this is where the logic lives in.
     /// It is an essential part of the system (as without it, a task is useless), more information
@@ -65,8 +71,7 @@ pub struct TaskConfig {
     /// - [`TimeoutTaskFrame`]
     /// - [`FallbackTaskFrame`]
     /// - [`DependencyTaskFrame`]
-    #[builder(setter(transform = |s: impl TaskFrame + 'static| Arc::new(s) as Arc<dyn TaskFrame>))]
-    frame: Arc<dyn TaskFrame>,
+    frame: T1,
 
     /// [`TaskSchedule`] defines <u>**When The Task Should Run**</u>, when a scheduler requests a
     /// ``reschedule``, the [`TaskSchedule`] computes the next point of time to execute the task, there
@@ -86,8 +91,7 @@ pub struct TaskConfig {
     /// - [`TaskScheduleCron`]
     /// - [`TaskScheduleImmediate`]
     /// - [`TaskScheduleInterval`]
-    #[builder(setter(transform = |s: impl TaskSchedule + 'static| Arc::new(s) as Arc<dyn TaskSchedule>))]
-    schedule: Arc<dyn TaskSchedule>,
+    schedule: T2,
 
     /// [`ScheduleStrategy`] is the part where <u>**It Controls How The Rescheduling Happens And How The Same
     /// Tasks Overlap With Each Other**</u>. There are various implementations, each suited for their own use
@@ -109,11 +113,7 @@ pub struct TaskConfig {
     /// - [`ConcurrentSchedulingPolicy`]
     /// - [`CancelPreviousSchedulingPolicy`]
     /// - [`CancelCurrentSchedulingPolicy`]
-    #[builder(
-        default = Arc::new(SequentialSchedulingPolicy),
-        setter(transform = |s: impl ScheduleStrategy + 'static| Arc::new(s) as Arc<dyn ScheduleStrategy>)
-    )]
-    schedule_strategy: Arc<dyn ScheduleStrategy>,
+    schedule_strategy: T3,
 
     /// This part is mostly for debugging, more specifically to identify tasks, you can
     /// give it your own string (ideally it should be unique)
@@ -127,7 +127,6 @@ pub struct TaskConfig {
     /// This builder parameter method cannot be chained, as it is a typed builder,
     /// once set, you can never chain it. Since it is a typed builder, it has no fancy
     /// inner workings under the hood, just sets the value
-    #[builder(default = Uuid::new_v4().to_string())]
     debug_label: String,
 
     /// This part controls the maximum number of runs a task is allowed,
@@ -146,15 +145,15 @@ pub struct TaskConfig {
     max_runs: Option<NonZeroU64>,
 }
 
-impl From<TaskConfig> for Task {
-    fn from(config: TaskConfig) -> Self {
+impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, T2, T3>> for Task<T1, T2, T3> {
+    fn from(config: TaskConfig<T1, T2, T3>) -> Self {
         Task {
             frame: config.frame,
             schedule: config.schedule,
-            hooks: Arc::new(TaskHookContainer(DashMap::default())),
-            overlap_policy: config.schedule_strategy,
+            hooks: TaskHookContainer(DashMap::default()),
+            schedule_strategy: config.schedule_strategy,
             priority: config.priority,
-            runs: Arc::new(AtomicU64::new(0)),
+            runs: AtomicU64::new(0),
             debug_label: config.debug_label,
             max_runs: config.max_runs,
             id: Uuid::new_v4(),
@@ -169,11 +168,6 @@ impl From<TaskConfig> for Task {
 /// Task is not just one entity, rather it has many moving parts, many composites, the important
 /// ones are:
 ///
-/// - **[`TaskMetadata`]** The <u>Local Task State</u>, it is a reactive container, allowing
-///   the ability to listen to various incoming field changes, it can be modified from any point, it also
-///   allows tracking of dynamic fields, in addition outside parties can also use and modify it via
-///   [`Task::metadata`]
-///
 /// - **[`TaskFrame`]** The <u>What</u> of the task, the logic part of the task. When executed, task
 ///   frames get a task context which hosts all the information needed, including an event emitter,
 ///   metadata, debug label... etc. the emitter can be used to emit their own events. Task frames
@@ -184,12 +178,6 @@ impl From<TaskConfig> for Task {
 /// - **[`TaskSchedule`]** The <u>When</u> will the task execute, it is used for calculating the next
 ///   time to invoke this task. This part is useful to the scheduler mostly, tho outside parties can
 ///   also use it via [`Task::schedule`]
-///
-/// - **[`TaskErrorHandler`]** An error handler for the task, in case things go south. By default,
-///   it doesn't need to be supplied, and it will silently ignore the error, tho ideally in most cases
-///   it should be supplied for fine-grain error handling. When invoked, the task error handler gets
-///   a context object hosting the exposed metadata and the error. It is meant to return nothing, just
-///   handle the error the task gave away, outside parties can access this via [`Task::error_handler`]
 ///
 /// - **[`ScheduleStrategy`]** Defines how the scheduler should handle the rescheduling of a task and
 ///   how it handles task overlapping behavior. By default, (the parameter is optional to define),
@@ -220,32 +208,150 @@ impl From<TaskConfig> for Task {
 ///
 /// # See Also
 /// - [`TaskFrame`]
-/// - [`TaskMetadata`]
-/// - [`ExposedTaskMetadata`]
 /// - [`Scheduler`]
 /// - [`TaskEvent`]
 /// - [`TaskSchedule`]
 /// - [`ScheduleStrategy`]
-/// - [`TaskErrorHandler`]
-pub struct Task {
-    frame: Arc<dyn TaskFrame>,
-    schedule: Arc<dyn TaskSchedule>,
-    overlap_policy: Arc<dyn ScheduleStrategy>,
-    priority: TaskPriority,
-    runs: Arc<AtomicU64>,
+pub struct Task<T1: 'static, T2: 'static, T3: 'static> {
+    frame: T1,
+    schedule: T2,
+    schedule_strategy: T3,
+    priority: usize,
+    runs: AtomicU64,
     debug_label: String,
     max_runs: Option<NonZeroU64>,
     id: Uuid,
-    hooks: Arc<TaskHookContainer>,
+    hooks: TaskHookContainer,
 }
 
-impl Debug for Task {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T1: Serialize, T2: Serialize, T3: Serialize> Serialize for Task<T1, T2, T3> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        let mut task = serializer.serialize_struct("Task", 8)?;
+
+        task.serialize_field(
+            "frame",
+            &self.frame
+        )?;
+
+        task.serialize_field(
+            "schedule",
+            &self.schedule
+        )?;
+
+        task.serialize_field(
+            "schedule_strategy",
+            &self.schedule_strategy
+        )?;
+
+        task.serialize_field("priority", &self.priority)?;
+        task.serialize_field("runs", &self.runs.load(Ordering::Relaxed))?;
+        task.serialize_field("debug_label", &self.debug_label)?;
+        task.serialize_field("max_runs", &self.max_runs)?;
+        task.serialize_field("id", &self.id.to_string())?;
+
+        task.end()
+    }
+}
+
+/*
+impl<'de, T1, T2, T3> Deserialize<'de> for Task<T1, T2, T3>
+where
+    T1: Deserialize<'de>,
+    T2: Deserialize<'de>,
+    T3: Deserialize<'de>
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct TaskVisitor {
+            registry: Arc<PersistenceRegistriesManager>,
+        }
+
+        impl<'de> Visitor<'de> for TaskVisitor {
+            type Value = ErasedTask;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct Task")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<ErasedTask, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut frame: Option<Arc<dyn TaskFrame>> = None;
+                let mut schedule = None;
+                let mut schedule_strategy = None;
+                let mut priority = None;
+                let mut runs = None;
+                let mut debug_label = None;
+                let mut max_runs = None;
+                let mut id: Option<&str> = None;
+
+                while let Some(key) = map.next_key::<&str>()? {
+                    match key {
+                        "frame" => {
+                            let persisted: Persisted<dyn TaskFrame> = map.next_value()?;
+                            frame = Some(persisted.inner);
+                        }
+                        "schedule" => schedule = Some(map.next_value()?),
+                        "schedule_strategy" => schedule_strategy = Some(map.next_value()?),
+                        "priority" => priority = Some(map.next_value()?),
+                        "runs" => runs = Some(map.next_value()?),
+                        "debug_label" => debug_label = Some(map.next_value()?),
+                        "max_runs" => max_runs = Some(map.next_value()?),
+                        "id" => id = Some(map.next_value()?),
+                        _ => { let _ = map.next_value()?; }
+                    }
+                }
+
+                Ok(Task {
+                    frame: frame.ok_or_else(|| serde::de::Error::missing_field("frame"))?,
+                    schedule: schedule.ok_or_else(|| serde::de::Error::missing_field("schedule"))?,
+                    schedule_strategy: schedule_strategy.ok_or_else(|| serde::de::Error::missing_field("schedule_strategy"))?,
+                    priority: priority.ok_or_else(|| serde::de::Error::missing_field("priority"))?,
+                    runs: runs.ok_or_else(|| serde::de::Error::missing_field("runs"))?,
+                    debug_label: debug_label.ok_or_else(|| serde::de::Error::missing_field("debug_label"))?,
+                    max_runs: max_runs.ok_or_else(|| serde::de::Error::missing_field("max_runs"))?,
+                    id: Uuid::from_str(id.ok_or_else(|| serde::de::Error::missing_field("id"))?)
+                        .map_err(serde::de::Error::custom("Invalid / Tampered UUID"))?,
+                    hooks: Arc::new(TaskHookContainer()), // TODO
+                })
+            }
+        }
+
+        const FIELDS: &[&str] = &[
+            "frame",
+            "schedule",
+            "schedule_strategy",
+            "priority",
+            "runs",
+            "debug_label",
+            "max_runs",
+            "id",
+        ];
+
+        deserializer.deserialize_struct(
+            "Task",
+            FIELDS,
+            TaskVisitor {
+                registry: Arc::new(PersistenceRegistriesManager::default()), // pass your manager
+            },
+        )
+    }
+}
+*/
+
+impl<T1, T2, T3> Debug for Task<T1, T2, T3> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Task").field(&self.debug_label).finish()
     }
 }
 
-impl Task {
+impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
     /// A simple constructor that creates a simple [`Task`] from a task schedule and a task frame.
     /// Mostly used as a convenient method for simple enough tasks that don't need any of the other
     /// composite parts. Otherwise, the [`Task::builder`] may be preferred over.
@@ -277,20 +383,23 @@ impl Task {
     /// - [`Task::builder`]
     /// - [`TaskFrame`]
     /// - [`TaskSchedule`]
-    pub fn define(schedule: impl TaskSchedule + 'static, task: impl TaskFrame + 'static) -> Self {
+    pub fn simple(schedule: T2, frame: T1) -> Self {
+        let id = Uuid::new_v4();
         Self {
-            frame: Arc::new(task),
-            schedule: Arc::new(schedule),
-            hooks: Arc::new(TaskHookContainer(DashMap::default())),
-            overlap_policy: Arc::new(SequentialSchedulingPolicy),
-            priority: TaskPriority::MODERATE,
-            runs: Arc::new(AtomicU64::new(0)),
-            debug_label: Uuid::new_v4().to_string(),
+            frame,
+            schedule,
+            hooks: TaskHookContainer(DashMap::default()),
+            schedule_strategy: SequentialSchedulingPolicy,
+            priority: 0,
+            runs: AtomicU64::new(0),
+            debug_label: id.to_string(),
             max_runs: None,
-            id: Uuid::new_v4(),
+            id,
         }
     }
+}
 
+impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
     /// Creates a [`Task`] builder used for more customization on the fields. For convenience,
     /// if your task only consists of [`TaskSchedule`] and [`TaskFrame`] and you don't plan
     /// to modify any fields apart from the defaults, then [`Task::define`] does a better job
@@ -316,7 +425,7 @@ impl Task {
     /// - [`Task::define`]
     /// - [`TaskSchedule`]
     /// - [`TaskFrame`]
-    pub fn builder() -> TaskConfigBuilder {
+    pub fn builder() -> TaskConfigBuilder<T1, T2, T3> {
         TaskConfig::builder()
     }
 
@@ -330,8 +439,8 @@ impl Task {
     pub async fn run(&self) -> Result<(), TaskError> {
         let ctx = TaskContext::new(self);
         self.runs.fetch_add(1, Ordering::Relaxed);
-        ctx.clone().emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
-        let result = self.frame.execute(ctx.clone()).await;
+        ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
+        let result = self.frame.execute(&ctx).await;
         let err = result.clone().err();
 
         ctx.emit::<OnTaskEnd>(&err).await;
@@ -340,22 +449,22 @@ impl Task {
     }
 
     /// Gets the [`TaskFrame`] for outside parties
-    pub fn frame(&self) -> Arc<dyn TaskFrame> {
-        self.frame.clone()
+    pub fn frame(&self) -> &T1 {
+        &self.frame
     }
 
     /// Gets the [`TaskSchedule`] for outside parties
-    pub fn schedule(&self) -> Arc<dyn TaskSchedule> {
-        self.schedule.clone()
+    pub fn schedule(&self) -> &T2 {
+        &self.schedule
     }
 
     /// Gets the [`ScheduleStrategy`] for outside parties
-    pub fn schedule_strategy(&self) -> Arc<dyn ScheduleStrategy> {
-        self.overlap_policy.clone()
+    pub fn schedule_strategy(&self) -> &T3 {
+        &self.schedule_strategy
     }
 
-    /// Gets the [`TaskPriority`] for a task
-    pub fn priority(&self) -> TaskPriority {
+    /// Gets the priority for a task
+    pub fn priority(&self) -> usize {
         self.priority
     }
 
@@ -375,13 +484,27 @@ impl Task {
     }
 
     /// Gets the hooks container the [`Task`] has
-    pub fn hooks(&self) -> Arc<TaskHookContainer> {
-        self.hooks.clone()
+    pub fn hooks(&self) -> &TaskHookContainer {
+        &self.hooks
+    }
+
+    pub fn erase(&self) -> ErasedTask {
+        ErasedTask {
+            frame: Arc::new(self.frame),
+            schedule: Box::new(self.schedule),
+            schedule_strategy: Box::new(self.schedule_strategy),
+            priority: self.priority,
+            runs: self.runs,
+            debug_label: self.debug_label,
+            max_runs: self.max_runs,
+            id: self.id,
+            hooks: self.hooks
+        }
     }
 
     pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
         let ctx = TaskContext::new(self);
-        self.hooks.attach(ctx, hook).await;
+        self.hooks.attach(&ctx, hook).await;
     }
 
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
@@ -390,11 +513,11 @@ impl Task {
 
     pub async fn emit_hook_event<E: TaskHookEvent>(&self, payload: &E::Payload) {
         let ctx = TaskContext::new(self);
-        self.hooks.emit::<E>(ctx, payload).await;
+        self.hooks.emit::<E>(&ctx, payload).await;
     }
 
     pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
         let ctx = TaskContext::new(self);
-        self.hooks.detach::<E, T>(ctx).await;
+        self.hooks.detach::<E, T>(&ctx).await;
     }
 }

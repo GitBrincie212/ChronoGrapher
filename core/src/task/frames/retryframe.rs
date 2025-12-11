@@ -1,5 +1,4 @@
 use crate::define_event;
-use crate::persistence::PersistenceObject;
 use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -8,6 +7,7 @@ use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -77,6 +77,10 @@ impl ConstantBackoffStrategy {
     }
 }
 
+impl PersistenceObject for ConstantBackoffStrategy {
+    const PERSISTENCE_ID: &'static str = "chronographer::ConstantBackoffStrategy#925a9db3-eece-4b28-9658-f5d20afc4869";
+}
+
 #[async_trait]
 impl RetryBackoffStrategy for ConstantBackoffStrategy {
     async fn compute(&self, _retry: u32) -> Duration {
@@ -139,6 +143,10 @@ impl ExponentialBackoffStrategy {
     }
 }
 
+impl PersistenceObject for ExponentialBackoffStrategy {
+    const PERSISTENCE_ID: &'static str = "chronographer::ExponentialBackoffStrategy#5d751ba0-246f-4b27-9224-9173fd00e609";
+}
+
 #[async_trait]
 impl RetryBackoffStrategy for ExponentialBackoffStrategy {
     async fn compute(&self, retry: u32) -> Duration {
@@ -160,7 +168,7 @@ impl RetryBackoffStrategy for ExponentialBackoffStrategy {
 /// # See Also
 /// - [`JitterBackoffStrategy::new`]
 /// - [`RetryBackoffStrategy`]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct JitterBackoffStrategy<T: RetryBackoffStrategy>(T, f64);
 
 impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
@@ -180,6 +188,10 @@ impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
     pub fn new(strat: T, factor: f64) -> Self {
         Self(strat, factor)
     }
+}
+
+impl<T: RetryBackoffStrategy + PersistenceObject> PersistenceObject for JitterBackoffStrategy<T> {
+    const PERSISTENCE_ID: &'static str = "chronographer::JitterBackoffStrategy#a015511b-4dd3-41c3-bf4f-9a3bab650c8b";
 }
 
 #[async_trait]
@@ -271,7 +283,7 @@ define_event!(
 /// - [`RetryBackoffStrategy`]
 #[derive(Serialize, Deserialize)]
 pub struct RetriableTaskFrame<
-    T: TaskFrame + 'static,
+    T: TaskFrame,
     T2: RetryBackoffStrategy = ConstantBackoffStrategy,
 > {
     frame: Arc<T>,
@@ -279,8 +291,9 @@ pub struct RetriableTaskFrame<
     backoff_strat: T2,
 }
 
-impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
-    /// Creates / Constructs a [`RetriableTaskFrame`] that has a specified delay per retry
+impl<T: TaskFrame> RetriableTaskFrame<T> {
+    /// Creates / Constructs a [`RetriableTaskFrame`] that has a specified delay per retry.
+    /// This constructor is for TaskFrames which guarantee persistence
     ///
     /// # Argument(s)
     /// This method accepts 3 arguments, the first being the [`TaskFrame`] as ``frame``, the second
@@ -294,14 +307,11 @@ impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
     /// - [`TaskFrame`]
     /// - [`RetriableTaskFrame`]
     pub fn new(frame: T, retries: NonZeroU32, delay: Duration) -> Self {
-        Self {
-            frame: Arc::new(frame),
-            retries,
-            backoff_strat: ConstantBackoffStrategy::new(delay),
-        }
+        Self::new_with(frame, retries, ConstantBackoffStrategy::new(delay))
     }
 
-    /// Creates / Constructs a [`RetriableTaskFrame`] that has no delay per retry
+    /// Creates / Constructs a [`RetriableTaskFrame`] that has no delay per retry.
+    /// This constructor is for TaskFrames which guarantee persistence
     ///
     /// # Argument(s)
     /// This method accepts 2 arguments, the first being the [`TaskFrame`] as ``frame`` and
@@ -315,12 +325,13 @@ impl<T: TaskFrame + 'static> RetriableTaskFrame<T> {
     /// - [`TaskFrame`]
     /// - [`RetriableTaskFrame`]
     pub fn new_instant(task: T, retries: NonZeroU32) -> Self {
-        RetriableTaskFrame::<T, ConstantBackoffStrategy>::new(task, retries, Duration::ZERO)
+        Self::new(task, retries, Duration::ZERO)
     }
 }
 
-impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2> {
-    /// Creates / Constructs a [`RetriableTaskFrame`] that has a custom backoff strategy per retry
+impl<T: TaskFrame, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2> {
+    /// Creates / Constructs a [`RetriableTaskFrame`] that has a custom backoff strategy per retry.
+    /// This constructor is for TaskFrames which guarantee persistence
     ///
     /// # Argument(s)
     /// This method accepts 3 arguments, the first being the [`TaskFrame`] as ``frame``, the second
@@ -346,24 +357,27 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2>
 }
 
 #[async_trait]
-impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
+impl<T: TaskFrame, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
     async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
-        let subdivided_ctx = ctx.subdivide(self.frame.clone());
+        let subdivided = ctx.subdivided_ctx(self.frame.clone());
         for retry in 0u32..self.retries.get() {
-            subdivided_ctx
-                .clone()
-                .emit::<OnRetryAttemptStart>(&retry)
+            ctx.emit::<OnRetryAttemptStart>(&retry)
                 .await;
 
-            error = self.frame.execute(subdivided_ctx.clone()).await.err();
-            subdivided_ctx
-                .clone()
-                .emit::<OnRetryAttemptEnd>(&(retry, error.clone()))
+            error = self.frame.execute(subdivided.clone()).await.err();
+
+            ctx.emit::<OnRetryAttemptEnd>(&(retry, error.clone()))
                 .await;
+
             if error.is_none() {
                 return Ok(());
             }
+
+            if retry == self.retries.get() - 1 {
+                continue;
+            }
+
             let delay = self.backoff_strat.compute(retry).await;
             tokio::time::sleep(delay).await;
         }
@@ -373,11 +387,13 @@ impl<T: TaskFrame + 'static, T2: RetryBackoffStrategy> TaskFrame for RetriableTa
 }
 
 #[async_trait]
-impl<T1, T2> PersistenceObject for RetriableTaskFrame<T1, T2>
+impl<F1, F2> PersistenceObject for RetriableTaskFrame<F1, F2>
 where
-    T1: TaskFrame + 'static + PersistenceObject,
-    T2: RetryBackoffStrategy + PersistenceObject,
+    F1: TaskFrame + PersistenceObject,
+    F2: RetryBackoffStrategy + PersistenceObject,
 {
     const PERSISTENCE_ID: &'static str =
         "chronographer::RetriableTaskFrame#92b11283-b132-491d-85f3-417a84e9242e";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

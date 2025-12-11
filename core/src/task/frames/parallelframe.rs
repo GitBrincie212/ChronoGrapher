@@ -76,7 +76,7 @@ use std::sync::Arc;
 /// - [`GroupedTaskFramesExecBehavior`]
 //noinspection DuplicatedCode
 pub struct ParallelTaskFrame {
-    tasks: Vec<Arc<dyn TaskFrame>>,
+    tasks: Vec<&'static dyn TaskFrame>,
     policy: Arc<dyn GroupedTaskFramesExecBehavior>,
 }
 
@@ -98,7 +98,7 @@ impl ParallelTaskFrame {
     /// - [`GroupedTaskFramesExecBehavior`]
     /// - [`ParallelTaskFrame::new_with`]
     /// - [`ParallelTaskFrame`]
-    pub fn new(tasks: Vec<Arc<dyn TaskFrame>>) -> Self {
+    pub fn new(tasks: Vec<&'static dyn TaskFrame>) -> Self {
         Self::new_with(tasks, GroupedTaskFramesQuitOnFailure)
     }
 
@@ -123,7 +123,7 @@ impl ParallelTaskFrame {
     /// - [`ParallelTaskFrame::new`]
     /// - [`ParallelTaskFrame`]
     pub fn new_with(
-        tasks: Vec<Arc<dyn TaskFrame>>,
+        tasks: Vec<&'static dyn TaskFrame>,
         policy: impl GroupedTaskFramesExecBehavior + 'static,
     ) -> Self {
         Self {
@@ -135,18 +135,15 @@ impl ParallelTaskFrame {
 
 #[async_trait]
 impl TaskFrame for ParallelTaskFrame {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         let mut js = tokio::task::JoinSet::new();
 
         for frame in self.tasks.iter() {
             let frame_clone = frame.clone();
-            let subdivided_ctx = ctx.subdivide(frame_clone.clone());
             js.spawn(async move {
-                subdivided_ctx.clone().emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
-                let result = frame_clone.execute(subdivided_ctx.clone()).await;
-                subdivided_ctx
-                    .emit::<OnChildEnd>(&result.clone().err())
-                    .await; // skipcq: RS-E1015
+                ctx.emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
+                let result = ctx.subdivide(frame_clone.clone()).await;
+                ctx.emit::<OnChildEnd>(&result.clone().err()).await; // skipcq: RS-E1015
                 result
             });
         }

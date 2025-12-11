@@ -1,6 +1,5 @@
 use crate::define_event;
 use crate::errors::ChronographerErrors;
-use crate::persistence::PersistenceObject;
 use crate::task::Debug;
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
@@ -90,7 +89,6 @@ pub struct DependencyTaskFrameConfig<T: TaskFrame> {
     /// # See Also
     /// - [`TaskFrame`]
     /// - [`FrameDependency`]
-    #[builder(setter(transform = |x: T| Arc::new(x)))]
     task: T,
 
     /// A collection of [`FrameDependency`] tied to the inner [`TaskFrame`]. Where
@@ -222,12 +220,11 @@ define_event!(
 /// - [`TaskEvent`]
 /// - [`DependentFailBehavior`]
 /// - [`DependencyTaskFrame::builder`]
-#[derive(Serialize, Deserialize)]
 pub struct DependencyTaskFrame<T: TaskFrame> {
-    frame: Arc<T>,
+    frame: T,
     dependencies: Vec<Arc<dyn FrameDependency>>,
     dependent_behaviour: Arc<dyn DependentFailBehavior>,
-} // TODO: Check why it compiles successfully (potential bug)
+} // TODO: See how to persist dependencies and dependent behaviour
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
     /// Creates / Constructs a builder for the construction of [`DependencyTaskFrame`],
@@ -244,7 +241,7 @@ impl<T: TaskFrame> DependencyTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         let mut handles: Vec<JoinHandle<bool>> = Vec::with_capacity(self.dependencies.len());
 
         for dep in &self.dependencies {
@@ -279,97 +276,18 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             return self.dependent_behaviour.execute().await;
         }
 
-        ctx.subdivide_exec(self.frame).await
+        ctx.subdivide(&self.frame).await
     }
-}
-
-#[async_trait]
-impl<T: TaskFrame + PersistenceObject> PersistenceObject for DependencyTaskFrame<T> {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::DependencyTaskFrame#efd76154-9690-40b9-be03-39186c74d579";
 }
 
 /*
-async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let wrapped_frame = PersistenceUtils::serialize_persistent(&self.frame).await?;
-        let mut dependencies = Vec::with_capacity(self.dependencies.len());
+#[async_trait]
+impl<F: TaskFrame + PersistenceObject> PersistenceObject for DependencyTaskFrame<F> {
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::DependencyTaskFrame#efd76154-9690-40b9-be03-39186c74d579";
 
-        for dep in &self.dependencies {
-            let persistent_obj = PersistenceUtils::serialize_potential_field(dep.as_ref()).await?;
-            dependencies.push(persistent_obj);
-        }
-
-        let dependent_fail_behavior = match self.dependent_behaviour.as_persistent().await {
-            PersistenceCapability::Persistable(res) => {
-                serde_json::to_value(res.persist().await?)
-                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?
-            }
-            _ => {
-                return Err(Arc::new(ChronographerErrors::NonPersistentObject(
-                    "DependentFailBehavior".to_string(),
-                )));
-            }
-        };
-
-        Ok(SerializedComponent::new::<Self>(json!({
-            "wrapped_frame": wrapped_frame,
-            "dependencies": dependencies,
-            "dependent_fail_behavior": dependent_fail_behavior
-        })))
+    fn inject_context<T: PersistenceBackend>(&self, ctx: &PersistenceContext<T>) {
+        todo!()
     }
-
-    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
-
-        let frame = PersistenceUtils::deserialize_concrete::<T>(
-            &mut repr,
-            "wrapped_frame",
-            "Cannot deserialize the wrapped task frame",
-        )
-        .await?;
-
-        let dependent_fail_behavior = PersistenceUtils::deserialize_dyn(
-            &mut repr,
-            "dependent_fail_behavior",
-            RetrieveRegistries::retrieve_dependent_fail_behaviour,
-            "Cannot deserialize the DependentFailBehavior",
-        )
-        .await?;
-
-        let mut partially_serialized_dependencies =
-            PersistenceUtils::deserialize_partially_field::<dyn FrameDependency>(
-                &mut repr,
-                "dependencies",
-                "Cannot deserialize the dependencies",
-            )?;
-
-        let dependencies: Vec<Value> = partially_serialized_dependencies
-            .as_array_mut()
-            .ok_or_else(|| {
-                PersistenceUtils::create_retrieval_error::<dyn FrameDependency>(
-                    &repr,
-                    "Cannot deserialize the dependencies",
-                )
-            })?
-            .drain(..)
-            .collect();
-
-        let mut deserialized_dependencies = Vec::with_capacity(dependencies.len());
-
-        for dep in dependencies {
-            let dep = RetrieveRegistries::retrieve_frame_dependency(
-                serde_json::from_value::<SerializedComponent>(dep)
-                    .map_err(|x| Arc::new(x) as Arc<dyn Debug + Send + Sync>)?,
-            )
-            .await?;
-
-            deserialized_dependencies.push(dep)
-        }
-
-        Ok(DependencyTaskFrame {
-            dependencies: deserialized_dependencies,
-            dependent_behaviour: dependent_fail_behavior,
-            frame,
-        })
-    }
+}
  */

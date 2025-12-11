@@ -1,5 +1,5 @@
 use crate::define_event;
-use crate::persistence::PersistenceObject;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
@@ -75,12 +75,12 @@ define_event!(
 /// # See Also
 /// - [`TaskFrame`]
 #[derive(Serialize, Deserialize)]
-pub struct TimeoutTaskFrame<T: 'static> {
-    frame: Arc<T>,
+pub struct TimeoutTaskFrame<T: TaskFrame> {
+    frame: T,
     max_duration: Duration,
-} // TODO: Find a way to store the deadline of timeout
+}
 
-impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
+impl<T: TaskFrame> TimeoutTaskFrame<T> {
     /// Constructs / Creates a new [`TimeoutTaskFrame`] instance
     ///
     /// # Argument(s)
@@ -95,17 +95,20 @@ impl<T: TaskFrame + 'static> TimeoutTaskFrame<T> {
     /// - [`TaskFrame`]
     /// - [`TimeoutTaskFrame`]
     pub fn new(frame: T, max_duration: Duration) -> Self {
-        TimeoutTaskFrame {
-            frame: Arc::new(frame),
+        Self {
+            frame,
             max_duration,
         }
     }
 }
 
 #[async_trait]
-impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let result = tokio::time::timeout(self.max_duration, ctx.subdivide_exec(self.frame)).await;
+impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+        let result = tokio::time::timeout(
+            self.max_duration, 
+            ctx.subdivide(&self.frame)
+        ).await;
 
         if let Ok(inner) = result {
             return inner;
@@ -120,7 +123,11 @@ impl<T: TaskFrame + 'static> TaskFrame for TimeoutTaskFrame<T> {
 }
 
 #[async_trait]
-impl<T: TaskFrame + PersistenceObject> PersistenceObject for TimeoutTaskFrame<T> {
+impl<F: TaskFrame + PersistenceObject> PersistenceObject for TimeoutTaskFrame<F> {
     const PERSISTENCE_ID: &'static str =
         "chronographer::TimeoutTaskFrame#cfbcfb94-5370-4b72-af3d-ceee31f7cea3";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {
+        todo!()
+    }
 }

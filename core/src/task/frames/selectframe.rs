@@ -40,12 +40,12 @@ pub trait SelectFrameAccessor: Send + Sync {
     /// - [`TaskContext`]
     /// - [`SelectTaskFrame`]
     /// - [`SelectFrameAccessor`]
-    async fn select(&self, ctx: Arc<TaskContext>) -> usize;
+    async fn select(&self, ctx: &TaskContext) -> usize;
 }
 
 #[async_trait]
 impl<FAF: SelectFrameAccessor + ?Sized> SelectFrameAccessor for Arc<FAF> {
-    async fn select(&self, ctx: Arc<TaskContext>) -> usize {
+    async fn select(&self, ctx: &TaskContext) -> usize {
         self.as_ref().select(ctx).await
     }
 }
@@ -53,10 +53,10 @@ impl<FAF: SelectFrameAccessor + ?Sized> SelectFrameAccessor for Arc<FAF> {
 #[async_trait]
 impl<F, Fut> SelectFrameAccessor for F
 where
-    F: Fn(Arc<TaskContext>) -> Fut + Send + Sync,
+    F: Fn(&TaskContext) -> Fut + Send + Sync,
     Fut: Future<Output = usize> + Send,
 {
-    async fn select(&self, ctx: Arc<TaskContext>) -> usize {
+    async fn select(&self, ctx: &TaskContext) -> usize {
         self(ctx).await
     }
 }
@@ -176,15 +176,12 @@ impl SelectTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SelectTaskFrame {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let idx = self.accessor.select(ctx.clone()).await;
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+        let idx = self.accessor.select(ctx).await;
         if let Some(frame) = self.frames.get(idx) {
-            let subdivided = ctx.subdivide(frame.clone());
-            subdivided
-                .clone()
-                .emit::<OnTaskFrameSelection>(&(idx, frame.clone()))
+            ctx.emit::<OnTaskFrameSelection>(&idx)
                 .await;
-            return frame.execute(subdivided).await;
+            return ctx.subdivide(frame).await
         }
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,

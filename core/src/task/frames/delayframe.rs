@@ -1,14 +1,12 @@
 use crate::define_event;
-use crate::persistence::PersistenceObject;
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
-use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
 use tokio::time::Instant;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 
 define_event!(
     /// # See Also
@@ -68,10 +66,13 @@ define_event!(
 /// # See Also
 /// - [`TaskFrame`]
 #[derive(Serialize, Deserialize)]
-pub struct DelayTaskFrame<T: TaskFrame + 'static>(Arc<T>, Duration, Mutex<Option<Instant>>);
+pub struct DelayTaskFrame<T: TaskFrame> {
+    frame: T,
+    delay: Duration,
+}
 
-impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
-    /// Constructs / Creates a new [`DelayTaskFrame`] instance
+impl<T: TaskFrame> DelayTaskFrame<T> {
+    /// Constructs / Creates a new [`DelayTaskFrame`] instance.
     ///
     /// # Argument(s)
     /// The method accepts 2 arguments, those being ``frame`` as [`TaskFrame`] to wrap,
@@ -85,25 +86,30 @@ impl<T: TaskFrame + 'static> DelayTaskFrame<T> {
     /// - [`TaskFrame`]
     /// - [`DelayTaskFrame`]
     pub fn new(frame: T, delay: Duration) -> Self {
-        DelayTaskFrame(Arc::new(frame), delay, Mutex::new(None))
+        DelayTaskFrame {
+            frame,
+            delay,
+        }
     }
 }
 
 #[async_trait]
-impl<T: TaskFrame + 'static> TaskFrame for DelayTaskFrame<T> {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        ctx.clone().emit::<OnDelayStart>(&self.1).await;
-        let deadline = Instant::now() + self.1;
-        self.2.lock().await.replace(deadline);
+impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+        ctx.emit::<OnDelayStart>(&self.delay).await;
+        let deadline = Instant::now() + self.delay;
         tokio::time::sleep_until(deadline).await;
-        self.2.lock().await.take();
-        ctx.clone().emit::<OnDelayEnd>(&self.1).await;
-        ctx.subdivide_exec(self.0).await
+        ctx.emit::<OnDelayEnd>(&self.delay).await;
+        ctx.subdivide(&self.frame).await
     }
 }
 
 #[async_trait]
-impl<T: TaskFrame + PersistenceObject> PersistenceObject for DelayTaskFrame<T> {
+impl<F: TaskFrame + PersistenceObject> PersistenceObject for DelayTaskFrame<F> {
     const PERSISTENCE_ID: &'static str =
         "chronographer::DelayTaskFrame#08656c89-041e-4b22-9c53-bb5a5e02a9f1";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {
+        todo!()
+    }
 }

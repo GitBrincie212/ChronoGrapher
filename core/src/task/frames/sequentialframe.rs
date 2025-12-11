@@ -77,7 +77,7 @@ use crate::task::ParallelTaskFrame;
 /// - [`GroupedTaskFramesExecBehavior`]
 //noinspection DuplicatedCode
 pub struct SequentialTaskFrame {
-    tasks: Vec<Arc<dyn TaskFrame>>,
+    tasks: Vec<&'static dyn TaskFrame>,
     policy: Arc<dyn GroupedTaskFramesExecBehavior>,
 }
 
@@ -99,7 +99,7 @@ impl SequentialTaskFrame {
     /// - [`GroupedTaskFramesExecBehavior`]
     /// - [`SequentialTaskFrame::new_with`]
     /// - [`SequentialTaskFrame`]
-    pub fn new(tasks: Vec<Arc<dyn TaskFrame>>) -> SequentialTaskFrame {
+    pub fn new(tasks: Vec<&'static dyn TaskFrame>) -> SequentialTaskFrame {
         Self::new_with(tasks, GroupedTaskFramesQuitOnFailure)
     }
 
@@ -124,7 +124,7 @@ impl SequentialTaskFrame {
     /// - [`SequentialTaskFrame::new`]
     /// - [`SequentialTaskFrame`]
     pub fn new_with(
-        tasks: Vec<Arc<dyn TaskFrame>>,
+        tasks: Vec<&'static dyn TaskFrame>,
         sequential_policy: impl GroupedTaskFramesExecBehavior + 'static,
     ) -> SequentialTaskFrame {
         Self {
@@ -136,14 +136,11 @@ impl SequentialTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SequentialTaskFrame {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         for taskframe in self.tasks.iter() {
-            let subdivided_ctx = ctx.subdivide(taskframe.clone());
-            subdivided_ctx.clone().emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
-            let result = taskframe.execute(subdivided_ctx.clone()).await;
-            subdivided_ctx
-                .clone()
-                .emit::<OnChildEnd>(&result.clone().err())
+            ctx.emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
+            let result = ctx.subdivide(&taskframe).await;
+            ctx.emit::<OnChildEnd>(&result.clone().err())
                 .await;
             let should_quit = self.policy.should_quit(result).await;
             if let Some(res) = should_quit {

@@ -1,6 +1,5 @@
 use crate::define_event;
 use crate::errors::ChronographerErrors;
-use crate::persistence::PersistenceObject;
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
 use crate::task::TaskHookEvent;
@@ -45,16 +44,16 @@ pub trait ConditionalFramePredicate: Send + Sync {
     /// - [`TaskContext`]
     /// - [`TaskFrame`]
     /// - [`ConditionalFramePredicate`]
-    async fn execute(&self, ctx: Arc<TaskContext>) -> bool;
+    async fn execute(&self, ctx: &TaskContext) -> bool;
 }
 
 #[async_trait]
 impl<F, Fut> ConditionalFramePredicate for F
 where
-    F: Fn(Arc<TaskContext>) -> Fut + Send + Sync,
+    F: Fn(&TaskContext) -> Fut + Send + Sync,
     Fut: Future<Output = bool> + Send,
 {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> bool {
+    async fn execute(&self, ctx: &TaskContext) -> bool {
         self(ctx).await
     }
 }
@@ -88,8 +87,7 @@ where
     /// - [`ConditionalFrame::builder`]
     /// - [`ConditionalFrame::fallback_builder`]
     /// - [`ConditionalFramePredicate`]
-    #[builder(setter(transform = |s: T2| Arc::new(s)))]
-    fallback: Arc<T2>,
+    fallback: &'static T2,
 
     /// The [`TaskFrame`] for handling the execution in
     /// case the [`ConditionalFramePredicate`] returned true,
@@ -105,8 +103,7 @@ where
     /// # See Also
     /// - [`TaskFrame`]
     /// - [`ConditionalFramePredicate`]
-    #[builder(setter(transform = |s: T| Arc::new(s)))]
-    frame: Arc<T>,
+    frame: &'static T,
 
     /// The [`ConditionalFramePredicate`] for handling the decision-making on whenever
     /// to execute the [`TaskFrame`] or not based on a boolean value
@@ -175,8 +172,8 @@ where
 {
     fn from(config: ConditionalFrameConfig<T, T2>) -> Self {
         ConditionalFrame {
-            frame: config.frame,
-            fallback: config.fallback,
+            frame: &config.frame,
+            fallback: &config.fallback,
             predicate: config.predicate,
             error_on_false: config.error_on_false,
         }
@@ -257,13 +254,12 @@ where
 /// - [`ConditionalFrame::fallback_builder`]
 /// - [`TaskEvent`]
 /// - [`FallbackTaskFrame`]
-#[derive(Serialize, Deserialize)]
 pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
-    frame: Arc<T>,
-    fallback: Arc<T2>,
+    frame: T,
+    fallback: T2,
     predicate: Arc<dyn ConditionalFramePredicate>,
     error_on_false: bool,
-} // TODO: Check why this compiles successfully (possible bug)
+} // TODO: See how to persist conditional predicate
 
 /// A type alias to alleviate the immense typing required to specify that
 /// the [`ConditionalFrameConfigBuilder`] has already filled the fallback parameter
@@ -271,7 +267,7 @@ pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
 pub type NonFallbackCFCBuilder<T> = ConditionalFrameConfigBuilder<
     T,
     NoOperationTaskFrame,
-    ((Arc<NoOperationTaskFrame>,), (), (), ()),
+    ((&'static NoOperationTaskFrame,), (), (), ()),
 >;
 
 impl<T> ConditionalFrame<T>
@@ -290,7 +286,7 @@ where
     /// - [`ConditionalFrame`]
     /// - [`ConditionalFrame::fallback_builder`]
     pub fn builder() -> NonFallbackCFCBuilder<T> {
-        ConditionalFrameConfig::builder().fallback(NoOperationTaskFrame)
+        ConditionalFrameConfig::builder().fallback(&NoOperationTaskFrame)
     }
 }
 
@@ -316,15 +312,15 @@ where
 
 #[async_trait]
 impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let result = self.predicate.execute(ctx.clone()).await;
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+        let result = self.predicate.execute(ctx).await;
         if result {
             ctx.clone().emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
-            return ctx.subdivide_exec(self.frame).await;
+            return ctx.subdivide(self.frame).await;
         }
 
         ctx.clone().emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
-        let result = ctx.subdivide_exec(self.fallback).await;
+        let result = ctx.subdivide(self.fallback.clone()).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));
         }
@@ -332,12 +328,18 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
     }
 }
 
+/*
 #[async_trait]
-impl<T, F> PersistenceObject for ConditionalFrame<T, F>
+impl<F1, F2> PersistenceObject for ConditionalFrame<F1, F2>
 where
-    T: TaskFrame + 'static + PersistenceObject,
-    F: TaskFrame + 'static + PersistenceObject,
+    F1: TaskFrame + 'static + PersistenceObject,
+    F2: TaskFrame + 'static + PersistenceObject,
 {
     const PERSISTENCE_ID: &'static str =
         "chronographer::ConditionalFrame#251f88d9-cecd-475d-85d3-0601657aedf4";
+
+    fn inject_context<T: PersistenceBackend>(&self, ctx: &PersistenceContext<T>) {
+        todo!()
+    }
 }
+ */

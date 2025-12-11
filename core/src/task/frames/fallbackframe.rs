@@ -1,11 +1,10 @@
 use crate::define_event;
-use crate::persistence::PersistenceObject;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
-use std::sync::Arc;
 
 define_event!(
     /// # Event Triggering
@@ -67,17 +66,11 @@ define_event!(
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 #[derive(Serialize, Deserialize)]
-pub struct FallbackTaskFrame<T: 'static, T2: 'static>(T, Arc<T2>);
+pub struct FallbackTaskFrame<T, T2>(T, T2);
 
-impl<T, T2> FallbackTaskFrame<T, T2>
-where
-    T: TaskFrame + 'static,
-    T2: TaskFrame + 'static,
-{
-    pub const PERSISTENCE_ID: &'static str = stringify!(FallbackTaskFrame$chronographer_core);
-
+impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
     /// Creates / Constructs a new [`FallbackTaskFrame`] instance based on the
-    /// two [`TaskFrame`] supplied
+    /// two [`TaskFrame`] supplied. This constructor is for TaskFrames which are not persistable
     ///
     /// # Argument(s)
     /// The method accepts two arguments, those being ``primary`` which is a [`TaskFrame`]
@@ -92,26 +85,20 @@ where
     /// # See Also
     /// - [`ExecutionTaskFrame`]
     pub fn new(primary: T, secondary: T2) -> Self {
-        Self(primary, Arc::new(secondary))
+        Self(primary, secondary)
     }
 }
 
 #[async_trait]
-impl<T, T2> TaskFrame for FallbackTaskFrame<T, T2>
-where
-    T: TaskFrame + 'static,
-    T2: TaskFrame + 'static,
-{
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
-        let primary_result = self.0.execute(ctx.clone()).await;
+impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+        let primary_result = self.0.execute(ctx).await;
         match primary_result {
             Err(err) => {
-                let subdivide_ctx = ctx.subdivide(self.1.clone());
-                subdivide_ctx
-                    .clone()
-                    .emit::<OnFallbackEvent>(&(self.1.clone(), err))
+                ctx.clone()
+                    .emit::<OnFallbackEvent>(&err)
                     .await;
-                self.1.execute(subdivide_ctx).await
+                ctx.subdivide(&self.1).await
             }
             res => res,
         }
@@ -119,11 +106,15 @@ where
 }
 
 #[async_trait]
-impl<T, T2> PersistenceObject for FallbackTaskFrame<T, T2>
+impl<F1, F2> PersistenceObject for FallbackTaskFrame<F1, F2>
 where
-    T: TaskFrame + 'static + PersistenceObject,
-    T2: TaskFrame + 'static + PersistenceObject,
+    F1: TaskFrame + PersistenceObject,
+    F2: TaskFrame + PersistenceObject
 {
     const PERSISTENCE_ID: &'static str =
         "chronographer::FallbackTaskFrame#5ce04991-ae3d-4d54-861d-6a8379d251ac";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {
+        todo!()
+    }
 }

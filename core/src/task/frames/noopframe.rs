@@ -1,4 +1,4 @@
-use crate::persistence::PersistenceObject;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -36,12 +36,13 @@ pub struct NoOperationTaskFrame;
 
 #[async_trait]
 impl TaskFrame for NoOperationTaskFrame {
-    async fn execute(&self, _ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+    async fn execute(&self, _ctx: &TaskContext) -> Result<(), TaskError> {
         Ok(())
     }
 }
 
 impl PersistenceObject for NoOperationTaskFrame {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::NoOperationTaskFrame#25ce069e-d1be-47aa-a68e-f5e659ffdb27";
+    const PERSISTENCE_ID: &'static str = "chronographer::NoOperationTaskFrame#25ce069e-d1be-47aa-a68e-f5e659ffdb27";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
