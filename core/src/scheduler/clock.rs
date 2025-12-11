@@ -46,6 +46,8 @@ use std::time::{Duration, SystemTime};
 /// - [`AdvanceableScheduleClock`]
 #[async_trait]
 pub trait SchedulerClock: Debug + Send + Sync {
+    async fn init(&self) {}
+    
     /// Gets the current time of the clock
     ///
     /// # Returns

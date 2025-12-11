@@ -1,10 +1,10 @@
-use crate::clock::SchedulerClock;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::time::SystemTime;
+use crate::scheduler::clock::SchedulerClock;
 
 #[allow(unused_imports)]
-use crate::clock::VirtualClock;
+use crate::scheduler::clock::VirtualClock;
 
 /// [`SystemClock`] is an implementation of [`SchedulerClock`] trait, it is the default option
 /// for scheduling, unlike [`VirtualClock`], it moves forward no matter what and cannot be advanced
