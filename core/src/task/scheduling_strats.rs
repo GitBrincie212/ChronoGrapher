@@ -1,14 +1,13 @@
-use crate::persistence::PersistentObject;
-use crate::serialized_component::SerializedComponent;
-use crate::task::{Task, TaskError};
+use crate::task::ErasedTask;
 use async_trait::async_trait;
-use serde_json::json;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 
 /// [`ScheduleStrategy`] defines how the task should be rescheduled and how the task acts when being
 /// overlapped by the same task instance or by others. It is their duty to handle calling
@@ -48,7 +47,7 @@ use tokio::task::JoinHandle;
 /// - [`CancelPreviousSchedulingPolicy`]
 /// - [`CancelCurrentSchedulingPolicy`]
 #[async_trait]
-pub trait ScheduleStrategy: Send + Sync {
+pub trait ScheduleStrategy: 'static + Send + Sync {
     /// Runs the task from this strategy (which handles how the task should run)
     ///
     /// # Arguments
@@ -59,16 +58,16 @@ pub trait ScheduleStrategy: Send + Sync {
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
     /// - [`ScheduleStrategy`]
-    async fn handle(&self, task: Arc<Task>);
+    async fn handle(&self, task: Arc<ErasedTask>);
 }
 
 #[async_trait]
 impl<S> ScheduleStrategy for S
 where
-    S: Deref + Send + Sync,
+    S: Deref + Send + Sync + 'static,
     S::Target: ScheduleStrategy,
 {
-    async fn handle(&self, task: Arc<Task>) {
+    async fn handle(&self, task: Arc<ErasedTask>) {
         self.deref().handle(task).await;
     }
 }
@@ -81,33 +80,33 @@ where
 /// One can simply just use the default rust struct initialization or use it with [`Default`]
 ///
 /// # Trait Implementation(s)
-/// [`SequentialSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well
-/// as the [`Default`] trait which is the same as  simply pasting the instance (since no other data
-/// is required to be specified at construction time). In addition, it implements the [`Debug`] trait
-/// as well as the [`Clone`] and [`Copy`] traits
-#[derive(Debug, Default, Clone, Copy)]
+/// [`SequentialSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well as:
+/// - [`Debug`] (just prints the name, nothing more, nothing less)
+/// - [`Clone`]
+/// - [`Copy`]
+/// - [`Default`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
+///
+/// # See Also
+/// - [`ScheduleStrategy`]
+/// - [`SequentialSchedulingPolicy::default`]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct SequentialSchedulingPolicy;
 
 #[async_trait]
 impl ScheduleStrategy for SequentialSchedulingPolicy {
-    async fn handle(&self, task: Arc<Task>) {
+    async fn handle(&self, task: Arc<ErasedTask>) {
         task.run().await.ok();
     }
 }
 
 #[async_trait]
-impl PersistentObject for SequentialSchedulingPolicy {
-    fn persistence_id() -> &'static str {
-        "SequentialSchedulingPolicy$chronographer_core"
-    }
+impl PersistenceObject for SequentialSchedulingPolicy {
+    const PERSISTENCE_ID: &'static str = "chronographer::SequentialSchedulingPolicy#1bd3c9dc-46fd-4a83-b234-f575352e7e15";
 
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(SequentialSchedulingPolicy)
-    }
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`ConcurrentSchedulingPolicy`] is an implementation of [`ScheduleStrategy`] and executes the task
@@ -118,16 +117,24 @@ impl PersistentObject for SequentialSchedulingPolicy {
 /// One can simply just use the default rust struct initialization or use it with [`Default`]
 ///
 /// # Trait Implementation(s)
-/// [`ConcurrentSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well
-/// as the [`Default`] trait which is the same as  simply pasting the instance (since no other data
-/// is required to be specified at construction time). In addition, it implements the [`Debug`] trait
-/// as well as the [`Clone`] and [`Copy`] traits
-#[derive(Debug, Default, Clone, Copy)]
+/// [`ConcurrentSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well as:
+/// - [`Debug`] (just prints the name, nothing more, nothing less)
+/// - [`Clone`]
+/// - [`Copy`]
+/// - [`Default`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
+///
+/// # See Also
+/// - [`ScheduleStrategy`]
+/// - [`ConcurrentSchedulingPolicy::default`]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct ConcurrentSchedulingPolicy;
 
 #[async_trait]
 impl ScheduleStrategy for ConcurrentSchedulingPolicy {
-    async fn handle(&self, task: Arc<Task>) {
+    async fn handle(&self, task: Arc<ErasedTask>) {
         tokio::spawn(async move {
             task.run().await.ok();
         });
@@ -135,18 +142,10 @@ impl ScheduleStrategy for ConcurrentSchedulingPolicy {
 }
 
 #[async_trait]
-impl PersistentObject for ConcurrentSchedulingPolicy {
-    fn persistence_id() -> &'static str {
-        "ConcurrentSchedulingPolicy$chronographer_core"
-    }
+impl PersistenceObject for ConcurrentSchedulingPolicy {
+    const PERSISTENCE_ID: &'static str = "chronographer::ConcurrentSchedulingPolicy#06bae7de-0633-46bb-9c6c-169ad95b3eb1";
 
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(ConcurrentSchedulingPolicy)
-    }
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`CancelPreviousSchedulingPolicy`] is an implementation of [`ScheduleStrategy`] and executes the
@@ -164,10 +163,16 @@ impl PersistentObject for ConcurrentSchedulingPolicy {
 /// mostly aliases
 ///
 /// # Trait Implementation(s)
-/// [`CancelPreviousSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well as
-/// the [`Default`] trait which is the same as calling [`CancelPreviousSchedulingPolicy::new`]
-/// (since no other data is required to be specified at construction time). In addition,
-/// it implements the [`Debug`] trait as well
+/// [`CancelPreviousSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well as:
+/// - [`Debug`] (just prints the name, nothing more, nothing less)
+/// - [`Default`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
+///
+/// # See Also
+/// - [`ScheduleStrategy`]
+/// - [`CancelPreviousSchedulingPolicy::default`]
 pub struct CancelPreviousSchedulingPolicy(Mutex<Option<JoinHandle<()>>>);
 
 impl Default for CancelPreviousSchedulingPolicy {
@@ -184,7 +189,7 @@ impl Debug for CancelPreviousSchedulingPolicy {
 
 #[async_trait]
 impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
-    async fn handle(&self, task: Arc<Task>) {
+    async fn handle(&self, task: Arc<ErasedTask>) {
         let old_handle = self.0.lock().await.take();
 
         if let Some(handle) = old_handle {
@@ -199,35 +204,33 @@ impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
     }
 }
 
+/*
 #[async_trait]
-impl PersistentObject for CancelPreviousSchedulingPolicy {
-    fn persistence_id() -> &'static str {
-        "CancelPreviousSchedulingPolicy$chronographer_core"
-    }
+impl PersistenceObject for CancelPreviousSchedulingPolicy {
+    const PERSISTENCE_ID: &'static str = "chronographer::CancelPreviousSchedulingPolicy#7c49ad2e-9122-4ad3-8245-df2d77c1d464";
 
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(CancelPreviousSchedulingPolicy::default())
-    }
+    fn inject_context<T: PersistenceBackend>(&self, _ctx: &PersistenceContext<T>) {}
 }
+ */
 
 /// [`CancelCurrentSchedulingPolicy`] is an implementation of [`ScheduleStrategy`] and executes the
 /// task in the background, unlike [`ConcurrentSchedulingPolicy`], this policy cancels the current
 /// task that tries to overlaps the already-running task
 ///
 /// # Constructor(s)
-/// One can simply use [`CancelPreviousSchedulingPolicy::default`] or
-/// [`CancelPreviousSchedulingPolicy::new`] which act the same and are
+/// One can simply use [`CancelCurrentSchedulingPolicy::default`] or
+/// [`CancelCurrentSchedulingPolicy::new`] which act the same and are
 /// mostly aliases
 ///
 /// # Trait Implementation(s)
-/// [`CancelCurrentSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well as
-/// the [`Default`] trait which is the same as  calling [`CancelCurrentSchedulingPolicy::new`]
-/// (since no other data is required to be specified at construction time). In addition, it
-/// implements the [`Debug`] trait as well
+/// [`CancelCurrentSchedulingPolicy`] implements [`ScheduleStrategy`], as discussed above, as well as:
+/// - [`Debug`] (just prints the name, nothing more, nothing less)
+/// - [`Default`]
+/// - [`Clone`]
+/// - [`PersistenceObject`]
+/// - [`Serialize`]
+/// - [`Deserialize`]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CancelCurrentSchedulingPolicy(Arc<AtomicBool>);
 
 impl Default for CancelCurrentSchedulingPolicy {
@@ -244,7 +247,7 @@ impl Debug for CancelCurrentSchedulingPolicy {
 
 #[async_trait]
 impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
-    async fn handle(&self, task: Arc<Task>) {
+    async fn handle(&self, task: Arc<ErasedTask>) {
         let is_free = &self.0;
         if !is_free.load(Ordering::Relaxed) {
             return;
@@ -259,16 +262,8 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
 }
 
 #[async_trait]
-impl PersistentObject for CancelCurrentSchedulingPolicy {
-    fn persistence_id() -> &'static str {
-        "CancelCurrentSchedulingPolicy$chronographer_core"
-    }
+impl PersistenceObject for CancelCurrentSchedulingPolicy {
+    const PERSISTENCE_ID: &'static str = "chronographer::CancelCurrentSchedulingPolicy#dfce54d2-a4fb-478f-8b96-705ab4d3dba0";
 
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        Ok(SerializedComponent::new::<Self>(json!({})))
-    }
-
-    async fn retrieve(_component: SerializedComponent) -> Result<Self, TaskError> {
-        Ok(CancelCurrentSchedulingPolicy::default())
-    }
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
