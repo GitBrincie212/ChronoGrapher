@@ -1,4 +1,4 @@
-use crate::persistence::PersistenceObject;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
@@ -98,4 +98,8 @@ impl UnresolvableFrameDependency for FlagDependency {
 impl PersistenceObject for FlagDependency {
     const PERSISTENCE_ID: &'static str =
         "chronographer::FlagDependency#8e932fba-afec-40c6-b73d-1c048f382ab8";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {
+        todo!()
+    }
 }
