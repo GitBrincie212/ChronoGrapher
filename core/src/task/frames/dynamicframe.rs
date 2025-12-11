@@ -34,7 +34,7 @@ pub struct DynamicTaskFrame<T>(T);
 impl<T, F> DynamicTaskFrame<T>
 where
     T: (Fn(&TaskContext) -> F) + Send + Sync + 'static,
-    F: Future<Output = Result<(), TaskError>> + Send + 'static
+    F: Future<Output = Result<(), TaskError>> + Send + 'static,
 {
     pub fn new(func: T) -> Self {
         Self(func)
@@ -45,7 +45,7 @@ where
 impl<T, F> TaskFrame for DynamicTaskFrame<T>
 where
     T: (Fn(&TaskContext) -> F) + Send + Sync + 'static,
-    F: Future<Output = Result<(), TaskError>> + Send + 'static
+    F: Future<Output = Result<(), TaskError>> + Send + 'static,
 {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         self.0(ctx).await
@@ -54,9 +54,5 @@ where
 
 #[macro_export]
 macro_rules! dynamic_taskframe {
-    ($block: block) => {{
-        DynamicTaskFrame::new(|ctx| async {
-            $block
-        })
-    }};
+    ($block: block) => {{ DynamicTaskFrame::new(|ctx| async { $block }) }};
 }

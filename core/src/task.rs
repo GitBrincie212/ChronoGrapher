@@ -10,31 +10,27 @@ pub mod scheduling_strats; // skipcq: RS-D1001
 
 pub mod schedule; // skipcq: RS-D1001
 
-pub use schedule::*;
 pub use frame_builder::*;
 pub use frames::*;
 pub use hooks::*;
+pub use schedule::*;
 pub use scheduling_strats::*;
 
-use std::fmt;
 use dashmap::DashMap;
+use serde::Serialize;
+use serde::ser::SerializeStruct;
+use std::fmt;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use serde::ser::SerializeStruct;
-use serde::Serialize;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 
-pub type ErasedTask = Task<
-    Arc<dyn TaskFrame>,
-    Box<dyn TaskSchedule>,
-    Box<dyn ScheduleStrategy>
->;
+pub type ErasedTask = Task<Arc<dyn TaskFrame>, Box<dyn TaskSchedule>, Box<dyn ScheduleStrategy>>;
 
 /// [`TaskConfig`] is simply used as a builder to construct [`Task`], <br />
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
@@ -145,7 +141,9 @@ pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
     max_runs: Option<NonZeroU64>,
 }
 
-impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, T2, T3>> for Task<T1, T2, T3> {
+impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, T2, T3>>
+    for Task<T1, T2, T3>
+{
     fn from(config: TaskConfig<T1, T2, T3>) -> Self {
         Task {
             frame: config.frame,
@@ -227,24 +225,15 @@ pub struct Task<T1: 'static, T2: 'static, T3: 'static> {
 impl<T1: Serialize, T2: Serialize, T3: Serialize> Serialize for Task<T1, T2, T3> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer
+        S: serde::Serializer,
     {
         let mut task = serializer.serialize_struct("Task", 8)?;
 
-        task.serialize_field(
-            "frame",
-            &self.frame
-        )?;
+        task.serialize_field("frame", &self.frame)?;
 
-        task.serialize_field(
-            "schedule",
-            &self.schedule
-        )?;
+        task.serialize_field("schedule", &self.schedule)?;
 
-        task.serialize_field(
-            "schedule_strategy",
-            &self.schedule_strategy
-        )?;
+        task.serialize_field("schedule_strategy", &self.schedule_strategy)?;
 
         task.serialize_field("priority", &self.priority)?;
         task.serialize_field("runs", &self.runs.load(Ordering::Relaxed))?;
@@ -498,7 +487,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
             debug_label: self.debug_label,
             max_runs: self.max_runs,
             id: self.id,
-            hooks: self.hooks
+            hooks: self.hooks,
         }
     }
 

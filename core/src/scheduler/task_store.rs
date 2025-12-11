@@ -3,12 +3,12 @@ pub mod default;
 
 pub use default::*;
 
+use crate::scheduler::clock::SchedulerClock;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::SystemTime;
-use crate::scheduler::clock::SchedulerClock;
 
 #[allow(unused_imports)]
 use crate::task::TaskSchedule;

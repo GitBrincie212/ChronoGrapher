@@ -49,7 +49,7 @@ pub enum ChronographerErrors {
 
     #[error("{0}")]
     CronParserError(String),
-    
+
     #[error("Timedelta supplied is out of range")]
     IntervalTimedeltaOutOfRange,
 }

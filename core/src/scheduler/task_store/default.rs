@@ -1,3 +1,5 @@
+use crate::persistence::PersistenceBackend;
+use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::ErasedTask;
 use crate::utils::{date_time_to_system_time, system_time_to_date_time};
@@ -10,8 +12,6 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
-use crate::persistence::PersistenceBackend;
-use crate::scheduler::clock::SchedulerClock;
 
 struct DefaultScheduledItem(Arc<ErasedTask>, SystemTime, usize);
 
@@ -173,7 +173,7 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
         }
     }
      */
-    
+
     async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, usize)> {
         let early_lock = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;

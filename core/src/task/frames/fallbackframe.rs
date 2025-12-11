@@ -95,9 +95,7 @@ impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
         let primary_result = self.0.execute(ctx).await;
         match primary_result {
             Err(err) => {
-                ctx.clone()
-                    .emit::<OnFallbackEvent>(&err)
-                    .await;
+                ctx.clone().emit::<OnFallbackEvent>(&err).await;
                 ctx.subdivide(&self.1).await
             }
             res => res,
@@ -109,7 +107,7 @@ impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
 impl<F1, F2> PersistenceObject for FallbackTaskFrame<F1, F2>
 where
     F1: TaskFrame + PersistenceObject,
-    F2: TaskFrame + PersistenceObject
+    F2: TaskFrame + PersistenceObject,
 {
     const PERSISTENCE_ID: &'static str =
         "chronographer::FallbackTaskFrame#5ce04991-ae3d-4d54-861d-6a8379d251ac";

@@ -1,9 +1,9 @@
+use chronographer::dynamic_taskframe;
+use chronographer::prelude::*;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::task::yield_now;
-use chronographer::dynamic_taskframe;
-use chronographer::prelude::*;
 
 static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
@@ -21,7 +21,7 @@ async fn main() {
                 yield_now().await;
                 COUNTER.fetch_add(1, Ordering::Relaxed);
                 Ok(())
-            })
+            }),
         );
 
         CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;

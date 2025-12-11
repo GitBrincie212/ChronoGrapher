@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use crate::task::ErasedTask;
 use async_trait::async_trait;
 use serde::Serialize;
+use std::sync::Arc;
 use uuid::Uuid;
-use crate::task::ErasedTask;
 
 #[allow(unused_imports)]
 use crate::persistence::PersistenceObject;
@@ -54,6 +54,8 @@ impl PersistenceBackend for () {
     async fn load_task(&self, _id: Uuid) -> Option<Arc<ErasedTask>> {
         None
     }
-    async fn stored_task_ids(&self) -> Vec<Uuid> { vec![] }
+    async fn stored_task_ids(&self) -> Vec<Uuid> {
+        vec![]
+    }
     async fn update_field<T: Serialize>(&self, _path: PersistPath, _field: &T) {}
 }

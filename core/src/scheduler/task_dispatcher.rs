@@ -34,7 +34,7 @@ use crate::scheduler::Scheduler;
 #[async_trait]
 pub trait SchedulerTaskDispatcher: Debug + Send + Sync {
     async fn init(&self) {}
-    
+
     /// The main logic of the [`SchedulerTaskDispatcher`]. This is where it handles
     /// how to execute a specified task and notify the [`Scheduler`] accordingly
     ///

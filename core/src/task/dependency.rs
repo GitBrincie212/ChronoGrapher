@@ -8,8 +8,8 @@ pub use flag::*;
 pub use logical::*;
 pub use task::*;
 
-use std::ops::Deref;
 use async_trait::async_trait;
+use std::ops::Deref;
 
 #[allow(unused_imports)]
 use crate::task::DependencyTaskFrame;

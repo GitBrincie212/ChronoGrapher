@@ -1,7 +1,7 @@
+use crate::scheduler::clock::SchedulerClock;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::time::SystemTime;
-use crate::scheduler::clock::SchedulerClock;
 
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;

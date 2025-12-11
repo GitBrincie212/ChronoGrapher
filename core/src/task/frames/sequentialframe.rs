@@ -140,8 +140,7 @@ impl TaskFrame for SequentialTaskFrame {
         for taskframe in self.tasks.iter() {
             ctx.emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
             let result = ctx.subdivide(&taskframe).await;
-            ctx.emit::<OnChildEnd>(&result.clone().err())
-                .await;
+            ctx.emit::<OnChildEnd>(&result.clone().err()).await;
             let should_quit = self.policy.should_quit(result).await;
             if let Some(res) = should_quit {
                 return res;
