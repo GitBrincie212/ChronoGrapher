@@ -46,4 +46,10 @@ pub enum ChronographerErrors {
     /// if a threshold of time counts down fully to zero but the task frame hasn't completed
     #[error("`{0}` Timed out")]
     TimeoutError(String),
+
+    #[error("{0}")]
+    CronParserError(String),
+    
+    #[error("Timedelta supplied is out of range")]
+    IntervalTimedeltaOutOfRange,
 }
