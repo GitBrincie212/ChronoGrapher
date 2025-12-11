@@ -1,5 +1,5 @@
 use crate::define_event;
-use crate::persistence::PersistenceObject;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskError;
 use crate::task::TaskHookEvent;
 #[allow(unused_imports)]
@@ -83,6 +83,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
 impl PersistenceObject for GroupedTaskFramesQuitOnSuccess {
     const PERSISTENCE_ID: &'static str =
         "chronographer::GroupedTaskFramesQuitOnSuccess#8895d78d-5552-464f-9e21-66771be396a5";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -125,6 +127,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
 impl PersistenceObject for GroupedTaskFramesQuitOnFailure {
     const PERSISTENCE_ID: &'static str =
         "chronographer::GroupedTaskFramesQuitOnFailure#c2834489-7a63-4fda-bbc6-4ffe50b9733a";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -157,6 +161,8 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
 impl PersistenceObject for GroupedTaskFramesSilent {
     const PERSISTENCE_ID: &'static str =
         "chronographer::GroupedTaskFramesSilent#59034b8a-d96e-4c42-933b-10d7aec14c88";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 define_event!(
