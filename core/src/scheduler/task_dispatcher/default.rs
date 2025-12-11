@@ -55,11 +55,7 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
         // let target_priority = task.priority();
 
         let idx_clone = idx;
-        task
-            .clone()
-            .schedule_strategy()
-            .handle(task.clone())
-            .await;
+        task.clone().schedule_strategy().handle(task.clone()).await;
         sender.send(idx_clone).unwrap();
     }
 }

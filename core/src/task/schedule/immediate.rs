@@ -1,10 +1,10 @@
 use crate::persistence::{PersistenceContext, PersistenceObject};
 #[allow(unused_imports)]
 use crate::task::Task;
+use crate::task::TaskSchedule;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::task::TaskSchedule;
 
 /// [`TaskScheduleImmediate`] is an implementation of the [`TaskSchedule`] trait
 /// that executes any [`Task`] instance immediately once scheduled / rescheduled

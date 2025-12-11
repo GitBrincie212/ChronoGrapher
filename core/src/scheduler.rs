@@ -1,12 +1,15 @@
+pub mod clock;
 pub mod task_dispatcher; // skipcq: RS-D1001
-pub mod task_store; // skipcq: RS-D1001
-pub mod clock; // skipcq: RS-D1001
+pub mod task_store; // skipcq: RS-D1001 // skipcq: RS-D1001
 
 use crate::scheduler::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ErasedTaskHook, ErasedTaskHookWrapper, ScheduleStrategy, Task, TaskFrame, TaskHook, TaskHookEvent, TaskSchedule};
+use crate::task::{
+    ErasedTaskHook, ErasedTaskHookWrapper, ScheduleStrategy, Task, TaskFrame, TaskHook,
+    TaskHookEvent, TaskSchedule,
+};
 use dashmap::DashMap;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -319,7 +322,10 @@ impl Scheduler {
     /// - [`Scheduler::schedule_owned`]
     /// - [`SchedulerTaskStore`]
     /// - [`Task`]
-    pub async fn schedule(&self, task: Arc<Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>>) -> usize {
+    pub async fn schedule(
+        &self,
+        task: Arc<Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>>,
+    ) -> usize {
         let task = Arc::new(task.erase());
         let hook_container = &task.hooks().0;
         let idx = self.store.store(self.clock.clone(), task.clone()).await;
@@ -358,7 +364,10 @@ impl Scheduler {
     /// - [`Scheduler::schedule_owned`]
     /// - [`SchedulerTaskStore`]
     /// - [`Task`]
-    pub async fn schedule_owned(&self, task: Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>) -> usize {
+    pub async fn schedule_owned(
+        &self,
+        task: Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
+    ) -> usize {
         self.schedule(Arc::new(task)).await
     }
 

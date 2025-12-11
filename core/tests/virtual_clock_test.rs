@@ -17,8 +17,8 @@ pub const EPSILON: Duration = Duration::from_millis(1);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{Duration, UNIX_EPOCH};
     use chronographer::scheduler::clock::{AdvanceableScheduleClock, SchedulerClock, VirtualClock};
+    use std::time::{Duration, UNIX_EPOCH};
 
     #[tokio::test]
     async fn test_initial_epoch() {

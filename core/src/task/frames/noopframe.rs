@@ -42,7 +42,8 @@ impl TaskFrame for NoOperationTaskFrame {
 }
 
 impl PersistenceObject for NoOperationTaskFrame {
-    const PERSISTENCE_ID: &'static str = "chronographer::NoOperationTaskFrame#25ce069e-d1be-47aa-a68e-f5e659ffdb27";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::NoOperationTaskFrame#25ce069e-d1be-47aa-a68e-f5e659ffdb27";
 
     fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

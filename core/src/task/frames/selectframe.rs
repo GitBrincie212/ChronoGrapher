@@ -179,9 +179,8 @@ impl TaskFrame for SelectTaskFrame {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         let idx = self.accessor.select(ctx).await;
         if let Some(frame) = self.frames.get(idx) {
-            ctx.emit::<OnTaskFrameSelection>(&idx)
-                .await;
-            return ctx.subdivide(frame).await
+            ctx.emit::<OnTaskFrameSelection>(&idx).await;
+            return ctx.subdivide(frame).await;
         }
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,

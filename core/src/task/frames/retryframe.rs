@@ -1,4 +1,5 @@
 use crate::define_event;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,6 @@ use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::persistence::{PersistenceContext, PersistenceObject};
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -78,7 +78,8 @@ impl ConstantBackoffStrategy {
 }
 
 impl PersistenceObject for ConstantBackoffStrategy {
-    const PERSISTENCE_ID: &'static str = "chronographer::ConstantBackoffStrategy#925a9db3-eece-4b28-9658-f5d20afc4869";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::ConstantBackoffStrategy#925a9db3-eece-4b28-9658-f5d20afc4869";
 }
 
 #[async_trait]
@@ -144,7 +145,8 @@ impl ExponentialBackoffStrategy {
 }
 
 impl PersistenceObject for ExponentialBackoffStrategy {
-    const PERSISTENCE_ID: &'static str = "chronographer::ExponentialBackoffStrategy#5d751ba0-246f-4b27-9224-9173fd00e609";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::ExponentialBackoffStrategy#5d751ba0-246f-4b27-9224-9173fd00e609";
 }
 
 #[async_trait]
@@ -191,7 +193,8 @@ impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
 }
 
 impl<T: RetryBackoffStrategy + PersistenceObject> PersistenceObject for JitterBackoffStrategy<T> {
-    const PERSISTENCE_ID: &'static str = "chronographer::JitterBackoffStrategy#a015511b-4dd3-41c3-bf4f-9a3bab650c8b";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::JitterBackoffStrategy#a015511b-4dd3-41c3-bf4f-9a3bab650c8b";
 }
 
 #[async_trait]
@@ -282,10 +285,7 @@ define_event!(
 /// - [`TaskFrame`]
 /// - [`RetryBackoffStrategy`]
 #[derive(Serialize, Deserialize)]
-pub struct RetriableTaskFrame<
-    T: TaskFrame,
-    T2: RetryBackoffStrategy = ConstantBackoffStrategy,
-> {
+pub struct RetriableTaskFrame<T: TaskFrame, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
     frame: Arc<T>,
     retries: NonZeroU32,
     backoff_strat: T2,
@@ -362,13 +362,11 @@ impl<T: TaskFrame, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T,
         let mut error: Option<TaskError> = None;
         let subdivided = ctx.subdivided_ctx(self.frame.clone());
         for retry in 0u32..self.retries.get() {
-            ctx.emit::<OnRetryAttemptStart>(&retry)
-                .await;
+            ctx.emit::<OnRetryAttemptStart>(&retry).await;
 
             error = self.frame.execute(subdivided.clone()).await.err();
 
-            ctx.emit::<OnRetryAttemptEnd>(&(retry, error.clone()))
-                .await;
+            ctx.emit::<OnRetryAttemptEnd>(&(retry, error.clone())).await;
 
             if error.is_none() {
                 return Ok(());

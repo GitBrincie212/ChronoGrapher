@@ -2,7 +2,10 @@ use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
-use crate::task::{Debug, ErasedTask, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookEvent, TaskSchedule};
+use crate::task::{
+    Debug, ErasedTask, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookEvent,
+    TaskSchedule,
+};
 use crate::task::{Task, TaskContext, TaskError};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -11,7 +14,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
 
-pub type ErasedTaskDependency = TaskDependency<Arc<dyn TaskFrame>, Arc<dyn TaskSchedule>, Arc<dyn ScheduleStrategy>>;
+pub type ErasedTaskDependency =
+    TaskDependency<Arc<dyn TaskFrame>, Arc<dyn TaskSchedule>, Arc<dyn ScheduleStrategy>>;
 
 type IncompleteTaskDependencyConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> =
     TaskDependencyConfigBuilder<T1, T2, T3, ((&'static Task<T1, T2, T3>,), (), ())>;
@@ -19,7 +23,7 @@ type IncompleteTaskDependencyConfig<T1: TaskFrame, T2: TaskSchedule, T3: Schedul
 type ErasedIncompleteTaskDependencyConfig = IncompleteTaskDependencyConfig<
     &'static dyn TaskFrame,
     &'static dyn TaskSchedule,
-    &'static dyn ScheduleStrategy
+    &'static dyn ScheduleStrategy,
 >;
 
 /// [`TaskResolvent`] acts as a policy dictating how to manage the counting
@@ -81,7 +85,7 @@ macro_rules! implement_core_resolvent {
         impl PersistenceObject for $name {
             const PERSISTENCE_ID: &'static str =
                 concat!("chronographer::", stringify!($name), "#", stringify!($uuid));
-            
+
             fn inject_context(&self, _ctx: &PersistenceContext) {}
         }
     };
@@ -188,7 +192,7 @@ impl<T1, T2, T3> From<TaskDependencyConfig<T1, T2, T3>> for TaskDependency<T1, T
 where
     T1: TaskFrame,
     T2: TaskSchedule,
-    T3: ScheduleStrategy
+    T3: ScheduleStrategy,
 {
     fn from(config: TaskDependencyConfig<T1, T2, T3>) -> Self {
         let tracker = Arc::new(TaskDependencyTracker {
@@ -300,12 +304,13 @@ impl ErasedTaskDependency {
     /// # See Also
     /// - [`TaskDependency`]
     /// - [`TaskDependency::builder_owned`]
-    pub fn erased_builder(task: &ErasedTask) -> ErasedIncompleteTaskDependencyConfig{
+    pub fn erased_builder(task: &ErasedTask) -> ErasedIncompleteTaskDependencyConfig {
         TaskDependencyConfig::<
             &'static dyn TaskFrame,
             &'static dyn TaskSchedule,
-            &'static dyn ScheduleStrategy
-        >::builder().task(task)
+            &'static dyn ScheduleStrategy,
+        >::builder()
+        .task(task)
     }
 }
 
@@ -314,7 +319,7 @@ impl<T1, T2, T3> FrameDependency for TaskDependency<T1, T2, T3>
 where
     T1: TaskFrame,
     T2: TaskSchedule,
-    T3: ScheduleStrategy
+    T3: ScheduleStrategy,
 {
     async fn is_resolved(&self) -> bool {
         self.task_dependency_tracker
@@ -337,7 +342,9 @@ where
 }
 
 #[async_trait]
-impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> ResolvableFrameDependency for TaskDependency<T1, T2, T3> {
+impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> ResolvableFrameDependency
+    for TaskDependency<T1, T2, T3>
+{
     async fn resolve(&self) {
         self.task_dependency_tracker.run_count.store(
             self.task_dependency_tracker.minimum_runs.get(),
@@ -351,7 +358,7 @@ impl<T1, T2, T3> UnresolvableFrameDependency for TaskDependency<T1, T2, T3>
 where
     T1: TaskFrame,
     T2: TaskSchedule,
-    T3: ScheduleStrategy
+    T3: ScheduleStrategy,
 {
     async fn unresolve(&self) {
         self.task_dependency_tracker

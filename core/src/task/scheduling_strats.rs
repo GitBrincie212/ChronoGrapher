@@ -1,13 +1,13 @@
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::ErasedTask;
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use crate::persistence::{PersistenceContext, PersistenceObject};
 
 /// [`ScheduleStrategy`] defines how the task should be rescheduled and how the task acts when being
 /// overlapped by the same task instance or by others. It is their duty to handle calling
@@ -104,7 +104,8 @@ impl ScheduleStrategy for SequentialSchedulingPolicy {
 
 #[async_trait]
 impl PersistenceObject for SequentialSchedulingPolicy {
-    const PERSISTENCE_ID: &'static str = "chronographer::SequentialSchedulingPolicy#1bd3c9dc-46fd-4a83-b234-f575352e7e15";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::SequentialSchedulingPolicy#1bd3c9dc-46fd-4a83-b234-f575352e7e15";
 
     fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
@@ -143,7 +144,8 @@ impl ScheduleStrategy for ConcurrentSchedulingPolicy {
 
 #[async_trait]
 impl PersistenceObject for ConcurrentSchedulingPolicy {
-    const PERSISTENCE_ID: &'static str = "chronographer::ConcurrentSchedulingPolicy#06bae7de-0633-46bb-9c6c-169ad95b3eb1";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::ConcurrentSchedulingPolicy#06bae7de-0633-46bb-9c6c-169ad95b3eb1";
 
     fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
@@ -263,7 +265,8 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
 
 #[async_trait]
 impl PersistenceObject for CancelCurrentSchedulingPolicy {
-    const PERSISTENCE_ID: &'static str = "chronographer::CancelCurrentSchedulingPolicy#dfce54d2-a4fb-478f-8b96-705ab4d3dba0";
+    const PERSISTENCE_ID: &'static str =
+        "chronographer::CancelCurrentSchedulingPolicy#dfce54d2-a4fb-478f-8b96-705ab4d3dba0";
 
     fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

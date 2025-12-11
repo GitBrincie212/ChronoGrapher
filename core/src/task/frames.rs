@@ -22,7 +22,9 @@ pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
-use crate::task::{ScheduleStrategy, Task, TaskHook, TaskHookContainer, TaskHookEvent, TaskSchedule};
+use crate::task::{
+    ScheduleStrategy, Task, TaskHook, TaskHookContainer, TaskHookEvent, TaskSchedule,
+};
 use async_trait::async_trait;
 pub use conditionframe::*;
 pub use delayframe::*;
@@ -127,7 +129,9 @@ impl TaskContext {
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
     /// - [`TaskContext`]
-    pub(crate) fn new(task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>) -> Self {
+    pub(crate) fn new(
+        task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
+    ) -> Self {
         Self {
             hooks_container: &task.hooks,
             priority: task.priority,

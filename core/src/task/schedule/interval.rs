@@ -1,14 +1,14 @@
+use crate::errors::ChronographerErrors;
 use crate::persistence::{PersistenceContext, PersistenceObject};
 #[allow(unused_imports)]
 use crate::task::Task;
+use crate::task::TaskSchedule;
 use chrono::{DateTime, Local, TimeDelta};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::errors::ChronographerErrors;
-use crate::task::TaskSchedule;
 
 /// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskSchedule`] trait
 /// that executes [`Task`] instances at a fixed interval. The interval is defined using either a [`TimeDelta`] or
@@ -83,11 +83,9 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::from_secs`]
     /// - [`TaskScheduleInterval::from_secs_f64`]
     pub fn timedelta(interval: TimeDelta) -> Result<Self, ChronographerErrors> {
-        Ok(
-            Self(interval.to_std().map_err(|_| {
-                ChronographerErrors::IntervalTimedeltaOutOfRange
-            })?)
-        )
+        Ok(Self(interval.to_std().map_err(|_| {
+            ChronographerErrors::IntervalTimedeltaOutOfRange
+        })?))
     }
 
     /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
