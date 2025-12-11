@@ -1,6 +1,3 @@
-use chronographer_core::clock::AdvanceableScheduleClock;
-use chronographer_core::clock::SchedulerClock;
-use chronographer_core::clock::VirtualClock;
 use std::time::Duration;
 
 macro_rules! assert_approx {
@@ -21,6 +18,7 @@ pub const EPSILON: Duration = Duration::from_millis(1);
 mod tests {
     use super::*;
     use std::time::{Duration, UNIX_EPOCH};
+    use chronographer::scheduler::clock::{AdvanceableScheduleClock, SchedulerClock, VirtualClock};
 
     #[tokio::test]
     async fn test_initial_epoch() {
