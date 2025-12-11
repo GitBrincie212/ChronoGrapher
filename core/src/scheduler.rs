@@ -1,12 +1,12 @@
 pub mod task_dispatcher; // skipcq: RS-D1001
-
 pub mod task_store; // skipcq: RS-D1001
+pub mod clock; // skipcq: RS-D1001
 
-use crate::clock::*;
+use crate::scheduler::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ErasedTaskHook, ErasedTaskHookWrapper, Task, TaskHook, TaskHookEvent};
+use crate::task::{ErasedTaskHook, ErasedTaskHookWrapper, ScheduleStrategy, Task, TaskFrame, TaskHook, TaskHookEvent, TaskSchedule};
 use dashmap::DashMap;
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -226,6 +226,8 @@ impl Scheduler {
         let scheduler_send = self.schedule_tx.clone();
         let scheduler_receive = self.schedule_rx.clone();
         let notifier = self.notifier.clone();
+        self.store.init().await;
+        self.dispatcher.init().await;
         *self.process.lock().await = Some(tokio::spawn(async move {
             let double_clock_clone = clock_clone.clone();
             let double_store_clone = store_clone.clone();
@@ -317,8 +319,9 @@ impl Scheduler {
     /// - [`Scheduler::schedule_owned`]
     /// - [`SchedulerTaskStore`]
     /// - [`Task`]
-    pub async fn schedule(&self, task: Arc<Task>) -> usize {
-        let hook_container = task.hooks().0;
+    pub async fn schedule(&self, task: Arc<Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>>) -> usize {
+        let task = Arc::new(task.erase());
+        let hook_container = &task.hooks().0;
         let idx = self.store.store(self.clock.clone(), task.clone()).await;
         for entry in self.global_hooks.iter() {
             let hooks = entry.value();
@@ -355,7 +358,7 @@ impl Scheduler {
     /// - [`Scheduler::schedule_owned`]
     /// - [`SchedulerTaskStore`]
     /// - [`Task`]
-    pub async fn schedule_owned(&self, task: Task) -> usize {
+    pub async fn schedule_owned(&self, task: Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>) -> usize {
         self.schedule(Arc::new(task)).await
     }
 
