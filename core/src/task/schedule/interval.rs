@@ -1,5 +1,4 @@
-use crate::persistence::PersistenceObject;
-use crate::schedule::TaskSchedule;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 #[allow(unused_imports)]
 use crate::task::Task;
 use chrono::{DateTime, Local, TimeDelta};
@@ -8,6 +7,8 @@ use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::errors::ChronographerErrors;
+use crate::task::TaskSchedule;
 
 /// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskSchedule`] trait
 /// that executes [`Task`] instances at a fixed interval. The interval is defined using either a [`TimeDelta`] or
@@ -60,7 +61,7 @@ use std::time::Duration;
 /// - [`Task`]
 /// - [`TaskSchedule`]
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy, Serialize, Deserialize)]
-pub struct TaskScheduleInterval(pub(crate) TimeDelta);
+pub struct TaskScheduleInterval(pub(crate) Duration);
 
 impl TaskScheduleInterval {
     /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
@@ -81,8 +82,12 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::duration`]
     /// - [`TaskScheduleInterval::from_secs`]
     /// - [`TaskScheduleInterval::from_secs_f64`]
-    pub fn new(interval: TimeDelta) -> Self {
-        Self(interval)
+    pub fn timedelta(interval: TimeDelta) -> Result<Self, ChronographerErrors> {
+        Ok(
+            Self(interval.to_std().map_err(|_| {
+                ChronographerErrors::IntervalTimedeltaOutOfRange
+            })?)
+        )
     }
 
     /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
@@ -104,7 +109,7 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::from_secs`]
     /// - [`TaskScheduleInterval::from_secs_f64`]
     pub fn duration(interval: Duration) -> Self {
-        Self(TimeDelta::from_std(interval).unwrap())
+        Self(interval)
     }
 
     /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
@@ -125,8 +130,8 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::duration`]
     /// - [`TaskScheduleInterval::new`]
     /// - [`TaskScheduleInterval::from_secs_f64`]
-    pub fn from_secs(interval: u32) -> Self {
-        Self(TimeDelta::seconds(interval as i64))
+    pub fn from_secs(interval: u64) -> Self {
+        Self(Duration::from_secs(interval))
     }
 
     /// Constructs / Creates a new [`TaskScheduleInterval`] instance. There
@@ -148,7 +153,7 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::from_secs`]
     /// - [`TaskScheduleInterval::new`]
     pub fn from_secs_f64(interval: f64) -> Self {
-        Self(TimeDelta::from_std(Duration::from_secs_f64(interval)).unwrap())
+        Self(Duration::from_secs_f64(interval))
     }
 }
 
@@ -165,7 +170,7 @@ macro_rules! integer_from_impl {
     ($val: ty) => {
         impl From<$val> for TaskScheduleInterval {
             fn from(value: $val) -> Self {
-                TaskScheduleInterval(TimeDelta::seconds(value as i64))
+                TaskScheduleInterval(Duration::from_secs(value as u64))
             }
         }
     };
@@ -174,6 +179,7 @@ macro_rules! integer_from_impl {
 integer_from_impl!(u8);
 integer_from_impl!(u16);
 integer_from_impl!(u32);
+integer_from_impl!(u64);
 
 impl From<f64> for TaskScheduleInterval {
     fn from(value: f64) -> Self {
@@ -190,4 +196,6 @@ impl From<f32> for TaskScheduleInterval {
 impl PersistenceObject for TaskScheduleInterval {
     const PERSISTENCE_ID: &'static str =
         "chronographer::TaskScheduleInterval#3cec23ef-0567-4640-ac66-a920a3b86674";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

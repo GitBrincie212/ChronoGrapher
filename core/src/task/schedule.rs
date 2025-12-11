@@ -6,17 +6,16 @@ pub mod immediate; // skipcq: RS-D1001
 
 pub mod interval; // skipcq: RS-D1001
 
-pub use crate::schedule::calendar::TaskCalendarField;
-pub use crate::schedule::calendar::TaskScheduleCalendar;
-pub use crate::schedule::cron::TaskScheduleCron;
-pub use crate::schedule::immediate::TaskScheduleImmediate;
-pub use crate::schedule::interval::TaskScheduleInterval;
+pub use crate::task::schedule::calendar::TaskCalendarField;
+pub use crate::task::schedule::calendar::TaskScheduleCalendar;
+pub use crate::task::schedule::cron::TaskScheduleCron;
+pub use crate::task::schedule::immediate::TaskScheduleImmediate;
+pub use crate::task::schedule::interval::TaskScheduleInterval;
 
 use chrono::{DateTime, Local};
 use std::error::Error;
 use std::ops::Deref;
 use std::sync::Arc;
-
 #[allow(unused_imports)]
 use crate::task::Task;
 
@@ -29,7 +28,7 @@ use crate::task::Task;
 /// [`TaskSchedule::next_after`] method used to calculate the next available time
 ///
 /// # Trait Implementation(s)
-/// some of the noteworthy trait implementation of this trait include:
+/// some of the noteworthy trait implementations of this trait include:
 /// - [`TaskScheduleInterval`] executes a task on an interval basis
 /// - [`TaskScheduleCalendar`] executes a task based on the provided cron expression as a string
 /// - [`TaskScheduleCron`] defines a human-friendly schedule on when the task runs, it provides fine-grain
@@ -49,7 +48,7 @@ use crate::task::Task;
 /// - [`TaskScheduleCalendar`]
 /// - [`TaskScheduleCron`]
 /// - [`Task`]
-pub trait TaskSchedule: Send + Sync {
+pub trait TaskSchedule: 'static + Send + Sync {
     /// Calculates the next point in time to schedule the [`Task`] via a specific point in time. This
     /// method is called automatically by the [`Scheduler`] in either registration or rescheduling
     ///
@@ -70,7 +69,7 @@ pub trait TaskSchedule: Send + Sync {
 
 impl<T> TaskSchedule for T
 where
-    T: Deref + Send + Sync,
+    T: Deref + Send + Sync + 'static,
     T::Target: TaskSchedule,
 {
     fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, Arc<dyn Error>> {

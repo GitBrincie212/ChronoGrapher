@@ -1,9 +1,10 @@
-use crate::persistence::PersistenceObject;
-use crate::schedule::TaskSchedule;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;
+use crate::errors::ChronographerErrors;
+use crate::task::TaskSchedule;
 
 /// [`TaskScheduleCron`] is an implementation of the [`TaskSchedule`] trait that executes [`Task`]
 /// instances, according to a cron expression. Learn more about cron expression in
@@ -75,11 +76,16 @@ impl TaskSchedule for TaskScheduleCron {
         &self,
         time: &DateTime<Local>,
     ) -> Result<DateTime<Local>, Arc<dyn std::error::Error + 'static>> {
-        cron_parser::parse(&self.0, time).map_err(Arc::new)
+        cron_parser::parse(&self.0, time).map_err(|e| {
+            Arc::new(ChronographerErrors::CronParserError(e.to_string()))
+                as Arc<dyn std::error::Error + 'static>
+        })
     }
 }
 
 impl PersistenceObject for TaskScheduleCron {
     const PERSISTENCE_ID: &'static str =
         "chronographer::TaskScheduleCron#ede44f5f-a3bc-464c-9284-f3c666470cc7";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

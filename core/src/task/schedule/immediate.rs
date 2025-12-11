@@ -1,10 +1,10 @@
-use crate::persistence::PersistenceObject;
-use crate::schedule::TaskSchedule;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 #[allow(unused_imports)]
 use crate::task::Task;
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use crate::task::TaskSchedule;
 
 /// [`TaskScheduleImmediate`] is an implementation of the [`TaskSchedule`] trait
 /// that executes any [`Task`] instance immediately once scheduled / rescheduled
@@ -42,4 +42,6 @@ impl TaskSchedule for TaskScheduleImmediate {
 impl PersistenceObject for TaskScheduleImmediate {
     const PERSISTENCE_ID: &'static str =
         "chronographer::TaskScheduleImmediate#74c56b86-2a45-4d18-abc7-d2da47218a28";
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

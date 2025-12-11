@@ -1,9 +1,9 @@
-use crate::schedule::TaskSchedule;
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
+use crate::task::TaskSchedule;
 
 /// [`TaskCalendarFieldType`] represents the date field type that is being modified, by itself
 /// it doesn't hold any data, just what field is being modified. This is used closely with
