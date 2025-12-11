@@ -1,7 +1,7 @@
 # Brief Summary (https://github.com/GitBrincie212/ChronoGrapher/blob/master/README.md)
-ChronoGrapher is an unopinionated, extensible, performant, flexible, ease to use and durable scheduling / workflow
-library. Its main moto is "Enterprise Scheduling Done Right". To achieve this, it uses rust as its core and exposes multiple
-SDKs for other programming languages to use (such as Java, Python, JS/TS... etc.).
+ChronoGrapher is an unopinionated, extensible, performant, flexible, ease to use and durable job scheduling / workflow
+orchestration library. Its main moto is "Job Scheduling Done To Last". To achieve this, it uses rust as its core and
+exposes multiple SDKs for other programming languages to use (such as Java, Python, JS/TS... etc.).
 
 # Architecture Of ChronoGrapher (https://github.com/GitBrincie212/ChronoGrapher/blob/master/ARCHITECTURE.md)
 Its architecture contains mainly 2 systems. Those being **Task** and **Scheduler**, which are structs hosting multiple
@@ -14,29 +14,10 @@ hierarchy to model a simple retry loop to more complex logic, which would otherw
 these chains / hierarchies of TaskFrames via
 [TaskFrameBuilder](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frame_builder.rs) or manually.
 TaskFrames are separated in 2 categories, those being **Leaf TaskFrame** and **Wrapper TaskFrame**, a TaskFrame can be in
-one or both categories at a time (depending on the implementation of the trait). The core TaskFrames are as follows:
-    1. **[ExecutionTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/executionframe.rs)**
-    Wraps a closure / function inside to execute when this task frame is executed. It contains no events to listen to, as it
-    only hosts a function, this TaskFrame is NOT PERSISTENT and is only a runtime object, this is useful for simple examples
-    or for runtime TaskFrame(s) **<Leaf TaskFrame>**
-    ```rust
-    use chronographer_core::schedule::TaskScheduleInterval;
-    use chronographer_core::scheduler::{Scheduler, CHRONOGRAPHER_SCHEDULER};
-    use chronographer_core::task::executionframe::ExecutionTaskFrame;
-    use chronographer_core::task::Task;
-
-    let task_frame = ExecutionTaskFrame::new(
-        |_ctx| async {
-            println!("Hello from an execution task!");
-            Ok(())
-        }
-    );
-
-    let task = Task::define(TaskScheduleInterval::from_secs(2), task_frame);
-    CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
-    ```
-
-    2. **[NoOperationTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/noopframe.rs)**
+one or both categories at a time (depending on the implementation of the trait). Keep in mind that functions which
+accept one argument that being ``Arc<TaskContext> and return a ``Result<(), TaskError>`` are considered TaskFrame.
+The core TaskFrames are as follows:
+    1. **[NoOperationTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/noopframe.rs)**
     It acts as a placeholder (a purposefully empty vessel). It contains no events, and is useful in case
     when a task frame is required, while you might not want to execute any code (just satisfy the needs of
     a task frame wrapper). It also implements the Default trait from Rust. this TaskFrame IS PERSISTENT **<Leaf TaskFrame>**
@@ -50,7 +31,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule_owned(nothing_task).await;
     ```
 
-    3. **[DelayTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/delayframe.rs)**
+    2. **[DelayTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/delayframe.rs)**
     Wraps a TaskFrame and instead of executing it directly, it delays its execution by a specified number of seconds
     (float), essentially acting as a typical ``sleep`` function but for TaskFrame. When it comes to events, it contains 2
     events, those being ``on_delay_start`` which executes when the sleep / delay starts, and ``on_delay_end`` which executes when
@@ -73,7 +54,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
     ```
 
-    4. **[TimeoutTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/timeoutframe.rs)**
+    3. **[TimeoutTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/timeoutframe.rs)**
     Wraps a TaskFrame, executes it immediately but also keeps track of the time the wrapped task frame takes. If it takes
     longer than a specified amount, it halts / terminates it and returns a ``ChronographerErrors::TimeoutError``. This is
     useful when a TaskFrame must finish at a specific time. For events, it only has one, this being the ``on_timeout`` which is
@@ -97,7 +78,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
     ```
 
-    5. **[FallbackTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/fallbackframe.rs)**
+    4. **[FallbackTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/fallbackframe.rs)**
     Wraps two TaskFrames (primary and secondary), executes the primary immediately, if it fails it switches to the
     secondary TaskFrame. Otherwise, if it succeeds, it returns the results from the primary TaskFrame, if both TaskFrames
     fail, then the secondary result will be returned. This is useful when a TaskFrame performs something potentially fallible,
@@ -117,7 +98,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
     ```
 
-    6. **[ConditionalFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/conditionframe.rs)**
+    5. **[ConditionalFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/conditionframe.rs)**
     Wraps one or two TaskFrames (primary and fallback) and hosts a predicate of type ``ConditionalFramePredicate``.
     It first executes the predicate function which returns true/false to determine if it should execute the primary task
     frame or not, if true, then it executes the primary task frame. If false, then depending on the configured behavior which
@@ -149,7 +130,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
     ```
 
-    7. **[SelectTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/selectframe.rs)**
+    6. **[SelectTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/selectframe.rs)**
     Wraps multiple TaskFrames and hosts an accessor of type ``SelectFrameAccessor``. It first executes the accessor function
     which returns an index indicating which TaskFrame to execute at the current run, then it selects that corresponding
     TaskFrame and runs it, if the index is out of bounds, a ``ChronographerErrors::TaskIndexOutOfBounds`` is returned.
@@ -180,7 +161,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
     ```
 
-    8. **[DependencyTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/dependencyframe.rs)**
+    7. **[DependencyTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/dependencyframe.rs)**
     Wraps one TaskFrame and hosts one or multiple FrameDependency. Before executing the TaskFrame, it verifies if the
     dependencies are resolved or not. If they are then, it runs the wrapped TaskFrame, if not, depending on the configured
     behavior, it will return some result (either that be a success or failure). This TaskFrame contains one event that being
@@ -213,7 +194,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule(task1.clone()).await;
     ```
 
-    9. **[RetriableTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/retryframe.rs)**
+    8. **[RetriableTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/retryframe.rs)**
     Wraps one TaskFrame and hosts one RetryBackoffStrategy. It executes the wrapped TaskFrame, if it fails, then it executes
     the RetryBackoffStrategy which determines how much it should delay (the delay can be zero, for an instant retry) the
     retry before it tries again. This continues til it succeeds, or it exceeds the number of specified retries. This
@@ -240,7 +221,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
     ```
 
-    10. **[SequentialTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/sequentialframe.rs)**
+    9. **[SequentialTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/sequentialframe.rs)**
     Wraps multiple TaskFrame and hosts one GroupedTaskFramesExecBehavior policy. It executes the tasks in an ordered sequential
     manner, starting from the first towards the end, depending on the configured GroupedTaskFramesExecBehavior, it will
     decide if the SequentialTaskFrame should quit or not its execution for the current child TaskFrame. This TaskFrame
@@ -271,7 +252,7 @@ one or both categories at a time (depending on the implementation of the trait).
     CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
     ```
 
-    11. **[ParallelTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/parallelframe.rs)**
+    10. **[ParallelTaskFrame](https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/frames/parallelframe.rs)**
     Wraps multiple TaskFrame and hosts one GroupedTaskFramesExecBehavior policy. It executes the task frames in an unordered
     parallel manner (making it ideal for performance when task frames don't depend on each other). Depending on the configured
     GroupedTaskFramesExecBehavior, it will decide if the ParallelTaskFrame should quit or not its execution for the current
@@ -495,6 +476,78 @@ and for emitting events:
 async fn emit_hook_event<E: TaskHookEvent>(&self, payload: &E::Payload)
 ```
 
+TaskHooks are created and registered as follows:
+```rust
+struct MyCustomTaskHook;
+
+// Executes this logic when a task starts
+impl TaskHook<OnTaskStart> for MyCustomTaskHook {
+  async fn on_event(&self, event: OnTaskStart, ctx: Arc<TaskContext>, payload: &OnTaskStart::Payload) {
+    // ...
+  }
+}
+
+// Executes this logic when a task ends
+impl TaskHook<OnTaskEnd> for MyCustomTaskHook {
+  async fn on_event(&self, event: OnTaskEnd, ctx: Arc<TaskContext>, payload: &OnTaskEnd::Payload) {
+    // ...
+  }
+}
+
+// Executes this logic when a TimeoutTaskFrame in the Task throws a timeout
+impl TaskHook<OnTimeout> for MyCustomTaskHook {
+    async fn on_event(&self, event: OnTimeout, ctx: Arc<TaskContext>, payload: &OnTimeout::Payload) {
+        // ...
+    }
+}
+
+/*
+    Executes this logic when the TaskHook is attached to a Task and specifically for a "OnTaskStart" event.
+    It should be noted you can do the following:
+    ```rust
+    impl<E: TaskHookEvent> TaskHook<OnHookAttach<E>> for MyCustomTaskHook {
+        ...
+    }
+    ```
+    which listens runs the code regardless of which event it got attached to
+*/
+impl TaskHook<OnHookAttach<OnTaskStart>> for MyCustomTaskHook {
+    async fn on_event(
+        &self, event:
+        OnHookAttach<OnTaskStart>,
+        ctx: Arc<TaskContext>,
+        payload: &OnHookAttach<OnTaskStart>::Payload
+    ) {
+        // ...
+    }
+}
+
+/*
+  If you want to run the same code in all events, then
+  ```rust
+  impl<E: TaskHookEvent> TaskHook<E> for MyCustomTaskHook {
+    ...
+  }
+  ```
+  does the trick, you do lose however the information about the event, unless
+  you downcast it
+*/
+
+// ...Inside a function...
+
+let hook = Arc::new(MyCustomTaskHook);
+task.attach_hook::<OnTaskStart>(hook).await // Triggers the OnHookAttach<OnTaskStart>
+task.attach_hook::<OnTimeout>(hook).await;
+```
+
+TashHooks as discussed play with TaskHookEvents, which are marker structs that represent an event and implement
+the ``TaskHookEvent`` trait, they define a payload type via the trait. They can be emitted either via in ``Task`` or
+inside the ``TaskFrame`` tree with the supplied payload type which is then propagated to the TaskHooksContainer to
+alert the corresponding TaskHooks
+
+There is, however, a wildcard TaskHookEvent, that being the unit type ``()`` which cannot be emitted from anywhere and
+basically tells ChronoGrapher that this is a TaskHook for state management only, it isn't interested in any event
+
 For TaskContext, similar methods are found there. The power of TaskHooks comes from the fact they are not
 bound to business logic of a ``Task``, they are autonomous entities, while they can integrate with business logic
 via listening to specific events. They are more powerful as other TaskHooks can emit their own events, in addition, it
@@ -517,16 +570,11 @@ A list of the task hook events that are in the core library are:
     13. ```OnChildEnd`` - Triggers when a wrapped child ``TaskFrame`` from
     ``SequentialTaskFrame`` / ``ParallelTaskFrame`` ends
     14. ``OnTaskFrameSelection`` - Triggers when a ``TaskFrame`` is selected from ``SelectTaskFrame``
-    15. ``OnFallbackEvent`` - Triggers when the primar ``TaskFrame`` fails in ``FallbackTaskFrame``
+    15. ``OnFallbackEvent`` - Triggers when the primary ``TaskFrame`` fails in ``FallbackTaskFrame``
     16. ``OnDependencyValidation`` - Triggers when a ``TaskDependency`` is validated in ``DependencyTaskFrame``
 
 The system's source code can be found in https://github.com/GitBrincie212/ChronoGrapher/blob/master/core/src/task/hooks.rs.
-There are also core components which instead of being present in ``Task``, they are ``TaskHooks`` instead, as they are
-optional enhancements and not a core composite. These specifically are:
-    1. **TaskReactiveState** [TODO DESCRIBE IT]
-    2. **TaskErrorHandler** [TODO DESCRIBE IT]
-
-More specifically, the form of the Task is:
+The form of the Task is:
 ```rust
 {
     frame: Arc<dyn TaskFrame>,
@@ -540,7 +588,7 @@ More specifically, the form of the Task is:
     hooks: TaskHookContainer, // [INTERNAL]
 }
 ```
-priority is for determining how much impact does the ``Task`` have, runs is an internal counter for tracking the number
+priority is for determining how much impact does the ``Task`` have, runs is an internal COUNTER for tracking the number
 of runs that have occurred on this task, debug_label is a human-readable label to define the task, max_runs can be controlled
 by the user and specifies a threshold for how many times a task should run, id is a unique identifier for the ``Task`` which
 is used to distinguish it from others. Task can be constructed via ``Task::define`` for configuring the very core
