@@ -1,4 +1,4 @@
-use crate::persistence::PersistenceObject;
+use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
@@ -10,6 +10,26 @@ use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
+
+pub mod events {
+    pub use crate::task::OnTaskStart;
+    pub use crate::task::OnTaskEnd;
+    pub use crate::task::frames::OnChildStart;
+    pub use crate::task::frames::OnChildEnd;
+    pub use crate::task::frames::OnRetryAttemptStart;
+    pub use crate::task::frames::OnRetryAttemptEnd;
+    pub use crate::task::frames::OnTaskFrameSelection;
+    pub use crate::task::frames::OnTimeout;
+    pub use crate::task::frames::OnTruthyValueEvent;
+    pub use crate::task::frames::OnFalseyValueEvent;
+    pub use crate::task::frames::OnFallbackEvent;
+    pub use crate::task::frames::OnDelayStart;
+    pub use crate::task::frames::OnDelayEnd;
+    pub use crate::task::frames::OnDependencyValidation;
+    pub use crate::task::hooks::OnHookAttach;
+    pub use crate::task::hooks::OnHookDetach;
+    pub use crate::task::hooks::TaskHookEvent;
+} // skipcq: RS-D1001
 
 /// [`TaskHookEvent`] is a trait used for describing [`Task`] or [`TaskFrame`] events for [`TaskHook`]
 /// instances to hook into. It is meant to be implemented in the form of a marker struct. It contains
@@ -102,9 +122,10 @@ impl TaskHookEvent for () {
     const PERSISTENCE_ID: &'static str = "";
 }
 
-#[async_trait]
-impl<T: TaskHookEvent> PersistenceObject for T {
+impl<E: TaskHookEvent> PersistenceObject for E {
     const PERSISTENCE_ID: &'static str = Self::PERSISTENCE_ID;
+
+    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`TaskHook`] is a trait for defining a task hook, task hooks listens to events emitted by the
@@ -134,7 +155,7 @@ impl<T: TaskHookEvent> PersistenceObject for T {
 /// - [`TaskFrame`]
 #[async_trait]
 pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
-    async fn on_event(&self, event: E, ctx: Arc<TaskContext>, payload: &E::Payload);
+    async fn on_event(&self, event: E, ctx: &TaskContext, payload: &E::Payload);
 }
 
 /// [`NonObserverTaskHook`] is an alias for [`TaskHook`] where the event type is
@@ -165,7 +186,7 @@ impl<T: NonObserverTaskHook> TaskHook<()> for T {
     async fn on_event(
         &self,
         _event: (),
-        _ctx: Arc<TaskContext>,
+        _ctx: &TaskContext,
         _payload: &<() as TaskHookEvent>::Payload,
     ) {
     }
@@ -179,13 +200,13 @@ pub(crate) struct ErasedTaskHookWrapper<E: TaskHookEvent>(
 
 #[async_trait]
 pub trait ErasedTaskHook: Send + Sync {
-    async fn on_emit(&self, ctx: Arc<TaskContext>, payload: &(dyn Any + Send + Sync));
+    async fn on_emit(&self, ctx: &TaskContext, payload: &(dyn Any + Send + Sync));
     fn as_arc_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }
 
 #[async_trait]
 impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
-    async fn on_emit(&self, ctx: Arc<TaskContext>, payload: &(dyn Any + Send + Sync)) {
+    async fn on_emit(&self, ctx: &TaskContext, payload: &(dyn Any + Send + Sync)) {
         let payload = payload
             .downcast_ref::<E::Payload>()
             .expect("Invalid payload type passed to TaskHook");
@@ -262,7 +283,7 @@ impl TaskHookContainer {
     /// - [`OnHookAttach`]
     pub async fn attach<E: TaskHookEvent>(
         &self,
-        ctx: Arc<TaskContext>,
+        ctx: &TaskContext,
         hook: Arc<dyn TaskHook<E>>,
     ) {
         let hook_id = hook.type_id();
@@ -304,18 +325,18 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookDetach`]
-    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: Arc<TaskContext>) {
+    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskContext) {
         self.0
             .get_mut(E::PERSISTENCE_ID)
             .map(|x| x.remove(&TypeId::of::<T>()));
         self.emit::<OnHookDetach<E>>(ctx, &E::default()).await;
     }
 
-    pub async fn emit<E: TaskHookEvent>(&self, ctx: Arc<TaskContext>, payload: &E::Payload) {
+    pub async fn emit<E: TaskHookEvent>(&self, ctx: &TaskContext, payload: &E::Payload) {
         if let Some(entry) = self.0.get(E::PERSISTENCE_ID) {
             for hook in entry.value().iter() {
                 hook.value()
-                    .on_emit(ctx.clone(), payload as &(dyn Any + Send + Sync))
+                    .on_emit(ctx, payload as &(dyn Any + Send + Sync))
                     .await;
             }
         }
