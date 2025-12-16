@@ -1,5 +1,5 @@
 use crate::persistence::{PersistenceContext, PersistenceObject};
-use crate::task::ErasedTask;
+use crate::task::{ErasedTask, TaskError};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
@@ -98,7 +98,8 @@ pub struct SequentialSchedulingPolicy;
 #[async_trait]
 impl ScheduleStrategy for SequentialSchedulingPolicy {
     async fn handle(&self, task: Arc<ErasedTask>) {
-        task.run().await.ok();
+        let result: Result<(), TaskError> = task.run().await;
+        result.ok();
     }
 }
 
@@ -136,8 +137,10 @@ pub struct ConcurrentSchedulingPolicy;
 #[async_trait]
 impl ScheduleStrategy for ConcurrentSchedulingPolicy {
     async fn handle(&self, task: Arc<ErasedTask>) {
+        let cloned_task = task.clone();
         tokio::spawn(async move {
-            task.run().await.ok();
+            let result: Result<(), TaskError> = cloned_task.run().await;
+            result.ok();
         });
     }
 }
@@ -198,8 +201,10 @@ impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
             handle.abort();
         }
 
+        let cloned_task = task.clone();
         let curr_handle = tokio::spawn(async move {
-            task.run().await.ok();
+            let result: Result<(), TaskError> = cloned_task.run().await;
+            result.ok();
         });
 
         *self.0.lock().await = Some(curr_handle);
@@ -256,8 +261,10 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
         }
         is_free.store(false, Ordering::Relaxed);
         let is_free_clone = is_free.clone();
+        let cloned_task = task.clone();
         tokio::spawn(async move {
-            task.run().await.ok();
+            let result: Result<(), TaskError> = cloned_task.run().await;
+            result.ok();
             is_free_clone.store(true, Ordering::Relaxed);
         });
     }
