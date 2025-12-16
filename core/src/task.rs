@@ -30,7 +30,7 @@ use uuid::Uuid;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 
-pub type ErasedTask = Task<Arc<dyn TaskFrame>, Box<dyn TaskSchedule>, Box<dyn ScheduleStrategy>>;
+pub type ErasedTask = Task<dyn TaskFrame, dyn TaskSchedule, dyn ScheduleStrategy>;
 
 /// [`TaskConfig`] is simply used as a builder to construct [`Task`], <br />
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
@@ -146,13 +146,13 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, 
 {
     fn from(config: TaskConfig<T1, T2, T3>) -> Self {
         Task {
-            frame: config.frame,
-            schedule: config.schedule,
-            hooks: TaskHookContainer(DashMap::default()),
-            schedule_strategy: config.schedule_strategy,
+            frame: Arc::new(config.frame),
+            schedule: Arc::new(config.schedule),
+            hooks: Arc::new(TaskHookContainer(DashMap::default())),
+            schedule_strategy: Arc::new(config.schedule_strategy),
             priority: config.priority,
-            runs: AtomicU64::new(0),
-            debug_label: config.debug_label,
+            runs: Arc::new(AtomicU64::new(0)),
+            debug_label: Arc::from(config.debug_label),
             max_runs: config.max_runs,
             id: Uuid::new_v4(),
         }
@@ -210,16 +210,16 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, 
 /// - [`TaskEvent`]
 /// - [`TaskSchedule`]
 /// - [`ScheduleStrategy`]
-pub struct Task<T1: 'static, T2: 'static, T3: 'static> {
-    frame: T1,
-    schedule: T2,
-    schedule_strategy: T3,
+pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static, T3: ?Sized + 'static> {
+    frame: Arc<T1>,
+    schedule: Arc<T2>,
+    schedule_strategy: Arc<T3>,
     priority: usize,
-    runs: AtomicU64,
-    debug_label: String,
+    runs: Arc<AtomicU64>,
+    debug_label: Arc<str>,
     max_runs: Option<NonZeroU64>,
     id: Uuid,
-    hooks: TaskHookContainer,
+    hooks: Arc<TaskHookContainer>,
 }
 
 impl<T1: Serialize, T2: Serialize, T3: Serialize> Serialize for Task<T1, T2, T3> {
@@ -335,7 +335,7 @@ where
 */
 
 impl<T1, T2, T3> Debug for Task<T1, T2, T3> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Task").field(&self.debug_label).finish()
     }
 }
@@ -375,16 +375,96 @@ impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
     pub fn simple(schedule: T2, frame: T1) -> Self {
         let id = Uuid::new_v4();
         Self {
-            frame,
-            schedule,
-            hooks: TaskHookContainer(DashMap::default()),
-            schedule_strategy: SequentialSchedulingPolicy,
+            frame: Arc::new(frame),
+            schedule: Arc::new(schedule),
+            hooks: Arc::new(TaskHookContainer(DashMap::default())),
+            schedule_strategy: Arc::new(SequentialSchedulingPolicy),
             priority: 0,
-            runs: AtomicU64::new(0),
-            debug_label: id.to_string(),
+            runs: Arc::new(AtomicU64::new(0)),
+            debug_label: Arc::from(id.to_string()),
             max_runs: None,
             id,
         }
+    }
+}
+
+impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
+    /// Gets the [`TaskFrame`] for outside parties
+    pub fn frame(&self) -> &T1 {
+        &self.frame
+    }
+
+    /// Gets the [`TaskSchedule`] for outside parties
+    pub fn schedule(&self) -> &T2 {
+        &self.schedule
+    }
+
+    /// Gets the [`ScheduleStrategy`] for outside parties
+    pub fn schedule_strategy(&self) -> &T3 {
+        &self.schedule_strategy
+    }
+}
+
+impl ErasedTask {
+    /// Runs the task, handling any data throughout by itself as well as calling events
+    /// the error handler. This method can only be used by parts which have access to [`TaskEventEmitter`],
+    /// such as [`Scheduler`], and mostly is an internal one (even if exposed for public use)
+    ///
+    /// # See Also
+    /// - [`TaskEventEmitter`]
+    /// - [`Scheduler`]
+    pub async fn run(&self) -> Result<(), TaskError> {
+        let ctx = TaskContext::new(&self);
+        self.runs.fetch_add(1, Ordering::Relaxed);
+        ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
+        let result = self.frame.execute(&ctx).await;
+        let err = result.clone().err();
+
+        ctx.emit::<OnTaskEnd>(&err).await;
+
+        result
+    }
+
+    /// Gets the [`TaskFrame`] for outside parties
+    pub fn frame(&self) -> &dyn TaskFrame {
+        &self.frame
+    }
+
+    /// Gets the [`TaskSchedule`] for outside parties
+    pub fn schedule(&self) -> &dyn TaskSchedule {
+        &self.schedule
+    }
+
+    /// Gets the [`ScheduleStrategy`] for outside parties
+    pub fn schedule_strategy(&self) -> &dyn ScheduleStrategy {
+        &self.schedule_strategy
+    }
+}
+
+impl<T1: ?Sized, T2: ?Sized, T3: ?Sized> Task<T1, T2, T3> {
+    /// Gets the priority for a task
+    pub fn priority(&self) -> usize {
+        self.priority
+    }
+
+    /// Gets the number of times the task has run
+    pub fn runs(&self) -> u64 {
+        self.runs.load(Ordering::Relaxed)
+    }
+
+    /// Gets the maximum number of times the task can run (``None`` for infinite times)
+    pub fn max_runs(&self) -> &Option<NonZeroU64> {
+        &self.max_runs
+    }
+
+    /// Gets the ID associated with the [`Task`]
+    pub fn id(&self) -> &Uuid {
+        &self.id
+    }
+
+    /// Gets the hooks container the [`Task`] has
+    pub fn hooks(&self) -> &TaskHookContainer {
+        &self.hooks
     }
 }
 
@@ -418,81 +498,22 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
         TaskConfig::builder()
     }
 
-    /// Runs the task, handling any data throughout by itself as well as calling events
-    /// the error handler. This method can only be used by parts which have access to [`TaskEventEmitter`],
-    /// such as [`Scheduler`], and mostly is an internal one (even if exposed for public use)
-    ///
-    /// # See Also
-    /// - [`TaskEventEmitter`]
-    /// - [`Scheduler`]
-    pub async fn run(&self) -> Result<(), TaskError> {
-        let ctx = TaskContext::new(self);
-        self.runs.fetch_add(1, Ordering::Relaxed);
-        ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
-        let result = self.frame.execute(&ctx).await;
-        let err = result.clone().err();
-
-        ctx.emit::<OnTaskEnd>(&err).await;
-
-        result
-    }
-
-    /// Gets the [`TaskFrame`] for outside parties
-    pub fn frame(&self) -> &T1 {
-        &self.frame
-    }
-
-    /// Gets the [`TaskSchedule`] for outside parties
-    pub fn schedule(&self) -> &T2 {
-        &self.schedule
-    }
-
-    /// Gets the [`ScheduleStrategy`] for outside parties
-    pub fn schedule_strategy(&self) -> &T3 {
-        &self.schedule_strategy
-    }
-
-    /// Gets the priority for a task
-    pub fn priority(&self) -> usize {
-        self.priority
-    }
-
-    /// Gets the number of times the task has run
-    pub fn runs(&self) -> u64 {
-        self.runs.load(Ordering::Relaxed)
-    }
-
-    /// Gets the maximum number of times the task can run (``None`` for infinite times)
-    pub fn max_runs(&self) -> &Option<NonZeroU64> {
-        &self.max_runs
-    }
-
-    /// Gets the ID associated with the [`Task`]
-    pub fn id(&self) -> &Uuid {
-        &self.id
-    }
-
-    /// Gets the hooks container the [`Task`] has
-    pub fn hooks(&self) -> &TaskHookContainer {
-        &self.hooks
-    }
-
-    pub fn erase(&self) -> ErasedTask {
+    pub fn as_erased(&self) -> ErasedTask {
         ErasedTask {
-            frame: Arc::new(self.frame),
-            schedule: Box::new(self.schedule),
-            schedule_strategy: Box::new(self.schedule_strategy),
+            frame: self.frame.clone(),
+            schedule: self.schedule.clone(),
+            schedule_strategy: self.schedule_strategy.clone(),
             priority: self.priority,
-            runs: self.runs,
-            debug_label: self.debug_label,
+            runs: self.runs.clone(),
+            debug_label: self.debug_label.clone(),
             max_runs: self.max_runs,
             id: self.id,
-            hooks: self.hooks,
+            hooks: self.hooks.clone(),
         }
     }
 
     pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
-        let ctx = TaskContext::new(self);
+        let ctx = TaskContext::new(&self.as_erased());
         self.hooks.attach(&ctx, hook).await;
     }
 
@@ -501,12 +522,12 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
     }
 
     pub async fn emit_hook_event<E: TaskHookEvent>(&self, payload: &E::Payload) {
-        let ctx = TaskContext::new(self);
+        let ctx = TaskContext::new(&self.as_erased());
         self.hooks.emit::<E>(&ctx, payload).await;
     }
 
     pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
-        let ctx = TaskContext::new(self);
+        let ctx = TaskContext::new(&self.as_erased());
         self.hooks.detach::<E, T>(&ctx).await;
     }
 }
