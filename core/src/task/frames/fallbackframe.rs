@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use crate::define_event;
 use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
@@ -6,6 +5,7 @@ use crate::task::{TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
+use std::sync::Arc;
 
 define_event!(
     /// # Event Triggering

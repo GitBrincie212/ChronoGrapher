@@ -3,8 +3,7 @@ use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
 use crate::task::{
-    Debug, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookEvent,
-    TaskSchedule,
+    Debug, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookEvent, TaskSchedule,
 };
 use crate::task::{Task, TaskContext, TaskError};
 use async_trait::async_trait;
@@ -274,7 +273,7 @@ impl TaskDependency {
     /// - [`TaskDependency`]
     /// - [`TaskDependency::builder_owned`]
     pub fn builder<T1, T2, T3>(
-        task: &'static Task<T1, T2, T3>
+        task: &'static Task<T1, T2, T3>,
     ) -> IncompleteTaskDependencyConfig<T1, T2, T3>
     where
         T1: TaskFrame,
@@ -286,7 +285,7 @@ impl TaskDependency {
 }
 
 #[async_trait]
-impl FrameDependency for TaskDependency{
+impl FrameDependency for TaskDependency {
     async fn is_resolved(&self) -> bool {
         self.task_dependency_tracker
             .run_count
@@ -308,8 +307,7 @@ impl FrameDependency for TaskDependency{
 }
 
 #[async_trait]
-impl ResolvableFrameDependency for TaskDependency
-{
+impl ResolvableFrameDependency for TaskDependency {
     async fn resolve(&self) {
         self.task_dependency_tracker.run_count.store(
             self.task_dependency_tracker.minimum_runs.get(),

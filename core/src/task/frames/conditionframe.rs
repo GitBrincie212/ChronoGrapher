@@ -264,11 +264,8 @@ pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
 /// A type alias to alleviate the immense typing required to specify that
 /// the [`ConditionalFrameConfigBuilder`] has already filled the fallback parameter
 /// as a [`NoOperationTaskFrame`]
-pub type NonFallbackCFCBuilder<T> = ConditionalFrameConfigBuilder<
-    T,
-    NoOperationTaskFrame,
-    ((NoOperationTaskFrame,), (), (), ()),
->;
+pub type NonFallbackCFCBuilder<T> =
+    ConditionalFrameConfigBuilder<T, NoOperationTaskFrame, ((NoOperationTaskFrame,), (), (), ())>;
 
 impl<T> ConditionalFrame<T>
 where
