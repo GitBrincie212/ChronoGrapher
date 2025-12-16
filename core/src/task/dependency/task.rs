@@ -3,7 +3,7 @@ use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
 use crate::task::{
-    Debug, ErasedTask, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookEvent,
+    Debug, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookEvent,
     TaskSchedule,
 };
 use crate::task::{Task, TaskContext, TaskError};
@@ -14,17 +14,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
 
-pub type ErasedTaskDependency =
-    TaskDependency<Arc<dyn TaskFrame>, Arc<dyn TaskSchedule>, Arc<dyn ScheduleStrategy>>;
-
-type IncompleteTaskDependencyConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> =
+type IncompleteTaskDependencyConfig<T1, T2, T3> =
     TaskDependencyConfigBuilder<T1, T2, T3, ((&'static Task<T1, T2, T3>,), (), ())>;
-
-type ErasedIncompleteTaskDependencyConfig = IncompleteTaskDependencyConfig<
-    &'static dyn TaskFrame,
-    &'static dyn TaskSchedule,
-    &'static dyn ScheduleStrategy,
->;
 
 /// [`TaskResolvent`] acts as a policy dictating how to manage the counting
 /// of relevant runs towards [`TaskDependency`], the [`TaskDependency`] has
@@ -110,7 +101,7 @@ implement_core_resolvent!(
 /// [`TaskDependencyConfig`] is simply used as a builder to construct [`TaskDependency`], <br />
 /// it isn't meant to be used by itself, you may refer to [`TaskDependency::builder`]
 #[derive(TypedBuilder)]
-#[builder(build_method(into = TaskDependency<T1, T2, T3>))]
+#[builder(build_method(into = TaskDependency))]
 pub struct TaskDependencyConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
     /// The [`Task`] to monitor closely when it finishes a run and act accordingly
     ///
@@ -188,7 +179,7 @@ impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
     }
 }
 
-impl<T1, T2, T3> From<TaskDependencyConfig<T1, T2, T3>> for TaskDependency<T1, T2, T3>
+impl<T1, T2, T3> From<TaskDependencyConfig<T1, T2, T3>> for TaskDependency
 where
     T1: TaskFrame,
     T2: TaskSchedule,
@@ -208,7 +199,6 @@ where
         });
 
         Self {
-            task: config.task,
             task_dependency_tracker: tracker.clone(),
             is_enabled: Arc::new(AtomicBool::new(true)),
         }
@@ -264,13 +254,12 @@ where
 /// - [`FrameDependency`]
 /// - [`ResolvableFrameDependency`]
 /// - [`UnresolvableFrameDependency`]
-pub struct TaskDependency<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
-    task: &'static Task<T1, T2, T3>,
+pub struct TaskDependency {
     task_dependency_tracker: Arc<TaskDependencyTracker>,
     is_enabled: Arc<AtomicBool>,
 }
 
-impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> TaskDependency<T1, T2, T3> {
+impl TaskDependency {
     /// Creates / Constructs a builder to construct a [`TaskDependency`] instance. There is
     /// a variant of this method for owned task value via [`TaskDependency::builder_owned`]
     ///
@@ -284,43 +273,20 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> TaskDependency<T1, T
     /// # See Also
     /// - [`TaskDependency`]
     /// - [`TaskDependency::builder_owned`]
-    pub fn builder(task: &'static Task<T1, T2, T3>) -> IncompleteTaskDependencyConfig<T1, T2, T3> {
+    pub fn builder<T1, T2, T3>(
+        task: &'static Task<T1, T2, T3>
+    ) -> IncompleteTaskDependencyConfig<T1, T2, T3>
+    where
+        T1: TaskFrame,
+        T2: TaskSchedule,
+        T3: ScheduleStrategy,
+    {
         TaskDependencyConfig::<T1, T2, T3>::builder().task(task)
     }
 }
 
-impl ErasedTaskDependency {
-    /// Creates / Constructs a builder to construct an erased [`TaskDependency`] instance. There is
-    /// a variant of this method for owned task value via [`TaskDependency::erased_builder_owned`]
-    /// and the twin of the method for typed task dependencies is [`TaskDependency::builder_owned`]
-    ///
-    /// # Argument(s)
-    /// The method requires one argument, that being a [`ErasedTask`] instance wrapped
-    /// in an ``Arc<T>``
-    ///
-    /// # Returns
-    /// The builder to construct a [`TaskDependency`]
-    ///
-    /// # See Also
-    /// - [`TaskDependency`]
-    /// - [`TaskDependency::builder_owned`]
-    pub fn erased_builder(task: &ErasedTask) -> ErasedIncompleteTaskDependencyConfig {
-        TaskDependencyConfig::<
-            &'static dyn TaskFrame,
-            &'static dyn TaskSchedule,
-            &'static dyn ScheduleStrategy,
-        >::builder()
-        .task(task)
-    }
-}
-
 #[async_trait]
-impl<T1, T2, T3> FrameDependency for TaskDependency<T1, T2, T3>
-where
-    T1: TaskFrame,
-    T2: TaskSchedule,
-    T3: ScheduleStrategy,
-{
+impl FrameDependency for TaskDependency{
     async fn is_resolved(&self) -> bool {
         self.task_dependency_tracker
             .run_count
@@ -342,8 +308,7 @@ where
 }
 
 #[async_trait]
-impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> ResolvableFrameDependency
-    for TaskDependency<T1, T2, T3>
+impl ResolvableFrameDependency for TaskDependency
 {
     async fn resolve(&self) {
         self.task_dependency_tracker.run_count.store(
@@ -354,12 +319,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> ResolvableFrameDepen
 }
 
 #[async_trait]
-impl<T1, T2, T3> UnresolvableFrameDependency for TaskDependency<T1, T2, T3>
-where
-    T1: TaskFrame,
-    T2: TaskSchedule,
-    T3: ScheduleStrategy,
-{
+impl UnresolvableFrameDependency for TaskDependency {
     async fn unresolve(&self) {
         self.task_dependency_tracker
             .run_count
