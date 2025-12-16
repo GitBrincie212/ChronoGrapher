@@ -6,14 +6,7 @@ use crate::scheduler::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{
-    ErasedTaskHook, ErasedTaskHookWrapper, ScheduleStrategy, Task, TaskFrame, TaskHook,
-    TaskHookEvent, TaskSchedule,
-};
-use dashmap::DashMap;
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
-use std::marker::PhantomData;
+use crate::task::{ScheduleStrategy, Task, TaskFrame, TaskSchedule};
 use std::sync::{Arc, LazyLock};
 use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
@@ -107,7 +100,6 @@ impl From<SchedulerConfig> for Scheduler {
             store: config.store,
             clock: config.clock,
             process: Mutex::new(None),
-            global_hooks: Arc::new(DashMap::default()),
             schedule_tx: Arc::new(schedule_tx),
             schedule_rx: Arc::new(Mutex::new(schedule_rx)),
             notifier: Arc::new(tokio::sync::Notify::new()),
@@ -180,18 +172,7 @@ pub struct Scheduler {
     process: Mutex<Option<JoinHandle<()>>>,
     schedule_tx: ArcSchedulerTX,
     schedule_rx: ArcSchedulerRX,
-    global_hooks: Arc<DashMap<&'static str, DashMap<TypeId, Arc<dyn ErasedTaskHook>>>>,
     notifier: Arc<tokio::sync::Notify>,
-}
-
-impl Debug for Scheduler {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Scheduler")
-            .field("dispatcher", &self.dispatcher)
-            .field("store", &self.store)
-            .field("clock", &self.clock)
-            .finish()
-    }
 }
 
 impl Scheduler {
@@ -324,51 +305,11 @@ impl Scheduler {
     /// - [`Task`]
     pub async fn schedule(
         &self,
-        task: Arc<Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>>,
+        task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
     ) -> usize {
-        let task = Arc::new(task.erase());
-        let hook_container = &task.hooks().0;
-        let idx = self.store.store(self.clock.clone(), task.clone()).await;
-        for entry in self.global_hooks.iter() {
-            let hooks = entry.value();
-            let event = *entry.key();
-            for hook in hooks {
-                let hook = hook.value();
-                let hook_id = hook.type_id();
-
-                hook_container
-                    .entry(event)
-                    .or_default()
-                    .insert(hook_id, hook.clone());
-            }
-        }
+        let erased = task.as_erased();
+        let idx = self.store.store(self.clock.clone(), erased).await;
         idx
-    }
-
-    /// Schedules an owned [`Task`] to run on the [`Scheduler`], if one wishes to schedule
-    /// a non-owned version (wrapped in an ``Arc``), then there is the method [`Scheduler::schedule`]
-    /// which under the hood this method uses. This method acts more as a wrapper around the [`SchedulerTaskStore`]
-    ///
-    /// # Arguments
-    /// It accepts a [`Task`] which is owned, as such this method is useful when you don't need the
-    /// task in other places and the task more so acts as a one-off
-    ///
-    /// # Returns
-    /// The index, which is used by some methods to refer to the task specifically (as opposed
-    /// to having the full owned or non-owned task). Some of those are [`Scheduler::cancel`] and
-    /// [`Scheduler::exists`]
-    ///
-    /// # See Also
-    /// - [`Scheduler::exists`]
-    /// - [`Scheduler::cancel`]
-    /// - [`Scheduler::schedule_owned`]
-    /// - [`SchedulerTaskStore`]
-    /// - [`Task`]
-    pub async fn schedule_owned(
-        &self,
-        task: Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
-    ) -> usize {
-        self.schedule(Arc::new(task)).await
     }
 
     /// Cancels a [`Task`] via a provided index, when canceled a task will never be rescheduled and when
@@ -422,21 +363,5 @@ impl Scheduler {
     /// - [`Scheduler::abort`]
     pub async fn has_started(&self) -> bool {
         self.process.lock().await.is_some()
-    }
-
-    pub async fn attach_global_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
-        let hook_id = hook.type_id();
-        let hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook, PhantomData));
-
-        self.global_hooks
-            .entry(E::PERSISTENCE_ID)
-            .or_default()
-            .insert(hook_id, hook);
-    }
-
-    pub async fn detach_global_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
-        self.global_hooks
-            .get_mut(E::PERSISTENCE_ID)
-            .map(|x| x.remove(&TypeId::of::<T>()));
     }
 }
