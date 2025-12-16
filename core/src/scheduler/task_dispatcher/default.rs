@@ -52,10 +52,7 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
         task: Arc<ErasedTask>,
         idx: usize,
     ) {
-        // let target_priority = task.priority();
-
-        let idx_clone = idx;
-        task.clone().schedule_strategy().handle(task.clone()).await;
-        sender.send(idx_clone).unwrap();
+        task.schedule_strategy().handle(task.clone()).await;
+        sender.send(idx).unwrap();
     }
 }
