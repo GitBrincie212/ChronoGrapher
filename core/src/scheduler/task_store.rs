@@ -4,9 +4,8 @@ pub mod default;
 pub use default::*;
 
 use crate::scheduler::clock::SchedulerClock;
-use crate::task::ErasedTask;
+use crate::task::{ErasedTask};
 use async_trait::async_trait;
-use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -46,7 +45,7 @@ use crate::task::TaskSchedule;
 /// - [`SchedulerTaskStore::remove`]
 /// - [`SchedulerTaskStore::clear`]
 #[async_trait]
-pub trait SchedulerTaskStore: Debug + Send + Sync {
+pub trait SchedulerTaskStore: Send + Sync {
     async fn init(&self) {}
 
     /// Retrieves / Peeks the earliest task, without modifying any internal storage
@@ -129,7 +128,7 @@ pub trait SchedulerTaskStore: Debug + Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
-    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: Arc<ErasedTask>) -> usize;
+    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: ErasedTask) -> usize;
 
     /// Removes a task based on an index, depending on the implementation,
     /// it may handle differently the case where the index does not exist
