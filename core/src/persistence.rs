@@ -4,7 +4,7 @@ pub use backend::PersistPath;
 pub use backend::PersistenceBackend;
 
 use erased_serde::Serialize as ErasedSerialized;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
 pub struct PersistenceContext(
