@@ -7,32 +7,31 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
-use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 
-struct DefaultScheduledItem(Arc<ErasedTask>, SystemTime, usize);
+struct DefaultScheduledItem(SystemTime, usize);
 
 impl Eq for DefaultScheduledItem {}
 
 impl PartialEq<Self> for DefaultScheduledItem {
     fn eq(&self, other: &Self) -> bool {
-        self.1 == other.1
+        self.0 == other.0
     }
 }
 
 #[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd<Self> for DefaultScheduledItem {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.1.partial_cmp(&other.1)
+        self.0.partial_cmp(&other.0)
     }
 }
 
 impl Ord for DefaultScheduledItem {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.1.cmp(&other.1)
+        self.0.cmp(&other.0)
     }
 }
 
@@ -101,21 +100,6 @@ pub struct DefaultSchedulerTaskStore<T: PersistenceBackend = ()> {
     backend: Arc<T>,
 }
 
-impl<T: PersistenceBackend> Debug for DefaultSchedulerTaskStore<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "EphemeralDefaultTaskStore [{:?}]",
-            self.earliest_sorted
-                .blocking_lock()
-                .iter()
-                .rev()
-                .map(|x| x.0.0.clone())
-                .collect::<Vec<_>>()
-        )
-    }
-}
-
 impl DefaultSchedulerTaskStore {
     /// Creates / Constructs a new [`DefaultSchedulerTaskStore`] instance which
     /// only operates in-memory, one can construct a version for persistence
@@ -178,7 +162,8 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
         let early_lock = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
         let item = &rev_item.0;
-        Some((item.0.clone(), item.1, item.2))
+        let task = self.tasks.get(&item.1)?;
+        Some((task.value().clone(), item.0, item.1))
     }
 
     async fn get(&self, idx: &usize) -> Option<Arc<ErasedTask>> {
@@ -202,23 +187,19 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
 
         let mut lock = self.earliest_sorted.lock().await;
         lock.push(Reverse(DefaultScheduledItem(
-            task.clone(),
             sys_future_time,
             *idx,
         )));
     }
 
-    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: Arc<ErasedTask>) -> usize {
+    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: ErasedTask) -> usize {
         let sys_last_exec = clock.now().await;
         let last_exec = system_time_to_date_time(sys_last_exec);
         let future_time = task.schedule().next_after(&last_exec).unwrap();
-        let idx: usize = {
-            let idx = self.id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            self.tasks.insert(idx, task.clone());
-            idx
-        };
+        let idx: usize = self.id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.tasks.insert(idx, Arc::new(task));
         let sys_future_time = SystemTime::from(future_time);
-        let entry = DefaultScheduledItem(task, sys_future_time, idx);
+        let entry = DefaultScheduledItem(sys_future_time, idx);
         let mut earliest_tasks = self.earliest_sorted.lock().await;
         earliest_tasks.push(Reverse(entry));
 
