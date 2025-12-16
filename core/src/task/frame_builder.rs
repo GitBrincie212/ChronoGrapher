@@ -255,7 +255,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ) -> TaskFrameBuilder<ConditionalFrame<T>> {
         let condition: ConditionalFrame<T> = ConditionalFrame::<T>::builder()
             .predicate(predicate)
-            .frame(&self.0)
+            .frame(self.0)
             .error_on_false(false)
             .build();
         TaskFrameBuilder(condition)
@@ -297,8 +297,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ) -> TaskFrameBuilder<ConditionalFrame<T, T2>> {
         let condition: ConditionalFrame<T, T2> = ConditionalFrame::<T, T2>::fallback_builder()
             .predicate(predicate)
-            .frame(&self.0)
-            .fallback(&fallback)
+            .frame(self.0)
+            .fallback(fallback)
             .error_on_false(false)
             .build();
         TaskFrameBuilder(condition)
@@ -336,7 +336,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         dependency: impl FrameDependency + 'static,
     ) -> TaskFrameBuilder<DependencyTaskFrame<T>> {
         let dependent: DependencyTaskFrame<T> = DependencyTaskFrame::builder()
-            .task(self.0)
+            .frame(self.0)
             .dependencies(vec![Arc::new(dependency)])
             .build();
 
@@ -376,7 +376,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         dependencies: Vec<Arc<dyn FrameDependency>>,
     ) -> TaskFrameBuilder<DependencyTaskFrame<T>> {
         let dependent: DependencyTaskFrame<T> = DependencyTaskFrame::builder()
-            .task(self.0)
+            .frame(self.0)
             .dependencies(dependencies)
             .build();
 
