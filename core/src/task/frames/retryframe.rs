@@ -358,13 +358,13 @@ impl<T: TaskFrame, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2> {
 
 #[async_trait]
 impl<T: TaskFrame, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
-    async fn execute(&self, ctx: Arc<TaskContext>) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
         let subdivided = ctx.subdivided_ctx(self.frame.clone());
         for retry in 0u32..self.retries.get() {
             ctx.emit::<OnRetryAttemptStart>(&retry).await;
 
-            error = self.frame.execute(subdivided.clone()).await.err();
+            error = self.frame.execute(&subdivided).await.err();
 
             ctx.emit::<OnRetryAttemptEnd>(&(retry, error.clone())).await;
 

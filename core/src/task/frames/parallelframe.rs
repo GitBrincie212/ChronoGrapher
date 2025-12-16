@@ -76,7 +76,7 @@ use std::sync::Arc;
 /// - [`GroupedTaskFramesExecBehavior`]
 //noinspection DuplicatedCode
 pub struct ParallelTaskFrame {
-    tasks: Vec<&'static dyn TaskFrame>,
+    tasks: Vec<Arc<dyn TaskFrame>>,
     policy: Arc<dyn GroupedTaskFramesExecBehavior>,
 }
 
@@ -98,7 +98,7 @@ impl ParallelTaskFrame {
     /// - [`GroupedTaskFramesExecBehavior`]
     /// - [`ParallelTaskFrame::new_with`]
     /// - [`ParallelTaskFrame`]
-    pub fn new(tasks: Vec<&'static dyn TaskFrame>) -> Self {
+    pub fn new(tasks: Vec<Arc<dyn TaskFrame>>) -> Self {
         Self::new_with(tasks, GroupedTaskFramesQuitOnFailure)
     }
 
@@ -123,7 +123,7 @@ impl ParallelTaskFrame {
     /// - [`ParallelTaskFrame::new`]
     /// - [`ParallelTaskFrame`]
     pub fn new_with(
-        tasks: Vec<&'static dyn TaskFrame>,
+        tasks: Vec<Arc<dyn TaskFrame>>,
         policy: impl GroupedTaskFramesExecBehavior + 'static,
     ) -> Self {
         Self {
@@ -140,10 +140,11 @@ impl TaskFrame for ParallelTaskFrame {
 
         for frame in self.tasks.iter() {
             let frame_clone = frame.clone();
+            let ctx_clone = ctx.clone();
             js.spawn(async move {
-                ctx.emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
-                let result = ctx.subdivide(frame_clone.clone()).await;
-                ctx.emit::<OnChildEnd>(&result.clone().err()).await; // skipcq: RS-E1015
+                ctx_clone.emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
+                let result = ctx_clone.subdivide(frame_clone.clone()).await;
+                ctx_clone.emit::<OnChildEnd>(&result.clone().err()).await; // skipcq: RS-E1015
                 result
             });
         }

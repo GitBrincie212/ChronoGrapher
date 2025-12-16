@@ -89,7 +89,7 @@ pub struct DependencyTaskFrameConfig<T: TaskFrame> {
     /// # See Also
     /// - [`TaskFrame`]
     /// - [`FrameDependency`]
-    task: T,
+    frame: T,
 
     /// A collection of [`FrameDependency`] tied to the inner [`TaskFrame`]. Where
     /// all the dependencies listed must be resolved in order to execute the wrapped
@@ -134,7 +134,7 @@ pub struct DependencyTaskFrameConfig<T: TaskFrame> {
 impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T> {
     fn from(config: DependencyTaskFrameConfig<T>) -> Self {
         Self {
-            frame: config.task,
+            frame: Arc::new(config.frame),
             dependencies: config.dependencies,
             dependent_behaviour: config.dependent_behaviour,
         }
@@ -221,7 +221,7 @@ define_event!(
 /// - [`DependentFailBehavior`]
 /// - [`DependencyTaskFrame::builder`]
 pub struct DependencyTaskFrame<T: TaskFrame> {
-    frame: T,
+    frame: Arc<T>,
     dependencies: Vec<Arc<dyn FrameDependency>>,
     dependent_behaviour: Arc<dyn DependentFailBehavior>,
 } // TODO: See how to persist dependencies and dependent behaviour
@@ -276,7 +276,7 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             return self.dependent_behaviour.execute().await;
         }
 
-        ctx.subdivide(&self.frame).await
+        ctx.subdivide(self.frame.clone()).await
     }
 }
 

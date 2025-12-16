@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::define_event;
 use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
@@ -67,7 +68,7 @@ define_event!(
 /// - [`TaskFrame`]
 #[derive(Serialize, Deserialize)]
 pub struct DelayTaskFrame<T: TaskFrame> {
-    frame: T,
+    frame: Arc<T>,
     delay: Duration,
 }
 
@@ -86,7 +87,10 @@ impl<T: TaskFrame> DelayTaskFrame<T> {
     /// - [`TaskFrame`]
     /// - [`DelayTaskFrame`]
     pub fn new(frame: T, delay: Duration) -> Self {
-        DelayTaskFrame { frame, delay }
+        DelayTaskFrame { 
+            frame: Arc::new(frame), 
+            delay 
+        }
     }
 }
 
@@ -97,7 +101,7 @@ impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
         let deadline = Instant::now() + self.delay;
         tokio::time::sleep_until(deadline).await;
         ctx.emit::<OnDelayEnd>(&self.delay).await;
-        ctx.subdivide(&self.frame).await
+        ctx.subdivide(self.frame.clone()).await
     }
 }
 

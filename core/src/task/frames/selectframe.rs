@@ -180,8 +180,9 @@ impl TaskFrame for SelectTaskFrame {
         let idx = self.accessor.select(ctx).await;
         if let Some(frame) = self.frames.get(idx) {
             ctx.emit::<OnTaskFrameSelection>(&idx).await;
-            return ctx.subdivide(frame).await;
+            return ctx.subdivide(frame.clone()).await;
         }
+        
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,
             "SelectTaskFrame".to_owned(),

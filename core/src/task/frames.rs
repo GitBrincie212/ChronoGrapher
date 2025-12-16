@@ -22,9 +22,7 @@ pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
-use crate::task::{
-    ScheduleStrategy, Task, TaskHook, TaskHookContainer, TaskHookEvent, TaskSchedule,
-};
+use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
 use async_trait::async_trait;
 pub use conditionframe::*;
 pub use delayframe::*;
@@ -75,20 +73,20 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - [`TaskPriority`]
 /// - [`TaskEventEmitter`]
 pub struct TaskContext {
-    hooks_container: &'static TaskHookContainer,
+    hooks_container: Arc<TaskHookContainer>,
     priority: usize,
     runs: u64,
     depth: u64,
-    debug_label: &'static str,
+    debug_label: Arc<str>,
     max_runs: Option<NonZeroU64>,
-    frame: &'static dyn TaskFrame,
+    frame: Arc<dyn TaskFrame>,
     id: Uuid,
 }
 
 impl Clone for TaskContext {
     fn clone(&self) -> Self {
         Self {
-            hooks_container: self.hooks_container,
+            hooks_container: self.hooks_container.clone(),
             priority: self.priority,
             runs: self.runs,
             depth: self.depth,
@@ -129,36 +127,34 @@ impl TaskContext {
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
     /// - [`TaskContext`]
-    pub(crate) fn new(
-        task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
-    ) -> Self {
+    pub(crate) fn new(task: &ErasedTask) -> Self {
         Self {
-            hooks_container: &task.hooks,
+            hooks_container: task.hooks.clone(),
             priority: task.priority,
             runs: task.runs.load(Ordering::Relaxed),
             depth: 0,
-            debug_label: &task.debug_label,
+            debug_label: task.debug_label.clone(),
             max_runs: task.max_runs,
-            frame: &task.frame,
+            frame: task.frame.clone(),
             id: task.id.clone(),
         }
     }
 
-    pub(crate) fn subdivided_ctx(&self, frame: &'static dyn TaskFrame) -> Self {
+    pub(crate) fn subdivided_ctx(&self, frame: Arc<dyn TaskFrame>) -> Self {
         Self {
             hooks_container: self.hooks_container.clone(),
             priority: self.priority,
             runs: self.runs,
             debug_label: self.debug_label.clone(),
             max_runs: self.max_runs,
-            frame,
+            frame: frame.clone(),
             id: self.id,
             depth: self.depth + 1,
         }
     }
 
-    pub async fn subdivide(&self, frame: &'static dyn TaskFrame) -> Result<(), TaskError> {
-        let child_ctx = self.subdivided_ctx(frame);
+    pub async fn subdivide(&self, frame: Arc<dyn TaskFrame>) -> Result<(), TaskError> {
+        let child_ctx = self.subdivided_ctx(frame.clone());
         frame.execute(&child_ctx).await
     }
 
@@ -191,8 +187,8 @@ impl TaskContext {
     ///
     /// # See Also
     /// - [`TaskContext`]
-    pub fn debug_label(&self) -> &'static str {
-        &self.debug_label
+    pub fn debug_label(&self) -> Arc<str> {
+        self.debug_label.clone()
     }
 
     /// Accesses the max_runs field, returning it in the process

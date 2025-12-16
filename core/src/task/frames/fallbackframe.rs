@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::define_event;
 use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
@@ -66,7 +67,7 @@ define_event!(
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
 #[derive(Serialize, Deserialize)]
-pub struct FallbackTaskFrame<T, T2>(T, T2);
+pub struct FallbackTaskFrame<T, T2>(Arc<T>, Arc<T2>);
 
 impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
     /// Creates / Constructs a new [`FallbackTaskFrame`] instance based on the
@@ -85,18 +86,17 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
     /// # See Also
     /// - [`ExecutionTaskFrame`]
     pub fn new(primary: T, secondary: T2) -> Self {
-        Self(primary, secondary)
+        Self(Arc::new(primary), Arc::new(secondary))
     }
 }
 
 #[async_trait]
 impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
-        let primary_result = self.0.execute(ctx).await;
-        match primary_result {
+        match ctx.subdivide(self.0.clone()).await {
             Err(err) => {
                 ctx.clone().emit::<OnFallbackEvent>(&err).await;
-                ctx.subdivide(&self.1).await
+                ctx.subdivide(self.1.clone()).await
             }
             res => res,
         }

@@ -87,7 +87,7 @@ where
     /// - [`ConditionalFrame::builder`]
     /// - [`ConditionalFrame::fallback_builder`]
     /// - [`ConditionalFramePredicate`]
-    fallback: &'static T2,
+    fallback: T2,
 
     /// The [`TaskFrame`] for handling the execution in
     /// case the [`ConditionalFramePredicate`] returned true,
@@ -103,7 +103,7 @@ where
     /// # See Also
     /// - [`TaskFrame`]
     /// - [`ConditionalFramePredicate`]
-    frame: &'static T,
+    frame: T,
 
     /// The [`ConditionalFramePredicate`] for handling the decision-making on whenever
     /// to execute the [`TaskFrame`] or not based on a boolean value
@@ -172,8 +172,8 @@ where
 {
     fn from(config: ConditionalFrameConfig<T, T2>) -> Self {
         ConditionalFrame {
-            frame: &config.frame,
-            fallback: &config.fallback,
+            frame: Arc::new(config.frame),
+            fallback: Arc::new(config.fallback),
             predicate: config.predicate,
             error_on_false: config.error_on_false,
         }
@@ -255,8 +255,8 @@ where
 /// - [`TaskEvent`]
 /// - [`FallbackTaskFrame`]
 pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
-    frame: T,
-    fallback: T2,
+    frame: Arc<T>,
+    fallback: Arc<T2>,
     predicate: Arc<dyn ConditionalFramePredicate>,
     error_on_false: bool,
 } // TODO: See how to persist conditional predicate
@@ -267,7 +267,7 @@ pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
 pub type NonFallbackCFCBuilder<T> = ConditionalFrameConfigBuilder<
     T,
     NoOperationTaskFrame,
-    ((&'static NoOperationTaskFrame,), (), (), ()),
+    ((NoOperationTaskFrame,), (), (), ()),
 >;
 
 impl<T> ConditionalFrame<T>
@@ -286,7 +286,7 @@ where
     /// - [`ConditionalFrame`]
     /// - [`ConditionalFrame::fallback_builder`]
     pub fn builder() -> NonFallbackCFCBuilder<T> {
-        ConditionalFrameConfig::builder().fallback(&NoOperationTaskFrame)
+        ConditionalFrameConfig::builder().fallback(NoOperationTaskFrame)
     }
 }
 
@@ -316,7 +316,7 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
         let result = self.predicate.execute(ctx).await;
         if result {
             ctx.clone().emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
-            return ctx.subdivide(self.frame).await;
+            return ctx.subdivide(self.frame.clone()).await;
         }
 
         ctx.clone().emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
