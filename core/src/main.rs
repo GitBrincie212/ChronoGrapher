@@ -24,7 +24,7 @@ async fn main() {
             }),
         );
 
-        CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+        CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
     }
     dbg!("STARTING");
 
