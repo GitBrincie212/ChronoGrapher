@@ -160,7 +160,7 @@ pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
 
 /// [`NonObserverTaskHook`] is an alias for [`TaskHook`] where the event type is
 /// ``()`` (i.e. No event). This is the same as doing:
-/// ```rust
+/// ```ignore
 /// #[async_trait]
 /// impl TaskHook<()> for T {
 ///     async fn on_event(
