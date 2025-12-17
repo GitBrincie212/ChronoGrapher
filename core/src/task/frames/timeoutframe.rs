@@ -105,10 +105,8 @@ impl<T: TaskFrame> TimeoutTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
-        let result = tokio::time::timeout(
-            self.max_duration, 
-            ctx.subdivide(self.frame.clone())
-        ).await;
+        let result =
+            tokio::time::timeout(self.max_duration, ctx.subdivide(self.frame.clone())).await;
 
         if let Ok(inner) = result {
             return inner;

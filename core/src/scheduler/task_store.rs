@@ -4,7 +4,7 @@ pub mod default;
 pub use default::*;
 
 use crate::scheduler::clock::SchedulerClock;
-use crate::task::{ErasedTask};
+use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::SystemTime;

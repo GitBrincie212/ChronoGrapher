@@ -182,7 +182,7 @@ impl TaskFrame for SelectTaskFrame {
             ctx.emit::<OnTaskFrameSelection>(&idx).await;
             return ctx.subdivide(frame.clone()).await;
         }
-        
+
         Err(Arc::new(ChronographerErrors::TaskIndexOutOfBounds(
             idx,
             "SelectTaskFrame".to_owned(),

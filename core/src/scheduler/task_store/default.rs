@@ -186,10 +186,7 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
         let sys_future_time = date_time_to_system_time(future_time);
 
         let mut lock = self.earliest_sorted.lock().await;
-        lock.push(Reverse(DefaultScheduledItem(
-            sys_future_time,
-            *idx,
-        )));
+        lock.push(Reverse(DefaultScheduledItem(sys_future_time, *idx)));
     }
 
     async fn store(&self, clock: Arc<dyn SchedulerClock>, task: ErasedTask) -> usize {
