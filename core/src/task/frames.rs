@@ -91,7 +91,7 @@ impl Clone for TaskContext {
             runs: self.runs,
             depth: self.depth,
             debug_label: self.debug_label.clone(),
-            max_runs: self.max_runs.clone(),
+            max_runs: self.max_runs,
             frame: self.frame.clone(),
             id: self.id.clone(),
         }
