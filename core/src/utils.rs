@@ -3,45 +3,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[macro_export]
 macro_rules! define_generic_event {
-    ($name: ident) => {
-        #[doc =
-            concat!(
-                "[`", stringify!($name), "`] is an implementation of [`TaskHookEvent`] (a system used \
-                closely with [`TaskHook`]). The concrete payload type of [`", stringify!($name),
-                "`] is ``TaskHookEvent<P>``. Unlike most events, this is generic-based TaskEvent, it has \
-                to do with lifecycle of TaskHooks"
-            )
-        ]
-        ///
-        /// # Constructor(s)
-        #[doc =
-            concat!(
-                "When constructing a [`", stringify!($name), "`] due to the fact this is a marker ``struct``, \
-                making it as such zero-sized, one can either use [`", stringify!($name), "::default`]
-                or via simply pasting the struct name ([`", stringify!($name), "`])"
-            )
-        ]
-        ///
-        /// # Trait Implementation(s)
-        #[doc =
-            concat!(
-                "It is obvious that [`", stringify!($name), "`] implements the [`TaskHookEvent`], but also many \
-                other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`] \
-                and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]"
-            )
-        ]
-        ///
-        /// # Cloning Semantics
-        #[doc = concat!(
-            "When cloning / copy a [`", stringify!($name), "`] it fully creates a \
-            new independent version of that instance"
-        )]
-        ///
-        /// # See Also
-        /// - [`TaskHook`]
-        /// - [`TaskHookEvent`]
-        /// - [`Task`]
-        /// - [`TaskFrame`]
+    ($(#[$($attrss:tt)*])* $name: ident) => {
+        $(#[$($attrss)*])*
         #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
         pub struct $name<E: TaskHookEvent>(PhantomData<E>);
 
@@ -59,45 +22,30 @@ macro_rules! define_generic_event {
 }
 
 #[macro_export]
+macro_rules! define_event_group {
+    ($(#[$($attrss:tt)*])* $name: ident, $($events: ident),*) => {
+        $(#[$($attrss)*])*
+        pub trait $name: TaskHookEvent {}
+
+        $(
+            impl $name for $events {}
+        )*
+    };
+
+    ($(#[$($attrss:tt)*])* $name: ident, $payload: ty | $($events: ident),*) => {
+        $(#[$($attrss)*])*
+        pub trait $name: TaskHookEvent<Payload = $payload> {}
+
+        $(
+            impl $name for $events {}
+        )*
+    };
+}
+
+#[macro_export]
 macro_rules! define_event {
     ($(#[$($attrss:tt)*])* $name: ident, $payload: ty) => {
-        #[doc =
-            concat!(
-                "[`", stringify!($name), "`] is an implementation of [`TaskHookEvent`] (a system used \
-                closely with [`TaskHook`]). The concrete payload type of [`", stringify!($name),
-                "`] is ``", stringify!($payload), "``"
-            )
-        ]
-        ///
-        /// # Constructor(s)
-        #[doc =
-            concat!(
-                "When constructing a [`", stringify!($name), "`] due to the fact this is a marker ``struct``, \
-                making it as such zero-sized, one can either use [`", stringify!($name), "::default`]
-                or via simply pasting the struct name ([`", stringify!($name), "`])"
-            )
-        ]
-        ///
-        /// # Trait Implementation(s)
-        #[doc =
-            concat!(
-                "It is obvious that [`", stringify!($name), "`] implements the [`TaskHookEvent`], but also many \
-                other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`] \
-                and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]"
-            )
-        ]
-        ///
-        /// # Cloning Semantics
-        #[doc = concat!(
-            "When cloning / copy a [`", stringify!($name), "`] it fully creates a \
-            new independent version of that instance"
-        )]
-        ///
         $(#[$($attrss)*])*
-        /// - [`TaskHook`]
-        /// - [`TaskHookEvent`]
-        /// - [`Task`]
-        /// - [`TaskFrame`]
         #[derive(Default, Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
         pub struct $name;
         impl<'a> TaskHookEvent for $name {
