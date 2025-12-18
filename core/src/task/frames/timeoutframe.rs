@@ -8,13 +8,35 @@ use std::sync::Arc;
 use std::time::Duration;
 
 define_event!(
+    /// [`OnTimeout`] is an implementation of [`TaskHookEvent`] (a system used closely with [`TaskHook`]).
+    /// The concrete payload type of [`OnTimeout`] is ``Duration`` indicating the maximum duration
+    /// allowed for the [`TaskFrame`] to run
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnTimeout`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnTimeout::default`] or via simply pasting
+    /// the struct name ([`OnTimeout`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnTimeout`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
     /// # Event Triggering
     /// [`OnTimeout`] is triggered when the [`TimeoutTaskFrame`] sees
     /// the wrapped [`TaskFrame`] has exceeded its maximum duration limit
     ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnTimeout`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`TimeoutTaskFrame`]
-    OnTimeout, ()
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    OnTimeout, Duration
 );
 
 /// Represents a **timeout task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
@@ -112,7 +134,7 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
             return inner;
         }
 
-        ctx.emit::<OnTimeout>(&()).await; // skipcq: RS-E1015
+        ctx.emit::<OnTimeout>(&self.max_duration).await; // skipcq: RS-E1015
         Err(Arc::new(std::io::Error::new(
             std::io::ErrorKind::TimedOut,
             "Task timed out",
