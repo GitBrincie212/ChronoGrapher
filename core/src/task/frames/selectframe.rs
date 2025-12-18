@@ -62,13 +62,36 @@ where
 }
 
 define_event!(
+    /// [`OnTaskFrameSelection`] is an implementation of [`TaskHookEvent`] (a system used closely
+    /// with [`TaskHook`]). The concrete payload type of [`OnTaskFrameSelection`]
+    /// is ``(usize, Arc<dyn TaskFrame>)``, the first value describes the index the [`TaskFrame`]
+    /// was selected and the second value is the actual [`TaskFrame`]
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnTaskFrameSelection`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnTaskFrameSelection::default`] or via simply pasting
+    /// the struct name ([`OnTaskFrameSelection`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnTaskFrameSelection`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
     /// # Event Triggering
     /// [`OnTaskFrameSelection`] is triggered when the [`SelectTaskFrame`] has
     /// successfully selected a [`TaskFrame`] (without an index out of bounds error)
     ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnTaskFrameSelection`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`SelectTaskFrame`]
-    OnTaskFrameSelection, usize
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    OnTaskFrameSelection, (usize, Arc<dyn TaskFrame>)
 );
 
 /// Represents a **select task frame** which wraps multiple [`TaskFrame`] and picks one [`TaskFrame`] based
@@ -179,7 +202,7 @@ impl TaskFrame for SelectTaskFrame {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         let idx = self.accessor.select(ctx).await;
         if let Some(frame) = self.frames.get(idx) {
-            ctx.emit::<OnTaskFrameSelection>(&idx).await;
+            ctx.emit::<OnTaskFrameSelection>(&(idx, frame.clone())).await;
             return ctx.subdivide(frame.clone()).await;
         }
 
