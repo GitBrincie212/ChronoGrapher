@@ -2,7 +2,7 @@ use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
-use crate::{define_event, define_generic_event};
+use crate::{define_event, define_event_group, define_generic_event};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -14,21 +14,26 @@ use std::sync::Arc;
 pub mod events {
     pub use crate::task::OnTaskEnd;
     pub use crate::task::OnTaskStart;
-    pub use crate::task::frames::OnChildEnd;
-    pub use crate::task::frames::OnChildStart;
+    pub use crate::task::frames::OnChildTaskFrameEnd;
+    pub use crate::task::frames::OnChildTaskFrameStart;
+    pub use crate::task::frames::ChildTaskFrameEvents;
     pub use crate::task::frames::OnDelayEnd;
     pub use crate::task::frames::OnDelayStart;
+    pub use crate::task::frames::DelayEvents;
     pub use crate::task::frames::OnDependencyValidation;
     pub use crate::task::frames::OnFallbackEvent;
     pub use crate::task::frames::OnFalseyValueEvent;
+    pub use crate::task::frames::OnTruthyValueEvent;
+    pub use crate::task::frames::ConditionalEvents;
     pub use crate::task::frames::OnRetryAttemptEnd;
     pub use crate::task::frames::OnRetryAttemptStart;
+    pub use crate::task::frames::RetryAttemptEvents;
     pub use crate::task::frames::OnTaskFrameSelection;
     pub use crate::task::frames::OnTimeout;
-    pub use crate::task::frames::OnTruthyValueEvent;
     pub use crate::task::hooks::OnHookAttach;
     pub use crate::task::hooks::OnHookDetach;
     pub use crate::task::hooks::TaskHookEvent;
+    pub use crate::task::hooks::TaskLifecycleEvents;
 } // skipcq: RS-D1001
 
 /// [`TaskHookEvent`] is a trait used for describing [`Task`] or [`TaskFrame`] events for [`TaskHook`]
@@ -36,7 +41,7 @@ pub mod events {
 /// a payload type for the event (what kind of information does the event include inside) and
 /// a Persistence ID
 ///
-/// There are 3 types of [`TaskHookEvent`], These are:
+/// There are 4 types of [`TaskHookEvent`], These are:
 /// 1. **Hook Lifecycle Events** These are [`OnHookAttach`] and [`OnHookDetach`], they are emitted
 /// when a [`TaskHook`] is either attached or detached from a [`TaskHookContainer`]. When either
 /// events are triggered, unlike most other implementations of [`TaskHookEvent`], they contain a
@@ -49,9 +54,14 @@ pub mod events {
 /// 3. **TaskFrame Events** These have to do with [`TaskFrame`] types. They are emitted
 /// from [`TaskFrame`], other than that they have nothing else unique about them
 ///
+/// 4. **TaskHook Event Groups** These are typically traits, their goal is to group relevant events
+/// making it possible for TaskHooks to run the same code in a group of events (without boilerplate).
+/// They cannot not be registered onto TaskHooksContainer and they are part of the TaskHook implementation
+/// phase
+///
 /// # Trait Implementation(s)
 /// There are multiple implementations for [`TaskHookEvent`] present in ChronoGrapher, almost
-/// all [`TaskFrame`] include at least one relevant [`TaskHookEvent`], a list of them are:
+/// all [`TaskFrame`] include at least one relevant [`TaskHookEvent`], a list of standalone events are:
 /// - [`OnHookAttach`] - Triggered when a [`TaskHook`] is attached
 /// - [`OnHookDetach`] - Triggered when a [`TaskHook`] is detached
 /// - [`OnTaskStart`] - Triggered when a [`Task`] starts execution
@@ -63,9 +73,9 @@ pub mod events {
 /// - [`OnRetryAttemptEnd`] - Triggered when a retry attempt is finished in [`RetriableTaskFrame`]
 /// - [`OnDelayStart`] - Triggers when the idling process starts in [`DelayTaskFrame`]
 /// - [`OnDelayEnd`] - Triggers when the idling process ends in [`DelayTaskFrame`]
-/// - [`OnChildStart`] - Triggers when a wrapped child [`TaskFrame`] from
+/// - [`OnChildTaskFrameStart`] - Triggers when a wrapped child [`TaskFrame`] from
 /// [`SequentialTaskFrame`] / [`ParallelTaskFrame`] starts
-/// - [`OnChildEnd`] - Triggers when a wrapped child [`TaskFrame`] from
+/// - [`OnChildTaskFrameEnd`] - Triggers when a wrapped child [`TaskFrame`] from
 /// [`SequentialTaskFrame`] / [`ParallelTaskFrame`] ends
 /// - [`OnTaskFrameSelection`] - Triggers when a [`TaskFrame`] is selected from [`SelectTaskFrame`]
 /// - [`OnFallbackEvent`] - Triggers when the primary [`TaskFrame`] fails in [`FallbackTaskFrame`]
@@ -103,8 +113,8 @@ pub mod events {
 /// - [`OnRetryAttemptEnd`]
 /// - [`OnDelayStart`]
 /// - [`OnDelayEnd`]
-/// - [`OnChildStart`]
-/// - [`OnChildEnd`]
+/// - [`OnChildTaskFrameStart`]
+/// - [`OnChildTaskFrameEnd`]
 /// - [`OnTaskFrameSelection`]
 /// - [`OnFallbackEvent`]
 /// - [`OnDependencyValidation`]
@@ -220,17 +230,136 @@ impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
 }
 
 define_event!(
+    /// [`OnTaskStart`] is an implementation of [`TaskHookEvent`] (a system used closely with [`TaskHook`]).
+    /// The concrete payload type of [`OnTaskStart`] is ``()``
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnTaskStart`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnTaskStart::default`] or via simply pasting
+    /// the struct name ([`OnTaskStart`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnTaskStart`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnTaskStart`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnTaskStart, ()
 );
 
 define_event!(
+    /// [`OnTaskEnd`] is an implementation of [`TaskHookEvent`] (a system used closely with [`TaskHook`]).
+    /// The concrete payload type of [`OnTaskEnd`] is ``()``
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnTaskEnd`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnTaskEnd::default`] or via simply pasting
+    /// the struct name ([`OnTaskEnd`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnTaskEnd`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnTaskEnd`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnTaskEnd, Option<TaskError>
 );
 
-define_generic_event!(OnHookAttach);
-define_generic_event!(OnHookDetach);
+define_event_group!(
+    /// [`TaskLifecycleEvents`] is a marker trait, more specifically a [`TaskHookEvent`] group of
+    /// [`TaskHookEvent`] (a system used closely with [`TaskHook`]). It contains no common payload type
+    ///
+    /// # Supertrait(s)
+    /// Since it is a [`TaskHookEvent`] group, it requires every descended to implement the [`TaskHookEvent`],
+    /// because no common payload type is present, any payload type is accepted
+    ///
+    /// # Trait Implementation(s)
+    /// Currently, two [`TaskHookEvent`] implement the [`TaskLifecycleEvents`] marker trait
+    /// (event group). Those being [`OnTaskStart`] and [`OnTaskEnd`]
+    ///
+    /// # Object Safety
+    /// [`TaskLifecycleEvents`] is **NOT** object safe, due to the fact it implements the
+    /// [`TaskHookEvent`] which itself is not object safe
+    ///
+    /// # See Also
+    /// - [`OnTaskStart`]
+    /// - [`OnTaskEnd`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    TaskLifecycleEvents,
+    OnTaskStart, OnTaskEnd
+);
+
+define_generic_event!(
+    /// [`TaskHook`]). The concrete payload type of [`OnHookAttach`] is ``TaskHookEvent<P>``.
+    /// Unlike most events, this is generic-based TaskEvent, it has to do with lifecycle of TaskHooks
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnHookAttach`] due to the fact this is a marker ``struct``,
+    /// making it as such zero-sized, one can either use [`OnHookAttach::default`]
+    /// or via simply pasting the struct name ([`OnHookAttach`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnHookAttach`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnHookAttach`] it fully creates a
+    /// new independent version of that instance
+    ///
+    /// # See Also
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    OnHookAttach
+);
+
+define_generic_event!(
+    /// [`OnHookDetach`] is an implementation of [`TaskHookEvent`] (a system used closely with
+    /// [`TaskHook`]). The concrete payload type of [`OnHookDetach`] is ``TaskHookEvent<P>``.
+    /// Unlike most events, this is generic-based TaskEvent, it has to do with lifecycle of TaskHooks
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnHookDetach`] due to the fact this is a marker ``struct``,
+    /// making it as such zero-sized, one can either use [`OnHookDetach::default`]
+    /// or via simply pasting the struct name ([`OnHookDetach`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnHookDetach`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnHookDetach`] it fully creates a
+    /// new independent version of that instance
+    ///
+    /// # See Also
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    OnHookDetach
+);
 
 /// [`TaskHookContainer`] is a container that hosts one or multiple [`TaskHook`] instance(s)
 /// which have subscribed to one or multiple [`TaskHookEvent(s)`]. This system is utilized
