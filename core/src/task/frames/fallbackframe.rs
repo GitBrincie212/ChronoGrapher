@@ -8,9 +8,9 @@ use serde::Serialize;
 use std::sync::Arc;
 
 define_event!(
-    /// [`OnFallbackEvent`] is an implementation of [`TaskHookEvent`] (a system used closely 
-    /// with [`TaskHook`]). The concrete payload type of [`OnFallbackEvent`] 
-    /// is ``TaskError`` which is the same error the inner primary TaskFrame returned 
+    /// [`OnFallbackEvent`] is an implementation of [`TaskHookEvent`] (a system used closely
+    /// with [`TaskHook`]). The concrete payload type of [`OnFallbackEvent`]
+    /// is ``TaskError`` which is the same error the inner primary TaskFrame returned
     ///
     /// # Constructor(s)
     /// When constructing a [`OnFallbackEvent`] due to the fact this is a marker ``struct``, making

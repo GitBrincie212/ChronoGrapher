@@ -142,8 +142,8 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
 }
 
 define_event!(
-    /// [`OnDependencyValidation`] is an implementation of [`TaskHookEvent`] (a system used closely 
-    /// with [`TaskHook`]). The concrete payload type of [`OnDependencyValidation`] 
+    /// [`OnDependencyValidation`] is an implementation of [`TaskHookEvent`] (a system used closely
+    /// with [`TaskHook`]). The concrete payload type of [`OnDependencyValidation`]
     /// is ``(Arc<dyn FrameDependency>, bool)``, the first value describes the ``FrameDependency``
     /// being inspected and the second value describes if the ``FrameDependency`` was resolved
     /// or not
