@@ -1,4 +1,4 @@
-use crate::define_event;
+use crate::{define_event, define_event_group};
 use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskError;
 use crate::task::TaskHookEvent;
@@ -166,23 +166,72 @@ impl PersistenceObject for GroupedTaskFramesSilent {
 }
 
 define_event!(
+    /// [`OnChildTaskFrameStart`] is an implementation of [`TaskHookEvent`] (a system used closely 
+    /// with [`TaskHook`]). The concrete payload type of [`OnChildTaskFrameStart`] 
+    /// is ``TaskError`` which is the same error the inner primary TaskFrame returned 
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnChildTaskFrameStart`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnChildTaskFrameStart::default`] or via simply pasting
+    /// the struct name ([`OnChildTaskFrameStart`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnChildTaskFrameStart`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
     /// # Event Triggering
-    /// [`OnChildStart`] is triggered when the [`ParallelTaskFrame`]'s / [`SequentialTaskFrame`]
+    /// [`OnChildTaskFrameStart`] is triggered when the [`ParallelTaskFrame`]'s / [`SequentialTaskFrame`]
     /// wrapped child [`TaskFrame`] started its execution
+    ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnChildTaskFrameStart`] it fully creates a
+    /// new independent version of that instance
     ///
     /// # See Also
     /// - [`ParallelTaskFrame`]
     /// - [`SequentialTaskFrame`]
-    OnChildStart, ()
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    OnChildTaskFrameStart, ()
 );
 
 define_event!(
     /// # Event Triggering
-    /// [`OnChildStart`] is triggered when the [`ParallelTaskFrame`]'s / [`SequentialTaskFrame`]
+    /// [`OnChildTaskFrameStart`] is triggered when the [`ParallelTaskFrame`]'s / [`SequentialTaskFrame`]
     /// wrapped child [`TaskFrame`] ended its execution with a potential error
     ///
     /// # See Also
     /// - [`ParallelTaskFrame`]
     /// - [`SequentialTaskFrame`]
-    OnChildEnd, Option<TaskError>
+    OnChildTaskFrameEnd, Option<TaskError>
+);
+
+define_event_group!(
+    /// [`ChildTaskFrameEvents`] is a marker trait, more specifically a [`TaskHookEvent`] group of
+    /// [`TaskHookEvent`] (a system used closely with [`TaskHook`]). It contains no common payload type
+    ///
+    /// # Supertrait(s)
+    /// Since it is a [`TaskHookEvent`] group, it requires every descended to implement the [`TaskHookEvent`],
+    /// since no common payload type is present, any payload type is accepted
+    ///
+    /// # Trait Implementation(s)
+    /// Currently, two [`TaskHookEvent`] implement the [`ChildTaskFrameEvents`] marker trait
+    /// (event group). Those being [`OnChildTaskFrameStart`] and [`OnChildTaskFrameEnd`]
+    ///
+    /// # Object Safety
+    /// [`ChildTaskFrameEvents`] is **NOT** object safe, due to the fact it implements the
+    /// [`TaskHookEvent`] which itself is not object safe
+    ///
+    /// # See Also
+    /// - [`OnChildTaskFrameStart`]
+    /// - [`OnChildTaskFrameEnd`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    ChildTaskFrameEvents,
+    OnChildTaskFrameStart, OnChildTaskFrameEnd
 );
