@@ -1,4 +1,4 @@
-use crate::define_event;
+use crate::{define_event, define_event_group};
 use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
@@ -10,15 +10,92 @@ use std::time::Duration;
 use tokio::time::Instant;
 
 define_event!(
+    /// [`OnDelayStart`] is an implementation of [`TaskHookEvent`] (a system used closely with [`TaskHook`]).
+    /// The concrete payload type of [`OnDelayStart`] is ``Duration``, indicating the delay time it
+    /// will take
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnDelayStart`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnDelayStart::default`] or via simply pasting
+    /// the struct name ([`OnDelayStart`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnDelayStart`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
+    /// # Event Triggering
+    /// [`OnDelayStart`] is triggered when the [`DelayTaskFrame`]'s delay countdown is about to start
+    ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnDelayStart`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`DelayTaskFrame`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnDelayStart, Duration
 );
 
 define_event!(
+    /// [`OnDelayEnd`] is an implementation of [`TaskHookEvent`] (a system used closely with [`TaskHook`]).
+    /// The concrete payload type of [`OnDelayEnd`] is ``Duration``, indicating the delay time it took
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnDelayEnd`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnDelayEnd::default`] or via simply pasting
+    /// the struct name ([`OnDelayEnd`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnDelayEnd`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
+    /// # Event Triggering
+    /// [`OnDelayEnd`] is triggered when the [`DelayTaskFrame`]'s delay countdown has ended
+    ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnDelayEnd`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`DelayTaskFrame`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnDelayEnd, Duration
+);
+
+define_event_group!(
+    /// [`DelayEvents`] is a marker trait, more specifically a [`TaskHookEvent`] group of
+    /// [`TaskHookEvent`] (a system used closely with [`TaskHook`]). It contains the common payload
+    /// type of ``Duration`` which is the duration of the delay
+    ///
+    /// # Supertrait(s)
+    /// Since it is a [`TaskHookEvent`] group, it requires every descended to implement the [`TaskHookEvent`],
+    /// and more specifically have the payload type ``Duration``
+    ///
+    /// # Trait Implementation(s)
+    /// Currently, two [`TaskHookEvent`] implement the [`DelayEvents`] marker trait
+    /// (event group). Those being [`OnDelayStart`] and [`OnDelayEnd`]
+    ///
+    /// # Object Safety
+    /// [`DelayEvents`] is **NOT** object safe, due to the fact it implements the
+    /// [`TaskHookEvent`] which itself is not object safe
+    ///
+    /// # See Also
+    /// - [`OnDelayStart`]
+    /// - [`OnDelayEnd`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    DelayEvents, Duration |
+    OnDelayStart, OnDelayEnd
 );
 
 /// Represents a **delay task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
