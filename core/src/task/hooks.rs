@@ -24,7 +24,7 @@ pub mod events {
     pub use crate::task::frames::OnFallbackEvent;
     pub use crate::task::frames::OnFalseyValueEvent;
     pub use crate::task::frames::OnTruthyValueEvent;
-    pub use crate::task::frames::ConditionalEvents;
+    pub use crate::task::frames::ConditionalPredicateEvents;
     pub use crate::task::frames::OnRetryAttemptEnd;
     pub use crate::task::frames::OnRetryAttemptStart;
     pub use crate::task::frames::RetryAttemptEvents;

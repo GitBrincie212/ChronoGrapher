@@ -160,7 +160,7 @@ define_event!(
     /// # Event Triggering
     /// [`OnTruthyValueEvent`] is triggered when the [`ConditionalFrame`]'s predicate function
     /// (which is [`ConditionalFramePredicate`]) returns a true boolean value
-    /// 
+    ///
     /// # Cloning Semantics
     /// When cloning / copy a [`OnTruthyValueEvent`] it fully creates a
     /// new independent version of that instance
@@ -208,7 +208,7 @@ define_event!(
 );
 
 define_event_group!(
-    /// [`ConditionalEvents`] is a marker trait, more specifically a [`TaskHookEvent`] group of 
+    /// [`ConditionalPredicateEvents`] is a marker trait, more specifically a [`TaskHookEvent`] group of
     /// [`TaskHookEvent`] (a system used closely with [`TaskHook`]). It contains the common payload
     /// type of ``()``
     ///
@@ -217,11 +217,11 @@ define_event_group!(
     /// and more specifically have the payload type ``()``
     ///
     /// # Trait Implementation(s)
-    /// Currently, two [`TaskHookEvent`] implement the [`ConditionalEvents`] marker trait 
+    /// Currently, two [`TaskHookEvent`] implement the [`ConditionalPredicateEvents`] marker trait
     /// (event group). Those being [`OnTruthyValueEvent`] and [`OnFalseyValueEvent`]
     ///
     /// # Object Safety
-    /// [`ConditionalEvents`] is **NOT** object safe, due to the fact it implements the
+    /// [`ConditionalPredicateEvents`] is **NOT** object safe, due to the fact it implements the
     /// [`TaskHookEvent`] which itself is not object safe
     ///
     /// # See Also
@@ -231,7 +231,7 @@ define_event_group!(
     /// - [`TaskHookEvent`]
     /// - [`Task`]
     /// - [`TaskFrame`]
-    ConditionalEvents, () |
+    ConditionalPredicateEvents, () |
     OnTruthyValueEvent, OnFalseyValueEvent
 );
 
