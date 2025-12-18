@@ -142,8 +142,36 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
 }
 
 define_event!(
+    /// [`OnDependencyValidation`] is an implementation of [`TaskHookEvent`] (a system used closely 
+    /// with [`TaskHook`]). The concrete payload type of [`OnDependencyValidation`] 
+    /// is ``(Arc<dyn FrameDependency>, bool)``, the first value describes the ``FrameDependency``
+    /// being inspected and the second value describes if the ``FrameDependency`` was resolved
+    /// or not
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnDependencyValidation`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnDependencyValidation::default`] or via simply pasting
+    /// the struct name ([`OnDependencyValidation`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnDependencyValidation`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
+    /// # Event Triggering
+    /// [`OnDependencyValidation`] is triggered when the [`DependencyTaskFrame`] has finished
+    /// validating a [`FrameDependency`] (the same one present in the payload)
+    ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnDependencyValidation`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`DependencyTaskFrame`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnDependencyValidation, (Arc<dyn FrameDependency>, bool)
 );
 
