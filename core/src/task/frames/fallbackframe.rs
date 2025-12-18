@@ -8,12 +8,34 @@ use serde::Serialize;
 use std::sync::Arc;
 
 define_event!(
+    /// [`OnFallbackEvent`] is an implementation of [`TaskHookEvent`] (a system used closely 
+    /// with [`TaskHook`]). The concrete payload type of [`OnFallbackEvent`] 
+    /// is ``TaskError`` which is the same error the inner primary TaskFrame returned 
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnFallbackEvent`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnFallbackEvent::default`] or via simply pasting
+    /// the struct name ([`OnFallbackEvent`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnFallbackEvent`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
     /// # Event Triggering
     /// [`OnFallbackEvent`] is triggered when the [`FallbackTaskFrame`]'s wrapped
     /// primary [`TaskFrame`] fails and switches to the wrapped secondary / fallback [`TaskFrame`]
     ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnFallbackEvent`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`FallbackTaskFrame`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnFallbackEvent, TaskError
 );
 
