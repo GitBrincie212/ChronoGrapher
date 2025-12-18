@@ -1,9 +1,9 @@
-use crate::{define_event, define_event_group};
 use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskError;
 use crate::task::TaskHookEvent;
 #[allow(unused_imports)]
 use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
+use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde::Serialize;
@@ -166,9 +166,9 @@ impl PersistenceObject for GroupedTaskFramesSilent {
 }
 
 define_event!(
-    /// [`OnChildTaskFrameStart`] is an implementation of [`TaskHookEvent`] (a system used closely 
-    /// with [`TaskHook`]). The concrete payload type of [`OnChildTaskFrameStart`] 
-    /// is ``TaskError`` which is the same error the inner primary TaskFrame returned 
+    /// [`OnChildTaskFrameStart`] is an implementation of [`TaskHookEvent`] (a system used closely
+    /// with [`TaskHook`]). The concrete payload type of [`OnChildTaskFrameStart`]
+    /// is ``TaskError`` which is the same error the inner primary TaskFrame returned
     ///
     /// # Constructor(s)
     /// When constructing a [`OnChildTaskFrameStart`] due to the fact this is a marker ``struct``, making

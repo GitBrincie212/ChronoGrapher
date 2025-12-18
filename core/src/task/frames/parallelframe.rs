@@ -144,7 +144,9 @@ impl TaskFrame for ParallelTaskFrame {
             js.spawn(async move {
                 ctx_clone.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
                 let result = ctx_clone.subdivide(frame_clone.clone()).await;
-                ctx_clone.emit::<OnChildTaskFrameEnd>(&result.clone().err()).await; // skipcq: RS-E1015
+                ctx_clone
+                    .emit::<OnChildTaskFrameEnd>(&result.clone().err())
+                    .await; // skipcq: RS-E1015
                 result
             });
         }

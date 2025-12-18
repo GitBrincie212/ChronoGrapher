@@ -14,27 +14,27 @@ use std::sync::Arc;
 pub mod events {
     pub use crate::task::OnTaskEnd;
     pub use crate::task::OnTaskStart;
-    pub use crate::task::hooks::TaskLifecycleEvents;
+    pub use crate::task::frames::ChildTaskFrameEvents;
+    pub use crate::task::frames::ConditionalPredicateEvents;
+    pub use crate::task::frames::DelayEvents;
     pub use crate::task::frames::OnChildTaskFrameEnd;
     pub use crate::task::frames::OnChildTaskFrameStart;
-    pub use crate::task::frames::ChildTaskFrameEvents;
     pub use crate::task::frames::OnDelayEnd;
     pub use crate::task::frames::OnDelayStart;
-    pub use crate::task::frames::DelayEvents;
     pub use crate::task::frames::OnDependencyValidation;
     pub use crate::task::frames::OnFallbackEvent;
     pub use crate::task::frames::OnFalseyValueEvent;
-    pub use crate::task::frames::OnTruthyValueEvent;
-    pub use crate::task::frames::ConditionalPredicateEvents;
     pub use crate::task::frames::OnRetryAttemptEnd;
     pub use crate::task::frames::OnRetryAttemptStart;
-    pub use crate::task::frames::RetryAttemptEvents;
     pub use crate::task::frames::OnTaskFrameSelection;
     pub use crate::task::frames::OnTimeout;
+    pub use crate::task::frames::OnTruthyValueEvent;
+    pub use crate::task::frames::RetryAttemptEvents;
     pub use crate::task::hooks::OnHookAttach;
     pub use crate::task::hooks::OnHookDetach;
-    pub use crate::task::hooks::TaskHookLifecycleEvents;
     pub use crate::task::hooks::TaskHookEvent;
+    pub use crate::task::hooks::TaskHookLifecycleEvents;
+    pub use crate::task::hooks::TaskLifecycleEvents;
 } // skipcq: RS-D1001
 
 /// [`TaskHookEvent`] is a trait used for describing [`Task`] or [`TaskFrame`] events for [`TaskHook`]
