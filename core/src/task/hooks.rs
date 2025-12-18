@@ -14,6 +14,7 @@ use std::sync::Arc;
 pub mod events {
     pub use crate::task::OnTaskEnd;
     pub use crate::task::OnTaskStart;
+    pub use crate::task::hooks::TaskLifecycleEvents;
     pub use crate::task::frames::OnChildTaskFrameEnd;
     pub use crate::task::frames::OnChildTaskFrameStart;
     pub use crate::task::frames::ChildTaskFrameEvents;
@@ -32,8 +33,8 @@ pub mod events {
     pub use crate::task::frames::OnTimeout;
     pub use crate::task::hooks::OnHookAttach;
     pub use crate::task::hooks::OnHookDetach;
+    pub use crate::task::hooks::TaskHookLifecycleEvents;
     pub use crate::task::hooks::TaskHookEvent;
-    pub use crate::task::hooks::TaskLifecycleEvents;
 } // skipcq: RS-D1001
 
 /// [`TaskHookEvent`] is a trait used for describing [`Task`] or [`TaskFrame`] events for [`TaskHook`]
@@ -360,6 +361,42 @@ define_generic_event!(
     /// - [`TaskFrame`]
     OnHookDetach
 );
+
+/// [`TaskHookLifecycleEvents`] is a marker trait with a generic ``E`` as a [`TaskHookEvent`],
+/// more specifically a [`TaskHookEvent`] group of [`TaskHookEvent`]
+/// (a system used closely with [`TaskHook`]). It as payload type the generic ``E``, however
+/// unlike most TaskHookEvent groups, as mentioned this one has a generic. If one would like
+/// to listen to all types of hook events, then use the following pattern:
+/// ```ignore
+/// impl<E2: TaskHookEvent, E: TaskHookLifecycleEvents<E2>> TaskHook<E> for ABC {
+///     async fn on_event(&self, event: E, ctx: &TaskContext, payload: &E::Payload) {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// # Supertrait(s)
+/// Since it is a [`TaskHookEvent`] group, it requires every descended to implement the [`TaskHookEvent`],
+/// and more specifically have the payload type ``E`` generic
+///
+/// # Trait Implementation(s)
+/// Currently, two [`TaskHookEvent`] implement the [`TaskHookLifecycleEvents`] marker trait
+/// (event group). Those being [`OnHookAttach`] and [`OnHookDetach`]
+///
+/// # Object Safety
+/// [`TaskHookLifecycleEvents`] is **NOT** object safe, due to the fact it implements the
+/// [`TaskHookEvent`] which itself is not object safe
+///
+/// # See Also
+/// - [`OnHookAttach`]
+/// - [`OnHookDetach`]
+/// - [`TaskHook`]
+/// - [`TaskHookEvent`]
+/// - [`Task`]
+/// - [`TaskFrame`]
+pub trait TaskHookLifecycleEvents<E: TaskHookEvent>: TaskHookEvent<Payload = E> {}
+impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookAttach<E> {}
+impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
 
 /// [`TaskHookContainer`] is a container that hosts one or multiple [`TaskHook`] instance(s)
 /// which have subscribed to one or multiple [`TaskHookEvent(s)`]. This system is utilized
