@@ -1,4 +1,4 @@
-use crate::define_event;
+use crate::{define_event, define_event_group};
 use crate::errors::ChronographerErrors;
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
@@ -144,25 +144,95 @@ where
 }
 
 define_event!(
+    /// [`OnTruthyValueEvent`] is an implementation of [`TaskHookEvent`] (a system used closely with [`TaskHook`]).
+    /// The concrete payload type of [`OnTaskEnd`] is ``()``
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnTruthyValueEvent`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnTaskEnd::default`] or via simply pasting
+    /// the struct name ([`OnTruthyValueEvent`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnTruthyValueEvent`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
     /// # Event Triggering
     /// [`OnTruthyValueEvent`] is triggered when the [`ConditionalFrame`]'s predicate function
     /// (which is [`ConditionalFramePredicate`]) returns a true boolean value
+    /// 
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnTruthyValueEvent`] it fully creates a
+    /// new independent version of that instance
     ///
     /// # See Also
     /// - [`ConditionalFrame`]
     /// - [`ConditionalFramePredicate`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnTruthyValueEvent, ()
 );
 
 define_event!(
+    /// [`OnFalseyValueEvent`] is an implementation of [`TaskHookEvent`] (a system used closely with [`TaskHook`]).
+    /// The concrete payload type of [`OnTaskEnd`] is ``()``
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnFalseyValueEvent`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnTaskEnd::default`] or via simply pasting
+    /// the struct name ([`OnFalseyValueEvent`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnFalseyValueEvent`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
     /// # Event Triggering
     /// [`OnFalseyValueEvent`] is triggered when the [`ConditionalFrame`]'s predicate function
     /// (which is [`ConditionalFramePredicate`]) returns a false boolean value
     ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnFalseyValueEvent`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`ConditionalFrame`]
     /// - [`ConditionalFramePredicate`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnFalseyValueEvent, ()
+);
+
+define_event_group!(
+    /// [`ConditionalEvents`] is a marker trait, more specifically a [`TaskHookEvent`] group of 
+    /// [`TaskHookEvent`] (a system used closely with [`TaskHook`]). It contains the common payload
+    /// type of ``()``
+    ///
+    /// # Supertrait(s)
+    /// Since it is a [`TaskHookEvent`] group, it requires every descended to implement the [`TaskHookEvent`],
+    /// and more specifically have the payload type ``()``
+    ///
+    /// # Trait Implementation(s)
+    /// Currently, two [`TaskHookEvent`] implement the [`ConditionalEvents`] marker trait 
+    /// (event group). Those being [`OnTruthyValueEvent`] and [`OnFalseyValueEvent`]
+    ///
+    /// # Object Safety
+    /// [`ConditionalEvents`] is **NOT** object safe, due to the fact it implements the
+    /// [`TaskHookEvent`] which itself is not object safe
+    ///
+    /// # See Also
+    /// - [`OnTruthyValueEvent`]
+    /// - [`OnFalseyValueEvent`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    ConditionalEvents, () |
+    OnTruthyValueEvent, OnFalseyValueEvent
 );
 
 impl<T, T2> From<ConditionalFrameConfig<T, T2>> for ConditionalFrame<T, T2>
