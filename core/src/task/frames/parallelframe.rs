@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use crate::task::SequentialTaskFrame;
 use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure};
-use crate::task::{OnChildEnd, OnChildStart, TaskContext, TaskError, TaskFrame};
+use crate::task::{OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -142,9 +142,9 @@ impl TaskFrame for ParallelTaskFrame {
             let frame_clone = frame.clone();
             let ctx_clone = ctx.clone();
             js.spawn(async move {
-                ctx_clone.emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
+                ctx_clone.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
                 let result = ctx_clone.subdivide(frame_clone.clone()).await;
-                ctx_clone.emit::<OnChildEnd>(&result.clone().err()).await; // skipcq: RS-E1015
+                ctx_clone.emit::<OnChildTaskFrameEnd>(&result.clone().err()).await; // skipcq: RS-E1015
                 result
             });
         }

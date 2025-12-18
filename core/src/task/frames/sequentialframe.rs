@@ -1,5 +1,5 @@
 use crate::task::{
-    GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure, OnChildEnd, OnChildStart,
+    GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure, OnChildTaskFrameEnd, OnChildTaskFrameStart,
     TaskContext, TaskError, TaskFrame,
 };
 use async_trait::async_trait;
@@ -138,9 +138,9 @@ impl SequentialTaskFrame {
 impl TaskFrame for SequentialTaskFrame {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         for taskframe in self.tasks.iter() {
-            ctx.emit::<OnChildStart>(&()).await; // skipcq: RS-E1015
+            ctx.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
             let result = ctx.subdivide(taskframe.clone()).await;
-            ctx.emit::<OnChildEnd>(&result.clone().err()).await;
+            ctx.emit::<OnChildTaskFrameEnd>(&result.clone().err()).await;
             let should_quit = self.policy.should_quit(result).await;
             if let Some(res) = should_quit {
                 return res;
