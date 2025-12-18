@@ -1,4 +1,4 @@
-use crate::define_event;
+use crate::{define_event, define_event_group};
 use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
 use async_trait::async_trait;
@@ -206,24 +206,97 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
 }
 
 define_event!(
+    /// [`OnRetryAttemptStart`] is an implementation of [`TaskHookEvent`] (a system used closely
+    /// with [`TaskHook`]). The concrete payload type of [`OnRetryAttemptStart`]
+    /// is ``u32`` which is the number of retries that have occurred
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnRetryAttemptStart`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnRetryAttemptStart::default`] or via simply pasting
+    /// the struct name ([`OnRetryAttemptStart`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnRetryAttemptStart`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
     /// # Event Triggering
     /// [`OnRetryAttemptStart`] is triggered when the [`RetriableTaskFrame`] is attempting
     /// to retry executing the wrapped [`TaskFrame`] in an effort to see if it succeeds or fails
     ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnRetryAttemptStart`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`RetriableTaskFrame`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnRetryAttemptStart, u32
 );
 
 define_event!(
+    /// [`OnRetryAttemptEnd`] is an implementation of [`TaskHookEvent`] (a system used closely
+    /// with [`TaskHook`]). The concrete payload type of [`OnRetryAttemptEnd`]
+    /// is ``(u32, Option<TaskError>)``, the first value describes the number of retries
+    /// that have occurred and the second value is a potential error returned from the TaskFrame
+    /// where ``Some(...)`` means failure and ``None`` means success
+    ///
+    /// # Constructor(s)
+    /// When constructing a [`OnRetryAttemptEnd`] due to the fact this is a marker ``struct``, making
+    /// it as such zero-sized, one can either use [`OnRetryAttemptEnd::default`] or via simply pasting
+    /// the struct name ([`OnRetryAttemptEnd`])
+    ///
+    /// # Trait Implementation(s)
+    /// It is obvious that [`OnRetryAttemptEnd`] implements the [`TaskHookEvent`], but also many
+    /// other traits such as [`Default`], [`Clone`], [`Copy`], [`Debug`], [`PartialEq`], [`Eq`]
+    /// and [`Hash`] from the standard Rust side, as well as [`Serialize`] and [`Deserialize`]
+    ///
     /// # Event Triggering
     /// [`OnRetryAttemptEnd`] is triggered when the [`RetriableTaskFrame`] has attempted
     /// to retry executing the wrapped [`TaskFrame`] and the results came in (i.e. A potential
     /// error from the execution)
     ///
+    /// # Cloning Semantics
+    /// When cloning / copy a [`OnRetryAttemptEnd`] it fully creates a
+    /// new independent version of that instance
+    ///
     /// # See Also
     /// - [`RetriableTaskFrame`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
     OnRetryAttemptEnd, (u32, Option<TaskError>)
+);
+
+define_event_group!(
+    /// [`RetryAttemptEvents`] is a marker trait, more specifically a [`TaskHookEvent`] group of
+    /// [`TaskHookEvent`] (a system used closely with [`TaskHook`]). It contains no common payload type
+    ///
+    /// # Supertrait(s)
+    /// Since it is a [`TaskHookEvent`] group, it requires every descended to implement the [`TaskHookEvent`],
+    /// because no common payload type is present, any payload type is accepted
+    ///
+    /// # Trait Implementation(s)
+    /// Currently, two [`TaskHookEvent`] implement the [`RetryAttemptEvents`] marker trait
+    /// (event group). Those being [`OnDelayStart`] and [`OnDelayEnd`]
+    ///
+    /// # Object Safety
+    /// [`RetryAttemptEvents`] is **NOT** object safe, due to the fact it implements the
+    /// [`TaskHookEvent`] which itself is not object safe
+    ///
+    /// # See Also
+    /// - [`OnDelayStart`]
+    /// - [`OnDelayEnd`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    /// - [`Task`]
+    /// - [`TaskFrame`]
+    RetryAttemptEvents,
+    OnRetryAttemptStart, OnRetryAttemptEnd
 );
 
 /// Represents a **retriable task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
