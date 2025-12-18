@@ -8,6 +8,7 @@ use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ScheduleStrategy, Task, TaskFrame, TaskSchedule};
 use std::sync::{Arc, LazyLock};
+use tokio::join;
 use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
@@ -210,8 +211,7 @@ impl Scheduler {
         let scheduler_send = self.schedule_tx.clone();
         let scheduler_receive = self.schedule_rx.clone();
         let notifier = self.notifier.clone();
-        self.store.init().await;
-        self.dispatcher.init().await;
+        join!(self.store.init(), self.dispatcher.init());
         *self.process.lock().await = Some(tokio::spawn(async move {
             let double_clock_clone = clock_clone.clone();
             let double_store_clone = store_clone.clone();
@@ -239,7 +239,7 @@ impl Scheduler {
                         _ = clock_clone.idle_to(time) => {
                             store_clone.pop().await;
                             if !store_clone.exists(&idx).await { continue; }
-                            dispatcher_clone.clone()
+                            dispatcher_clone
                                 .dispatch(scheduler_send.clone(), task, idx)
                                 .await;
                             continue;
