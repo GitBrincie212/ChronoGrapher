@@ -417,44 +417,27 @@ impl TaskSchedule for TaskScheduleCalendar {
         time: &DateTime<Local>,
     ) -> Result<DateTime<Local>, Arc<dyn std::error::Error + 'static>> {
         let mut dates = [
-            time.timestamp_subsec_millis(),
-            time.second(),
-            time.minute(),
-            time.hour(),
-            time.day0(),
-            time.month0(),
-            time.year() as u32,
+            (time.timestamp_subsec_millis(), &self.millisecond, TaskCalendarFieldType::MILLISECONDS),
+            (time.second(), &self.second, TaskCalendarFieldType::SECONDS),
+            (time.minute(), &self.minute, TaskCalendarFieldType::MINUTES),
+            (time.hour(), &self.hour, TaskCalendarFieldType::HOURS),
+            (time.day0(), &self.day, TaskCalendarFieldType::DAYS),
+            (time.month0(), &self.month, TaskCalendarFieldType::MONTHS),
+            (time.year() as u32, &self.year, TaskCalendarFieldType::YEARS),
         ];
-        let fields = [
-            &self.millisecond,
-            &self.second,
-            &self.minute,
-            &self.hour,
-            &self.day,
-            &self.month,
-            &self.year,
-        ];
-        let date_field_types = [
-            TaskCalendarFieldType::YEARS,
-            TaskCalendarFieldType::MONTHS,
-            TaskCalendarFieldType::DAYS,
-            TaskCalendarFieldType::HOURS,
-            TaskCalendarFieldType::MINUTES,
-            TaskCalendarFieldType::SECONDS,
-            TaskCalendarFieldType::MILLISECONDS,
-        ];
-        for (index, &field) in fields.iter().enumerate() {
-            let date_field = dates.get_mut(index).unwrap();
-            field.evaluate(date_field, date_field_types[index])
+
+        for (value, field, field_type) in dates.iter_mut() {
+            field.evaluate(value, field_type.clone())
         }
+
         let modified = rebuild_datetime_from_parts(
-            dates[6] as i32,
-            dates[5] + 1,
-            dates[4] + 1,
-            dates[3],
-            dates[2],
-            dates[1],
-            dates[0],
+            dates[6].0 as i32,
+            dates[5].0 + 1,
+            dates[4].0 + 1,
+            dates[3].0,
+            dates[2].0,
+            dates[1].0,
+            dates[0].0,
         );
         Ok(modified)
     }
