@@ -54,5 +54,5 @@ where
 
 #[macro_export]
 macro_rules! dynamic_taskframe {
-    ($block: block) => {{ DynamicTaskFrame::new(|ctx| async { $block }) }};
+    ($block: block) => {{ DynamicTaskFrame::new(|ctx| async $block) }};
 }
