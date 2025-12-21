@@ -14,11 +14,11 @@ offered as optional extensions.
 
 3. **Hyper-Extensible Architecture:** Built for customization with numerous integrations and extension points.
 
-4. **Scale Effortlessly:** Rust-powered engine handles from single machines to distributed clusters seamlessly.
+4. **Scale Effortlessly:** Rust-powered engine scales from a single machine to distributed clusters seamlessly.
 
 5. **Crash-Resistant Durability:** Never lose task progress again, state persistence ensures continuity through failures.
 
-**Get started in 30 seconds**, here's a simple "Hello World" example in ChronoGrapher written in Rust 
+**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust 
 (other languages look similar):
 ```rust
 use chronographer::prelude::*;
@@ -46,7 +46,7 @@ ChronoGrapher rethinks scheduling for modern distributed systems and general use
 A typical modern stack leverages multiple programming languages. Each requiring its own scheduling ecosystem:
 
 - **Python:** Apache Airflow, Celery, Prefect, APScheduler
-- **TypeScript/Javascript** Agenda, Bree, BullMQ, Bottleneck
+- **TypeScript/JavaScript** Agenda, Bree, BullMQ, Bottleneck
 - **Rust:** cron_tab, tokio_task_scheduler, tokio-cron
 - **Java:** Quartz, Spring Scheduler
 - **Misc:** Temporal, CRON
@@ -54,7 +54,7 @@ A typical modern stack leverages multiple programming languages. Each requiring 
 **The Current Challenge:**
 Most solutions face fundamental limitations:
 - **Language Isolation:** Bound to single ecosystems, requiring complex glue code for cross-language workflows
-- **Scalability Constraints:** Difficult to extend beyond initial design parameters without significant re-engineering
+- **Scalability Issues:** Difficult to extend beyond initial design parameters without significant re-engineering
 - **Inconsistent Developer Experience:** Varying documentation quality, opinionated patterns, and steep learning curves across tools
 
 **The ChronoGrapher Approach:**
@@ -63,7 +63,8 @@ ChronoGrapher's polyglot architecture, performance-first design, and extensibili
 breakthroughs in scheduler design, eliminating the need to master multiple disjointed systems.
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Core Capabilities / Key Features</h1>
-There are many features that make up ChronoGrapher. We will focus on a few key features such as:
+There are many features that make up ChronoGrapher (some are accessed via first-party extensions). 
+We will focus on a few key features defined in the core such as:
 
 ### Composable Task Architecture
 
@@ -108,37 +109,34 @@ Monitor tasks at a deep level by reacting to relevant events emitted:
 
 ```rust
 /*
- A basic example for integration with Prometheus,
- it involves defining the TaskHook as well as the events it supports
+ A basic example for "integration" with Prometheus, it involves us implementing the
+ TaskHook<E> trait, dictating the events the hook supports
 */
 struct PrometheusMetricsHook;
 
 /*
-    Defines what kind of event the PrometheusMetricsHook TaskHook implementation supports,
-    if you don't care which event the TaskHook is being used and the code is the same,
-    you can do:
+    In case you don't care which event the TaskHook is being used and the code is the same:
     
     impl<E: TaskHookEvent> TaskHook<E> for PrometheusMetricsHook {
+        ...
+    }
+    
+    However, if you need to subscribe to an event category without boilerplate. TaskHookEvent Groups (THEGs) 
+    allow this, for our example, it executes the same function for OnTaskStart and OnTaskEnd:
+    impl<E: TaskLifecycleEvents> TaskHook<E> for PrometheusMetricsHook {
         ...
     }
 */
 
 impl TaskHook<OnTaskStart> for PrometheusMetricsHook {
   async fn on_event(&self, event: OnTaskStart, ctx: Arc<TaskContext>, payload: &OnTaskStart::Payload) {
-    metrics::counter!("tasks_started_total", "task_id" => payload.task_id.to_string()).increment(1);
-    metrics::gauge!("running_tasks").increment(1.0);
+      // ...Increment the number of running Tasks and update metrics...
   }
 }
 
 impl TaskHook<OnTaskEnd> for PrometheusMetricsHook {
   async fn on_event(&self, event: OnTaskEnd, ctx: Arc<TaskContext>, payload: &OnTaskEnd::Payload) {
-    metrics::gauge!("running_tasks").decrement(1.0);
-
-    if payload.error.is_some() {
-      metrics::counter!("tasks_failed_total", "task_id" => payload.task_id.to_string()).increment(1);
-    } else {
-      metrics::counter!("tasks_completed_total", "task_id" => payload.task_id.to_string()).increment(1);
-    }
+      // ...Decrement the number of running Tasks and update metrics...
   }
 }
 
@@ -150,8 +148,8 @@ impl TaskHook<OnTimeout> for PrometheusMetricsHook {
 
 impl TaskHook<OnHookAttach<OnTaskStart>> for PrometheusMetricsHook {
     async fn on_event(
-        &self, event:
-        OnHookAttach<OnTaskStart>,
+        &self, 
+        event: OnHookAttach<OnTaskStart>,
         ctx: Arc<TaskContext>,
         payload: &OnHookAttach<OnTaskStart>::Payload
     ) {
@@ -159,10 +157,7 @@ impl TaskHook<OnHookAttach<OnTaskStart>> for PrometheusMetricsHook {
     }
 }
 
-/*
- The second phase is actually attaching the hook to
- the relevant events of a Task
-*/
+// The second phase is actually attaching the hook to the relevant events of a Task
 let hook = Arc::new(PrometheusMetricsHook);
 task.attach_hook::<OnTaskStart>(hook).await;
 task.attach_hook::<OnTimeout>(hook).await;
@@ -175,10 +170,15 @@ TaskHook Events Include:
 - Dependency resolution status events
 - Conditional branching decisions
 
+
 ...
 
+TaskHooks can also communicate with each other via defining their own set of events. While their primary focus
+is observability, they can also act as <u>State Containers</u> or even <u>Marker Containers</u>
+
 ### Millisecond Calendar-Based Schedules
-Finite control over how a Task executes via a ``TaskScheduleCalendar``
+Finite control over how a Task executes via the ``TaskSchedule`` trait. Build your own schedules or use pre-existing
+ones such as ``TaskScheduleCalendar`` to **satisfy your time critical needs:**
 
 ```rust
 let schedule = TaskScheduleCalendar::builder()
@@ -189,16 +189,6 @@ let schedule = TaskScheduleCalendar::builder()
     .build();
 
 // Note: Currently TaskCalendarFieldRange does not exist, however, it will be added in the future
-```
-
-### Priority-Aware Execution
-Ensure critical tasks get resources when needed:
-```rust
-let critical_task = Task::builder()
-    .frame(alert_system)
-    .priority(TaskPriority::CRITICAL)  // Jumps to front of queue
-    .schedule(...)
-    .build();
 ```
 
 ### Creating Custom Schedulers
@@ -238,7 +228,7 @@ mod tests {
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Getting Started</h1>
-One can install the package via (NOT AVAILAIBLE NOW):
+One can install the package via **(CURRENTLY NOT AVAILABLE NOW)**:
 
 ```bash
 cargo add chronographer # Rust
@@ -246,9 +236,8 @@ pip install chronographer # Python
 npm install chronographer # JS/TS (also available in yarn, bun, pnpm...)
 ```
 
-Then ChronoGrapher is configured for one machine!
-To scale it more, it is advised to check the multiple integrations 
-and extensions offered by us or other third-parties
+Just like that. ChronoGrapher is configured for one machine! To scale it more, it is advised to check the 
+multiple integrations and extensions offered by us or other third-parties
 
 With that said, the next steps are:
 - Full Documentation (Coming Soon)
