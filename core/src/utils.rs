@@ -1,25 +1,5 @@
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-#[macro_export]
-macro_rules! define_generic_event {
-    ($(#[$($attrss:tt)*])* $name: ident) => {
-        $(#[$($attrss)*])*
-        #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
-        pub struct $name<E: TaskHookEvent>(PhantomData<E>);
-
-        impl<E: TaskHookEvent> Default for $name<E> {
-            fn default() -> Self {
-                $name(PhantomData)
-            }
-        }
-
-        impl<E: TaskHookEvent> TaskHookEvent for $name<E> {
-            type Payload = E;
-            const PERSISTENCE_ID: &'static str = concat!("chronographer_core#", stringify!($name));
-        }
-    };
-}
 
 #[macro_export]
 macro_rules! define_event_group {
@@ -55,9 +35,59 @@ macro_rules! define_event {
     };
 }
 
+pub trait Timestamp: Ord + Send + Sync + 'static {
+    fn now() -> Self;
+    fn duration_since(&self, earlier: Self) -> Option<Duration>;
+    fn year(&self) -> u32;
+    fn month(&self) -> u8;
+    fn day(&self) -> u8;
+    fn hour(&self) -> u8;
+    fn minute(&self) -> u8;
+    fn second(&self) -> u8;
+    fn millisecond(&self) -> u16;
+}
+
+impl Timestamp for SystemTime {
+    fn now() -> Self {
+        SystemTime::now()
+    }
+
+    fn duration_since(&self, earlier: Self) -> Option<Duration> {
+        self.duration_since(earlier).ok()
+    }
+
+    fn year(&self) -> u32 {
+        system_time_to_date_time(self).year() as u32
+    }
+
+    fn month(&self) -> u8 {
+        system_time_to_date_time(self).month0() as u8
+    }
+
+    fn day(&self) -> u8 {
+        system_time_to_date_time(self).day0() as u8
+    }
+
+    fn hour(&self) -> u8 {
+        system_time_to_date_time(self).hour() as u8
+    }
+
+    fn minute(&self) -> u8 {
+        system_time_to_date_time(self).minute() as u8
+    }
+
+    fn second(&self) -> u8 {
+        system_time_to_date_time(self).second() as u8
+    }
+
+    fn millisecond(&self) -> u16 {
+        system_time_to_date_time(self).timestamp_subsec_millis() as u16
+    }
+}
+
 /// Simply converts the ``SystemTime`` to a ``DateTime<Local>``, it is a private
 /// method used internally by ChronoGrapher, as such why it lives in utils module
-pub(crate) fn system_time_to_date_time(t: SystemTime) -> DateTime<Local> {
+pub(crate) fn system_time_to_date_time(t: &SystemTime) -> DateTime<Local> {
     let (sec, nsec) = match t.duration_since(UNIX_EPOCH) {
         Ok(dur) => (dur.as_secs() as i64, dur.subsec_nanos()),
         Err(e) => {
