@@ -3,7 +3,7 @@ use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::broadcast;
+use crate::scheduler::RescheduleNotifier;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
@@ -46,13 +46,12 @@ impl Debug for DefaultTaskDispatcher {
 
 #[async_trait]
 impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
-    async fn dispatch(
+    async fn dispatch<T: 'static + Send + Sync>(
         &self,
-        sender: Arc<broadcast::Sender<usize>>,
         task: Arc<ErasedTask>,
-        idx: usize,
+        sender: RescheduleNotifier<T>
     ) {
         task.schedule_strategy().handle(task.clone()).await;
-        sender.send(idx).unwrap();
+        sender.notify().map_err(|_| "Dispatch finish message was not received successfully").unwrap();
     }
 }

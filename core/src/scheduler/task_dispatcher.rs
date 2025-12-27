@@ -1,13 +1,11 @@
 pub mod default; // skipcq: RS-D1001
 
 pub use default::*;
-use std::fmt::Debug;
 
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::sync::Arc;
-use tokio::sync::broadcast::Sender;
-
+use crate::scheduler::RescheduleNotifier;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 
@@ -32,7 +30,7 @@ use crate::scheduler::Scheduler;
 /// - [`Scheduler`]
 /// - [`DefaultTaskDispatcher`]
 #[async_trait]
-pub trait SchedulerTaskDispatcher: Debug + Send + Sync {
+pub trait SchedulerTaskDispatcher: 'static + Send + Sync {
     async fn init(&self) {}
 
     /// The main logic of the [`SchedulerTaskDispatcher`]. This is where it handles
@@ -49,5 +47,8 @@ pub trait SchedulerTaskDispatcher: Debug + Send + Sync {
     /// - [`Task`]
     /// - [`Scheduler`]
     /// - [`SchedulerTaskDispatcher`]
-    async fn dispatch(&self, sender: Arc<Sender<usize>>, task: Arc<ErasedTask>, idx: usize);
+    async fn dispatch<T: 'static + Send + Sync>(
+        &self, task: Arc<ErasedTask>, 
+        rescheduler_notifier: RescheduleNotifier<T>
+    );
 }
