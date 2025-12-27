@@ -7,10 +7,10 @@ use crate::scheduler::clock::SchedulerClock;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::sync::Arc;
-use std::time::SystemTime;
-
+use uuid::Uuid;
 #[allow(unused_imports)]
 use crate::task::TaskSchedule;
+use crate::utils::Timestamp;
 
 /// [`SchedulerTaskStore`] is a trait for implementing a storage mechanism for tasks, it allows
 /// for retrieving the earliest task, storing a task with its task schedule, removing a task via
@@ -45,7 +45,7 @@ use crate::task::TaskSchedule;
 /// - [`SchedulerTaskStore::remove`]
 /// - [`SchedulerTaskStore::clear`]
 #[async_trait]
-pub trait SchedulerTaskStore: Send + Sync {
+pub trait SchedulerTaskStore<D: Timestamp>: 'static + Send + Sync {
     async fn init(&self) {}
 
     /// Retrieves / Peeks the earliest task, without modifying any internal storage
@@ -57,7 +57,7 @@ pub trait SchedulerTaskStore: Send + Sync {
     /// # See Also
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
-    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, usize)>;
+    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, D, Uuid)>;
 
     /// Gets the task based on an index
     ///
@@ -71,7 +71,7 @@ pub trait SchedulerTaskStore: Send + Sync {
     ///
     /// # See Also
     /// - [`SchedulerTaskStore`]
-    async fn get(&self, idx: &usize) -> Option<Arc<ErasedTask>>;
+    async fn get(&self, idx: &Uuid) -> Option<Arc<ErasedTask>>;
 
     /// Pops the earliest task by modifying any internal storage. This mechanism
     /// is kept separate from [`SchedulerTaskStore::retrieve`] due to the fact that one might
@@ -96,7 +96,7 @@ pub trait SchedulerTaskStore: Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
     /// - [`SchedulerTaskStore::store`]
-    async fn exists(&self, idx: &usize) -> bool;
+    async fn exists(&self, idx: &Uuid) -> bool;
 
     /// Reschedules a [`Task`] instance based on index, it automatically calculates
     /// the new time from the task's [`TaskSchedule`]
@@ -111,7 +111,7 @@ pub trait SchedulerTaskStore: Send + Sync {
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
     /// - [`SchedulerTaskStore::store`]
-    async fn reschedule(&self, clock: Arc<dyn SchedulerClock>, idx: &usize);
+    async fn reschedule(&self, clock: &impl SchedulerClock<D>, idx: &Uuid);
 
     /// Stores a task as an entry, returning its index
     ///
@@ -128,7 +128,7 @@ pub trait SchedulerTaskStore: Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
-    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: ErasedTask) -> usize;
+    async fn store(&self, clock: &impl SchedulerClock<D>, task: ErasedTask) -> Uuid;
 
     /// Removes a task based on an index, depending on the implementation,
     /// it may handle differently the case where the index does not exist
@@ -141,7 +141,7 @@ pub trait SchedulerTaskStore: Send + Sync {
     /// # See Also
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
-    async fn remove(&self, idx: &usize);
+    async fn remove(&self, idx: &Uuid);
 
     /// Clears fully all the contents of the task store
     ///
