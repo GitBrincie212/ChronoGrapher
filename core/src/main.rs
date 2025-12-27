@@ -20,7 +20,6 @@ async fn main() {
                 // println!("{}", INSTANT.elapsed().as_secs_f64());
                 yield_now().await;
                 COUNTER.fetch_add(1, Ordering::Relaxed);
-                Ok(())
             }),
         );
 
