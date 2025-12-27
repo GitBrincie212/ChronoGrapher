@@ -17,16 +17,13 @@ pub use schedule::*;
 pub use scheduling_strats::*;
 
 use dashmap::DashMap;
-use serde::Serialize;
-use serde::ser::SerializeStruct;
-use std::fmt;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
-
+use crate::persistence::PersistenceObject;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 
@@ -37,20 +34,6 @@ pub type ErasedTask = Task<dyn TaskFrame, dyn TaskSchedule, dyn ScheduleStrategy
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task<T1, T2, T3>))]
 pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
-    /// A mechanism for <u>**Prioritizing Important Tasks**</u>, the greater the importance,
-    /// the more ChronoGrapher ensures to execute exactly at the time when under heavy workflow and
-    /// generally prioritize it over others
-    ///
-    /// # Default Value
-    /// By default, every task has priority 0 (the lowest)
-    ///
-    /// # Method Behavior
-    /// This builder parameter method cannot be chained, as it is a typed builder,
-    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
-    /// inner workings under the hood, just sets the value
-    #[builder(default = 0)]
-    priority: usize,
-
     /// [`TaskFrame`] is the <u>**Main Logic Part Of The Task**</u>, this is where the logic lives in.
     /// It is an essential part of the system (as without it, a task is useless), more information
     /// can be viewed on the [`TaskFrame`] documentation on what its capabilities truly are
@@ -111,20 +94,6 @@ pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
     /// - [`CancelCurrentSchedulingPolicy`]
     schedule_strategy: T3,
 
-    /// This part is mostly for debugging, more specifically to identify tasks, you can
-    /// give it your own string (ideally it should be unique)
-    ///
-    /// # Default Value
-    /// By default, every task has a generated UUID string, this may complicate things
-    /// for debugging, as such. It is suggested to **always** fill this field with a unique name
-    /// to save yourself from the time wasted and confusion
-    ///
-    /// # Method Behavior
-    /// This builder parameter method cannot be chained, as it is a typed builder,
-    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
-    /// inner workings under the hood, just sets the value
-    debug_label: String,
-
     /// This part controls the maximum number of runs a task is allowed,
     /// before being canceled from the scheduler
     ///
@@ -150,9 +119,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, 
             schedule: Arc::new(config.schedule),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
             schedule_strategy: Arc::new(config.schedule_strategy),
-            priority: config.priority,
             runs: Arc::new(AtomicU64::new(0)),
-            debug_label: Arc::from(config.debug_label),
             max_runs: config.max_runs,
             id: Uuid::new_v4(),
         }
@@ -210,134 +177,15 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, 
 /// - [`TaskEvent`]
 /// - [`TaskSchedule`]
 /// - [`ScheduleStrategy`]
+// #[derive(Serialize, Deserialize)]
 pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static, T3: ?Sized + 'static> {
     frame: Arc<T1>,
     schedule: Arc<T2>,
     schedule_strategy: Arc<T3>,
-    priority: usize,
     runs: Arc<AtomicU64>,
-    debug_label: Arc<str>,
     max_runs: Option<NonZeroU64>,
     id: Uuid,
     hooks: Arc<TaskHookContainer>,
-}
-
-impl<T1: Serialize, T2: Serialize, T3: Serialize> Serialize for Task<T1, T2, T3> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut task = serializer.serialize_struct("Task", 8)?;
-
-        task.serialize_field("frame", &self.frame)?;
-
-        task.serialize_field("schedule", &self.schedule)?;
-
-        task.serialize_field("schedule_strategy", &self.schedule_strategy)?;
-
-        task.serialize_field("priority", &self.priority)?;
-        task.serialize_field("runs", &self.runs.load(Ordering::Relaxed))?;
-        task.serialize_field("debug_label", &self.debug_label)?;
-        task.serialize_field("max_runs", &self.max_runs)?;
-        task.serialize_field("id", &self.id.to_string())?;
-
-        task.end()
-    }
-}
-
-/*
-impl<'de, T1, T2, T3> Deserialize<'de> for Task<T1, T2, T3>
-where
-    T1: Deserialize<'de>,
-    T2: Deserialize<'de>,
-    T3: Deserialize<'de>
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct TaskVisitor {
-            registry: Arc<PersistenceRegistriesManager>,
-        }
-
-        impl<'de> Visitor<'de> for TaskVisitor {
-            type Value = ErasedTask;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct Task")
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<ErasedTask, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut frame: Option<Arc<dyn TaskFrame>> = None;
-                let mut schedule = None;
-                let mut schedule_strategy = None;
-                let mut priority = None;
-                let mut runs = None;
-                let mut debug_label = None;
-                let mut max_runs = None;
-                let mut id: Option<&str> = None;
-
-                while let Some(key) = map.next_key::<&str>()? {
-                    match key {
-                        "frame" => {
-                            let persisted: Persisted<dyn TaskFrame> = map.next_value()?;
-                            frame = Some(persisted.inner);
-                        }
-                        "schedule" => schedule = Some(map.next_value()?),
-                        "schedule_strategy" => schedule_strategy = Some(map.next_value()?),
-                        "priority" => priority = Some(map.next_value()?),
-                        "runs" => runs = Some(map.next_value()?),
-                        "debug_label" => debug_label = Some(map.next_value()?),
-                        "max_runs" => max_runs = Some(map.next_value()?),
-                        "id" => id = Some(map.next_value()?),
-                        _ => { let _ = map.next_value()?; }
-                    }
-                }
-
-                Ok(Task {
-                    frame: frame.ok_or_else(|| serde::de::Error::missing_field("frame"))?,
-                    schedule: schedule.ok_or_else(|| serde::de::Error::missing_field("schedule"))?,
-                    schedule_strategy: schedule_strategy.ok_or_else(|| serde::de::Error::missing_field("schedule_strategy"))?,
-                    priority: priority.ok_or_else(|| serde::de::Error::missing_field("priority"))?,
-                    runs: runs.ok_or_else(|| serde::de::Error::missing_field("runs"))?,
-                    debug_label: debug_label.ok_or_else(|| serde::de::Error::missing_field("debug_label"))?,
-                    max_runs: max_runs.ok_or_else(|| serde::de::Error::missing_field("max_runs"))?,
-                    id: Uuid::from_str(id.ok_or_else(|| serde::de::Error::missing_field("id"))?)
-                        .map_err(serde::de::Error::custom("Invalid / Tampered UUID"))?,
-                    hooks: Arc::new(TaskHookContainer()), // TODO
-                })
-            }
-        }
-
-        const FIELDS: &[&str] = &[
-            "frame",
-            "schedule",
-            "schedule_strategy",
-            "priority",
-            "runs",
-            "debug_label",
-            "max_runs",
-            "id",
-        ];
-
-        deserializer.deserialize_struct(
-            "Task",
-            FIELDS,
-            TaskVisitor {
-                registry: Arc::new(PersistenceRegistriesManager::default()), // pass your manager
-            },
-        )
-    }
-}
-*/
-
-impl<T1, T2, T3> Debug for Task<T1, T2, T3> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Task").field(&self.debug_label).finish()
-    }
 }
 
 impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
@@ -379,9 +227,7 @@ impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
             schedule: Arc::new(schedule),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
             schedule_strategy: Arc::new(SequentialSchedulingPolicy),
-            priority: 0,
             runs: Arc::new(AtomicU64::new(0)),
-            debug_label: Arc::from(id.to_string()),
             max_runs: None,
             id,
         }
@@ -442,11 +288,6 @@ impl ErasedTask {
 }
 
 impl<T1: ?Sized, T2: ?Sized, T3: ?Sized> Task<T1, T2, T3> {
-    /// Gets the priority for a task
-    pub fn priority(&self) -> usize {
-        self.priority
-    }
-
     /// Gets the number of times the task has run
     pub fn runs(&self) -> u64 {
         self.runs.load(Ordering::Relaxed)
@@ -503,18 +344,25 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
             frame: self.frame.clone(),
             schedule: self.schedule.clone(),
             schedule_strategy: self.schedule_strategy.clone(),
-            priority: self.priority,
             runs: self.runs.clone(),
-            debug_label: self.debug_label.clone(),
             max_runs: self.max_runs,
             id: self.id,
             hooks: self.hooks.clone(),
         }
     }
 
-    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
+    pub async fn attach_ephemeral_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
         let ctx = TaskContext::new(&self.as_erased());
-        self.hooks.attach(&ctx, hook).await;
+        self.hooks.attach_ephemeral(&ctx, hook).await;
+    }
+
+    pub async fn attach_persistent_hook<E, T>(&self, hook: Arc<T>)
+    where
+        E: TaskHookEvent,
+        T: TaskHook<E> + PersistenceObject
+    {
+        let ctx = TaskContext::new(&self.as_erased());
+        self.hooks.attach_persistent(&ctx, hook).await;
     }
 
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
