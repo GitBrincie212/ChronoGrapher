@@ -1,11 +1,14 @@
 pub mod backend; // skipcq: RS-D1001
+pub mod registries; // skipcq: RS-D1001
 
+use std::ops::Deref;
 pub use backend::PersistPath;
 pub use backend::PersistenceBackend;
 
 use erased_serde::Serialize as ErasedSerialized;
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, Serializer};
 use std::pin::Pin;
+use serde::de::DeserializeOwned;
 
 pub struct PersistenceContext(
     pub(crate) fn(PersistPath, &dyn erased_serde::Serialize) -> Pin<Box<dyn Future<Output = ()>>>,
@@ -42,7 +45,7 @@ impl PersistenceContext {
 ///
 /// # See Also
 /// - [`PersistenceBackend`]
-pub trait PersistenceObject: Serialize + Deserialize<'static> + Send + Sync {
+pub trait PersistenceObject: 'static + Serialize + DeserializeOwned + Send + Sync {
     const PERSISTENCE_ID: &'static str;
 
     fn inject_context(&self, _ctx: &PersistenceContext) {}
