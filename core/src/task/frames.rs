@@ -41,6 +41,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 pub use timeoutframe::*;
 use uuid::Uuid;
+use crate::persistence::PersistenceObject;
 
 /// A task-related error (i.e. A task failure)
 pub type TaskError = Arc<dyn Debug + Send + Sync>;
@@ -74,10 +75,8 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - [`TaskEventEmitter`]
 pub struct TaskContext {
     hooks_container: Arc<TaskHookContainer>,
-    priority: usize,
     runs: u64,
     depth: u64,
-    debug_label: Arc<str>,
     max_runs: Option<NonZeroU64>,
     frame: Arc<dyn TaskFrame>,
     id: Uuid,
@@ -87,25 +86,12 @@ impl Clone for TaskContext {
     fn clone(&self) -> Self {
         Self {
             hooks_container: self.hooks_container.clone(),
-            priority: self.priority,
             runs: self.runs,
             depth: self.depth,
-            debug_label: self.debug_label.clone(),
             max_runs: self.max_runs,
             frame: self.frame.clone(),
             id: self.id.clone(),
         }
-    }
-}
-
-impl Debug for TaskContext {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("TaskContext")
-            .field("priority", &self.priority)
-            .field("runs", &self.runs)
-            .field("debug_label", &&self.debug_label)
-            .field("max_runs", &self.max_runs)
-            .finish()
     }
 }
 
@@ -130,10 +116,8 @@ impl TaskContext {
     pub(crate) fn new(task: &ErasedTask) -> Self {
         Self {
             hooks_container: task.hooks.clone(),
-            priority: task.priority,
             runs: task.runs.load(Ordering::Relaxed),
             depth: 0,
-            debug_label: task.debug_label.clone(),
             max_runs: task.max_runs,
             frame: task.frame.clone(),
             id: task.id.clone(),
@@ -143,9 +127,7 @@ impl TaskContext {
     pub(crate) fn subdivided_ctx(&self, frame: Arc<dyn TaskFrame>) -> Self {
         Self {
             hooks_container: self.hooks_container.clone(),
-            priority: self.priority,
             runs: self.runs,
-            debug_label: self.debug_label.clone(),
             max_runs: self.max_runs,
             frame: frame.clone(),
             id: self.id,
@@ -158,17 +140,6 @@ impl TaskContext {
         frame.execute(&child_ctx).await
     }
 
-    /// Accesses the priority field, returning it in the process
-    ///
-    /// # Returns
-    /// The priority field
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    pub fn priority(&self) -> usize {
-        self.priority
-    }
-
     /// Accesses the runs field (counts how many times the task ran), returning it in the process
     ///
     /// # Returns
@@ -178,17 +149,6 @@ impl TaskContext {
     /// - [`TaskContext`]
     pub fn runs(&self) -> u64 {
         self.runs
-    }
-
-    /// Accesses the debug label field, returning it in the process
-    ///
-    /// # Returns
-    /// The debug label field as a typical ``&str``
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    pub fn debug_label(&self) -> Arc<str> {
-        self.debug_label.clone()
     }
 
     /// Accesses the max_runs field, returning it in the process
@@ -232,8 +192,12 @@ impl TaskContext {
         self.hooks_container.emit::<E>(self, payload).await;
     }
 
-    /// Attaches a [`TaskHook`] to a specific [`TaskHookEvent`]. This is a much more
-    /// ergonomic method-alias to the relevant [`TaskHookContainer::attach`] method
+    /// Attaches an **Ephemeral** [`TaskHook`] to a specific [`TaskHookEvent`]. This is a much more
+    /// ergonomic method-alias to the relevant [`TaskHookContainer::attach_ephemeral`] method.
+    /// 
+    /// When the program crashes, these TaskHooks do not persist. Depending on the circumstances, 
+    /// this may not be a wanted behavior, if you can guarantee your TaskHook is persistable, 
+    /// then [`TaskContext::attach_persistent_hook`] is the ideal method for you
     ///
     /// # Arguments
     /// The method accepts one argument, that being the [`TaskHook`] instance
@@ -243,8 +207,31 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<dyn TaskHook<E>>) {
-        self.hooks_container.attach(self, hook).await;
+    pub async fn attach_ephemeral_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
+        self.hooks_container.attach_ephemeral(self, hook).await;
+    }
+
+    /// Attaches a **Persistent** [`TaskHook`] to a specific [`TaskHookEvent`]. This is a much more
+    /// ergonomic method-alias to the relevant [`TaskHookContainer::attach_persistent`] method.
+    ///
+    /// When the program crashes, these TaskHooks do persist. Depending on the circumstances, 
+    /// this may not be a wanted behavior, if you don't want this to be enforced, 
+    /// then [`TaskContext::attach_ephemeral_hook`] is the ideal method for you
+    ///
+    /// # Arguments
+    /// The method accepts one argument, that being the [`TaskHook`] instance
+    /// to supply, which will subscribe to the [`TaskHookEvent`]
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub async fn attach_persistent_hook<E: TaskHookEvent, T>(&self, hook: Arc<T>)
+    where
+        E: TaskHookEvent,
+        T: TaskHook<E> + PersistenceObject
+    {
+        self.hooks_container.attach_persistent(self, hook).await;
     }
 
     /// Detaches a [`TaskHook`] from a specific [`TaskHookEvent`]. This is a much more
