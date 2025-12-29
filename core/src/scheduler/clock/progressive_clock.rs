@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
 use crate::scheduler::clock::SchedulerClock;
 use async_trait::async_trait;
+use std::marker::PhantomData;
 
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;

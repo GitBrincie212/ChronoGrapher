@@ -1,3 +1,4 @@
+use crate::persistence::registries::PERSISTENCE_REGISTRIES;
 use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskError;
 #[allow(unused_imports)]
@@ -5,13 +6,12 @@ use crate::task::frames::*;
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use dashmap::DashMap;
+use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use serde::ser::{Serializer, SerializeMap};
-use crate::persistence::registries::PERSISTENCE_REGISTRIES;
 
 pub mod events {
     pub use crate::task::OnTaskEnd;
@@ -415,23 +415,26 @@ define_hook_event!(
 /// - [`TaskHookEvent`]
 /// - [`Task`]
 /// - [`TaskFrame`]
-pub trait TaskHookLifecycleEvents<E: TaskHookEvent>: TaskHookEvent<Payload = Arc<dyn TaskHook<E>>> {}
+pub trait TaskHookLifecycleEvents<E: TaskHookEvent>:
+    TaskHookEvent<Payload = Arc<dyn TaskHook<E>>>
+{
+}
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookAttach<E> {}
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
 
 pub(crate) enum UnknownErasedTaskHook {
     Persistent {
         id: &'static str,
-        hook: Arc<dyn ErasedTaskHook>
+        hook: Arc<dyn ErasedTaskHook>,
     },
-    Ephemeral(Arc<dyn ErasedTaskHook>)
+    Ephemeral(Arc<dyn ErasedTaskHook>),
 }
 
 impl UnknownErasedTaskHook {
     fn extract(&self) -> &Arc<dyn ErasedTaskHook> {
         match self {
-            UnknownErasedTaskHook::Persistent {hook, ..} => hook,
-            UnknownErasedTaskHook::Ephemeral(hook) => hook
+            UnknownErasedTaskHook::Persistent { hook, .. } => hook,
+            UnknownErasedTaskHook::Ephemeral(hook) => hook,
         }
     }
 }
@@ -442,14 +445,14 @@ pub(crate) struct TaskHookEventCategory(pub DashMap<TypeId, UnknownErasedTaskHoo
 impl Serialize for TaskHookEventCategory {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: Serializer
+        S: Serializer,
     {
         let mut map = serializer.serialize_map(None)?;
-        for entry  in self.0.iter() {
+        for entry in self.0.iter() {
             let key = entry.key();
             let (&id, hook) = match entry.value() {
                 UnknownErasedTaskHook::Ephemeral(_) => continue,
-                UnknownErasedTaskHook::Persistent {hook, id} => (id, hook),
+                UnknownErasedTaskHook::Persistent { hook, id } => (id, hook),
             };
             if let Some(persistent_entry) = PERSISTENCE_REGISTRIES.get_hook_entry(id) {
                 map.serialize_key(id)?;
@@ -494,9 +497,7 @@ impl Serialize for TaskHookEventCategory {
 /// - [`Task`]
 /// - [`TaskFrame`]
 // #[derive(Serialize, Deserialize)]
-pub struct TaskHookContainer(
-    pub(crate) DashMap<&'static str, TaskHookEventCategory>,
-);
+pub struct TaskHookContainer(pub(crate) DashMap<&'static str, TaskHookEventCategory>);
 
 impl TaskHookContainer {
     /// Attaches an **Ephemeral** [`TaskHook`] onto the container, when attached, the [`TaskHook`]
@@ -516,16 +517,22 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach_ephemeral<E: TaskHookEvent>(&self, ctx: &TaskContext, hook: Arc<impl TaskHook<E>>)
-    {
+    pub async fn attach_ephemeral<E: TaskHookEvent>(
+        &self,
+        ctx: &TaskContext,
+        hook: Arc<impl TaskHook<E>>,
+    ) {
         let hook_id = hook.type_id();
-        let erased_hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
+        let erased_hook: Arc<dyn ErasedTaskHook> =
+            Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
 
         self.0
             .entry(E::PERSISTENCE_ID)
-            .or_default().0
+            .or_default()
+            .0
             .insert(hook_id, UnknownErasedTaskHook::Ephemeral(erased_hook));
-        self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>)).await;
+        self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>))
+            .await;
     }
 
     /// Attaches a **Persistent** [`TaskHook`] onto the container, when attached, the [`TaskHook`]
@@ -545,22 +552,24 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach_persistent<T, E,>(&self, ctx: &TaskContext, hook: Arc<T>)
+    pub async fn attach_persistent<T, E>(&self, ctx: &TaskContext, hook: Arc<T>)
     where
         E: TaskHookEvent,
-        T: TaskHook<E> + PersistenceObject
+        T: TaskHook<E> + PersistenceObject,
     {
         let hook_id = hook.type_id();
-        let erased_hook: Arc<dyn ErasedTaskHook> = Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
+        let erased_hook: Arc<dyn ErasedTaskHook> =
+            Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
 
-        self.0
-            .entry(E::PERSISTENCE_ID)
-            .or_default().0
-            .insert(hook_id, UnknownErasedTaskHook::Persistent {
+        self.0.entry(E::PERSISTENCE_ID).or_default().0.insert(
+            hook_id,
+            UnknownErasedTaskHook::Persistent {
                 id: T::PERSISTENCE_ID,
-                hook: erased_hook
-            });
-        self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>)).await;
+                hook: erased_hook,
+            },
+        );
+        self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>))
+            .await;
     }
 
     /// Gets the [`TaskHook`] in the container as immutable,
@@ -607,7 +616,8 @@ impl TaskHookContainer {
             .downcast()
             .expect("TaskHook is not of type T (some other is masquerading the 'T' TaskHook)");
 
-        self.emit::<OnHookDetach<E>>(ctx, &(typed as Arc<dyn TaskHook<E>>)).await;
+        self.emit::<OnHookDetach<E>>(ctx, &(typed as Arc<dyn TaskHook<E>>))
+            .await;
     }
 
     pub async fn emit<E: TaskHookEvent>(&self, ctx: &TaskContext, payload: &E::Payload) {

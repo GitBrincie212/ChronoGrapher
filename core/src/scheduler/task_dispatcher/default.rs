@@ -1,9 +1,9 @@
+use crate::scheduler::RescheduleNotifier;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
-use crate::scheduler::RescheduleNotifier;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
@@ -49,9 +49,12 @@ impl SchedulerTaskDispatcher for DefaultTaskDispatcher {
     async fn dispatch<T: 'static + Send + Sync>(
         &self,
         task: Arc<ErasedTask>,
-        sender: RescheduleNotifier<T>
+        sender: RescheduleNotifier<T>,
     ) {
         task.schedule_strategy().handle(task.clone()).await;
-        sender.notify().map_err(|_| "Dispatch finish message was not received successfully").unwrap();
+        sender
+            .notify()
+            .map_err(|_| "Dispatch finish message was not received successfully")
+            .unwrap();
     }
 }

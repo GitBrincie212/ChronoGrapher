@@ -5,12 +5,12 @@ pub use default::*;
 
 use crate::scheduler::clock::SchedulerClock;
 use crate::task::ErasedTask;
-use async_trait::async_trait;
-use std::sync::Arc;
-use uuid::Uuid;
 #[allow(unused_imports)]
 use crate::task::TaskSchedule;
 use crate::utils::Timestamp;
+use async_trait::async_trait;
+use std::sync::Arc;
+use uuid::Uuid;
 
 /// [`SchedulerTaskStore`] is a trait for implementing a storage mechanism for tasks, it allows
 /// for retrieving the earliest task, storing a task with its task schedule, removing a task via

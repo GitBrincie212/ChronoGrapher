@@ -2,12 +2,13 @@ pub mod clock;
 pub mod task_dispatcher; // skipcq: RS-D1001
 pub mod task_store; // skipcq: RS-D1001 // skipcq: RS-D1001
 
-use std::marker::PhantomData;
 use crate::scheduler::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::DefaultSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ScheduleStrategy, Task, TaskFrame, TaskSchedule};
+use crate::utils::Timestamp;
+use std::marker::PhantomData;
 use std::sync::{Arc, LazyLock};
 use std::time::SystemTime;
 use tokio::join;
@@ -15,7 +16,6 @@ use tokio::sync::{Mutex, broadcast};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
-use crate::utils::Timestamp;
 
 /// The default scheduler's type alias, it uses all the provided default components
 pub type DefaultScheduler = Scheduler<
@@ -28,14 +28,15 @@ pub type DefaultScheduler = Scheduler<
 /// The default scheduler, it uses all the provided default components to build the scheduler.
 /// Due to non-backend storage and system clock. This should **NOT** be used over
 /// a different built scheduler
-pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultScheduler>> =
-    LazyLock::new(|| Arc::new(
+pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultScheduler>> = LazyLock::new(|| {
+    Arc::new(
         Scheduler::builder()
             .store(DefaultSchedulerTaskStore::ephemeral())
             .clock(ProgressiveClock::<SystemTime>::default())
             .dispatcher(DefaultTaskDispatcher)
-            .build()
-    ));
+            .build(),
+    )
+});
 
 /// This is the builder configs to use for building a [`Scheduler`] instance.
 /// By itself it should not be used, and it resides in [`Scheduler::builder`]
@@ -45,8 +46,8 @@ pub struct SchedulerConfig<
     SupportedDateFormat: Timestamp,
     T1: SchedulerClock<SupportedDateFormat>,
     T2: SchedulerTaskStore<SupportedDateFormat>,
-    T3: SchedulerTaskDispatcher>
-{
+    T3: SchedulerTaskDispatcher,
+> {
     /// The [`SchedulerTaskDispatcher`] for handling the execution of tasks. They are the
     /// mechanisms that drive load balancing, priority execution and so on...
     ///
@@ -103,7 +104,7 @@ pub struct SchedulerConfig<
     clock: T1,
 
     #[builder(default, setter(skip))]
-    dateformat: PhantomData<SupportedDateFormat>
+    dateformat: PhantomData<SupportedDateFormat>,
 }
 
 impl<SupportedDateFormat, T1, T2, T3> From<SchedulerConfig<SupportedDateFormat, T1, T2, T3>>
@@ -112,7 +113,7 @@ where
     SupportedDateFormat: Timestamp,
     T1: SchedulerClock<SupportedDateFormat>,
     T2: SchedulerTaskStore<SupportedDateFormat>,
-    T3: SchedulerTaskDispatcher
+    T3: SchedulerTaskDispatcher,
 {
     fn from(config: SchedulerConfig<SupportedDateFormat, T1, T2, T3>) -> Self {
         let (schedule_tx, schedule_rx) = broadcast::channel(16);
@@ -125,7 +126,7 @@ where
             schedule_tx: Arc::new(schedule_tx),
             schedule_rx: Arc::new(Mutex::new(schedule_rx)),
             notifier: Arc::new(tokio::sync::Notify::new()),
-            _supported_date_format: PhantomData
+            _supported_date_format: PhantomData,
         }
     }
 }
@@ -203,7 +204,7 @@ pub struct Scheduler<
     SupportedDateFormat: Timestamp,
     T1: SchedulerClock<SupportedDateFormat>,
     T2: SchedulerTaskStore<SupportedDateFormat>,
-    T3: SchedulerTaskDispatcher
+    T3: SchedulerTaskDispatcher,
 > {
     clock: Arc<T1>,
     store: Arc<T2>,
@@ -212,7 +213,7 @@ pub struct Scheduler<
     schedule_tx: ArcSchedulerTX<Uuid>,
     schedule_rx: ArcSchedulerRX<Uuid>,
     notifier: Arc<tokio::sync::Notify>,
-    _supported_date_format: PhantomData<SupportedDateFormat>
+    _supported_date_format: PhantomData<SupportedDateFormat>,
 }
 
 impl<SupportedDateFormat, T1, T2, T3> Scheduler<SupportedDateFormat, T1, T2, T3>
@@ -220,7 +221,7 @@ where
     SupportedDateFormat: Timestamp,
     T1: SchedulerClock<SupportedDateFormat>,
     T2: SchedulerTaskStore<SupportedDateFormat>,
-    T3: SchedulerTaskDispatcher
+    T3: SchedulerTaskDispatcher,
 {
     /// Constructs a scheduler builder. Which is used for supplying
     /// various composites to then construct a [`Scheduler`], for
@@ -260,49 +261,47 @@ where
         let notifier = self.notifier.clone();
         join!(self.store.init(), self.dispatcher.init());
         *self.process.lock().await = Some(tokio::spawn(async move {
-                let double_clock_clone = clock_clone.clone();
-                let double_store_clone = store_clone.clone();
-                let double_notifier_clone = notifier.clone();
-                tokio::spawn(async move {
-                    while let Ok(idx) = scheduler_receive.lock().await.recv().await {
-                        if let Some(task) = double_store_clone.get(&idx).await {
-                            if let Some(max_runs) = task.max_runs()
-                                && task.runs() >= max_runs.get()
-                            {
-                                continue;
-                            }
-                            double_store_clone
-                                .reschedule(&double_clock_clone, &idx)
-                                .await;
-                            double_notifier_clone.notify_waiters();
+            let double_clock_clone = clock_clone.clone();
+            let double_store_clone = store_clone.clone();
+            let double_notifier_clone = notifier.clone();
+            tokio::spawn(async move {
+                while let Ok(idx) = scheduler_receive.lock().await.recv().await {
+                    if let Some(task) = double_store_clone.get(&idx).await {
+                        if let Some(max_runs) = task.max_runs()
+                            && task.runs() >= max_runs.get()
+                        {
+                            continue;
                         }
+                        double_store_clone
+                            .reschedule(&double_clock_clone, &idx)
+                            .await;
+                        double_notifier_clone.notify_waiters();
                     }
-                });
+                }
+            });
 
-                loop {
-                    if let Some(
-                        (task, time, idx)
-                    ) = store_clone.retrieve().await {
-                        tokio::select! {
-                            _ = clock_clone.idle_to(time) => {
-                                store_clone.pop().await;
-                                if !store_clone.exists(&idx).await { continue; }
-                                let sender = RescheduleNotifier { 
-                                    value: idx, 
-                                    notify: scheduler_send.clone() 
-                                };
-                                dispatcher_clone
-                                    .dispatch(task, sender)
-                                    .await;
-                                continue;
-                            }
-    
-                            _ = notifier.notified() => {
-                                continue;
-                            }
+            loop {
+                if let Some((task, time, idx)) = store_clone.retrieve().await {
+                    tokio::select! {
+                        _ = clock_clone.idle_to(time) => {
+                            store_clone.pop().await;
+                            if !store_clone.exists(&idx).await { continue; }
+                            let sender = RescheduleNotifier {
+                                value: idx,
+                                notify: scheduler_send.clone()
+                            };
+                            dispatcher_clone
+                                .dispatch(task, sender)
+                                .await;
+                            continue;
+                        }
+
+                        _ = notifier.notified() => {
+                            continue;
                         }
                     }
                 }
+            }
         }))
     }
 
