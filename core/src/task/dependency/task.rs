@@ -194,7 +194,7 @@ where
         let cloned_tracker = tracker.clone();
 
         tokio::task::spawn_blocking(move || async move {
-            config.task.attach_hook::<OnTaskEnd>(cloned_tracker).await;
+            config.task.attach_ephemeral_hook::<OnTaskEnd>(cloned_tracker).await;
         });
 
         Self {
