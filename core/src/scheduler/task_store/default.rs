@@ -8,11 +8,11 @@ use dashmap::DashMap;
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
 use std::sync::Arc;
-use std::sync::atomic::AtomicUsize;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
-struct DefaultScheduledItem(SystemTime, usize);
+struct DefaultScheduledItem(SystemTime, Uuid);
 
 impl Eq for DefaultScheduledItem {}
 
@@ -95,8 +95,7 @@ impl Ord for DefaultScheduledItem {
 /// - [`DefaultSchedulerTaskStore::new`]
 pub struct DefaultSchedulerTaskStore<T: PersistenceBackend = ()> {
     earliest_sorted: Mutex<BinaryHeap<Reverse<DefaultScheduledItem>>>,
-    tasks: DashMap<usize, Arc<ErasedTask>>,
-    id: AtomicUsize,
+    tasks: DashMap<Uuid, Arc<ErasedTask>>,
     backend: Arc<T>,
 }
 
@@ -111,13 +110,12 @@ impl DefaultSchedulerTaskStore {
     /// # See Also
     /// - [`DefaultSchedulerTaskStore`]
     /// - [`DefaultSchedulerTaskStore::default`]
-    pub fn ephemeral() -> Arc<Self> {
-        Arc::new(Self {
+    pub fn ephemeral() -> Self {
+        Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
-            id: AtomicUsize::new(0),
             backend: Arc::new(()),
-        })
+        }
     }
 }
 
@@ -137,18 +135,17 @@ impl<T: PersistenceBackend> DefaultSchedulerTaskStore<T> {
     /// # See Also
     /// - [`DefaultSchedulerTaskStore`]
     /// - [`DefaultSchedulerTaskStore::ephemeral`]
-    pub fn persistent(backend: T) -> Arc<Self> {
-        Arc::new(Self {
+    pub fn persistent(backend: T) -> Self {
+        Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
-            id: AtomicUsize::new(0),
             backend: Arc::new(backend),
-        })
+        }
     }
 }
 
 #[async_trait]
-impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> {
+impl<T: PersistenceBackend> SchedulerTaskStore<SystemTime> for DefaultSchedulerTaskStore<T> {
     /*
     async fn init(&self) {
         let persistence_ctx = PersistenceContext(self.backend.clone());
@@ -158,7 +155,7 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
     }
      */
 
-    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, usize)> {
+    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, Uuid)> {
         let early_lock = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
         let item = &rev_item.0;
@@ -166,7 +163,7 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
         Some((task.value().clone(), item.0, item.1))
     }
 
-    async fn get(&self, idx: &usize) -> Option<Arc<ErasedTask>> {
+    async fn get(&self, idx: &Uuid) -> Option<Arc<ErasedTask>> {
         self.tasks.get(idx).map(|x| x.value().clone())
     }
 
@@ -174,14 +171,14 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
         self.earliest_sorted.lock().await.pop();
     }
 
-    async fn exists(&self, idx: &usize) -> bool {
+    async fn exists(&self, idx: &Uuid) -> bool {
         self.tasks.contains_key(idx)
     }
 
-    async fn reschedule(&self, clock: Arc<dyn SchedulerClock>, idx: &usize) {
+    async fn reschedule(&self, clock: &impl SchedulerClock<SystemTime>, idx: &Uuid) {
         let sys_now = clock.now().await;
         let task = self.tasks.get(idx).unwrap();
-        let now = system_time_to_date_time(sys_now);
+        let now = system_time_to_date_time(&sys_now);
         let future_time = task.schedule().next_after(&now).unwrap();
         let sys_future_time = date_time_to_system_time(future_time);
 
@@ -189,11 +186,11 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
         lock.push(Reverse(DefaultScheduledItem(sys_future_time, *idx)));
     }
 
-    async fn store(&self, clock: Arc<dyn SchedulerClock>, task: ErasedTask) -> usize {
+    async fn store(&self, clock: &impl SchedulerClock<SystemTime>, task: ErasedTask) -> Uuid {
         let sys_last_exec = clock.now().await;
-        let last_exec = system_time_to_date_time(sys_last_exec);
+        let last_exec = system_time_to_date_time(&sys_last_exec);
         let future_time = task.schedule().next_after(&last_exec).unwrap();
-        let idx: usize = self.id.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let idx = Uuid::new_v4();
         self.tasks.insert(idx, Arc::new(task));
         let sys_future_time = SystemTime::from(future_time);
         let entry = DefaultScheduledItem(sys_future_time, idx);
@@ -203,7 +200,7 @@ impl<T: PersistenceBackend> SchedulerTaskStore for DefaultSchedulerTaskStore<T> 
         idx
     }
 
-    async fn remove(&self, idx: &usize) {
+    async fn remove(&self, idx: &Uuid) {
         self.tasks.remove(idx);
     }
 
