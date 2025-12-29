@@ -2,12 +2,14 @@ use crate::persistence::PersistenceObject;
 use dashmap::DashMap;
 use erased_serde::Deserializer as ErasedDeserializer;
 use erased_serde::Serializer as ErasedSerializer;
-use serde::ser::{Error as SerializeError};
+use serde::ser::Error as SerializeError;
 use std::any::{Any, TypeId};
 use std::sync::{Arc, LazyLock};
 
-pub type AnySerializeFunc = fn(&dyn Any, &mut dyn ErasedSerializer) -> Result<(), erased_serde::Error>;
-pub type AnyDeserializeFunc = fn(&mut dyn ErasedDeserializer<'_>) -> Result<Arc<dyn Any>, erased_serde::Error>;
+pub type AnySerializeFunc =
+    fn(&dyn Any, &mut dyn ErasedSerializer) -> Result<(), erased_serde::Error>;
+pub type AnyDeserializeFunc =
+    fn(&mut dyn ErasedDeserializer<'_>) -> Result<Arc<dyn Any>, erased_serde::Error>;
 
 pub static PERSISTENCE_REGISTRIES: LazyLock<PersistenceRegistriesManager> =
     LazyLock::new(|| PersistenceRegistriesManager::default());
@@ -15,7 +17,7 @@ pub static PERSISTENCE_REGISTRIES: LazyLock<PersistenceRegistriesManager> =
 #[derive(Clone, Copy)]
 pub struct ErasedPersistenceEntry {
     pub serialize: AnySerializeFunc,
-    pub deserialize: AnyDeserializeFunc
+    pub deserialize: AnyDeserializeFunc,
 }
 
 #[derive(Default)]

@@ -16,6 +16,9 @@ pub use hooks::*;
 pub use schedule::*;
 pub use scheduling_strats::*;
 
+use crate::persistence::PersistenceObject;
+#[allow(unused_imports)]
+use crate::scheduler::Scheduler;
 use dashmap::DashMap;
 use std::fmt::Debug;
 use std::num::NonZeroU64;
@@ -23,9 +26,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
-use crate::persistence::PersistenceObject;
-#[allow(unused_imports)]
-use crate::scheduler::Scheduler;
 
 pub type ErasedTask = Task<dyn TaskFrame, dyn TaskSchedule, dyn ScheduleStrategy>;
 
@@ -359,7 +359,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
     pub async fn attach_persistent_hook<E, T>(&self, hook: Arc<T>)
     where
         E: TaskHookEvent,
-        T: TaskHook<E> + PersistenceObject
+        T: TaskHook<E> + PersistenceObject,
     {
         let ctx = TaskContext::new(&self.as_erased());
         self.hooks.attach_persistent(&ctx, hook).await;

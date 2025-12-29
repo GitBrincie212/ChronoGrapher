@@ -130,14 +130,13 @@ impl SchedulerClock<SystemTime> for VirtualClock {
     }
 }
 
-
 #[async_trait]
 impl AdvanceableScheduleClock<SystemTime> for VirtualClock {
     async fn advance(&self, duration: Duration) {
         let now = self.now().await;
         self.advance_to(now + duration).await
     }
-    
+
     async fn advance_to(&self, to: SystemTime) {
         let to_millis = to
             .duration_since(SystemTime::UNIX_EPOCH)

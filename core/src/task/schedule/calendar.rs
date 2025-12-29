@@ -165,7 +165,7 @@ impl<T: TaskCalendarField> TaskCalendarField for TaskCalendarFieldRange<T> {
             2 => 59,
             1 => 59,
             0 => 999,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
         let end = self.1.unwrap_or(end_bound).min(end_bound);
         let start = self.0;
@@ -173,7 +173,9 @@ impl<T: TaskCalendarField> TaskCalendarField for TaskCalendarFieldRange<T> {
         let prev_date_field: u32 = date_field[idx];
         self.2.evaluate(date_field, idx);
         let diff = date_field[idx] - prev_date_field;
-        if diff == 0 {return;}
+        if diff == 0 {
+            return;
+        }
         if date_field[idx] > end {
             let cycles_above = (date_field[idx] - end - 1) / range_size + 1;
             date_field[(idx + 1).min(6)] += cycles_above;
@@ -282,15 +284,7 @@ pub type TaskScheduleCalendarBuilder<
 /// # See Also
 /// - [`TaskSchedule`]
 /// - [`TaskCalendarField`]
-pub struct TaskScheduleCalendar<
-    Year,
-    Month,
-    Day,
-    Hour,
-    Minute,
-    Second,
-    Millisecond,
-> {
+pub struct TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond> {
     year: Year,
     month: Month,
     day: Day,
@@ -306,11 +300,10 @@ pub struct TaskScheduleCalendar<
     its static
 */
 
-
 /*
-    Check if "something" is equal to one of the corresponding fields and return the corresponding
-    sequence of tokens (falsey for false, truthy for true)
- */
+   Check if "something" is equal to one of the corresponding fields and return the corresponding
+   sequence of tokens (falsey for false, truthy for true)
+*/
 macro_rules! switch {
     (Year, Year, [$($falsey:tt)*], [$($truthy:tt)*]) => {$($truthy)*};
     (Month, Month, [$($falsey:tt)*], [$($truthy:tt)*]) => {$($truthy)*};
@@ -404,32 +397,12 @@ impl TaskScheduleCalendarBuilder {
     }
 }
 
-impl<
-    Year,
-    Month,
-    Day,
-    Hour,
-    Minute,
-    Second,
-    Millisecond,
-> TaskScheduleCalendarBuilder<
-    Year,
-    Month,
-    Day,
-    Hour,
-    Minute,
-    Second,
-    Millisecond,
-> {
-    pub fn build(self) -> TaskScheduleCalendar<
-        Year,
-        Month,
-        Day,
-        Hour,
-        Minute,
-        Second,
-        Millisecond,
-    > {
+impl<Year, Month, Day, Hour, Minute, Second, Millisecond>
+    TaskScheduleCalendarBuilder<Year, Month, Day, Hour, Minute, Second, Millisecond>
+{
+    pub fn build(
+        self,
+    ) -> TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond> {
         TaskScheduleCalendar::<Year, Month, Day, Hour, Minute, Second, Millisecond> {
             year: self.year.0,
             month: self.month.0,
@@ -532,15 +505,8 @@ impl<
     Minute: TaskCalendarField + 'static,
     Second: TaskCalendarField + 'static,
     Millisecond: TaskCalendarField + 'static,
-> TaskSchedule for TaskScheduleCalendar<
-    Year,
-    Month,
-    Day,
-    Hour,
-    Minute,
-    Second,
-    Millisecond,
-> {
+> TaskSchedule for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
+{
     fn next_after(
         &self,
         time: &DateTime<Local>,
@@ -562,7 +528,7 @@ impl<
             time.hour(),
             time.day0(),
             time.month0(),
-            time.year() as u32
+            time.year() as u32,
         ];
 
         println!("{:?}", dates);

@@ -2,13 +2,13 @@ pub mod progressive_clock; // skipcq: RS-D1001
 
 pub mod virtual_clock; // skipcq: RS-D1001
 
+pub use progressive_clock::ProgressiveClock;
 use std::ops::Deref;
 use std::time::{Duration, SystemTime};
-pub use progressive_clock::ProgressiveClock;
 pub use virtual_clock::VirtualClock;
 
-use async_trait::async_trait;
 use crate::utils::Timestamp;
+use async_trait::async_trait;
 
 /// [`SchedulerClock`] is a trait for implementing a custom scheduler clock, typical operations
 /// include getting the current time, idle for a specific duration (or til a specific date is reached).
@@ -78,7 +78,7 @@ impl<T, D> SchedulerClock<D> for T
 where
     T: Deref + Send + Sync + 'static,
     T::Target: SchedulerClock<D>,
-    D: Timestamp
+    D: Timestamp,
 {
     async fn now(&self) -> D {
         self.deref().now().await
@@ -144,7 +144,7 @@ impl<T, D> AdvanceableScheduleClock<D> for T
 where
     T: Deref + Send + Sync + 'static,
     T::Target: AdvanceableScheduleClock<D>,
-    D: Timestamp
+    D: Timestamp,
 {
     async fn advance(&self, duration: Duration) {
         self.deref().advance(duration).await
