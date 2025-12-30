@@ -12,7 +12,7 @@ pub type AnyDeserializeFunc =
     fn(&mut dyn ErasedDeserializer<'_>) -> Result<Arc<dyn Any>, erased_serde::Error>;
 
 pub static PERSISTENCE_REGISTRIES: LazyLock<PersistenceRegistriesManager> =
-    LazyLock::new(|| PersistenceRegistriesManager::default());
+    LazyLock::new(PersistenceRegistriesManager::default);
 
 #[derive(Clone, Copy)]
 pub struct ErasedPersistenceEntry {

@@ -3,16 +3,15 @@ pub mod registries; // skipcq: RS-D1001
 
 pub use backend::PersistPath;
 pub use backend::PersistenceBackend;
-use std::ops::Deref;
 
 use erased_serde::Serialize as ErasedSerialized;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde::{Serialize, Serializer};
 use std::pin::Pin;
 
-pub struct PersistenceContext(
-    pub(crate) fn(PersistPath, &dyn erased_serde::Serialize) -> Pin<Box<dyn Future<Output = ()>>>,
-);
+type PersistFn = fn(PersistPath, &dyn erased_serde::Serialize) -> Pin<Box<dyn Future<Output = ()>>>;
+
+pub struct PersistenceContext(pub(crate) PersistFn);
 
 impl PersistenceContext {
     pub async fn update_field(&self, path: PersistPath, value: &dyn ErasedSerialized) {

@@ -359,8 +359,7 @@ where
         task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
     ) -> Uuid {
         let erased = task.as_erased();
-        let idx = self.store.store(&self.clock, erased).await;
-        idx
+        self.store.store(&self.clock, erased).await
     }
 
     /// Cancels a [`Task`] via a provided index, when canceled a task will never be rescheduled and when
