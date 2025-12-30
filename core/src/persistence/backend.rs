@@ -15,9 +15,9 @@ impl PersistPath {
     }
 }
 
-impl Into<String> for PersistPath {
-    fn into(self) -> String {
-        self.0
+impl From<PersistPath> for String {
+    fn from(val: PersistPath) -> Self {
+        val.0
     }
 }
 

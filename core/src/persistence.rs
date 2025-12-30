@@ -3,16 +3,33 @@ pub mod registries; // skipcq: RS-D1001
 
 pub use backend::PersistPath;
 pub use backend::PersistenceBackend;
-use std::ops::Deref;
 
 use erased_serde::Serialize as ErasedSerialized;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde::{Serialize, Serializer};
 use std::pin::Pin;
 
-pub struct PersistenceContext(
-    pub(crate) fn(PersistPath, &dyn erased_serde::Serialize) -> Pin<Box<dyn Future<Output = ()>>>,
-);
+type PersistFn = fn(PersistPath, &dyn erased_serde::Serialize) -> Pin<Box<dyn Future<Output = ()>>>;
+
+/// Context object that provides the communication layer between persistent fields and the
+/// persistence backend.
+///
+/// This struct wraps a function pointer that handles persistence operations, allowing
+/// [`PersistentTracker`] fields to update their values in the backend storage.
+///
+/// # Struct Field(s)
+/// - Internal function pointer that takes a [`PersistPath`] and serializable value, returning
+///   a future that completes when the persistence operation finishes
+///
+/// # Constructor(s)
+/// This struct is typically constructed internally by [`PersistenceBackend`] and injected
+/// via the [`PersistenceObject::inject_context`] method.
+///
+/// # See Also
+/// - [`PersistenceObject::inject_context`]
+/// - [`PersistenceBackend`]
+/// - [`PersistPath`]
+pub struct PersistenceContext(pub(crate) PersistFn);
 
 impl PersistenceContext {
     pub async fn update_field(&self, path: PersistPath, value: &dyn ErasedSerialized) {

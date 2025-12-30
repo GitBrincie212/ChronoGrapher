@@ -31,7 +31,7 @@ impl<T: Timestamp> Default for ProgressiveClock<T> {
 
 impl<T: Timestamp> Clone for ProgressiveClock<T> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 

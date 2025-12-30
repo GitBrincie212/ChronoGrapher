@@ -96,7 +96,7 @@ impl Ord for DefaultScheduledItem {
 pub struct DefaultSchedulerTaskStore<T: PersistenceBackend = ()> {
     earliest_sorted: Mutex<BinaryHeap<Reverse<DefaultScheduledItem>>>,
     tasks: DashMap<Uuid, Arc<ErasedTask>>,
-    backend: Arc<T>,
+    _backend: Arc<T>,
 }
 
 impl DefaultSchedulerTaskStore {
@@ -114,7 +114,7 @@ impl DefaultSchedulerTaskStore {
         Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
-            backend: Arc::new(()),
+            _backend: Arc::new(()),
         }
     }
 }
@@ -139,7 +139,7 @@ impl<T: PersistenceBackend> DefaultSchedulerTaskStore<T> {
         Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
-            backend: Arc::new(backend),
+            _backend: Arc::new(backend),
         }
     }
 }

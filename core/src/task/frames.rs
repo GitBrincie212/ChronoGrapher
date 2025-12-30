@@ -90,7 +90,7 @@ impl Clone for TaskContext {
             depth: self.depth,
             max_runs: self.max_runs,
             frame: self.frame.clone(),
-            id: self.id.clone(),
+            id: self.id,
         }
     }
 }
@@ -120,7 +120,7 @@ impl TaskContext {
             depth: 0,
             max_runs: task.max_runs,
             frame: task.frame.clone(),
-            id: task.id.clone(),
+            id: task.id,
         }
     }
 
@@ -226,7 +226,7 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub async fn attach_persistent_hook<E: TaskHookEvent, T>(&self, hook: Arc<T>)
+    pub async fn attach_persistent_hook<E, T>(&self, hook: Arc<T>)
     where
         E: TaskHookEvent,
         T: TaskHook<E> + PersistenceObject,

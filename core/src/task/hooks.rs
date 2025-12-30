@@ -46,21 +46,22 @@ pub mod events {
 ///
 /// There are 4 types of [`TaskHookEvent`], These are:
 /// 1. **Hook Lifecycle Events** These are [`OnHookAttach`] and [`OnHookDetach`], they are emitted
-/// when a [`TaskHook`] is either attached or detached from a [`TaskHookContainer`]. When either
-/// events are triggered, unlike most other implementations of [`TaskHookEvent`], they contain a
-/// generic indicating the event they are attached to / detached from
+///    when a [`TaskHook`] is either attached or detached from a [`TaskHookContainer`]. When either
+///    events are triggered, unlike most other implementations of [`TaskHookEvent`], they contain a
+///    generic indicating the event they are attached to / detached from
 ///
 /// 2. **Task Lifecycle Events** These are [`OnTaskStart`] and [`OnTaskEnd`], they are simple
-/// events that execute on [`Task`] when it starts and when it ends respectively. Nothing unique
-/// about them, other than that they live in [`Task`]
+///    events that execute on [`Task`] when it starts and when it ends respectively. Nothing unique
+///    about them, other than that they live in [`Task`]
 ///
 /// 3. **TaskFrame Events** These have to do with [`TaskFrame`] types. They are emitted
-/// from [`TaskFrame`], other than that they have nothing else unique about them
+///    from [`TaskFrame`], other than that they have nothing else unique about them
 ///
 /// 4. **TaskHook Event Groups** These are typically traits, their goal is to group relevant events
-/// making it possible for TaskHooks to run the same code in a group of events (without boilerplate).
-/// They cannot not be registered onto TaskHooksContainer and they are part of the TaskHook implementation
-/// phase
+///    making it possible for TaskHooks to run the same code in a group of events (without boilerplate).
+///
+///    They cannot not be registered onto TaskHooksContainer and they are part of the TaskHook implementation
+///    phase.
 ///
 /// # Trait Implementation(s)
 /// There are multiple implementations for [`TaskHookEvent`] present in ChronoGrapher, almost
@@ -77,9 +78,9 @@ pub mod events {
 /// - [`OnDelayStart`] - Triggers when the idling process starts in [`DelayTaskFrame`]
 /// - [`OnDelayEnd`] - Triggers when the idling process ends in [`DelayTaskFrame`]
 /// - [`OnChildTaskFrameStart`] - Triggers when a wrapped child [`TaskFrame`] from
-/// [`SequentialTaskFrame`] / [`ParallelTaskFrame`] starts
+///   [`SequentialTaskFrame`] / [`ParallelTaskFrame`] starts
 /// - [`OnChildTaskFrameEnd`] - Triggers when a wrapped child [`TaskFrame`] from
-/// [`SequentialTaskFrame`] / [`ParallelTaskFrame`] ends
+///   [`SequentialTaskFrame`] / [`ParallelTaskFrame`] ends
 /// - [`OnTaskFrameSelection`] - Triggers when a [`TaskFrame`] is selected from [`SelectTaskFrame`]
 /// - [`OnFallbackEvent`] - Triggers when the primary [`TaskFrame`] fails in [`FallbackTaskFrame`]
 /// - [`OnDependencyValidation`] - Triggers when a [`TaskDependency`] is validated in [`DependencyTaskFrame`]
@@ -449,12 +450,12 @@ impl Serialize for TaskHookEventCategory {
     {
         let mut map = serializer.serialize_map(None)?;
         for entry in self.0.iter() {
-            let key = entry.key();
-            let (&id, hook) = match entry.value() {
+            let _key = entry.key();
+            let (&id, _hook) = match entry.value() {
                 UnknownErasedTaskHook::Ephemeral(_) => continue,
                 UnknownErasedTaskHook::Persistent { hook, id } => (id, hook),
             };
-            if let Some(persistent_entry) = PERSISTENCE_REGISTRIES.get_hook_entry(id) {
+            if let Some(_persistent_entry) = PERSISTENCE_REGISTRIES.get_hook_entry(id) {
                 map.serialize_key(id)?;
 
                 // hook.clone().as_arc_any(): The value i want to serialize

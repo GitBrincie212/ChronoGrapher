@@ -11,15 +11,68 @@ pub type AnySerializeFunc =
 pub type AnyDeserializeFunc =
     fn(&mut dyn ErasedDeserializer<'_>) -> Result<Arc<dyn Any>, erased_serde::Error>;
 
+/// Global persistence registries manager that holds type-erased serialization and deserialization
+/// functions for all registered [`PersistenceObject`] types.
+///
+/// This static provides thread-safe access to registry mappings between persistence IDs, type IDs,
+/// and their corresponding serialization functions.
+///
+/// # See Also
+/// - [`PersistenceRegistriesManager`]
+/// - [`PersistenceObject`]
+/// - [`ErasedPersistenceEntry`]
 pub static PERSISTENCE_REGISTRIES: LazyLock<PersistenceRegistriesManager> =
-    LazyLock::new(|| PersistenceRegistriesManager::default());
+    LazyLock::new(PersistenceRegistriesManager::default);
 
+/// Type-erased persistence entry containing serialization and deserialization functions.
+///
+/// This struct holds function pointers that can serialize and deserialize values of a specific
+/// type without carrying generic type parameters, enabling runtime type registration and
+/// dynamic dispatch for persistence operations.
+///
+/// # Trait Implementation(s)
+/// - [`Clone`]: Allows copying the function pointers
+/// - [`Copy`]: Enables bitwise copying since function pointers are trivially copyable
+///
+/// # Constructor(s)
+/// This struct is typically constructed internally by [`PersistenceRegistriesManager::register`]
+/// when registering a new [`PersistenceObject`] type.
+///
+/// # See Also
+/// - [`AnySerializeFunc`]
+/// - [`AnyDeserializeFunc`]
+/// - [`PersistenceRegistriesManager`]
 #[derive(Clone, Copy)]
 pub struct ErasedPersistenceEntry {
+    /// Function pointer for type-erased serialization operations
     pub serialize: AnySerializeFunc,
+    /// Function pointer for type-erased deserialization operations
     pub deserialize: AnyDeserializeFunc,
 }
 
+/// Manager for persistence registries that handles type registration and lookup.
+///
+/// This struct maintains two internal registries:
+/// - A persistent registry that maps persistence IDs to their serialization/deserialization functions
+/// - A runtime registry that maps type IDs to persistence IDs for reverse lookups
+///
+/// The manager enables dynamic registration of [`PersistenceObject`] types at runtime and provides
+/// efficient lookup mechanisms for both serialization and deserialization operations.
+///
+/// # Struct Field(s)
+/// - `persistent_registry`: Maps persistence IDs to [`ErasedPersistenceEntry`] instances
+/// - `runtime_registry`: Maps type IDs to persistence ID strings
+///
+/// # Trait Implementation(s)
+/// - [`Default`]: Creates a new manager with empty registries
+///
+/// # Constructor(s)
+/// - [`Default::default()`]: Creates an empty manager ready for type registration
+///
+/// # See Also
+/// - [`PERSISTENCE_REGISTRIES`]
+/// - [`ErasedPersistenceEntry`]
+/// - [`PersistenceObject`]
 #[derive(Default)]
 pub struct PersistenceRegistriesManager {
     persistent_registry: DashMap<&'static str, ErasedPersistenceEntry>,
