@@ -30,10 +30,6 @@ pub static PERSISTENCE_REGISTRIES: LazyLock<PersistenceRegistriesManager> =
 /// type without carrying generic type parameters, enabling runtime type registration and
 /// dynamic dispatch for persistence operations.
 ///
-/// # Struct Field(s)
-/// - `serialize`: Function pointer for type-erased serialization operations
-/// - `deserialize`: Function pointer for type-erased deserialization operations
-///
 /// # Trait Implementation(s)
 /// - [`Clone`]: Allows copying the function pointers
 /// - [`Copy`]: Enables bitwise copying since function pointers are trivially copyable
@@ -48,7 +44,9 @@ pub static PERSISTENCE_REGISTRIES: LazyLock<PersistenceRegistriesManager> =
 /// - [`PersistenceRegistriesManager`]
 #[derive(Clone, Copy)]
 pub struct ErasedPersistenceEntry {
+    /// Function pointer for type-erased serialization operations
     pub serialize: AnySerializeFunc,
+    /// Function pointer for type-erased deserialization operations
     pub deserialize: AnyDeserializeFunc,
 }
 
