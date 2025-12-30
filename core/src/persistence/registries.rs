@@ -11,9 +11,41 @@ pub type AnySerializeFunc =
 pub type AnyDeserializeFunc =
     fn(&mut dyn ErasedDeserializer<'_>) -> Result<Arc<dyn Any>, erased_serde::Error>;
 
+/// Global persistence registries manager that holds type-erased serialization and deserialization
+/// functions for all registered [`PersistenceObject`] types.
+///
+/// This static provides thread-safe access to registry mappings between persistence IDs, type IDs,
+/// and their corresponding serialization functions.
+///
+/// # See Also
+/// - [`PersistenceRegistriesManager`]
+/// - [`PersistenceObject`]
+/// - [`ErasedPersistenceEntry`]
 pub static PERSISTENCE_REGISTRIES: LazyLock<PersistenceRegistriesManager> =
     LazyLock::new(PersistenceRegistriesManager::default);
 
+/// Type-erased persistence entry containing serialization and deserialization functions.
+///
+/// This struct holds function pointers that can serialize and deserialize values of a specific
+/// type without carrying generic type parameters, enabling runtime type registration and
+/// dynamic dispatch for persistence operations.
+///
+/// # Struct Field(s)
+/// - `serialize`: Function pointer for type-erased serialization operations
+/// - `deserialize`: Function pointer for type-erased deserialization operations
+///
+/// # Trait Implementation(s)
+/// - [`Clone`]: Allows copying the function pointers
+/// - [`Copy`]: Enables bitwise copying since function pointers are trivially copyable
+///
+/// # Constructor(s)
+/// This struct is typically constructed internally by [`PersistenceRegistriesManager::register`]
+/// when registering a new [`PersistenceObject`] type.
+///
+/// # See Also
+/// - [`AnySerializeFunc`]
+/// - [`AnyDeserializeFunc`]
+/// - [`PersistenceRegistriesManager`]
 #[derive(Clone, Copy)]
 pub struct ErasedPersistenceEntry {
     pub serialize: AnySerializeFunc,
