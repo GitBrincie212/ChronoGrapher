@@ -1,34 +1,37 @@
-name: Greetings
+name: 'Welcome New Contributors'
 
-on: [pull_request_target, issues]
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
 
 jobs:
-  greeting:
+  welcome-new-contributor:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
     steps:
-    - uses: actions/first-interaction@v3
-      with:
-        issue_message: |
-          # Greeting New Fellow Programmer!
-          
-          ChronoGrapher is a welcoming place for any person to contribute. Please refer 
-          to the markdown file for [How To Contribute](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CONTRIBUTING.md) 
-          as well as the [Code Of Conduct](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CODE_OF_CONDUCT.md)
-          for more information on what is allowed, whats not, style guidelines... etc.
-          
-          Thanks for being interested to work with the team. We wish you the best of luck in your journey 
-          of contributing to the ChronoGrapher project
+      - name: 'Greet the new contributor'
+        uses: garg3133/welcome-new-contributors@v1.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
+            Greeting There @contributor_name!
+            
+            ChronoGrapher is a welcoming place for any person to contribute. Please refer 
+            to the markdown file for [How To Contribute](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CONTRIBUTING.md) 
+            as well as the [Code Of Conduct](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CODE_OF_CONDUCT.md)
+            for more information on what is allowed, whats not, style guidelines... etc.
+            
+            Thanks for being interested to work with the team. We wish you the best of luck in your journey 
+            of contributing to the ChronoGrapher project
 
-        pr_message: |
-          # Greeting New Fellow Programmer!
-          
-          ChronoGrapher is a welcoming place for any person to contribute. Please refer 
-          to the markdown file for [How To Contribute](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CONTRIBUTING.md) 
-          as well as the [Code Of Conduct](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CODE_OF_CONDUCT.md)
-          for more information on what is allowed, whats not, style guidelines... etc.
-          
-          Thanks for being interested to work with the team. We wish you the best of luck in your journey 
-          of contributing to the ChronoGrapher project
+          pr_message: |
+            Greetings There @contributor_name!
+            
+            ChronoGrapher is a welcoming place for any person to contribute. Please refer 
+            to the markdown file for [How To Contribute](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CONTRIBUTING.md) 
+            as well as the [Code Of Conduct](https://github.com/GitBrincie212/ChronoGrapher/blob/master/CODE_OF_CONDUCT.md)
+            for more information on what is allowed, whats not, style guidelines... etc.
+            
+            Thanks for being interested to work with the team. We wish you the best of luck in your journey 
+            of contributing to the ChronoGrapher project
