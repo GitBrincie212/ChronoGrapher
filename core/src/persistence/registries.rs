@@ -52,6 +52,29 @@ pub struct ErasedPersistenceEntry {
     pub deserialize: AnyDeserializeFunc,
 }
 
+/// Manager for persistence registries that handles type registration and lookup.
+///
+/// This struct maintains two internal registries:
+/// - A persistent registry that maps persistence IDs to their serialization/deserialization functions
+/// - A runtime registry that maps type IDs to persistence IDs for reverse lookups
+///
+/// The manager enables dynamic registration of [`PersistenceObject`] types at runtime and provides
+/// efficient lookup mechanisms for both serialization and deserialization operations.
+///
+/// # Struct Field(s)
+/// - `persistent_registry`: Maps persistence IDs to [`ErasedPersistenceEntry`] instances
+/// - `runtime_registry`: Maps type IDs to persistence ID strings
+///
+/// # Trait Implementation(s)
+/// - [`Default`]: Creates a new manager with empty registries
+///
+/// # Constructor(s)
+/// - [`Default::default()`]: Creates an empty manager ready for type registration
+///
+/// # See Also
+/// - [`PERSISTENCE_REGISTRIES`]
+/// - [`ErasedPersistenceEntry`]
+/// - [`PersistenceObject`]
 #[derive(Default)]
 pub struct PersistenceRegistriesManager {
     persistent_registry: DashMap<&'static str, ErasedPersistenceEntry>,
