@@ -27,13 +27,13 @@ use chronographer::prelude::*;
 async fn main() {
   let task = Task::define(
     TaskScheduleInterval::from_secs(4),
-    |_ctx| async {
+    dynamic_taskframe!({
       println!("Hello World");
-      Ok(())
-    }
+    })
   );
 
-  CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
+  CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
+  CHRONOGRAPHER_SCHEDULER.start().await;
   loop {} // (Optional) keeps alive the program
 }
 ```
