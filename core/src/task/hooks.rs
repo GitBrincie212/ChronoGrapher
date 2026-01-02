@@ -118,9 +118,7 @@ pub mod events {
 /// - [`OnTaskFrameSelection`]
 /// - [`OnFallbackEvent`]
 /// - [`OnDependencyValidation`]
-pub trait TaskHookEvent:
-    Send + Sync + Default + 'static
-{
+pub trait TaskHookEvent: Send + Sync + Default + 'static {
     type Payload: Send + Sync;
     const EVENT_ID: &'static str;
 }
@@ -467,11 +465,7 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach<E: TaskHookEvent>(
-        &self,
-        ctx: &TaskContext,
-        hook: Arc<impl TaskHook<E>>,
-    ) {
+    pub async fn attach<E: TaskHookEvent>(&self, ctx: &TaskContext, hook: Arc<impl TaskHook<E>>) {
         let hook_id = hook.type_id();
         let erased_hook: Arc<dyn ErasedTaskHook> =
             Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
