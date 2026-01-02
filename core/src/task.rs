@@ -16,7 +16,6 @@ pub use hooks::*;
 pub use schedule::*;
 pub use scheduling_strats::*;
 
-use crate::persistence::PersistenceObject;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 use dashmap::DashMap;
@@ -351,18 +350,9 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
         }
     }
 
-    pub async fn attach_ephemeral_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
+    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
         let ctx = TaskContext::new(&self.as_erased());
-        self.hooks.attach_ephemeral(&ctx, hook).await;
-    }
-
-    pub async fn attach_persistent_hook<E, T>(&self, hook: Arc<T>)
-    where
-        E: TaskHookEvent,
-        T: TaskHook<E> + PersistenceObject,
-    {
-        let ctx = TaskContext::new(&self.as_erased());
-        self.hooks.attach_persistent(&ctx, hook).await;
+        self.hooks.attach(&ctx, hook).await;
     }
 
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {

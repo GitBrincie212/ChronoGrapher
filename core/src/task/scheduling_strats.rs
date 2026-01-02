@@ -1,7 +1,5 @@
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::{ErasedTask, TaskError};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -92,7 +90,7 @@ where
 /// # See Also
 /// - [`ScheduleStrategy`]
 /// - [`SequentialSchedulingPolicy::default`]
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct SequentialSchedulingPolicy;
 
 #[async_trait]
@@ -101,14 +99,6 @@ impl ScheduleStrategy for SequentialSchedulingPolicy {
         let result: Result<(), TaskError> = task.run().await;
         result.ok();
     }
-}
-
-#[async_trait]
-impl PersistenceObject for SequentialSchedulingPolicy {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::SequentialSchedulingPolicy#1bd3c9dc-46fd-4a83-b234-f575352e7e15";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`ConcurrentSchedulingPolicy`] is an implementation of [`ScheduleStrategy`] and executes the task
@@ -131,7 +121,7 @@ impl PersistenceObject for SequentialSchedulingPolicy {
 /// # See Also
 /// - [`ScheduleStrategy`]
 /// - [`ConcurrentSchedulingPolicy::default`]
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct ConcurrentSchedulingPolicy;
 
 #[async_trait]
@@ -143,14 +133,6 @@ impl ScheduleStrategy for ConcurrentSchedulingPolicy {
             result.ok();
         });
     }
-}
-
-#[async_trait]
-impl PersistenceObject for ConcurrentSchedulingPolicy {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::ConcurrentSchedulingPolicy#06bae7de-0633-46bb-9c6c-169ad95b3eb1";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`CancelPreviousSchedulingPolicy`] is an implementation of [`ScheduleStrategy`] and executes the
@@ -211,15 +193,6 @@ impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
     }
 }
 
-/*
-#[async_trait]
-impl PersistenceObject for CancelPreviousSchedulingPolicy {
-    const PERSISTENCE_ID: &'static str = "chronographer::CancelPreviousSchedulingPolicy#7c49ad2e-9122-4ad3-8245-df2d77c1d464";
-
-    fn inject_context<T: PersistenceBackend>(&self, _ctx: &PersistenceContext<T>) {}
-}
- */
-
 /// [`CancelCurrentSchedulingPolicy`] is an implementation of [`ScheduleStrategy`] and executes the
 /// task in the background, unlike [`ConcurrentSchedulingPolicy`], this policy cancels the current
 /// task that tries to overlaps the already-running task
@@ -237,7 +210,7 @@ impl PersistenceObject for CancelPreviousSchedulingPolicy {
 /// - [`PersistenceObject`]
 /// - [`Serialize`]
 /// - [`Deserialize`]
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct CancelCurrentSchedulingPolicy(Arc<AtomicBool>);
 
 impl Default for CancelCurrentSchedulingPolicy {
@@ -268,12 +241,4 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
             is_free_clone.store(true, Ordering::Relaxed);
         });
     }
-}
-
-#[async_trait]
-impl PersistenceObject for CancelCurrentSchedulingPolicy {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::CancelCurrentSchedulingPolicy#dfce54d2-a4fb-478f-8b96-705ab4d3dba0";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

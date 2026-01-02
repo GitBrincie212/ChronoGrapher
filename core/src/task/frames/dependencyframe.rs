@@ -5,8 +5,6 @@ use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
 use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
-use serde::Deserialize;
-use serde::Serialize;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
@@ -252,7 +250,7 @@ pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: Arc<T>,
     dependencies: Vec<Arc<dyn FrameDependency>>,
     dependent_behaviour: Arc<dyn DependentFailBehavior>,
-} // TODO: See how to persist dependencies and dependent behaviour
+}
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
     /// Creates / Constructs a builder for the construction of [`DependencyTaskFrame`],
@@ -307,15 +305,3 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
         ctx.subdivide(self.frame.clone()).await
     }
 }
-
-/*
-#[async_trait]
-impl<F: TaskFrame + PersistenceObject> PersistenceObject for DependencyTaskFrame<F> {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::DependencyTaskFrame#efd76154-9690-40b9-be03-39186c74d579";
-
-    fn inject_context<T: PersistenceBackend>(&self, ctx: &PersistenceContext<T>) {
-        todo!()
-    }
-}
- */

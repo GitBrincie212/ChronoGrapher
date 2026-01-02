@@ -1,4 +1,3 @@
-use crate::persistence::PersistenceBackend;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::ErasedTask;
@@ -35,24 +34,24 @@ impl Ord for DefaultScheduledItem {
     }
 }
 
-/// [`DefaultSchedulerTaskStore`] is an implementation of [`SchedulerTaskStore`]
+/// [`EphemerealSchedulerTaskStore`] is an implementation of [`SchedulerTaskStore`]
 /// that can operate in-memory and persistence (can be configured with a [`PersistenceBackend`])
 ///
 /// # Usage Note(s)
-/// By default [`DefaultSchedulerTaskStore`] operates in-memory,
+/// By default [`EphemerealSchedulerTaskStore`] operates in-memory,
 /// it doesn't store any information on the disk, while being fast, it makes it brittle
 /// to crashes and shutdowns. For enterprise use, it is advised to configure a
 /// backend. It is mostly meant to be used for demos or for debugging (where one
 /// doesn't care to persist information on disk)
 ///
 /// # Constructor(s)
-/// When constructing a new [`DefaultSchedulerTaskStore`], one can use
-/// [`DefaultSchedulerTaskStore::ephemeral`] for ephemeral-only (in-memory) storage or
-/// [`DefaultSchedulerTaskStore<T>::persistent`] for backend storage with a provided
+/// When constructing a new [`EphemerealSchedulerTaskStore`], one can use
+/// [`EphemerealSchedulerTaskStore::ephemeral`] for ephemeral-only (in-memory) storage or
+/// [`EphemerealSchedulerTaskStore<T>::persistent`] for backend storage with a provided
 /// backend
 ///
 /// # Trait Implementation(s)
-/// [`DefaultSchedulerTaskStore`] obviously implements the [`SchedulerTaskStore`]
+/// [`EphemerealSchedulerTaskStore`] obviously implements the [`SchedulerTaskStore`]
 ///
 /// # Example
 /// ```ignore
@@ -92,69 +91,32 @@ impl Ord for DefaultScheduledItem {
 ///
 /// # See Also
 /// - [`SchedulerTaskStore`]
-/// - [`DefaultSchedulerTaskStore::new`]
-pub struct DefaultSchedulerTaskStore<T: PersistenceBackend = ()> {
+/// - [`EphemerealSchedulerTaskStore::new`]
+pub struct EphemerealSchedulerTaskStore {
     earliest_sorted: Mutex<BinaryHeap<Reverse<DefaultScheduledItem>>>,
     tasks: DashMap<Uuid, Arc<ErasedTask>>,
-    _backend: Arc<T>,
 }
 
-impl DefaultSchedulerTaskStore {
-    /// Creates / Constructs a new [`DefaultSchedulerTaskStore`] instance which
-    /// only operates in-memory, one can construct a version for persistence
-    /// use, via [`DefaultSchedulerTaskStore<T>::persistent`]
+impl EphemerealSchedulerTaskStore {
+    /// Creates / Constructs a new [`EphemerealSchedulerTaskStore`] instance which
+    /// only operates in-memory
     ///
     /// # Returns
-    /// The newly constructed [`DefaultSchedulerTaskStore`] wrapped in an ``Arc<T>``.
+    /// The newly constructed [`EphemerealSchedulerTaskStore`].
     ///
     /// # See Also
-    /// - [`DefaultSchedulerTaskStore`]
-    /// - [`DefaultSchedulerTaskStore::default`]
+    /// - [`EphemerealSchedulerTaskStore`]
+    /// - [`EphemerealSchedulerTaskStore::default`]
     pub fn ephemeral() -> Self {
         Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
-            _backend: Arc::new(()),
-        }
-    }
-}
-
-impl<T: PersistenceBackend> DefaultSchedulerTaskStore<T> {
-    /// Creates / Constructs a new [`DefaultSchedulerTaskStore`] instance which
-    /// operates in-memory and stores information to be reconstructed at runtime
-    /// when a crash occurs. One can also construct a variant for only in-memory use
-    /// via [`DefaultSchedulerTaskStore::ephemeral`]
-    ///
-    /// # Argument(s)
-    /// This method accepts one argument, this being the [`PersistenceBackend`]
-    /// implementation to use
-    ///
-    /// # Returns
-    /// The newly constructed [`DefaultSchedulerTaskStore`] wrapped in an ``Arc<T>``.
-    ///
-    /// # See Also
-    /// - [`DefaultSchedulerTaskStore`]
-    /// - [`DefaultSchedulerTaskStore::ephemeral`]
-    pub fn persistent(backend: T) -> Self {
-        Self {
-            earliest_sorted: Mutex::new(BinaryHeap::new()),
-            tasks: DashMap::new(),
-            _backend: Arc::new(backend),
         }
     }
 }
 
 #[async_trait]
-impl<T: PersistenceBackend> SchedulerTaskStore<SystemTime> for DefaultSchedulerTaskStore<T> {
-    /*
-    async fn init(&self) {
-        let persistence_ctx = PersistenceContext(self.backend.clone());
-        for entry in self.tasks.iter() {
-            entry.value().inject_context(&persistence_ctx);
-        }
-    }
-     */
-
+impl SchedulerTaskStore<SystemTime> for EphemerealSchedulerTaskStore {
     async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, Uuid)> {
         let early_lock = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;

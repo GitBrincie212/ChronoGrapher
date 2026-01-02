@@ -1,9 +1,7 @@
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -42,7 +40,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// - [`FlagDependency::new`]
 /// - [`ResolvableFrameDependency`]
 /// - [`UnresolvableFrameDependency`]
-#[derive(Serialize, Deserialize)]
 pub struct FlagDependency(Arc<AtomicBool>, Arc<AtomicBool>);
 
 impl FlagDependency {
@@ -92,14 +89,5 @@ impl ResolvableFrameDependency for FlagDependency {
 impl UnresolvableFrameDependency for FlagDependency {
     async fn unresolve(&self) {
         self.0.store(true, Ordering::Relaxed);
-    }
-}
-
-impl PersistenceObject for FlagDependency {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::FlagDependency#8e932fba-afec-40c6-b73d-1c048f382ab8";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {
-        todo!()
     }
 }

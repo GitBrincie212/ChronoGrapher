@@ -22,9 +22,6 @@ typed-builder = "0.23.0"
 tokio = { version = "1.47.1", features = ["time", "rt-multi-thread", "macros", "sync"] }
 chrono = { version = "0.4.41", features = ["now"] }
 cron-parser = "0.11.0"
-uuid = { version = "1.18.1", features = ["v4", "serde"] }
+uuid = { version = "1.18.1", features = ["v4"] }
 fastrand = "2.3.0"
-dashmap = { version = "7.0.0-rc2", features = ["serde"] }
-serde = { version = "1.0.228", features = ["derive", "rc"] }
-erased-serde = "0.4.9"
-sled = "0.34.7"
+dashmap = { version = "7.0.0-rc2" }

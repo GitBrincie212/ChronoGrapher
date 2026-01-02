@@ -2,7 +2,6 @@ use crate::define_event;
 use crate::errors::ChronographerErrors;
 use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// [`SelectFrameAccessor`] is a trait for selecting a task frame

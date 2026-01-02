@@ -26,11 +26,11 @@ macro_rules! define_event_group {
 macro_rules! define_event {
     ($(#[$($attrss:tt)*])* $name: ident, $payload: ty) => {
         $(#[$($attrss)*])*
-        #[derive(Default, Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+        #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
         pub struct $name;
         impl<'a> TaskHookEvent for $name {
             type Payload = $payload;
-            const PERSISTENCE_ID: &'static str = concat!("chronographer_core#", stringify!($name));
+            const EVENT_ID: &'static str = concat!("chronographer_core#", stringify!($name));
         }
     };
 }

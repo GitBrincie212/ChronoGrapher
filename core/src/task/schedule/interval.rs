@@ -1,14 +1,13 @@
 use crate::errors::ChronographerErrors;
-use crate::persistence::{PersistenceContext, PersistenceObject};
-#[allow(unused_imports)]
-use crate::task::Task;
 use crate::task::TaskSchedule;
 use chrono::{DateTime, Local, TimeDelta};
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 use std::time::Duration;
+
+#[allow(unused_imports)]
+use crate::task::Task;
 
 /// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskSchedule`] trait
 /// that executes [`Task`] instances at a fixed interval. The interval is defined using either a [`TimeDelta`] or
@@ -60,7 +59,7 @@ use std::time::Duration;
 /// # See also
 /// - [`Task`]
 /// - [`TaskSchedule`]
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy)]
 pub struct TaskScheduleInterval(pub(crate) Duration);
 
 impl TaskScheduleInterval {
@@ -189,11 +188,4 @@ impl From<f32> for TaskScheduleInterval {
     fn from(value: f32) -> Self {
         TaskScheduleInterval::from_secs_f64(value as f64)
     }
-}
-
-impl PersistenceObject for TaskScheduleInterval {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::TaskScheduleInterval#3cec23ef-0567-4640-ac66-a920a3b86674";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

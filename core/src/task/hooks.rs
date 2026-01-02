@@ -1,13 +1,9 @@
-use crate::persistence::registries::PERSISTENCE_REGISTRIES;
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use serde::ser::{SerializeMap, Serializer};
-use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -123,23 +119,17 @@ pub mod events {
 /// - [`OnFallbackEvent`]
 /// - [`OnDependencyValidation`]
 pub trait TaskHookEvent:
-    Send + Sync + Default + 'static + Serialize + for<'de> Deserialize<'de>
+    Send + Sync + Default + 'static
 {
     type Payload: Send + Sync;
-    const PERSISTENCE_ID: &'static str;
+    const EVENT_ID: &'static str;
 }
 
 pub enum NonEmittable {}
 
 impl TaskHookEvent for () {
     type Payload = NonEmittable;
-    const PERSISTENCE_ID: &'static str = "";
-}
-
-impl<E: TaskHookEvent> PersistenceObject for E {
-    const PERSISTENCE_ID: &'static str = Self::PERSISTENCE_ID;
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
+    const EVENT_ID: &'static str = "";
 }
 
 /// [`TaskHook`] is a trait for defining a task hook, task hooks listens to events emitted by the
@@ -315,7 +305,7 @@ define_event_group!(
 macro_rules! define_hook_event {
     ($(#[$($attrs:tt)*])* $name: ident) => {
         $(#[$($attrs)*])*
-        #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         pub struct $name<E: TaskHookEvent>(PhantomData<E>);
 
         impl<E: TaskHookEvent> Default for $name<E> {
@@ -326,7 +316,7 @@ macro_rules! define_hook_event {
 
         impl<E: TaskHookEvent> TaskHookEvent for $name<E> {
             type Payload = Arc<dyn TaskHook<E>>;
-            const PERSISTENCE_ID: &'static str = concat!("chronographer_core#", stringify!($name));
+            const EVENT_ID: &'static str = concat!("chronographer_core#", stringify!($name));
         }
     };
 }
@@ -423,48 +413,8 @@ pub trait TaskHookLifecycleEvents<E: TaskHookEvent>:
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookAttach<E> {}
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
 
-pub(crate) enum UnknownErasedTaskHook {
-    Persistent {
-        id: &'static str,
-        hook: Arc<dyn ErasedTaskHook>,
-    },
-    Ephemeral(Arc<dyn ErasedTaskHook>),
-}
-
-impl UnknownErasedTaskHook {
-    fn extract(&self) -> &Arc<dyn ErasedTaskHook> {
-        match self {
-            UnknownErasedTaskHook::Persistent { hook, .. } => hook,
-            UnknownErasedTaskHook::Ephemeral(hook) => hook,
-        }
-    }
-}
-
 #[derive(Default)]
-pub(crate) struct TaskHookEventCategory(pub DashMap<TypeId, UnknownErasedTaskHook>);
-
-impl Serialize for TaskHookEventCategory {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut map = serializer.serialize_map(None)?;
-        for entry in self.0.iter() {
-            let _key = entry.key();
-            let (&id, _hook) = match entry.value() {
-                UnknownErasedTaskHook::Ephemeral(_) => continue,
-                UnknownErasedTaskHook::Persistent { hook, id } => (id, hook),
-            };
-            if let Some(_persistent_entry) = PERSISTENCE_REGISTRIES.get_hook_entry(id) {
-                map.serialize_key(id)?;
-
-                // hook.clone().as_arc_any(): The value i want to serialize
-                // persistent_entry.serialize: The serialization function (erased)
-            }
-        }
-        map.end()
-    }
-}
+pub(crate) struct TaskHookEventCategory(pub DashMap<TypeId, Arc<dyn ErasedTaskHook>>);
 
 /// [`TaskHookContainer`] is a container that hosts one or multiple [`TaskHook`] instance(s)
 /// which have subscribed to one or multiple [`TaskHookEvent(s)`]. This system is utilized
@@ -497,7 +447,6 @@ impl Serialize for TaskHookEventCategory {
 /// - [`TaskHookEvent`]
 /// - [`Task`]
 /// - [`TaskFrame`]
-// #[derive(Serialize, Deserialize)]
 pub struct TaskHookContainer(pub(crate) DashMap<&'static str, TaskHookEventCategory>);
 
 impl TaskHookContainer {
@@ -518,7 +467,7 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach_ephemeral<E: TaskHookEvent>(
+    pub async fn attach<E: TaskHookEvent>(
         &self,
         ctx: &TaskContext,
         hook: Arc<impl TaskHook<E>>,
@@ -528,47 +477,10 @@ impl TaskHookContainer {
             Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
 
         self.0
-            .entry(E::PERSISTENCE_ID)
+            .entry(E::EVENT_ID)
             .or_default()
             .0
-            .insert(hook_id, UnknownErasedTaskHook::Ephemeral(erased_hook));
-        self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>))
-            .await;
-    }
-
-    /// Attaches a **Persistent** [`TaskHook`] onto the container, when attached, the [`TaskHook`]
-    /// is alerted via [`OnHookAttach`], in which, it knows the [`TaskHookEvent`] it is
-    /// attached to.
-    ///
-    /// When the program crashes, these TaskHooks do persist. Depending on the circumstances,
-    /// this may not be a wanted behavior, if you don't want this to be enforced, then
-    /// [`TaskHookContainer::attach_ephemeral`] is the ideal method for you
-    ///
-    /// # Argument(s)
-    /// When attaching a [`TaskHook`], one has to supply the [`TaskHook`] instance
-    /// to attach. In addition to that, the event has to be supplied as well as a generic
-    ///
-    /// # See Also
-    /// - [`TaskHookContainer`]
-    /// - [`TaskHookEvent`]
-    /// - [`TaskHook`]
-    /// - [`OnHookAttach`]
-    pub async fn attach_persistent<T, E>(&self, ctx: &TaskContext, hook: Arc<T>)
-    where
-        E: TaskHookEvent,
-        T: TaskHook<E> + PersistenceObject,
-    {
-        let hook_id = hook.type_id();
-        let erased_hook: Arc<dyn ErasedTaskHook> =
-            Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
-
-        self.0.entry(E::PERSISTENCE_ID).or_default().0.insert(
-            hook_id,
-            UnknownErasedTaskHook::Persistent {
-                id: T::PERSISTENCE_ID,
-                hook: erased_hook,
-            },
-        );
+            .insert(hook_id, erased_hook);
         self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>))
             .await;
     }
@@ -584,10 +496,10 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
-        let interested_event_container = self.0.get(E::PERSISTENCE_ID)?;
+        let interested_event_container = self.0.get(E::EVENT_ID)?;
 
         let entry = interested_event_container.0.get(&TypeId::of::<T>())?;
-        let entry = entry.value().extract();
+        let entry = entry.value();
 
         entry.clone().as_arc_any().downcast::<T>().ok()
     }
@@ -602,7 +514,7 @@ impl TaskHookContainer {
     /// - [`TaskHook`]
     /// - [`OnHookDetach`]
     pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskContext) {
-        let Some(event_category) = self.0.get_mut(E::PERSISTENCE_ID) else {
+        let Some(event_category) = self.0.get_mut(E::EVENT_ID) else {
             return;
         };
 
@@ -610,7 +522,7 @@ impl TaskHookContainer {
             return;
         };
 
-        let erased = hook.extract().clone();
+        let erased = hook.clone();
 
         let typed: Arc<T> = erased
             .as_arc_any()
@@ -622,10 +534,9 @@ impl TaskHookContainer {
     }
 
     pub async fn emit<E: TaskHookEvent>(&self, ctx: &TaskContext, payload: &E::Payload) {
-        if let Some(entry) = self.0.get(E::PERSISTENCE_ID) {
+        if let Some(entry) = self.0.get(E::EVENT_ID) {
             for hook in entry.value().0.iter() {
                 hook.value()
-                    .extract()
                     .on_emit(ctx, payload as &(dyn Any + Send + Sync))
                     .await;
             }

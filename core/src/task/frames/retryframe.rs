@@ -1,8 +1,6 @@
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::clone::Clone;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
@@ -56,7 +54,7 @@ impl<RBS: RetryBackoffStrategy + ?Sized> RetryBackoffStrategy for Arc<RBS> {
 /// # See Also
 /// - [`RetryBackoffStrategy`]
 /// - [`ConstantBackoffStrategy::new`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConstantBackoffStrategy(Duration);
 
 impl ConstantBackoffStrategy {
@@ -75,11 +73,6 @@ impl ConstantBackoffStrategy {
     pub fn new(duration: Duration) -> Self {
         Self(duration)
     }
-}
-
-impl PersistenceObject for ConstantBackoffStrategy {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::ConstantBackoffStrategy#925a9db3-eece-4b28-9658-f5d20afc4869";
 }
 
 #[async_trait]
@@ -106,7 +99,7 @@ impl RetryBackoffStrategy for ConstantBackoffStrategy {
 /// - [`RetryBackoffStrategy`]
 /// - [`ExponentialBackoffStrategy::new`]
 /// - [`ExponentialBackoffStrategy::new_with`]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ExponentialBackoffStrategy(f64, f64);
 
 impl ExponentialBackoffStrategy {
@@ -144,11 +137,6 @@ impl ExponentialBackoffStrategy {
     }
 }
 
-impl PersistenceObject for ExponentialBackoffStrategy {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::ExponentialBackoffStrategy#5d751ba0-246f-4b27-9224-9173fd00e609";
-}
-
 #[async_trait]
 impl RetryBackoffStrategy for ExponentialBackoffStrategy {
     async fn compute(&self, retry: u32) -> Duration {
@@ -170,7 +158,7 @@ impl RetryBackoffStrategy for ExponentialBackoffStrategy {
 /// # See Also
 /// - [`JitterBackoffStrategy::new`]
 /// - [`RetryBackoffStrategy`]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub struct JitterBackoffStrategy<T: RetryBackoffStrategy>(T, f64);
 
 impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
@@ -190,11 +178,6 @@ impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
     pub fn new(strat: T, factor: f64) -> Self {
         Self(strat, factor)
     }
-}
-
-impl<T: RetryBackoffStrategy + PersistenceObject> PersistenceObject for JitterBackoffStrategy<T> {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::JitterBackoffStrategy#a015511b-4dd3-41c3-bf4f-9a3bab650c8b";
 }
 
 #[async_trait]
@@ -357,7 +340,6 @@ define_event_group!(
 /// # See Also
 /// - [`TaskFrame`]
 /// - [`RetryBackoffStrategy`]
-#[derive(Serialize, Deserialize)]
 pub struct RetriableTaskFrame<T: TaskFrame, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
     frame: Arc<T>,
     retries: NonZeroU32,
@@ -455,16 +437,4 @@ impl<T: TaskFrame, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T,
 
         error.map_or(Ok(()), Err)
     }
-}
-
-#[async_trait]
-impl<F1, F2> PersistenceObject for RetriableTaskFrame<F1, F2>
-where
-    F1: TaskFrame + PersistenceObject,
-    F2: RetryBackoffStrategy + PersistenceObject,
-{
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::RetriableTaskFrame#92b11283-b132-491d-85f3-417a84e9242e";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

@@ -1,12 +1,9 @@
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskError;
 use crate::task::TaskHookEvent;
 #[allow(unused_imports)]
 use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
-use serde::Deserialize;
-use serde::Serialize;
 
 /// [`GroupedTaskFrameExecBehavior`] is a mechanism used in conjunction with [`ParallelTaskFrame`]
 /// and [`SequentialTaskFrame`] **(we call them grouped task frames)**, it defines the behavior for
@@ -67,7 +64,7 @@ pub trait GroupedTaskFramesExecBehavior: Send + Sync {
 /// - [`ParallelTaskFrame`]
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct GroupedTaskFramesQuitOnSuccess;
 
 #[async_trait]
@@ -78,13 +75,6 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
             Err(_) => None,
         }
     }
-}
-
-impl PersistenceObject for GroupedTaskFramesQuitOnSuccess {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::GroupedTaskFramesQuitOnSuccess#8895d78d-5552-464f-9e21-66771be396a5";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -111,7 +101,7 @@ impl PersistenceObject for GroupedTaskFramesQuitOnSuccess {
 /// - [`ParallelTaskFrame`]
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct GroupedTaskFramesQuitOnFailure;
 
 #[async_trait]
@@ -122,13 +112,6 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
             Err(err) => Some(Err(err)),
         }
     }
-}
-
-impl PersistenceObject for GroupedTaskFramesQuitOnFailure {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::GroupedTaskFramesQuitOnFailure#c2834489-7a63-4fda-bbc6-4ffe50b9733a";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 /// [`GroupedTaskFramesQuitOnFailure`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -148,7 +131,7 @@ impl PersistenceObject for GroupedTaskFramesQuitOnFailure {
 /// - [`ParallelTaskFrame`]
 /// - [`SequentialTaskFrame`]
 /// - [`GroupedTaskFramesExecBehavior`]
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct GroupedTaskFramesSilent;
 
 #[async_trait]
@@ -156,13 +139,6 @@ impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
     async fn should_quit(&self, _result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
         None
     }
-}
-
-impl PersistenceObject for GroupedTaskFramesSilent {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::GroupedTaskFramesSilent#59034b8a-d96e-4c42-933b-10d7aec14c88";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }
 
 define_event!(

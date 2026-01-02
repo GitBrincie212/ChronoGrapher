@@ -1,4 +1,3 @@
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
@@ -7,7 +6,6 @@ use crate::task::{
 };
 use crate::task::{Task, TaskContext, TaskError};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -62,7 +60,7 @@ pub trait TaskResolvent: Send + Sync {
 
 macro_rules! implement_core_resolvent {
     ($name: ident, $uuid: expr, $code: expr) => {
-        #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
+        #[derive(Clone, Copy, Default, Debug)]
         pub struct $name;
 
         #[async_trait]
@@ -70,13 +68,6 @@ macro_rules! implement_core_resolvent {
             async fn should_count(&self, ctx: &TaskContext, result: Option<TaskError>) -> bool {
                 $code(ctx, result)
             }
-        }
-
-        impl PersistenceObject for $name {
-            const PERSISTENCE_ID: &'static str =
-                concat!("chronographer::", stringify!($name), "#", stringify!($uuid));
-
-            fn inject_context(&self, _ctx: &PersistenceContext) {}
         }
     };
 }
@@ -196,7 +187,7 @@ where
         tokio::task::spawn_blocking(move || async move {
             config
                 .task
-                .attach_ephemeral_hook::<OnTaskEnd>(cloned_tracker)
+                .attach_hook::<OnTaskEnd>(cloned_tracker)
                 .await;
         });
 
@@ -327,81 +318,3 @@ impl UnresolvableFrameDependency for TaskDependency {
             .store(0, Ordering::Relaxed);
     }
 }
-
-/*
-#[async_trait]
-impl PersistentObject for TaskDependency {
-    fn persistence_id() -> &'static str {
-        "TaskDependency$chronographer_core"
-    }
-
-    async fn persist(&self) -> Result<SerializedComponent, TaskError> {
-        let runs = PersistenceUtils::serialize_field(
-            self.task_dependency_tracker
-                .run_count
-                .load(Ordering::Relaxed),
-        )?;
-        let min_runs =
-            PersistenceUtils::serialize_field(self.task_dependency_tracker.minimum_runs.get())?;
-        let is_enabled =
-            PersistenceUtils::serialize_field(self.is_enabled.load(Ordering::Relaxed))?;
-        let task_resolvent = PersistenceUtils::serialize_potential_field(
-            &self.task_dependency_tracker.resolve_behavior,
-        )
-        .await?;
-        let task_id = PersistenceUtils::serialize_field(self.task.id().as_u128())?;
-        Ok(SerializedComponent::new::<Self>(json!({
-            "counted_runs": runs,
-            "minimum_runs": min_runs,
-            "is_enabled": is_enabled,
-            "task_resolvent": task_resolvent,
-            "task_id": task_id
-        })))
-    }
-
-    async fn retrieve(component: SerializedComponent) -> Result<Self, TaskError> {
-        let mut repr = PersistenceUtils::transform_serialized_to_map(component)?;
-
-        let counted_runs = PersistenceUtils::deserialize_atomic::<u64>(
-            &mut repr,
-            "counted_runs",
-            "Cannot deserialize the counted runs",
-        )?;
-
-        let min_runs = PersistenceUtils::deserialize_atomic::<u64>(
-            &mut repr,
-            "minimum_runs",
-            "Cannot deserialize the minimum number of runs",
-        )?;
-
-        let is_enabled = PersistenceUtils::deserialize_atomic::<bool>(
-            &mut repr,
-            "is_enabled",
-            "Cannot deserialize the data used for indicating if the dependency was enabled or not",
-        )?;
-
-        let task_resolvent = PersistenceUtils::deserialize_dyn(
-            &mut repr,
-            "task_resolvent",
-            RetrieveRegistries::retrieve_task_resolvent,
-            "Cannot deserialize the task_resolvent",
-        )
-        .await?;
-
-        Ok(TaskDependency {
-            task: Arc::new(Task), // TODO: Find a way to retrieve a task from its ID
-            task_dependency_tracker: Arc::new(TaskDependencyTracker {
-                minimum_runs: NonZeroU64::new(min_runs).ok_or_else(|| {
-                    PersistenceUtils::create_retrieval_error::<u64>(
-                        &repr,
-                        "Minimum number of runs was set to zero",
-                    )
-                })?,
-                run_count: Arc::new(AtomicU64::new(counted_runs)),
-                resolve_behavior: task_resolvent,
-            }),
-            is_enabled: Arc::new(AtomicBool::new(is_enabled)),
-        })
-    }
-}
-*/

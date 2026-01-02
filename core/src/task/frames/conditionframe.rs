@@ -6,8 +6,6 @@ use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
-use serde::Deserialize;
-use serde::Serialize;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 
@@ -329,7 +327,7 @@ pub struct ConditionalFrame<T: 'static, T2: 'static = NoOperationTaskFrame> {
     fallback: Arc<T2>,
     predicate: Arc<dyn ConditionalFramePredicate>,
     error_on_false: bool,
-} // TODO: See how to persist conditional predicate
+}
 
 /// A type alias to alleviate the immense typing required to specify that
 /// the [`ConditionalFrameConfigBuilder`] has already filled the fallback parameter
@@ -394,19 +392,3 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
         result
     }
 }
-
-/*
-#[async_trait]
-impl<F1, F2> PersistenceObject for ConditionalFrame<F1, F2>
-where
-    F1: TaskFrame + 'static + PersistenceObject,
-    F2: TaskFrame + 'static + PersistenceObject,
-{
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::ConditionalFrame#251f88d9-cecd-475d-85d3-0601657aedf4";
-
-    fn inject_context<T: PersistenceBackend>(&self, ctx: &PersistenceContext<T>) {
-        todo!()
-    }
-}
- */

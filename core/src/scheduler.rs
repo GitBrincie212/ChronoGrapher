@@ -4,7 +4,7 @@ pub mod task_store; // skipcq: RS-D1001 // skipcq: RS-D1001
 
 use crate::scheduler::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
-use crate::scheduler::task_store::DefaultSchedulerTaskStore;
+use crate::scheduler::task_store::EphemerealSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ScheduleStrategy, Task, TaskFrame, TaskSchedule};
 use crate::utils::Timestamp;
@@ -21,7 +21,7 @@ use uuid::Uuid;
 pub type DefaultScheduler = Scheduler<
     SystemTime,
     ProgressiveClock<SystemTime>,
-    DefaultSchedulerTaskStore,
+    EphemerealSchedulerTaskStore,
     DefaultTaskDispatcher,
 >;
 
@@ -31,7 +31,7 @@ pub type DefaultScheduler = Scheduler<
 pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultScheduler>> = LazyLock::new(|| {
     Arc::new(
         Scheduler::builder()
-            .store(DefaultSchedulerTaskStore::ephemeral())
+            .store(EphemerealSchedulerTaskStore::ephemeral())
             .clock(ProgressiveClock::<SystemTime>::default())
             .dispatcher(DefaultTaskDispatcher)
             .build(),
@@ -40,6 +40,7 @@ pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultScheduler>> = LazyLock::
 
 /// This is the builder configs to use for building a [`Scheduler`] instance.
 /// By itself it should not be used, and it resides in [`Scheduler::builder`]
+#[allow(unused_variables)]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Scheduler<SupportedDateFormat, T1, T2, T3>))]
 pub struct SchedulerConfig<

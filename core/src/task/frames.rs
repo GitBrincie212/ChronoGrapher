@@ -22,7 +22,6 @@ pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
-use crate::persistence::PersistenceObject;
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
 use async_trait::async_trait;
 pub use conditionframe::*;
@@ -207,31 +206,8 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub async fn attach_ephemeral_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
-        self.hooks_container.attach_ephemeral(self, hook).await;
-    }
-
-    /// Attaches a **Persistent** [`TaskHook`] to a specific [`TaskHookEvent`]. This is a much more
-    /// ergonomic method-alias to the relevant [`TaskHookContainer::attach_persistent`] method.
-    ///
-    /// When the program crashes, these TaskHooks do persist. Depending on the circumstances,
-    /// this may not be a wanted behavior, if you don't want this to be enforced,
-    /// then [`TaskContext::attach_ephemeral_hook`] is the ideal method for you
-    ///
-    /// # Arguments
-    /// The method accepts one argument, that being the [`TaskHook`] instance
-    /// to supply, which will subscribe to the [`TaskHookEvent`]
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    /// - [`TaskHook`]
-    /// - [`TaskHookEvent`]
-    pub async fn attach_persistent_hook<E, T>(&self, hook: Arc<T>)
-    where
-        E: TaskHookEvent,
-        T: TaskHook<E> + PersistenceObject,
-    {
-        self.hooks_container.attach_persistent(self, hook).await;
+    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
+        self.hooks_container.attach(self, hook).await;
     }
 
     /// Detaches a [`TaskHook`] from a specific [`TaskHookEvent`]. This is a much more

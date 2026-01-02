@@ -1,9 +1,7 @@
 use crate::define_event;
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -96,7 +94,6 @@ define_event!(
 ///
 /// # See Also
 /// - [`TaskFrame`]
-#[derive(Serialize, Deserialize)]
 pub struct TimeoutTaskFrame<T: TaskFrame> {
     frame: Arc<T>,
     max_duration: Duration,
@@ -139,15 +136,5 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
             std::io::ErrorKind::TimedOut,
             "Task timed out",
         )))
-    }
-}
-
-#[async_trait]
-impl<F: TaskFrame + PersistenceObject> PersistenceObject for TimeoutTaskFrame<F> {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::TimeoutTaskFrame#cfbcfb94-5370-4b72-af3d-ceee31f7cea3";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {
-        todo!()
     }
 }

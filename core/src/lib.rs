@@ -6,8 +6,6 @@ pub mod task; // skipcq: RS-D1001
 
 pub mod utils; // skipcq: RS-D1001
 
-pub mod persistence; // skipcq: RS-D1001
-
 pub mod prelude {
     // Core
     pub use crate::scheduler::CHRONOGRAPHER_SCHEDULER;

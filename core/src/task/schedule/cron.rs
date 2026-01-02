@@ -1,8 +1,6 @@
 use crate::errors::ChronographerErrors;
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskSchedule;
 use chrono::{DateTime, Local};
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -51,7 +49,7 @@ use std::sync::Arc;
 /// - [`Task`]
 /// - [`ScheduleCalendar`]
 /// - [`TaskSchedule`]
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TaskScheduleCron(String);
 
 impl TaskScheduleCron {
@@ -81,11 +79,4 @@ impl TaskSchedule for TaskScheduleCron {
                 as Arc<dyn std::error::Error + 'static>
         })
     }
-}
-
-impl PersistenceObject for TaskScheduleCron {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::TaskScheduleCron#ede44f5f-a3bc-464c-9284-f3c666470cc7";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {}
 }

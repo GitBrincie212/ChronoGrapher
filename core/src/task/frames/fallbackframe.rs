@@ -1,10 +1,7 @@
 use crate::define_event;
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
-use serde::Deserialize;
-use serde::Serialize;
 use std::sync::Arc;
 
 define_event!(
@@ -88,7 +85,6 @@ define_event!(
 /// let task = Task::define(TaskScheduleInterval::from_secs(1), fallback_frame);
 /// CHRONOGRAPHER_SCHEDULER.schedule_owned(task).await;
 /// ```
-#[derive(Serialize, Deserialize)]
 pub struct FallbackTaskFrame<T, T2>(Arc<T>, Arc<T2>);
 
 impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
@@ -122,19 +118,5 @@ impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
             }
             res => res,
         }
-    }
-}
-
-#[async_trait]
-impl<F1, F2> PersistenceObject for FallbackTaskFrame<F1, F2>
-where
-    F1: TaskFrame + PersistenceObject,
-    F2: TaskFrame + PersistenceObject,
-{
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::FallbackTaskFrame#5ce04991-ae3d-4d54-861d-6a8379d251ac";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {
-        todo!()
     }
 }

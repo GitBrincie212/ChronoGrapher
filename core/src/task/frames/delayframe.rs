@@ -1,10 +1,7 @@
-use crate::persistence::{PersistenceContext, PersistenceObject};
 use crate::task::TaskHookEvent;
 use crate::task::{TaskContext, TaskError, TaskFrame};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
-use serde::Deserialize;
-use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::Instant;
@@ -143,7 +140,6 @@ define_event_group!(
 ///
 /// # See Also
 /// - [`TaskFrame`]
-#[derive(Serialize, Deserialize)]
 pub struct DelayTaskFrame<T: TaskFrame> {
     frame: Arc<T>,
     delay: Duration,
@@ -179,15 +175,5 @@ impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
         tokio::time::sleep_until(deadline).await;
         ctx.emit::<OnDelayEnd>(&self.delay).await;
         ctx.subdivide(self.frame.clone()).await
-    }
-}
-
-#[async_trait]
-impl<F: TaskFrame + PersistenceObject> PersistenceObject for DelayTaskFrame<F> {
-    const PERSISTENCE_ID: &'static str =
-        "chronographer::DelayTaskFrame#08656c89-041e-4b22-9c53-bb5a5e02a9f1";
-
-    fn inject_context(&self, _ctx: &PersistenceContext) {
-        todo!()
     }
 }
