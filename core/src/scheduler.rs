@@ -1,39 +1,54 @@
-pub mod clock;
+pub mod clock; // skipcq: RS-D1001
 pub mod task_dispatcher; // skipcq: RS-D1001
-pub mod task_store; // skipcq: RS-D1001 // skipcq: RS-D1001
+pub mod task_store; // skipcq: RS-D1001
+pub mod engine; // skipcq: RS-D1001
 
 use crate::scheduler::clock::*;
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
-use crate::scheduler::task_store::EphemerealSchedulerTaskStore;
+use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ScheduleStrategy, Task, TaskFrame, TaskSchedule};
-use crate::utils::Timestamp;
-use std::marker::PhantomData;
+use crate::utils::{TaskIdentifier, Timestamp};
 use std::sync::{Arc, LazyLock};
 use std::time::SystemTime;
 use tokio::join;
-use tokio::sync::{Mutex, broadcast};
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
+use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 
-/// The default scheduler's type alias, it uses all the provided default components
-pub type DefaultScheduler = Scheduler<
-    SystemTime,
-    ProgressiveClock<SystemTime>,
-    EphemerealSchedulerTaskStore,
-    DefaultTaskDispatcher,
->;
+pub trait SchedulerConfig: Sized + 'static {
+    type TaskIdentifier: TaskIdentifier;
+    type Timestamp: Timestamp;
+    type SchedulerClock: SchedulerClock<Self>;
+    type SchedulerTaskStore: SchedulerTaskStore<Self>;
+    type SchedulerTaskDispatcher: SchedulerTaskDispatcher<Self>;
+    type SchedulerEngine: SchedulerEngine<Self>;
+}
+
+pub struct DefaultSchedulerConfig;
+impl SchedulerConfig for DefaultSchedulerConfig {
+    type TaskIdentifier = Uuid;
+    type Timestamp = SystemTime;
+    type SchedulerClock = ProgressiveClock<SystemTime>;
+    type SchedulerTaskStore = EphemeralSchedulerTaskStore<Self>;
+    type SchedulerTaskDispatcher = DefaultTaskDispatcher;
+    type SchedulerEngine = DefaultSchedulerEngine;
+}
+
+pub type DefaultGlobalScheduler = Scheduler<DefaultSchedulerConfig>;
 
 /// The default scheduler, it uses all the provided default components to build the scheduler.
 /// Due to non-backend storage and system clock. This should **NOT** be used over
 /// a different built scheduler
-pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultScheduler>> = LazyLock::new(|| {
+pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultGlobalScheduler>> = LazyLock::new(|| {
     Arc::new(
         Scheduler::builder()
-            .store(EphemerealSchedulerTaskStore::ephemeral())
+            .store(EphemeralSchedulerTaskStore::ephemeral())
             .clock(ProgressiveClock::<SystemTime>::default())
             .dispatcher(DefaultTaskDispatcher)
+            .engine(DefaultSchedulerEngine)
             .build(),
     )
 });
@@ -42,13 +57,8 @@ pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultScheduler>> = LazyLock::
 /// By itself it should not be used, and it resides in [`Scheduler::builder`]
 #[allow(unused_variables)]
 #[derive(TypedBuilder)]
-#[builder(build_method(into = Scheduler<SupportedDateFormat, T1, T2, T3>))]
-pub struct SchedulerConfig<
-    SupportedDateFormat: Timestamp,
-    T1: SchedulerClock<SupportedDateFormat>,
-    T2: SchedulerTaskStore<SupportedDateFormat>,
-    T3: SchedulerTaskDispatcher,
-> {
+#[builder(build_method(into = Scheduler<T>))]
+pub struct SchedulerInitConfig<T: SchedulerConfig> {
     /// The [`SchedulerTaskDispatcher`] for handling the execution of tasks. They are the
     /// mechanisms that drive load balancing, priority execution and so on...
     ///
@@ -64,7 +74,7 @@ pub struct SchedulerConfig<
     /// - [`DefaultTaskDispatcher`]
     /// - [`SchedulerTaskDispatcher`]
     /// - [`Scheduler`]
-    dispatcher: T3,
+    dispatcher: T::SchedulerTaskDispatcher,
 
     /// The [`SchedulerTaskStore`] for handling the storage of tasks. They are the
     /// mechanisms that drive backend storing, the retrieval of the earliest task and so on...
@@ -83,7 +93,7 @@ pub struct SchedulerConfig<
     /// - [`PersistentDefaultTaskStore`]
     /// - [`SchedulerTaskStore`]
     /// - [`Scheduler`]
-    store: T2,
+    store: T::SchedulerTaskStore,
 
     /// The [`SchedulerClock`] for handling the idling of tasks and getting the present time.
     ///
@@ -102,47 +112,20 @@ pub struct SchedulerConfig<
     /// - [`VirtualClock`]
     /// - [`SchedulerClock`]
     /// - [`Scheduler`]
-    clock: T1,
+    clock: T::SchedulerClock,
 
-    #[builder(default, setter(skip))]
-    dateformat: PhantomData<SupportedDateFormat>,
+    engine: T::SchedulerEngine,
 }
 
-impl<SupportedDateFormat, T1, T2, T3> From<SchedulerConfig<SupportedDateFormat, T1, T2, T3>>
-    for Scheduler<SupportedDateFormat, T1, T2, T3>
-where
-    SupportedDateFormat: Timestamp,
-    T1: SchedulerClock<SupportedDateFormat>,
-    T2: SchedulerTaskStore<SupportedDateFormat>,
-    T3: SchedulerTaskDispatcher,
-{
-    fn from(config: SchedulerConfig<SupportedDateFormat, T1, T2, T3>) -> Self {
-        let (schedule_tx, schedule_rx) = broadcast::channel(16);
-
+impl<T: SchedulerConfig> From<SchedulerInitConfig<T>> for Scheduler<T> {
+    fn from(config: SchedulerInitConfig<T>) -> Self {
         Self {
             dispatcher: Arc::new(config.dispatcher),
             store: Arc::new(config.store),
             clock: Arc::new(config.clock),
             process: Mutex::new(None),
-            schedule_tx: Arc::new(schedule_tx),
-            schedule_rx: Arc::new(Mutex::new(schedule_rx)),
-            notifier: Arc::new(tokio::sync::Notify::new()),
-            _supported_date_format: PhantomData,
+            engine: Arc::new(config.engine),
         }
-    }
-}
-
-type ArcSchedulerTX<T> = Arc<broadcast::Sender<T>>;
-type ArcSchedulerRX<T> = Arc<Mutex<broadcast::Receiver<T>>>;
-
-pub struct RescheduleNotifier<T: 'static> {
-    value: T,
-    notify: Arc<broadcast::Sender<T>>,
-}
-
-impl<T: 'static> RescheduleNotifier<T> {
-    pub fn notify(self) -> Result<usize, broadcast::error::SendError<T>> {
-        self.notify.send(self.value)
     }
 }
 
@@ -201,29 +184,15 @@ impl<T: 'static> RescheduleNotifier<T> {
 /// - [`SchedulerTaskDispatcher`]
 /// - [`SchedulerTaskStore`]
 /// - [`SchedulerClock`]
-pub struct Scheduler<
-    SupportedDateFormat: Timestamp,
-    T1: SchedulerClock<SupportedDateFormat>,
-    T2: SchedulerTaskStore<SupportedDateFormat>,
-    T3: SchedulerTaskDispatcher,
-> {
-    clock: Arc<T1>,
-    store: Arc<T2>,
-    dispatcher: Arc<T3>,
-    process: Mutex<Option<JoinHandle<()>>>,
-    schedule_tx: ArcSchedulerTX<Uuid>,
-    schedule_rx: ArcSchedulerRX<Uuid>,
-    notifier: Arc<tokio::sync::Notify>,
-    _supported_date_format: PhantomData<SupportedDateFormat>,
+pub struct Scheduler<F: SchedulerConfig> {
+    clock: Arc<F::SchedulerClock>,
+    store: Arc<F::SchedulerTaskStore>,
+    dispatcher: Arc<F::SchedulerTaskDispatcher>,
+    engine: Arc<F::SchedulerEngine>,
+    process: Mutex<Option<JoinHandle<()>>>
 }
 
-impl<SupportedDateFormat, T1, T2, T3> Scheduler<SupportedDateFormat, T1, T2, T3>
-where
-    SupportedDateFormat: Timestamp,
-    T1: SchedulerClock<SupportedDateFormat>,
-    T2: SchedulerTaskStore<SupportedDateFormat>,
-    T3: SchedulerTaskDispatcher,
-{
+impl<F: SchedulerConfig> Scheduler<F> {
     /// Constructs a scheduler builder. Which is used for supplying
     /// various composites to then construct a [`Scheduler`], for
     /// simple enough demos and examples, it may be preferred to use
@@ -236,8 +205,8 @@ where
     /// - [`CHRONOGRAPHER_SCHEDULER`]
     /// - [`Scheduler`]
     /// - [`SchedulerConfigBuilder`]
-    pub fn builder() -> SchedulerConfigBuilder<SupportedDateFormat, T1, T2, T3> {
-        SchedulerConfig::builder()
+    pub fn builder() -> SchedulerInitConfigBuilder<F> {
+        SchedulerInitConfig::builder()
     }
 
     /// Starts the scheduler, if the scheduler has already started, this method
@@ -254,56 +223,25 @@ where
             return;
         }
         drop(process_lock);
-        let store_clone = self.store.clone();
+        join!(
+            self.clock.init(),
+            self.store.init(),
+            self.dispatcher.init(),
+            self.engine.init()
+        );
+        let engine_clone = self.engine.clone();
         let clock_clone = self.clock.clone();
+        let store_clone = self.store.clone();
         let dispatcher_clone = self.dispatcher.clone();
-        let scheduler_send = self.schedule_tx.clone();
-        let scheduler_receive = self.schedule_rx.clone();
-        let notifier = self.notifier.clone();
-        join!(self.store.init(), self.dispatcher.init());
-        *self.process.lock().await = Some(tokio::spawn(async move {
-            let double_clock_clone = clock_clone.clone();
-            let double_store_clone = store_clone.clone();
-            let double_notifier_clone = notifier.clone();
+        *self.process.lock().await = Some(
             tokio::spawn(async move {
-                while let Ok(idx) = scheduler_receive.lock().await.recv().await {
-                    if let Some(task) = double_store_clone.get(&idx).await {
-                        if let Some(max_runs) = task.max_runs()
-                            && task.runs() >= max_runs.get()
-                        {
-                            continue;
-                        }
-                        double_store_clone
-                            .reschedule(&double_clock_clone, &idx)
-                            .await;
-                        double_notifier_clone.notify_waiters();
-                    }
-                }
-            });
-
-            loop {
-                if let Some((task, time, idx)) = store_clone.retrieve().await {
-                    tokio::select! {
-                        _ = clock_clone.idle_to(time) => {
-                            store_clone.pop().await;
-                            if !store_clone.exists(&idx).await { continue; }
-                            let sender = RescheduleNotifier {
-                                value: idx,
-                                notify: scheduler_send.clone()
-                            };
-                            dispatcher_clone
-                                .dispatch(task, sender)
-                                .await;
-                            continue;
-                        }
-
-                        _ = notifier.notified() => {
-                            continue;
-                        }
-                    }
-                }
-            }
-        }))
+                engine_clone.main(
+                    clock_clone,
+                    store_clone,
+                    dispatcher_clone
+                ).await;
+            })
+        )
     }
 
     /// Aborts the scheduler, it acts like pausing the task, i.e. It doesn't clear any remaining
@@ -358,7 +296,7 @@ where
     pub async fn schedule(
         &self,
         task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
-    ) -> Uuid {
+    ) -> F::TaskIdentifier {
         let erased = task.as_erased();
         self.store.store(&self.clock, erased).await
     }
@@ -380,7 +318,7 @@ where
     /// - [`SchedulerTaskStore`]
     /// - [`Scheduler::exists`]
     /// - [`Task`]
-    pub async fn cancel(&self, idx: &Uuid) {
+    pub async fn cancel(&self, idx: &F::TaskIdentifier) {
         self.store.remove(idx).await;
     }
 
@@ -399,7 +337,7 @@ where
     /// - [`Scheduler`]
     /// - [`SchedulerTaskStore`]
     /// - [`Task`]
-    pub async fn exists(&self, idx: &Uuid) -> bool {
+    pub async fn exists(&self, idx: &F::TaskIdentifier) -> bool {
         self.store.exists(idx).await
     }
 
