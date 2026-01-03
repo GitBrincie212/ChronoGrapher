@@ -3,12 +3,12 @@ pub mod progressive_clock; // skipcq: RS-D1001
 pub mod virtual_clock; // skipcq: RS-D1001
 
 pub use progressive_clock::ProgressiveClock;
-use std::ops::Deref;
-use std::time::{Duration, SystemTime};
 pub use virtual_clock::VirtualClock;
 
-use crate::utils::Timestamp;
+use std::ops::Deref;
+use std::time::Duration;
 use async_trait::async_trait;
+use crate::scheduler::SchedulerConfig;
 
 /// [`SchedulerClock`] is a trait for implementing a custom scheduler clock, typical operations
 /// include getting the current time, idle for a specific duration (or til a specific date is reached).
@@ -29,23 +29,23 @@ use async_trait::async_trait;
 ///
 /// - [`VirtualClock`] used to simulate time (for unit-tests, debugging,
 /// [`flashcrowd`](https://en.wiktionary.org/wiki/flashcrowd#English) simulations... etc.), it doesn't
-/// go forward without explicit advancing and implements as well as the [`AdvanceableScheduleClock`]
+/// go forward without explicit advancing and implements as well as the [`AdvanceableSchedulerClock`]
 /// trait
 ///
 /// - [`ProgressiveClock`] the default go-to clock, it automatically goes forward and doesn't wait around,
-/// it doesn't implement the trait [`AdvanceableScheduleClock`] trait due to its nature
+/// it doesn't implement the trait [`AdvanceableSchedulerClock`] trait due to its nature
 ///
 /// # Extension Trait(s)
-/// there is [`AdvanceableScheduleClock`] which allows the explicit advancing of time via methods
+/// there is [`AdvanceableSchedulerClock`] which allows the explicit advancing of time via methods
 /// it provides. Specifically, the [`VirtualClock`] implements this to allow for the explicit advancing
 /// from now to points of interest
 ///
 /// # See Also
 /// - [`VirtualClock`]
 /// - [`ProgressiveClock`]
-/// - [`AdvanceableScheduleClock`]
+/// - [`AdvanceableSchedulerClock`]
 #[async_trait]
-pub trait SchedulerClock<D: Timestamp>: 'static + Send + Sync {
+pub trait SchedulerClock<C: SchedulerConfig>: 'static + Send + Sync {
     async fn init(&self) {}
 
     /// Gets the current time of the clock
@@ -57,7 +57,7 @@ pub trait SchedulerClock<D: Timestamp>: 'static + Send + Sync {
     /// # See Also
     /// - [`SystemTime`]
     /// - [`SchedulerClock`]
-    async fn now(&self) -> D;
+    async fn now(&self) -> C::Timestamp;
 
     /// Idle until this specified time is reached (if it is in the past or present, it doesn't idle)
     ///
@@ -70,58 +70,58 @@ pub trait SchedulerClock<D: Timestamp>: 'static + Send + Sync {
     /// # See Also
     /// - [`SystemTime`]
     /// - [`SchedulerClock`]
-    async fn idle_to(&self, to: D);
+    async fn idle_to(&self, to: C::Timestamp);
 }
 
 #[async_trait]
-impl<T, D> SchedulerClock<D> for T
+impl<T, C: SchedulerConfig> SchedulerClock<C> for T
 where
     T: Deref + Send + Sync + 'static,
-    T::Target: SchedulerClock<D>,
-    D: Timestamp,
+    T::Target: SchedulerClock<C>,
+    C: SchedulerConfig,
 {
-    async fn now(&self) -> D {
+    async fn now(&self) -> C::Timestamp {
         self.deref().now().await
     }
 
-    async fn idle_to(&self, to: D) {
+    async fn idle_to(&self, to: C::Timestamp) {
         self.deref().idle_to(to).await
     }
 }
 
-/// [`AdvanceableScheduleClock`] is an optional extension to [`SchedulerClock`] which, as the name
+/// [`AdvanceableSchedulerClock`] is an optional extension to [`SchedulerClock`] which, as the name
 /// suggests, allows for arbitrary advancement of time, specific clocks might not support arbitrary
 /// advancement (such as [`ProgressiveClock`]), as such why it is an optional trait
 ///
 /// # Required Methods
-/// When implementing the [`AdvanceableScheduleClock`], one has to fully implement one method
-/// being [`AdvanceableScheduleClock::advance_to`] which is used for advancing the time to
+/// When implementing the [`AdvanceableSchedulerClock`], one has to fully implement one method
+/// being [`AdvanceableSchedulerClock::advance_to`] which is used for advancing the time to
 /// a specific point of interest
 ///
 /// # Trait Implementation(s)
-/// Specifically, only one type implements the [`AdvanceableScheduleClock`] trait, that is
+/// Specifically, only one type implements the [`AdvanceableSchedulerClock`] trait, that is
 /// the [`VirtualClock`] which allows for the explicit advancement of arbitrary points in time
 ///
 /// # Supertrait(s)
-/// as discussed above, [`AdvanceableScheduleClock`] is an extension to [`SchedulerClock`], as such
+/// as discussed above, [`AdvanceableSchedulerClock`] is an extension to [`SchedulerClock`], as such
 /// when implementing this trait, one has to also implement the [`SchedulerClock`] trait
 ///
 /// # See Also
 /// - [`SchedulerClock`]
 /// - [`VirtualClock`]
 #[async_trait]
-pub trait AdvanceableScheduleClock<D: Timestamp>: SchedulerClock<D> {
+pub trait AdvanceableSchedulerClock<C: SchedulerConfig>: SchedulerClock<C> {
     /// Advance the time by a specified duration forward
     ///
     /// # Arguments
     /// It accepts a ``duration`` parameter of type [`Duration`], used to advance the
-    /// time by that specific duration, it acts similar in spirit to [`AdvanceableScheduleClock::advance_to`]
+    /// time by that specific duration, it acts similar in spirit to [`AdvanceableSchedulerClock::advance_to`]
     /// (in fact it uses this method under the hood), but for duration
     ///
     /// # See Also
     /// - [`Duration`]
     /// - [`SchedulerClock`]
-    /// - [`AdvanceableScheduleClock`]
+    /// - [`AdvanceableSchedulerClock`]
     async fn advance(&self, duration: Duration);
 
     /// Advance the time to a specified desired future point of time
@@ -129,28 +129,28 @@ pub trait AdvanceableScheduleClock<D: Timestamp>: SchedulerClock<D> {
     /// # Arguments
     /// It accepts a ``to`` parameter of type [`SystemTime`] (to avoid any timezone issues and
     /// let the user convert it to their own timezones of choice representation). It is used to advance the
-    /// time to that point of time. It acts similarly to [`AdvanceableScheduleClock::advance`] but
+    /// time to that point of time. It acts similarly to [`AdvanceableSchedulerClock::advance`] but
     /// for time points, this method is required to specify an implementation
     ///
     /// # See Also
     /// - [`Duration`]
     /// - [`SchedulerClock`]
-    /// - [`AdvanceableScheduleClock`]
-    async fn advance_to(&self, to: SystemTime);
+    /// - [`AdvanceableSchedulerClock`]
+    async fn advance_to(&self, to: C::Timestamp);
 }
 
 #[async_trait]
-impl<T, D> AdvanceableScheduleClock<D> for T
+impl<T, C> AdvanceableSchedulerClock<C> for T
 where
     T: Deref + Send + Sync + 'static,
-    T::Target: AdvanceableScheduleClock<D>,
-    D: Timestamp,
+    T::Target: AdvanceableSchedulerClock<C>,
+    C: SchedulerConfig,
 {
     async fn advance(&self, duration: Duration) {
         self.deref().advance(duration).await
     }
 
-    async fn advance_to(&self, to: SystemTime) {
+    async fn advance_to(&self, to: C::Timestamp) {
         self.deref().advance_to(to).await
     }
 }
