@@ -63,15 +63,15 @@ async fn main() {
     }
 }
 */
-use std::io::Write;
-use std::fs::OpenOptions;
+use async_trait::async_trait;
 use chronographer::prelude::*;
-use std::sync::{LazyLock};
+use chronographer::task::TaskFrame;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
-use async_trait::async_trait;
 use tokio::task::yield_now;
-use chronographer::task::TaskFrame;
 
 struct MyTaskFrame;
 
@@ -93,10 +93,7 @@ async fn main() {
     let mut millis: f64 = 0.9;
     for _ in 0..200_000 {
         millis *= 0.05;
-        let task = Task::simple(
-            TaskScheduleInterval::from_secs_f64(millis),
-            MyTaskFrame
-        );
+        let task = Task::simple(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
 
         CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
     }
