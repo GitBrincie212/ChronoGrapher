@@ -5,10 +5,10 @@ pub mod virtual_clock; // skipcq: RS-D1001
 pub use progressive_clock::ProgressiveClock;
 pub use virtual_clock::VirtualClock;
 
+use crate::scheduler::SchedulerConfig;
+use async_trait::async_trait;
 use std::ops::Deref;
 use std::time::Duration;
-use async_trait::async_trait;
-use crate::scheduler::SchedulerConfig;
 
 /// [`SchedulerClock`] is a trait for implementing a custom scheduler clock, typical operations
 /// include getting the current time, idle for a specific duration (or til a specific date is reached).

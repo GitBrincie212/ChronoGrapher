@@ -1,22 +1,25 @@
-use std::sync::Arc;
-use async_trait::async_trait;
-use tokio::join;
+use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
-use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::utils::RescheduleAlerter;
+use async_trait::async_trait;
+use std::sync::Arc;
+use tokio::join;
 
-pub(crate) struct DefaultRescheduleAlerter<C: SchedulerConfig>{
+pub(crate) struct DefaultRescheduleAlerter<C: SchedulerConfig> {
     value: C::TaskIdentifier,
-    sender: tokio::sync::mpsc::Sender<C::TaskIdentifier>
+    sender: tokio::sync::mpsc::Sender<C::TaskIdentifier>,
 }
 
 #[async_trait]
 impl<C: SchedulerConfig> RescheduleAlerter for DefaultRescheduleAlerter<C> {
     async fn notify_task_finish(&self) {
-        self.sender.send(self.value.clone()).await.expect("Failed to send task finish");
+        self.sender
+            .send(self.value.clone())
+            .await
+            .expect("Failed to send task finish");
     }
 }
 
@@ -28,7 +31,7 @@ impl<F: SchedulerConfig> SchedulerEngine<F> for DefaultSchedulerEngine {
         &self,
         clock: Arc<F::SchedulerClock>,
         store: Arc<F::SchedulerTaskStore>,
-        dispatcher: Arc<F::SchedulerTaskDispatcher>
+        dispatcher: Arc<F::SchedulerTaskDispatcher>,
     ) {
         let (scheduler_send, mut scheduler_receive) =
             tokio::sync::mpsc::channel::<F::TaskIdentifier>(1028);
@@ -42,13 +45,11 @@ impl<F: SchedulerConfig> SchedulerEngine<F> for DefaultSchedulerEngine {
                         {
                             continue;
                         }
-                        store.reschedule(&clock, &idx)
-                            .await;
+                        store.reschedule(&clock, &idx).await;
                         notifier.notify_waiters();
                     }
                 }
             },
-
             async {
                 loop {
                     if let Some((task, time, idx)) = store.retrieve().await {

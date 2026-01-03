@@ -2,9 +2,9 @@ use crate::scheduler::clock::SchedulerClock;
 use async_trait::async_trait;
 use std::marker::PhantomData;
 
+use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;
-use crate::scheduler::SchedulerConfig;
 use crate::utils::Timestamp;
 
 /// [`ProgressiveClock`] is an implementation of [`SchedulerClock`] trait, it is the default option
