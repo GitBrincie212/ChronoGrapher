@@ -1,5 +1,9 @@
+use std::hash::Hash;
 use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use async_trait::async_trait;
+use uuid::Uuid;
+use crate::scheduler::SchedulerConfig;
 
 #[macro_export]
 macro_rules! define_event_group {
@@ -35,7 +39,7 @@ macro_rules! define_event {
     };
 }
 
-pub trait Timestamp: Ord + Send + Sync + 'static {
+pub trait Timestamp: Clone + Ord + Send + Sync + 'static {
     fn now() -> Self;
     fn duration_since(&self, earlier: Self) -> Option<Duration>;
     fn year(&self) -> u32;
@@ -83,6 +87,21 @@ impl Timestamp for SystemTime {
     fn millisecond(&self) -> u16 {
         system_time_to_date_time(self).timestamp_subsec_millis() as u16
     }
+}
+
+pub trait TaskIdentifier: 'static + Clone + Eq + Hash + Send + Sync {
+    fn generate() -> Self;
+}
+
+impl TaskIdentifier for Uuid {
+    fn generate() -> Self {
+        Uuid::new_v4()
+    }
+}
+
+#[async_trait]
+pub trait RescheduleAlerter: 'static + Send + Sync {
+    async fn notify_task_finish(&self);
 }
 
 /// Simply converts the ``SystemTime`` to a ``DateTime<Local>``, it is a private
