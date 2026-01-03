@@ -2,12 +2,13 @@ pub mod default; // skipcq: RS-D1001
 
 pub use default::*;
 
-use crate::scheduler::RescheduleNotifier;
+use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::sync::Arc;
+use crate::utils::RescheduleAlerter;
 
 /// [`SchedulerTaskDispatcher`] is a trait for implementing a scheduler task dispatcher. It acts as
 /// a central point for when a task wants to execute, it does not handle scheduling, in fact it
@@ -30,7 +31,7 @@ use std::sync::Arc;
 /// - [`Scheduler`]
 /// - [`DefaultTaskDispatcher`]
 #[async_trait]
-pub trait SchedulerTaskDispatcher: 'static + Send + Sync {
+pub trait SchedulerTaskDispatcher<F: SchedulerConfig>: 'static + Send + Sync {
     async fn init(&self) {}
 
     /// The main logic of the [`SchedulerTaskDispatcher`]. This is where it handles
@@ -47,9 +48,9 @@ pub trait SchedulerTaskDispatcher: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`Scheduler`]
     /// - [`SchedulerTaskDispatcher`]
-    async fn dispatch<T: 'static + Send + Sync>(
+    async fn dispatch(
         &self,
         task: Arc<ErasedTask>,
-        rescheduler_notifier: RescheduleNotifier<T>,
+        rescheduler_notifier: &dyn RescheduleAlerter,
     );
 }
