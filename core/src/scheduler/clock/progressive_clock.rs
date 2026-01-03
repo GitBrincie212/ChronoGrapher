@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;
+use crate::scheduler::SchedulerConfig;
 use crate::utils::Timestamp;
 
 /// [`ProgressiveClock`] is an implementation of [`SchedulerClock`] trait, it is the default option
@@ -38,12 +39,12 @@ impl<T: Timestamp> Clone for ProgressiveClock<T> {
 impl<T: Timestamp> Copy for ProgressiveClock<T> {}
 
 #[async_trait]
-impl<T: Timestamp> SchedulerClock<T> for ProgressiveClock<T> {
-    async fn now(&self) -> T {
+impl<T: Timestamp, F: SchedulerConfig<Timestamp = T>> SchedulerClock<F> for ProgressiveClock<T> {
+    async fn now(&self) -> F::Timestamp {
         T::now()
     }
 
-    async fn idle_to(&self, to: T) {
+    async fn idle_to(&self, to: F::Timestamp) {
         let now = T::now();
         let duration = match to.duration_since(now) {
             Some(duration) => duration,

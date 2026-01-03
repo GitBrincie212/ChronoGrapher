@@ -1,4 +1,4 @@
-use crate::scheduler::clock::{AdvanceableScheduleClock, SchedulerClock};
+use crate::scheduler::clock::{AdvanceableSchedulerClock, SchedulerClock};
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -6,13 +6,14 @@ use tokio::sync::Notify;
 
 #[allow(unused_imports)]
 use crate::scheduler::clock::ProgressiveClock;
+use crate::scheduler::SchedulerConfig;
 
 /// [`VirtualClock`] is an implementation of the [`SchedulerClock`] trait, it acts as a mock object, allowing
 /// to simulate time without the waiting around. This can especially be useful for unit tests,
 /// simulations of a [`flashcrowd`](https://en.wiktionary.org/wiki/flashcrowd#English) and so on
 ///
 /// Unlike [`ProgressiveClock`], this clock doesn't move forward, rather it needs explicit
-/// calls to advance methods ([`VirtualClock`] implements the [`AdvanceableScheduleClock`] extension
+/// calls to advance methods ([`VirtualClock`] implements the [`AdvanceableSchedulerClock`] extension
 /// trait), which makes it predictable at any point throughout the program
 ///
 /// # Constructor(s)
@@ -24,7 +25,7 @@ use crate::scheduler::clock::ProgressiveClock;
 ///
 /// # Trait Implementation(s)
 /// It is clear as day, that [`VirtualClock`] implements the [`SchedulerClock`] but it also implements
-/// the [`AdvanceableScheduleClock`] extension trait and the [`Debug`] trait
+/// the [`AdvanceableSchedulerClock`] extension trait and the [`Debug`] trait
 ///
 /// # Example
 /// ```ignore
@@ -48,7 +49,7 @@ use crate::scheduler::clock::ProgressiveClock;
 ///
 /// # See Also
 /// - [`ProgressiveClock`]
-/// - [`AdvanceableScheduleClock`]
+/// - [`AdvanceableSchedulerClock`]
 /// - [`SchedulerClock`]
 pub struct VirtualClock {
     current_time: AtomicU64,
@@ -117,27 +118,27 @@ impl VirtualClock {
 }
 
 #[async_trait]
-impl SchedulerClock<SystemTime> for VirtualClock {
-    async fn now(&self) -> SystemTime {
+impl<F: SchedulerConfig<Timestamp = SystemTime>> SchedulerClock<F> for VirtualClock {
+    async fn now(&self) -> F::Timestamp {
         let now = self.current_time.load(Ordering::Relaxed);
         UNIX_EPOCH + Duration::from_millis(now)
     }
 
-    async fn idle_to(&self, to: SystemTime) {
-        while self.now().await < to {
+    async fn idle_to(&self, to: F::Timestamp) {
+        while <VirtualClock as SchedulerClock<F>>::now(self).await < to {
             self.notify.notified().await;
         }
     }
 }
 
 #[async_trait]
-impl AdvanceableScheduleClock<SystemTime> for VirtualClock {
+impl<F: SchedulerConfig<Timestamp = SystemTime>> AdvanceableSchedulerClock<F> for VirtualClock {
     async fn advance(&self, duration: Duration) {
-        let now = self.now().await;
-        self.advance_to(now + duration).await
+        let now = <VirtualClock as SchedulerClock<F>>::now(self).await;
+        <VirtualClock as AdvanceableSchedulerClock<F>>::advance_to(self, now + duration).await
     }
 
-    async fn advance_to(&self, to: SystemTime) {
+    async fn advance_to(&self, to: F::Timestamp) {
         let to_millis = to
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
