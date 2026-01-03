@@ -4,9 +4,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Notify;
 
+use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::scheduler::clock::ProgressiveClock;
-use crate::scheduler::SchedulerConfig;
 
 /// [`VirtualClock`] is an implementation of the [`SchedulerClock`] trait, it acts as a mock object, allowing
 /// to simulate time without the waiting around. This can especially be useful for unit tests,

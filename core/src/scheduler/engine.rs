@@ -1,9 +1,9 @@
 pub mod default;
 pub use default::DefaultSchedulerEngine;
 
-use std::sync::Arc;
-use async_trait::async_trait;
 use crate::scheduler::SchedulerConfig;
+use async_trait::async_trait;
+use std::sync::Arc;
 
 #[async_trait]
 pub trait SchedulerEngine<F: SchedulerConfig>: 'static + Send + Sync {

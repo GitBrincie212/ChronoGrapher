@@ -1,9 +1,10 @@
 pub mod clock; // skipcq: RS-D1001
+pub mod engine;
 pub mod task_dispatcher; // skipcq: RS-D1001
-pub mod task_store; // skipcq: RS-D1001
-pub mod engine; // skipcq: RS-D1001
+pub mod task_store; // skipcq: RS-D1001 // skipcq: RS-D1001
 
 use crate::scheduler::clock::*;
+use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
@@ -16,7 +17,6 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
-use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 
 pub trait SchedulerConfig: Sized + 'static {
     type TaskIdentifier: TaskIdentifier;
@@ -189,7 +189,7 @@ pub struct Scheduler<F: SchedulerConfig> {
     store: Arc<F::SchedulerTaskStore>,
     dispatcher: Arc<F::SchedulerTaskDispatcher>,
     engine: Arc<F::SchedulerEngine>,
-    process: Mutex<Option<JoinHandle<()>>>
+    process: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl<F: SchedulerConfig> Scheduler<F> {
@@ -233,15 +233,11 @@ impl<F: SchedulerConfig> Scheduler<F> {
         let clock_clone = self.clock.clone();
         let store_clone = self.store.clone();
         let dispatcher_clone = self.dispatcher.clone();
-        *self.process.lock().await = Some(
-            tokio::spawn(async move {
-                engine_clone.main(
-                    clock_clone,
-                    store_clone,
-                    dispatcher_clone
-                ).await;
-            })
-        )
+        *self.process.lock().await = Some(tokio::spawn(async move {
+            engine_clone
+                .main(clock_clone, store_clone, dispatcher_clone)
+                .await;
+        }))
     }
 
     /// Aborts the scheduler, it acts like pausing the task, i.e. It doesn't clear any remaining
