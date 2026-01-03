@@ -1,16 +1,14 @@
-pub mod default;
+pub mod ephemeral;
 // skipcq: RS-D1001
 
-pub use default::*;
+pub use ephemeral::*;
 
-use crate::scheduler::clock::SchedulerClock;
 use crate::task::ErasedTask;
 #[allow(unused_imports)]
 use crate::task::TaskSchedule;
-use crate::utils::Timestamp;
 use async_trait::async_trait;
 use std::sync::Arc;
-use uuid::Uuid;
+use crate::scheduler::SchedulerConfig;
 
 /// [`SchedulerTaskStore`] is a trait for implementing a storage mechanism for tasks, it allows
 /// for retrieving the earliest task, storing a task with its task schedule, removing a task via
@@ -29,14 +27,14 @@ use uuid::Uuid;
 ///
 /// # Trait Implementation(s)
 /// [`SchedulerTaskStore`] has specifically one implementation present in the library, that being
-/// [`EphemerealSchedulerTaskStore`] which is an in-memory task store and does not handle persistence
+/// [`EphemeralSchedulerTaskStore`] which is an in-memory task store and does not handle persistence
 ///
 /// # Object Safety
 /// [`SchedulerTaskStore`] is object safe as seen throughout the source code of [`Scheduler`]
 ///
 /// # See Also
 /// - [`Scheduler`]
-/// - [`EphemerealSchedulerTaskStore`]
+/// - [`EphemeralSchedulerTaskStore`]
 /// - [`SchedulerTaskStore::retrieve`]
 /// - [`SchedulerTaskStore::pop`]
 /// - [`SchedulerTaskStore::exists`]
@@ -45,7 +43,7 @@ use uuid::Uuid;
 /// - [`SchedulerTaskStore::remove`]
 /// - [`SchedulerTaskStore::clear`]
 #[async_trait]
-pub trait SchedulerTaskStore<D: Timestamp>: 'static + Send + Sync {
+pub trait SchedulerTaskStore<F: SchedulerConfig>: 'static + Send + Sync {
     async fn init(&self) {}
 
     /// Retrieves / Peeks the earliest task, without modifying any internal storage
@@ -57,7 +55,7 @@ pub trait SchedulerTaskStore<D: Timestamp>: 'static + Send + Sync {
     /// # See Also
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
-    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, D, Uuid)>;
+    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, F::Timestamp, F::TaskIdentifier)>;
 
     /// Gets the task based on an index
     ///
@@ -71,7 +69,7 @@ pub trait SchedulerTaskStore<D: Timestamp>: 'static + Send + Sync {
     ///
     /// # See Also
     /// - [`SchedulerTaskStore`]
-    async fn get(&self, idx: &Uuid) -> Option<Arc<ErasedTask>>;
+    async fn get(&self, idx: &F::TaskIdentifier) -> Option<Arc<ErasedTask>>;
 
     /// Pops the earliest task by modifying any internal storage. This mechanism
     /// is kept separate from [`SchedulerTaskStore::retrieve`] due to the fact that one might
@@ -96,7 +94,7 @@ pub trait SchedulerTaskStore<D: Timestamp>: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
     /// - [`SchedulerTaskStore::store`]
-    async fn exists(&self, idx: &Uuid) -> bool;
+    async fn exists(&self, idx: &F::TaskIdentifier) -> bool;
 
     /// Reschedules a [`Task`] instance based on index, it automatically calculates
     /// the new time from the task's [`TaskSchedule`]
@@ -111,7 +109,7 @@ pub trait SchedulerTaskStore<D: Timestamp>: 'static + Send + Sync {
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
     /// - [`SchedulerTaskStore::store`]
-    async fn reschedule(&self, clock: &impl SchedulerClock<D>, idx: &Uuid);
+    async fn reschedule(&self, clock: &F::SchedulerClock, idx: &F::TaskIdentifier);
 
     /// Stores a task as an entry, returning its index
     ///
@@ -128,7 +126,7 @@ pub trait SchedulerTaskStore<D: Timestamp>: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
-    async fn store(&self, clock: &impl SchedulerClock<D>, task: ErasedTask) -> Uuid;
+    async fn store(&self, clock: &F::SchedulerClock, task: ErasedTask) -> F::TaskIdentifier;
 
     /// Removes a task based on an index, depending on the implementation,
     /// it may handle differently the case where the index does not exist
@@ -141,7 +139,7 @@ pub trait SchedulerTaskStore<D: Timestamp>: 'static + Send + Sync {
     /// # See Also
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
-    async fn remove(&self, idx: &Uuid);
+    async fn remove(&self, idx: &F::TaskIdentifier);
 
     /// Clears fully all the contents of the task store
     ///
