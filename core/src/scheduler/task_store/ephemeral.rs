@@ -1,7 +1,9 @@
+use crate::errors::ChronographerErrors;
+use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ErasedTask, TaskError};
-use crate::utils::{date_time_to_system_time, system_time_to_date_time, TaskIdentifier};
+use crate::utils::{TaskIdentifier, date_time_to_system_time, system_time_to_date_time};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::cmp::Ordering;
@@ -10,8 +12,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{Mutex, MutexGuard};
-use crate::errors::ChronographerErrors;
-use crate::scheduler::SchedulerConfig;
 
 struct InternalScheduledItem<C: SchedulerConfig>(C::Timestamp, C::TaskIdentifier);
 
@@ -132,16 +132,22 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         self.tasks.contains_key(idx)
     }
 
-    async fn reschedule(&self, clock: &C::SchedulerClock, idx: &C::TaskIdentifier) -> Result<(), TaskError> {
+    async fn reschedule(
+        &self,
+        clock: &C::SchedulerClock,
+        idx: &C::TaskIdentifier,
+    ) -> Result<(), TaskError> {
         let timestamp_now = clock.now().await;
-        let task = self.tasks
-            .get(idx)
-            .ok_or(Arc::new(ChronographerErrors::TaskIdentifierNonExistent(
-                format!("{idx:?}")
-            )) as Arc<dyn Debug + Send + Sync>)?;
+        let task =
+            self.tasks
+                .get(idx)
+                .ok_or(
+                    Arc::new(ChronographerErrors::TaskIdentifierNonExistent(format!(
+                        "{idx:?}"
+                    ))) as Arc<dyn Debug + Send + Sync>,
+                )?;
         let now = system_time_to_date_time(&timestamp_now);
-        let future_time = task.schedule()
-            .next_after(&now)?;
+        let future_time = task.schedule().next_after(&now)?;
         let sys_future_time = date_time_to_system_time(future_time);
 
         let mut lock = self.earliest_sorted.lock().await;
@@ -149,7 +155,11 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         Ok(())
     }
 
-    async fn store(&self, clock: &C::SchedulerClock, task: ErasedTask) -> Result<C::TaskIdentifier, TaskError> {
+    async fn store(
+        &self,
+        clock: &C::SchedulerClock,
+        task: ErasedTask,
+    ) -> Result<C::TaskIdentifier, TaskError> {
         let last_exec_timestamp = clock.now().await;
         let last_exec = system_time_to_date_time(&last_exec_timestamp);
         let future_time = task.schedule().next_after(&last_exec)?;

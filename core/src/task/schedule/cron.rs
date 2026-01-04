@@ -70,13 +70,8 @@ impl TaskScheduleCron {
 }
 
 impl TaskSchedule for TaskScheduleCron {
-    fn next_after(
-        &self,
-        time: &DateTime<Local>,
-    ) -> Result<DateTime<Local>, TaskError> {
-        cron_parser::parse(&self.0, time).map_err(|e| {
-            Arc::new(ChronographerErrors::CronParserError(e.to_string()))
-                as TaskError
-        })
+    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
+        cron_parser::parse(&self.0, time)
+            .map_err(|e| Arc::new(ChronographerErrors::CronParserError(e.to_string())) as TaskError)
     }
 }

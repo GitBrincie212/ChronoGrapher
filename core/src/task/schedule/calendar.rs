@@ -506,10 +506,7 @@ impl<
     Millisecond: TaskCalendarField + 'static,
 > TaskSchedule for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
 {
-    fn next_after(
-        &self,
-        time: &DateTime<Local>,
-    ) -> Result<DateTime<Local>, TaskError> {
+    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
         let mut fields: [&dyn TaskCalendarField; 7] = [
             &self.millisecond,
             &self.second,
@@ -529,11 +526,11 @@ impl<
             time.month0(),
             time.year() as u32,
         ];
-        
+
         for (idx, field) in fields.iter_mut().enumerate() {
             field.evaluate(dates, idx)
         }
-        
+
         let modified = rebuild_datetime_from_parts(
             dates[6] as i32,
             dates[5] + 1,
