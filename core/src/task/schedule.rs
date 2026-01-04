@@ -15,9 +15,8 @@ pub use crate::task::schedule::interval::TaskScheduleInterval;
 #[allow(unused_imports)]
 use crate::task::Task;
 use chrono::{DateTime, Local};
-use std::error::Error;
 use std::ops::Deref;
-use std::sync::Arc;
+use crate::prelude::TaskError;
 
 /// The [`TaskSchedule`] trait is used to calculate the next point of time given a time instance
 /// where the task will be scheduled to execute. This system is used closely by the [`Scheduler`]
@@ -64,7 +63,7 @@ pub trait TaskSchedule: 'static + Send + Sync {
     /// - [`Scheduler`]
     /// - [`TaskSchedule`]
     /// - [`Task`]
-    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, Arc<dyn Error>>;
+    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError>;
 }
 
 impl<T> TaskSchedule for T
@@ -72,7 +71,7 @@ where
     T: Deref + Send + Sync + 'static,
     T::Target: TaskSchedule,
 {
-    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, Arc<dyn Error>> {
+    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
         self.deref().next_after(time)
     }
 }

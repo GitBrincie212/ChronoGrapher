@@ -1,8 +1,7 @@
-use crate::task::TaskSchedule;
+use crate::task::{TaskError, TaskSchedule};
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike};
 use std::fmt::Debug;
 use std::ops::{Bound, Deref, RangeBounds};
-use std::sync::Arc;
 
 /// [`TaskCalendarField`] is a trait that defines a field on the schedule,
 /// by itself it just holds data and how this data is scheduled, it is useful for
@@ -510,7 +509,7 @@ impl<
     fn next_after(
         &self,
         time: &DateTime<Local>,
-    ) -> Result<DateTime<Local>, Arc<dyn std::error::Error + 'static>> {
+    ) -> Result<DateTime<Local>, TaskError> {
         let mut fields: [&dyn TaskCalendarField; 7] = [
             &self.millisecond,
             &self.second,
@@ -530,15 +529,11 @@ impl<
             time.month0(),
             time.year() as u32,
         ];
-
-        println!("{:?}", dates);
-
+        
         for (idx, field) in fields.iter_mut().enumerate() {
             field.evaluate(dates, idx)
         }
-
-        println!("{:?}", dates);
-
+        
         let modified = rebuild_datetime_from_parts(
             dates[6] as i32,
             dates[5] + 1,

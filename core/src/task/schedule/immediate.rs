@@ -1,6 +1,6 @@
 use crate::task::TaskSchedule;
 use chrono::{DateTime, Local};
-use std::sync::Arc;
+use crate::prelude::TaskError;
 
 #[allow(unused_imports)]
 use crate::task::Task;
@@ -33,7 +33,7 @@ impl TaskSchedule for TaskScheduleImmediate {
     fn next_after(
         &self,
         time: &DateTime<Local>,
-    ) -> Result<DateTime<Local>, Arc<dyn std::error::Error + 'static>> {
+    ) -> Result<DateTime<Local>, TaskError> {
         Ok(*time)
     }
 }

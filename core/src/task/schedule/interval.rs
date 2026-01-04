@@ -1,9 +1,8 @@
 use crate::errors::ChronographerErrors;
-use crate::task::TaskSchedule;
+use crate::task::{TaskError, TaskSchedule};
 use chrono::{DateTime, Local, TimeDelta};
 use std::fmt::Debug;
 use std::ops::Add;
-use std::sync::Arc;
 use std::time::Duration;
 
 #[allow(unused_imports)]
@@ -158,7 +157,7 @@ impl TaskSchedule for TaskScheduleInterval {
     fn next_after(
         &self,
         time: &DateTime<Local>,
-    ) -> Result<DateTime<Local>, Arc<dyn std::error::Error + 'static>> {
+    ) -> Result<DateTime<Local>, TaskError> {
         Ok(time.add(self.0))
     }
 }
