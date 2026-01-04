@@ -99,23 +99,16 @@ pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask>>,
 }
 
-impl<C: SchedulerConfig> EphemeralSchedulerTaskStore<C> {
-    /// Creates / Constructs a new [`EphemeralSchedulerTaskStore`] instance which
-    /// only operates in-memory
-    ///
-    /// # Returns
-    /// The newly constructed [`EphemeralSchedulerTaskStore`].
-    ///
-    /// # See Also
-    /// - [`EphemeralSchedulerTaskStore`]
-    /// - [`EphemeralSchedulerTaskStore::default`]
-    pub fn ephemeral() -> Self {
+impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
+    fn default() -> Self {
         Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
             tasks: DashMap::new(),
         }
     }
+}
 
+impl<C: SchedulerConfig> EphemeralSchedulerTaskStore<C> {
     async fn find_new_time(&self, clock: &C::SchedulerClock, idx: &C::TaskIdentifier) -> C::Timestamp {
         let timestamp_now = clock.now().await;
         let task = self.tasks.get(idx).unwrap();
