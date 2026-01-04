@@ -4,7 +4,7 @@ pub mod ephemeral;
 pub use ephemeral::*;
 
 use crate::scheduler::SchedulerConfig;
-use crate::task::ErasedTask;
+use crate::task::{ErasedTask, TaskError};
 #[allow(unused_imports)]
 use crate::task::TaskSchedule;
 use async_trait::async_trait;
@@ -43,7 +43,7 @@ use std::sync::Arc;
 /// - [`SchedulerTaskStore::remove`]
 /// - [`SchedulerTaskStore::clear`]
 #[async_trait]
-pub trait SchedulerTaskStore<F: SchedulerConfig>: 'static + Send + Sync {
+pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     async fn init(&self) {}
 
     /// Retrieves / Peeks the earliest task, without modifying any internal storage
@@ -55,7 +55,7 @@ pub trait SchedulerTaskStore<F: SchedulerConfig>: 'static + Send + Sync {
     /// # See Also
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
-    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, F::Timestamp, F::TaskIdentifier)>;
+    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, C::Timestamp, C::TaskIdentifier)>;
 
     /// Gets the task based on an index
     ///
@@ -69,7 +69,7 @@ pub trait SchedulerTaskStore<F: SchedulerConfig>: 'static + Send + Sync {
     ///
     /// # See Also
     /// - [`SchedulerTaskStore`]
-    async fn get(&self, idx: &F::TaskIdentifier) -> Option<Arc<ErasedTask>>;
+    async fn get(&self, idx: &C::TaskIdentifier) -> Option<Arc<ErasedTask>>;
 
     /// Pops the earliest task by modifying any internal storage. This mechanism
     /// is kept separate from [`SchedulerTaskStore::retrieve`] due to the fact that one might
@@ -94,7 +94,7 @@ pub trait SchedulerTaskStore<F: SchedulerConfig>: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
     /// - [`SchedulerTaskStore::store`]
-    async fn exists(&self, idx: &F::TaskIdentifier) -> bool;
+    async fn exists(&self, idx: &C::TaskIdentifier) -> bool;
 
     /// Reschedules a [`Task`] instance based on index, it automatically calculates
     /// the new time from the task's [`TaskSchedule`]
@@ -109,7 +109,7 @@ pub trait SchedulerTaskStore<F: SchedulerConfig>: 'static + Send + Sync {
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
     /// - [`SchedulerTaskStore::store`]
-    async fn reschedule(&self, clock: &F::SchedulerClock, idx: &F::TaskIdentifier);
+    async fn reschedule(&self, clock: &C::SchedulerClock, idx: &C::TaskIdentifier) -> Result<(), TaskError>;
 
     /// Stores a task as an entry, returning its index
     ///
@@ -126,7 +126,7 @@ pub trait SchedulerTaskStore<F: SchedulerConfig>: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
-    async fn store(&self, clock: &F::SchedulerClock, task: ErasedTask) -> F::TaskIdentifier;
+    async fn store(&self, clock: &C::SchedulerClock, task: ErasedTask) -> Result<C::TaskIdentifier, TaskError>;
 
     /// Removes a task based on an index, depending on the implementation,
     /// it may handle differently the case where the index does not exist
@@ -139,7 +139,7 @@ pub trait SchedulerTaskStore<F: SchedulerConfig>: 'static + Send + Sync {
     /// # See Also
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
-    async fn remove(&self, idx: &F::TaskIdentifier);
+    async fn remove(&self, idx: &C::TaskIdentifier);
 
     /// Clears fully all the contents of the task store
     ///
