@@ -45,7 +45,7 @@ pub type DefaultGlobalScheduler = Scheduler<DefaultSchedulerConfig>;
 pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultGlobalScheduler>> = LazyLock::new(|| {
     Arc::new(
         Scheduler::builder()
-            .store(EphemeralSchedulerTaskStore::ephemeral())
+            .store(EphemeralSchedulerTaskStore::default())
             .clock(ProgressiveClock::<SystemTime>::default())
             .dispatcher(DefaultTaskDispatcher)
             .engine(DefaultSchedulerEngine)
