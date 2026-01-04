@@ -113,7 +113,7 @@ impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         match ctx.subdivide(self.0.clone()).await {
             Err(err) => {
-                ctx.clone().emit::<OnFallbackEvent>(&err).await;
+                ctx.emit::<OnFallbackEvent>(&err).await;
                 ctx.subdivide(self.1.clone()).await
             }
             res => res,

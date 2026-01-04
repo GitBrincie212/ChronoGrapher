@@ -380,11 +380,11 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         let result = self.predicate.execute(ctx).await;
         if result {
-            ctx.clone().emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
+            ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
             return ctx.subdivide(self.frame.clone()).await;
         }
 
-        ctx.clone().emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
+        ctx.emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
         let result = ctx.subdivide(self.fallback.clone()).await;
         if self.error_on_false && result.is_ok() {
             return Err(Arc::new(ChronographerErrors::TaskConditionFail));
