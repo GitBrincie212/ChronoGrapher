@@ -36,14 +36,8 @@ use crate::utils::RescheduleAlerter;
 /// - [`Scheduler`]
 /// - [`Task`]
 /// - [`SchedulerTaskDispatcher`]
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct DefaultTaskDispatcher;
-
-impl Debug for DefaultTaskDispatcher {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DefaultTaskDispatcher").finish()
-    }
-}
 
 #[async_trait]
 impl<F: SchedulerConfig> SchedulerTaskDispatcher<F> for DefaultTaskDispatcher {
