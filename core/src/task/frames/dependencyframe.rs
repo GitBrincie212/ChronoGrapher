@@ -282,16 +282,14 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             let dep = self.dependencies[index].clone();
             match handle.await {
                 Ok(res) => {
-                    ctx.emit::<OnDependencyValidation>(&(dep, res))
-                        .await;
+                    ctx.emit::<OnDependencyValidation>(&(dep, res)).await;
                     if !res {
                         is_resolved = false;
                         break;
                     }
                 }
                 Err(_) => {
-                    ctx.emit::<OnDependencyValidation>(&(dep, false))
-                        .await;
+                    ctx.emit::<OnDependencyValidation>(&(dep, false)).await;
                     is_resolved = false;
                     break;
                 }

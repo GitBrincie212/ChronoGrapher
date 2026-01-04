@@ -154,10 +154,7 @@ impl TaskScheduleInterval {
 }
 
 impl TaskSchedule for TaskScheduleInterval {
-    fn next_after(
-        &self,
-        time: &DateTime<Local>,
-    ) -> Result<DateTime<Local>, TaskError> {
+    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
         Ok(time.add(self.0))
     }
 }

@@ -1,6 +1,6 @@
+use crate::prelude::TaskError;
 use crate::task::TaskSchedule;
 use chrono::{DateTime, Local};
-use crate::prelude::TaskError;
 
 #[allow(unused_imports)]
 use crate::task::Task;
@@ -30,10 +30,7 @@ use crate::task::Task;
 pub struct TaskScheduleImmediate;
 
 impl TaskSchedule for TaskScheduleImmediate {
-    fn next_after(
-        &self,
-        time: &DateTime<Local>,
-    ) -> Result<DateTime<Local>, TaskError> {
+    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
         Ok(*time)
     }
 }

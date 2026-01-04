@@ -12,11 +12,11 @@ pub use crate::task::schedule::cron::TaskScheduleCron;
 pub use crate::task::schedule::immediate::TaskScheduleImmediate;
 pub use crate::task::schedule::interval::TaskScheduleInterval;
 
+use crate::prelude::TaskError;
 #[allow(unused_imports)]
 use crate::task::Task;
 use chrono::{DateTime, Local};
 use std::ops::Deref;
-use crate::prelude::TaskError;
 
 /// The [`TaskSchedule`] trait is used to calculate the next point of time given a time instance
 /// where the task will be scheduled to execute. This system is used closely by the [`Scheduler`]

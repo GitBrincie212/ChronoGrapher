@@ -1,22 +1,25 @@
-use std::sync::Arc;
-use async_trait::async_trait;
-use tokio::join;
+use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
-use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::utils::RescheduleAlerter;
+use async_trait::async_trait;
+use std::sync::Arc;
+use tokio::join;
 
-pub(crate) struct DefaultRescheduleAlerter<C: SchedulerConfig>{
+pub(crate) struct DefaultRescheduleAlerter<C: SchedulerConfig> {
     value: C::TaskIdentifier,
-    sender: tokio::sync::mpsc::Sender<C::TaskIdentifier>
+    sender: tokio::sync::mpsc::Sender<C::TaskIdentifier>,
 }
 
 #[async_trait]
 impl<C: SchedulerConfig> RescheduleAlerter for DefaultRescheduleAlerter<C> {
     async fn notify_task_finish(&self) {
-        self.sender.send(self.value.clone()).await.expect("Failed to send task finish");
+        self.sender
+            .send(self.value.clone())
+            .await
+            .expect("Failed to send task finish");
     }
 }
 
@@ -28,7 +31,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
         &self,
         clock: Arc<C::SchedulerClock>,
         store: Arc<C::SchedulerTaskStore>,
-        dispatcher: Arc<C::SchedulerTaskDispatcher>
+        dispatcher: Arc<C::SchedulerTaskDispatcher>,
     ) {
         let (scheduler_send, mut scheduler_receive) =
             tokio::sync::mpsc::channel::<C::TaskIdentifier>(1028);
@@ -44,14 +47,13 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                             continue;
                         }
                          */
-                        store.reschedule(&clock, &idx).await.expect(
-                            &format!("Failed to reschedule Task with the identifier {idx:?}")
-                        );
+                        store.reschedule(&clock, &idx).await.expect(&format!(
+                            "Failed to reschedule Task with the identifier {idx:?}"
+                        ));
                         notifier.notify_waiters();
                     }
                 }
             },
-
             async {
                 loop {
                     if let Some((task, time, idx)) = store.retrieve().await {

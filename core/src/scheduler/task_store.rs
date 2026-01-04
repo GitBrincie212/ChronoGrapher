@@ -4,9 +4,9 @@ pub mod ephemeral;
 pub use ephemeral::*;
 
 use crate::scheduler::SchedulerConfig;
-use crate::task::{ErasedTask, TaskError};
 #[allow(unused_imports)]
 use crate::task::TaskSchedule;
+use crate::task::{ErasedTask, TaskError};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -109,7 +109,11 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
     /// - [`SchedulerTaskStore::store`]
-    async fn reschedule(&self, clock: &C::SchedulerClock, idx: &C::TaskIdentifier) -> Result<(), TaskError>;
+    async fn reschedule(
+        &self,
+        clock: &C::SchedulerClock,
+        idx: &C::TaskIdentifier,
+    ) -> Result<(), TaskError>;
 
     /// Stores a task as an entry, returning its index
     ///
@@ -126,7 +130,11 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`SchedulerClock`]
     /// - [`SchedulerTaskStore`]
-    async fn store(&self, clock: &C::SchedulerClock, task: ErasedTask) -> Result<C::TaskIdentifier, TaskError>;
+    async fn store(
+        &self,
+        clock: &C::SchedulerClock,
+        task: ErasedTask,
+    ) -> Result<C::TaskIdentifier, TaskError>;
 
     /// Removes a task based on an index, depending on the implementation,
     /// it may handle differently the case where the index does not exist
