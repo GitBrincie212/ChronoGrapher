@@ -23,15 +23,15 @@ impl<C: SchedulerConfig> RescheduleAlerter for DefaultRescheduleAlerter<C> {
 pub struct DefaultSchedulerEngine;
 
 #[async_trait]
-impl<F: SchedulerConfig> SchedulerEngine<F> for DefaultSchedulerEngine {
+impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
     async fn main(
         &self,
-        clock: Arc<F::SchedulerClock>,
-        store: Arc<F::SchedulerTaskStore>,
-        dispatcher: Arc<F::SchedulerTaskDispatcher>
+        clock: Arc<C::SchedulerClock>,
+        store: Arc<C::SchedulerTaskStore>,
+        dispatcher: Arc<C::SchedulerTaskDispatcher>
     ) {
         let (scheduler_send, mut scheduler_receive) =
-            tokio::sync::mpsc::channel::<F::TaskIdentifier>(1028);
+            tokio::sync::mpsc::channel::<C::TaskIdentifier>(1028);
         let notifier = tokio::sync::Notify::new();
         join!(
             async {
@@ -44,7 +44,9 @@ impl<F: SchedulerConfig> SchedulerEngine<F> for DefaultSchedulerEngine {
                             continue;
                         }
                          */
-                        store.reschedule(&clock, &idx).await;
+                        store.reschedule(&clock, &idx).await.expect(
+                            &format!("Failed to reschedule Task with the identifier {idx:?}")
+                        );
                         notifier.notify_waiters();
                     }
                 }
@@ -57,7 +59,7 @@ impl<F: SchedulerConfig> SchedulerEngine<F> for DefaultSchedulerEngine {
                             _ = clock.idle_to(time) => {
                                 store.pop().await;
                                 if !store.exists(&idx).await { continue; }
-                                let sender: DefaultRescheduleAlerter<F> = DefaultRescheduleAlerter {
+                                let sender: DefaultRescheduleAlerter<C> = DefaultRescheduleAlerter {
                                     value: idx.clone(),
                                     sender: scheduler_send.clone()
                                 };
