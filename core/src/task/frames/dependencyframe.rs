@@ -50,6 +50,7 @@ impl<DFB: DependentFailBehavior> DependentFailBehavior for Arc<DFB> {
 
 /// When dependencies aren't resolved, return an error, more specifically
 /// the ``ChronographerErrors::TaskDependenciesUnresolved`` error
+#[derive(Default, Clone, Copy)]
 pub struct DependentFailureOnFail;
 
 #[async_trait]
@@ -60,6 +61,7 @@ impl DependentFailBehavior for DependentFailureOnFail {
 }
 
 /// When dependencies aren't resolved, return a `Ok(())`
+#[derive(Default, Clone, Copy)]
 pub struct DependentSuccessOnFail;
 
 #[async_trait]
