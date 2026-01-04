@@ -3,7 +3,6 @@ use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 use uuid::Uuid;
-use crate::scheduler::SchedulerConfig;
 
 #[macro_export]
 macro_rules! define_event_group {

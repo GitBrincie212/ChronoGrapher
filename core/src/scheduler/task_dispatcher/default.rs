@@ -2,7 +2,6 @@ use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
-use std::fmt::Debug;
 use std::sync::Arc;
 
 #[allow(unused_imports)]

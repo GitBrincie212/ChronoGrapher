@@ -36,7 +36,7 @@ impl<F: SchedulerConfig> SchedulerEngine<F> for DefaultSchedulerEngine {
         join!(
             async {
                 while let Some(idx) = scheduler_receive.recv().await {
-                    if let Some(task) = store.get(&idx).await {
+                    if let Some(_task) = store.get(&idx).await {
                         /*
                         if let Some(max_runs) = task.max_runs()
                             && task.runs() >= max_runs.get()

@@ -157,7 +157,7 @@ impl TaskHookEvent for () {
 /// - [`TaskFrame`]
 #[async_trait]
 pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
-    async fn on_event(&self, event: E, ctx: &TaskContext, payload: &E::Payload);
+    async fn on_event(&self, event: E, ctx: &TaskHookContext, payload: &E::Payload);
 }
 
 /// [`NonObserverTaskHook`] is an alias for [`TaskHook`] where the event type is
@@ -188,7 +188,7 @@ impl<T: NonObserverTaskHook> TaskHook<()> for T {
     async fn on_event(
         &self,
         _event: (),
-        _ctx: &TaskContext,
+        _ctx: &TaskHookContext,
         _payload: &<() as TaskHookEvent>::Payload,
     ) {
     }
@@ -202,13 +202,13 @@ pub(crate) struct ErasedTaskHookWrapper<E: TaskHookEvent>(
 
 #[async_trait]
 pub trait ErasedTaskHook: Send + Sync {
-    async fn on_emit(&self, ctx: &TaskContext, payload: &(dyn Any + Send + Sync));
+    async fn on_emit(&self, ctx: &TaskHookContext, payload: &(dyn Any + Send + Sync));
     fn as_arc_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 }
 
 #[async_trait]
 impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
-    async fn on_emit(&self, ctx: &TaskContext, payload: &(dyn Any + Send + Sync)) {
+    async fn on_emit(&self, ctx: &TaskHookContext, payload: &(dyn Any + Send + Sync)) {
         let payload = payload
             .downcast_ref::<E::Payload>()
             .expect("Invalid payload type passed to TaskHook");
@@ -320,7 +320,7 @@ macro_rules! define_hook_event {
 }
 
 define_hook_event!(
-    /// [`TaskHook`]). The concrete payload type of [`OnHookAttach`] is ``TaskHookEvent<P>``.
+    /// [`TaskHook`]. The concrete payload type of [`OnHookAttach`] is ``TaskHookEvent<P>``.
     /// Unlike most events, this is generic-based TaskEvent, it has to do with lifecycle of TaskHooks
     ///
     /// # Constructor(s)
@@ -347,7 +347,7 @@ define_hook_event!(
 
 define_hook_event!(
     /// [`OnHookDetach`] is an implementation of [`TaskHookEvent`] (a system used closely with
-    /// [`TaskHook`]). The concrete payload type of [`OnHookDetach`] is ``TaskHookEvent<P>``.
+    /// [`TaskHook`]. The concrete payload type of [`OnHookDetach`] is ``TaskHookEvent<P>``.
     /// Unlike most events, this is generic-based TaskEvent, it has to do with lifecycle of TaskHooks
     ///
     /// # Constructor(s)
@@ -413,6 +413,85 @@ impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
 
 #[derive(Default)]
 pub(crate) struct TaskHookEventCategory(pub DashMap<TypeId, Arc<dyn ErasedTaskHook>>);
+
+#[derive(Clone)]
+pub struct TaskHookContext(pub(crate) TaskContext);
+impl TaskHookContext {
+    /// Accesses the [`TaskHooksContainer`], returning it in the process
+    ///
+    /// # Returns
+    /// The [`TaskHooksContainer`] to use
+    ///
+    /// # See Also
+    /// - [`TaskHooksContainer`]
+    /// - [`TaskContext`]
+    pub fn hooks(&self) -> &TaskHookContainer {
+        self.0.hooks()
+    }
+
+    pub fn frame(&self) -> &dyn TaskFrame {
+        self.0.frame()
+    }
+
+    /// Emits an event to relevant [`TaskHook(s)`] that have subscribed to it
+    ///
+    /// # Arguments
+    /// The method accepts one argument, that being the payload to supply
+    /// from the generic ``E`` where it is the [`TaskHookEvent`] type
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload) {
+        self.0.emit::<E>(payload).await;
+    }
+
+    /// Attaches an **Ephemeral** [`TaskHook`] to a specific [`TaskHookEvent`]. This is a much more
+    /// ergonomic method-alias to the relevant [`TaskHookContainer::attach_ephemeral`] method.
+    ///
+    /// When the program crashes, these TaskHooks do not persist. Depending on the circumstances,
+    /// this may not be a wanted behavior, if you can guarantee your TaskHook is persistable,
+    /// then [`TaskContext::attach_persistent_hook`] is the ideal method for you
+    ///
+    /// # Arguments
+    /// The method accepts one argument, that being the [`TaskHook`] instance
+    /// to supply, which will subscribe to the [`TaskHookEvent`]
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
+        self.0.attach_hook::<E>(hook).await;
+    }
+
+    /// Detaches a [`TaskHook`] from a specific [`TaskHookEvent`]. This is a much more
+    /// ergonomic method-alias to the relevant [`TaskHookContainer::detach`] method
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
+        self.0.detach_hook::<E, T>().await;
+    }
+
+    /// Gets a [`TaskHook`] instance from a specific [`TaskHookEvent`]. This is a much more
+    /// ergonomic method-alias to the relevant [`TaskHookContainer::get`] method
+    ///
+    /// # Returns
+    /// An optional [`TaskHook`] instance, if it doesn't exist ``None`` is returned,
+    /// if it does, then it returns ``Some(TaskHook)``
+    ///
+    /// # See Also
+    /// - [`TaskContext`]
+    /// - [`TaskHook`]
+    /// - [`TaskHookEvent`]
+    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
+        self.0.get_hook::<E, T>()
+    }
+}
 
 /// [`TaskHookContainer`] is a container that hosts one or multiple [`TaskHook`] instance(s)
 /// which have subscribed to one or multiple [`TaskHookEvent(s)`]. This system is utilized
@@ -529,9 +608,10 @@ impl TaskHookContainer {
 
     pub async fn emit<E: TaskHookEvent>(&self, ctx: &TaskContext, payload: &E::Payload) {
         if let Some(entry) = self.0.get(E::EVENT_ID) {
+            let ctx = TaskHookContext(ctx.clone());
             for hook in entry.value().0.iter() {
                 hook.value()
-                    .on_emit(ctx, payload as &(dyn Any + Send + Sync))
+                    .on_emit(&ctx, payload as &(dyn Any + Send + Sync))
                     .await;
             }
         }
