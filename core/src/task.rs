@@ -20,9 +20,7 @@ pub use scheduling_strats::*;
 use crate::scheduler::Scheduler;
 use dashmap::DashMap;
 use std::fmt::Debug;
-use std::num::NonZeroU64;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
@@ -91,22 +89,7 @@ pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
     /// - [`ConcurrentSchedulingPolicy`]
     /// - [`CancelPreviousSchedulingPolicy`]
     /// - [`CancelCurrentSchedulingPolicy`]
-    schedule_strategy: T3,
-
-    /// This part controls the maximum number of runs a task is allowed,
-    /// before being canceled from the scheduler
-    ///
-    /// # Default Value
-    /// By default, every task can run an infinite number of times (i.e. Has as value None), this
-    /// may sometimes be an undesirable behavior to run a task forever, as such this is why this
-    /// parameter exists
-    ///
-    /// # Method Behavior
-    /// This builder parameter method cannot be chained, as it is a typed builder,
-    /// once set, you can never chain it. Since it is a typed builder, it has no fancy
-    /// inner workings under the hood, just sets the value
-    #[builder(default = None, setter(strip_option))]
-    max_runs: Option<NonZeroU64>,
+    schedule_strategy: T3
 }
 
 impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, T2, T3>>
@@ -118,8 +101,6 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, 
             schedule: Arc::new(config.schedule),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
             schedule_strategy: Arc::new(config.schedule_strategy),
-            runs: Arc::new(AtomicU64::new(0)),
-            max_runs: config.max_runs,
             id: Uuid::new_v4(),
         }
     }
@@ -181,8 +162,6 @@ pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static, T3: ?Sized + 'static
     frame: Arc<T1>,
     schedule: Arc<T2>,
     schedule_strategy: Arc<T3>,
-    runs: Arc<AtomicU64>,
-    max_runs: Option<NonZeroU64>,
     id: Uuid,
     hooks: Arc<TaskHookContainer>,
 }
@@ -226,8 +205,6 @@ impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
             schedule: Arc::new(schedule),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
             schedule_strategy: Arc::new(SequentialSchedulingPolicy),
-            runs: Arc::new(AtomicU64::new(0)),
-            max_runs: None,
             id,
         }
     }
@@ -260,7 +237,6 @@ impl ErasedTask {
     /// - [`Scheduler`]
     pub async fn run(&self) -> Result<(), TaskError> {
         let ctx = TaskContext::new(self);
-        self.runs.fetch_add(1, Ordering::Relaxed);
         ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
         let result = self.frame.execute(&ctx).await;
         let err = result.clone().err();
@@ -287,16 +263,6 @@ impl ErasedTask {
 }
 
 impl<T1: ?Sized, T2: ?Sized, T3: ?Sized> Task<T1, T2, T3> {
-    /// Gets the number of times the task has run
-    pub fn runs(&self) -> u64 {
-        self.runs.load(Ordering::Relaxed)
-    }
-
-    /// Gets the maximum number of times the task can run (``None`` for infinite times)
-    pub fn max_runs(&self) -> &Option<NonZeroU64> {
-        &self.max_runs
-    }
-
     /// Gets the ID associated with the [`Task`]
     pub fn id(&self) -> &Uuid {
         &self.id
@@ -343,8 +309,6 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
             frame: self.frame.clone(),
             schedule: self.schedule.clone(),
             schedule_strategy: self.schedule_strategy.clone(),
-            runs: self.runs.clone(),
-            max_runs: self.max_runs,
             id: self.id,
             hooks: self.hooks.clone(),
         }

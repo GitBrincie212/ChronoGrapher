@@ -35,10 +35,8 @@ pub use retryframe::*;
 pub use selectframe::*;
 pub use sequentialframe::*;
 use std::fmt::Debug;
-use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 pub use timeoutframe::*;
 use uuid::Uuid;
 
@@ -74,9 +72,7 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 /// - [`TaskEventEmitter`]
 pub struct TaskContext {
     hooks_container: Arc<TaskHookContainer>,
-    runs: u64,
     depth: u64,
-    max_runs: Option<NonZeroU64>,
     frame: Arc<dyn TaskFrame>,
     id: Uuid,
 }
@@ -85,9 +81,7 @@ impl Clone for TaskContext {
     fn clone(&self) -> Self {
         Self {
             hooks_container: self.hooks_container.clone(),
-            runs: self.runs,
             depth: self.depth,
-            max_runs: self.max_runs,
             frame: self.frame.clone(),
             id: self.id,
         }
@@ -115,9 +109,7 @@ impl TaskContext {
     pub(crate) fn new(task: &ErasedTask) -> Self {
         Self {
             hooks_container: task.hooks.clone(),
-            runs: task.runs.load(Ordering::Relaxed),
             depth: 0,
-            max_runs: task.max_runs,
             frame: task.frame.clone(),
             id: task.id,
         }
@@ -126,8 +118,6 @@ impl TaskContext {
     pub(crate) fn subdivided_ctx(&self, frame: Arc<dyn TaskFrame>) -> Self {
         Self {
             hooks_container: self.hooks_container.clone(),
-            runs: self.runs,
-            max_runs: self.max_runs,
             frame: frame.clone(),
             id: self.id,
             depth: self.depth + 1,
@@ -137,28 +127,6 @@ impl TaskContext {
     pub async fn subdivide(&self, frame: Arc<dyn TaskFrame>) -> Result<(), TaskError> {
         let child_ctx = self.subdivided_ctx(frame.clone());
         frame.execute(&child_ctx).await
-    }
-
-    /// Accesses the runs field (counts how many times the task ran), returning it in the process
-    ///
-    /// # Returns
-    /// The runs field as a typical ``u64``
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    pub fn runs(&self) -> u64 {
-        self.runs
-    }
-
-    /// Accesses the max_runs field, returning it in the process
-    ///
-    /// # Returns
-    /// The max_runs field as a ``Option<NonZeroU64>``
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    pub fn max_runs(&self) -> Option<NonZeroU64> {
-        self.max_runs
     }
 
     /// Accesses the [`TaskHooksContainer`], returning it in the process

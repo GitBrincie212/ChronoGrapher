@@ -37,13 +37,14 @@ impl<F: SchedulerConfig> SchedulerEngine<F> for DefaultSchedulerEngine {
             async {
                 while let Some(idx) = scheduler_receive.recv().await {
                     if let Some(task) = store.get(&idx).await {
+                        /*
                         if let Some(max_runs) = task.max_runs()
                             && task.runs() >= max_runs.get()
                         {
                             continue;
                         }
-                        store.reschedule(&clock, &idx)
-                            .await;
+                         */
+                        store.reschedule(&clock, &idx).await;
                         notifier.notify_waiters();
                     }
                 }
@@ -60,8 +61,7 @@ impl<F: SchedulerConfig> SchedulerEngine<F> for DefaultSchedulerEngine {
                                     value: idx.clone(),
                                     sender: scheduler_send.clone()
                                 };
-                                dispatcher.dispatch(task, &sender)
-                                    .await;
+                                dispatcher.dispatch(task, &sender).await;
                                 continue;
                             }
 
