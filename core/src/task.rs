@@ -89,7 +89,7 @@ pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
     /// - [`ConcurrentSchedulingPolicy`]
     /// - [`CancelPreviousSchedulingPolicy`]
     /// - [`CancelCurrentSchedulingPolicy`]
-    schedule_strategy: T3
+    schedule_strategy: T3,
 }
 
 impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, T2, T3>>

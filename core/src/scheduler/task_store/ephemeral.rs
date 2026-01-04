@@ -1,7 +1,8 @@
+use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::ErasedTask;
-use crate::utils::{date_time_to_system_time, system_time_to_date_time, TaskIdentifier};
+use crate::utils::{TaskIdentifier, date_time_to_system_time, system_time_to_date_time};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::cmp::Ordering;
@@ -9,7 +10,6 @@ use std::collections::BinaryHeap;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{Mutex, MutexGuard};
-use crate::scheduler::SchedulerConfig;
 
 struct InternalScheduledItem<C: SchedulerConfig>(C::Timestamp, C::TaskIdentifier);
 
@@ -109,7 +109,11 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
 }
 
 impl<C: SchedulerConfig> EphemeralSchedulerTaskStore<C> {
-    async fn find_new_time(&self, clock: &C::SchedulerClock, idx: &C::TaskIdentifier) -> C::Timestamp {
+    async fn find_new_time(
+        &self,
+        clock: &C::SchedulerClock,
+        idx: &C::TaskIdentifier,
+    ) -> C::Timestamp {
         let timestamp_now = clock.now().await;
         let task = self.tasks.get(idx).unwrap();
         let now = system_time_to_date_time(&timestamp_now);

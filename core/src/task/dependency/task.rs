@@ -1,7 +1,10 @@
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
-use crate::task::{Debug, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent, TaskSchedule};
+use crate::task::{
+    Debug, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent,
+    TaskSchedule,
+};
 use crate::task::{Task, TaskError};
 use async_trait::async_trait;
 use std::num::NonZeroU64;
