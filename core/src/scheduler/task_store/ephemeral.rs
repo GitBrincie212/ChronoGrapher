@@ -136,9 +136,9 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         let timestamp_now = clock.now().await;
         let task = self.tasks
             .get(idx)
-            .ok_or(
-                Arc::new(ChronographerErrors::TaskIdentifierNonExistent) as Arc<dyn Debug + Send + Sync>
-            )?;
+            .ok_or(Arc::new(ChronographerErrors::TaskIdentifierNonExistent(
+                format!("{idx:?}")
+            )) as Arc<dyn Debug + Send + Sync>)?;
         let now = system_time_to_date_time(&timestamp_now);
         let future_time = task.schedule()
             .next_after(&now)?;
