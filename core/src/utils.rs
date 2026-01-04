@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::hash::Hash;
 use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -88,7 +89,7 @@ impl Timestamp for SystemTime {
     }
 }
 
-pub trait TaskIdentifier: 'static + Clone + Eq + Hash + Send + Sync {
+pub trait TaskIdentifier: 'static + Debug + Clone + Eq + Hash + Send + Sync {
     fn generate() -> Self;
 }
 
