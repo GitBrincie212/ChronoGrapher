@@ -8,7 +8,7 @@ use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ScheduleStrategy, Task, TaskFrame, TaskSchedule};
+use crate::task::{ScheduleStrategy, Task, TaskError, TaskFrame, TaskSchedule};
 use crate::utils::{TaskIdentifier, Timestamp};
 use std::sync::{Arc, LazyLock};
 use std::time::SystemTime;
@@ -184,15 +184,15 @@ impl<T: SchedulerConfig> From<SchedulerInitConfig<T>> for Scheduler<T> {
 /// - [`SchedulerTaskDispatcher`]
 /// - [`SchedulerTaskStore`]
 /// - [`SchedulerClock`]
-pub struct Scheduler<F: SchedulerConfig> {
-    clock: Arc<F::SchedulerClock>,
-    store: Arc<F::SchedulerTaskStore>,
-    dispatcher: Arc<F::SchedulerTaskDispatcher>,
-    engine: Arc<F::SchedulerEngine>,
+pub struct Scheduler<C: SchedulerConfig> {
+    clock: Arc<C::SchedulerClock>,
+    store: Arc<C::SchedulerTaskStore>,
+    dispatcher: Arc<C::SchedulerTaskDispatcher>,
+    engine: Arc<C::SchedulerEngine>,
     process: Mutex<Option<JoinHandle<()>>>,
 }
 
-impl<F: SchedulerConfig> Scheduler<F> {
+impl<C: SchedulerConfig> Scheduler<C> {
     /// Constructs a scheduler builder. Which is used for supplying
     /// various composites to then construct a [`Scheduler`], for
     /// simple enough demos and examples, it may be preferred to use
@@ -205,7 +205,7 @@ impl<F: SchedulerConfig> Scheduler<F> {
     /// - [`CHRONOGRAPHER_SCHEDULER`]
     /// - [`Scheduler`]
     /// - [`SchedulerConfigBuilder`]
-    pub fn builder() -> SchedulerInitConfigBuilder<F> {
+    pub fn builder() -> SchedulerInitConfigBuilder<C> {
         SchedulerInitConfig::builder()
     }
 
@@ -292,7 +292,7 @@ impl<F: SchedulerConfig> Scheduler<F> {
     pub async fn schedule(
         &self,
         task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
-    ) -> F::TaskIdentifier {
+    ) -> Result<C::TaskIdentifier, TaskError> {
         let erased = task.as_erased();
         self.store.store(&self.clock, erased).await
     }
@@ -314,7 +314,7 @@ impl<F: SchedulerConfig> Scheduler<F> {
     /// - [`SchedulerTaskStore`]
     /// - [`Scheduler::exists`]
     /// - [`Task`]
-    pub async fn cancel(&self, idx: &F::TaskIdentifier) {
+    pub async fn cancel(&self, idx: &C::TaskIdentifier) {
         self.store.remove(idx).await;
     }
 
@@ -333,7 +333,7 @@ impl<F: SchedulerConfig> Scheduler<F> {
     /// - [`Scheduler`]
     /// - [`SchedulerTaskStore`]
     /// - [`Task`]
-    pub async fn exists(&self, idx: &F::TaskIdentifier) -> bool {
+    pub async fn exists(&self, idx: &C::TaskIdentifier) -> bool {
         self.store.exists(idx).await
     }
 
