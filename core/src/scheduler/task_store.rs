@@ -3,12 +3,12 @@ pub mod ephemeral;
 
 pub use ephemeral::*;
 
+use crate::scheduler::SchedulerConfig;
 use crate::task::ErasedTask;
 #[allow(unused_imports)]
 use crate::task::TaskSchedule;
 use async_trait::async_trait;
 use std::sync::Arc;
-use crate::scheduler::SchedulerConfig;
 
 /// [`SchedulerTaskStore`] is a trait for implementing a storage mechanism for tasks, it allows
 /// for retrieving the earliest task, storing a task with its task schedule, removing a task via

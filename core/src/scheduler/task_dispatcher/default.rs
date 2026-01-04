@@ -40,11 +40,7 @@ pub struct DefaultTaskDispatcher;
 
 #[async_trait]
 impl<F: SchedulerConfig> SchedulerTaskDispatcher<F> for DefaultTaskDispatcher {
-    async fn dispatch(
-        &self,
-        task: Arc<ErasedTask>,
-        sender: &dyn RescheduleAlerter,
-    ) {
+    async fn dispatch(&self, task: Arc<ErasedTask>, sender: &dyn RescheduleAlerter) {
         task.schedule_strategy().handle(task.clone()).await;
         sender.notify_task_finish().await;
     }
