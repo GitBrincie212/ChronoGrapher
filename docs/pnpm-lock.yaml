@@ -11,6 +11,21 @@ importers:
       '@orama/orama':
         specifier: ^3.1.18
         version: 3.1.18
+      '@types/estree':
+        specifier: ^1.0.8
+        version: 1.0.8
+      '@types/hast':
+        specifier: ^3.0.4
+        version: 3.0.4
+      '@types/mdast':
+        specifier: ^4.0.4
+        version: 4.0.4
+      '@types/ms':
+        specifier: ^2.1.0
+        version: 2.1.0
+      '@types/unist':
+        specifier: ^3.0.3
+        version: 3.0.3
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
