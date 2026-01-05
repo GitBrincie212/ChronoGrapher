@@ -1,3 +1,56 @@
 @import 'tailwindcss';
-@import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+:root {
+    --fd-layout-width: 2500px;
+}
+
+@theme {
+    --color-fd-background: hsl(256, 100%, 96%);
+    --color-fd-primary: hsl(270, 100%, 52%);
+    --color-fd-border: hsla(270, 40%, 80%, 0.5);
+    --color-fd-accent: hsl(270, 40%, 88%);
+    --color-fd-accent-foreground: hsl(270, 100%, 20%);
+    --color-fd-muted: hsl(256, 60%, 94%);
+    --color-fd-muted-foreground: hsl(256, 50%, 50%);
+    --color-fd-foreground: hsl(256, 60%, 26%);
+    --color-fd-secondary: hsl(270, 60%, 90%);
+    --color-fd-secondary-foreground: hsl(256, 60%, 10%);
+    --color-fd-card: hsl(256, 60%, 92%);
+    --color-fd-card-foreground: hsl(256, 100%, 20%);
+    --color-fd-popover-foreground: hsl(256, 100%, 20%);
+    --color-fd-popover: hsl(256, 60%, 96%);
+    --color-fd-primary-foreground: hsl(270, 100%, 20%);
+    --color-fd-ring: hsl(270, 100%, 52%);
+}
+
+@theme static {
+    --color-fd-info: oklch(0.651 0.187 258.723);
+    --color-fd-warning: oklch(0.816 0.155 72.93);
+    --color-fd-error: oklch(0.661 0.226 24.006);
+    --color-fd-success: oklch(0.887 0.204 152.492);
+    --color-fd-idea: oklch(0.804 0.141 62.358);
+    --color-fd-diff-remove: rgba(250, 11, 124, 0.12);
+    --color-fd-diff-remove-symbol: rgb(255, 14, 112);
+    --color-fd-diff-add: rgba(22, 248, 139, 0.1);
+    --color-fd-diff-add-symbol: rgb(14, 243, 123);
+}
+
+.dark {
+    --color-fd-background: hsl(256, 20%, 6%);
+    --color-fd-primary: hsl(270, 100%, 86%);
+    --color-fd-border: hsla(270, 50%, 40%, 0.3);
+    --color-fd-accent: hsl(256, 23%, 22%);
+    --color-fd-accent-foreground: hsl(270, 40%, 86%);
+    --color-fd-muted: hsl(256, 23%, 10%);
+    --color-fd-foreground: hsl(256, 60%, 90%);
+    --color-fd-muted-foreground: hsl(256, 50%, 75%);
+    --color-fd-secondary: hsl(270, 23%, 20%);
+    --color-fd-secondary-foreground: hsl(256, 60%, 90%);
+    --color-fd-card: hsl(256, 23%, 10%);
+    --color-fd-card-foreground: hsl(256, 60%, 90%);
+    --color-fd-popover-foreground: hsl(256, 60%, 90%);
+    --color-fd-popover: hsl(256, 23%, 6%);
+    --color-fd-primary-foreground: hsl(256, 60%, 6%);
+    --color-fd-ring: hsl(270, 100%, 86%);
+}
