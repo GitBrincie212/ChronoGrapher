@@ -1,13 +1,84 @@
 ---
-title: Hello World
-description: Your first document
+title: What Is ChronoGrapher?
+description: General description of ChronoGrapher, its features and its motives
+---
+<br />
+# What Is ChronoGrapher?
+
+ChronoGrapher is a **[Job Scheduling Library](https://en.wikipedia.org/wiki/Job_scheduler)** and
+**[Workflow Orchestration Platform](https://dataengineering.wiki/Concepts/Data+Processing/Workflow+Orchestration)**,
+letting you define, schedule, and execute complex workflows with full extensibility, fine-grained observability and
+resilient execution.
+
+ChronoGrapher is architected to be:
+
+1. **Hyper Extensible:** Build complex systems from simple, composable primitives.
+2. **Highly Polyglot:** Native SDKs for Rust, Python, Java, and JavaScript/TypeScript.
+3. **Optimized For Speed:** Written in Rust with optimized algorithms for high-throughput execution.
+4. **Scalable:** ChronoGrapher grows seamlessly with your workloads.
+5. **Minimalist:** Every feature is intentional, no unnecessary bloat.
+6. **Configurable Durability:** Comes with strong defaults, but lets you tailor reliability to your needs.
+
+ChronoGrapher can be used in all sorts of domains, use cases range from scheduling tasks to orchestrating complex
+data pipelines, these domains include but are not limited to:
+- Schedule reminders, alerts, batch newsletters or send automated mails reliably.
+- Orchestrate ETL & data pipelines by extracting, transforming, and loading data across systems without losing track of progress.
+- Handle failed tasks automatically via retrying failed jobs, specifying fallbacks, logging issues and reacting to inevitable failure.
+- Maintain your systems by running nightly backups and cache cleanup operations.
+
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+# Why Does ChronoGrapher Exist?
+While most scheduling solutions have their strengths, they also introduce friction and limitations that developers face daily
+(and yes, ChronoGrapher isn’t completely immune). Common pain points include:
 
-## What is Next?
+- **Opinionated Bloated Design:** Many solutions enforce strict patterns and include unnecessary features. Forcing developers
+to either migrate painfully or work around rigid limitations introduced by the scheduling solution.
 
-<Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
-</Cards>
+- **Language-Isolation:** Some tools are tied to a single language. Modern applications are often polyglot, requiring
+awkward glue code or juggling multiple fragmented schedulers with different APIs.
+
+- **Unmaintained & Unscalable Infrastructure:** Established solutions sometimes rely on stale documentation, legacy codebases,
+or components that scale poorly under high demand, making maintenance and extension difficult.
+
+- **Poor Observability & Debugging:**  Achieving clear insights into task execution, tracing failures,
+or debugging workflows often requires strange workarounds.
+
+We believe developers don't deserve these frictions posed to them on a day-to-day basis. In an ideal world, scheduling should
+be manageable, scalable and highly powerful to meet their current and future needs.
+
+ChronoGrapher draws lessons from past scheduling solutions, avoiding common pitfalls such as migration
+headaches and feature bloat.
+
+---
+
+# When to Use ChronoGrapher (and When Not)
+ChronoGrapher shines when you need flexibility, extensibility and scalability that grow with your applications. While its
+architecture fulfils the above strengths, it may not be the best fit for extremely simple cases such as cron jobs with no
+observability.
+
+For example, periodic jobs with no need for customization or observability, or for teams that require a fully managed,
+off-the-shelf enterprise orchestration suite.
+
+ChronoGrapher can be thought of as the intermediate bridge between cron and enterprise solutions. Here is a spectrum to
+get an idea of how it compares with other scheduling solutions:
+<ThemeBasedImage
+    light={"/diagram-light-1.svg"} dark={"/diagram-dark-1.svg"}
+    width={1200} height={1200}
+/>
+<Callout type="warn" title="Disclaimer About The Spectrum">
+    Most scheduling solutions do not fit cleanly into a single category. For clarity, the diagram presents each tool at a representative position along the spectrum.
+</Callout>
+
+The spectrum has 2 edges transitioning from green (left) to orange (middle) to red (right).
+
+The left side features scheduling solutions (from left to middle: CRON, node-cron, APScheduler, Quartz, Celery, BullMQ and
+Sidekiq) which are minimal, easy to use but unscalable.
+
+Whereas on the right side features enterprise-ready complex scheduling solutions (from middle to right: Sidekiq, Apache
+Airflow, Dagster, Prefect, ChronoGrapher, Cadence and Temporal).
+
+---
+
+Understanding is just the first step. Next, we’ll walk you through installing ChronoGrapher and setting up your first task,
+while in parallel discussing the scheduling theory behind ChronoGrapher.
