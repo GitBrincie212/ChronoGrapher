@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/toggle-language";
 import React from "react";
 import {CodeBlock, Pre} from "fumadocs-ui/components/codeblock";
+import Highlight from "@/components/ui/highlight";
 
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params;
@@ -41,6 +42,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
             ThemeBasedImage: ThemeBasedImage,
             RenderProgrammingLanguageBased: RenderProgrammingLanguageBased,
             ProgrammingLanguage: ProgrammingLanguage,
+            Highlight: Highlight,
             pre: ({ ref: _ref, ...props }) => (
                 <CodeBlock {...props}>
                   <Pre>{props.children}</Pre>
