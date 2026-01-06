@@ -1,17 +1,179 @@
 ---
-title: Installation
-description: Setting up and running ChronoGrapher
+title: Installation & Theory
+description: Setting up and running ChronoGrapher, while discussing some theory
 ---
 
-## Code Block
+Installation is as simple as creating a new project in <ProgrammingLanguage />, installing the
+ChronoGrapher package in <ProgrammingLanguage /> and setting up a "Hello World" script. We will
+also be discussing in parallel the scheduling theory of ChronoGrapher
 
-```js
-console.log('Hello World');
+# Setting Up The Project
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+Setup a Cargo project by running the command (on any OS):
+```zsh title="shell"
+cargo new hello_chronographer
+cd hello_chronographer
+```
+then install the package either by embedding it directly in the ``Cargo.toml`` file:
+```toml title="Cargo.toml"
+[package]
+name = "hello_chronographer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chronographer = "0.0.1a"
+```
+or by simply running the command:
+```zsh title="shell"
+cargo add chronographer
 ```
 
-## Cards
+# The "Hello ChronoGrapher" Script
+Navigate to the ``src/main.rs`` file, then rewrite it with the code:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
 
-<Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
-</Cards>
+#[task(interval = 1.5s)]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Hello ChronoGrapher!");
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main() {
+    let task_inst = mytask();
+    CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
+}
+```
+Now you can run the code via:
+```zsh title="shell"
+cargo run
+# 1.5s after the run -> "Hello ChronoGrapher!"
+# 3.0s after the run -> "Hello ChronoGrapher!"
+# ...
+```
+</RenderProgrammingLanguageBased>
+<RenderProgrammingLanguageBased target_name={"Python"}>
+In your project's root folder (the top level), setup a venv project by running:
+```zsh title="shell"
+python3 -m venv .venv/ # For Windows: py -m venv .venv\
+```
+
+Once the ``.venv`` folder has been created in your project, install the chronographer package like so:
+```zsh title="shell"
+python3 -m pip install chronographer # For Windows: py -m pip install chronographer
+```
+If you ever need a specific version, you can always run the command:
+```zsh title="shell"
+python3 -m pip install chronographer==[VERSION] # For Windows: py -m pip install chronographer==[VERSION]
+```
+
+<Callout type={"idea"} title={"Requiring / Listing The ChronoGrapher Package"}>
+    If you want to require users of your project to install the package, you can include a ``requirements.txt`` file:
+    ```py title="requirements.txt"
+    chronographer==0.0.1a
+    ```
+    Then install all the packages with:
+    ```zsh title="shell"
+    python3 -m pip install -r requirements.txt # For Windows: py -m pip install -r requirements.txt
+    ```
+</Callout>
+
+That's it! The package has been successfully installed and you can now play with ChronoGrapher. For your first script,
+you will need to create a ``Main.py`` and insert:
+```py title="Main.py" lineNumbers
+from chronographer import TaskContext, Task, TaskScheduleInterval, CHRONOGRAPHER_SCHEDULER
+
+class MyTask(Task):
+    def __init__(&self):
+        super(self.execute, self.schedule,)
+
+    # [INCOMPLETE; WIP]
+
+task_var = my_task();
+CHRONOGRAPHER_SCHEDULER.schedule(task_var).await;
+
+```
+</RenderProgrammingLanguageBased>
+You should notice a "Hello World" printed every 1.5 seconds. Congratulations, that is your basic "Hello ChronoGrapher!" script
+written in <ProgrammingLanguage />. While it was simple, let us step back and ask the bigger question "What's going on exactly?".
+
+To answer this question. We have to introduce two areas which ChronoGrapher separates from us, these being
+<Highlight color={"info"}>Schedulers</Highlight> and <Highlight color={"error"}>Tasks</Highlight>. Let us start
+first with Tasks as they are the component developers face daily.
+
+---
+
+# What Are Tasks?
+Tasks contain the <Highlight color={"success"}>Business Logic</Highlight> which is the code we want to run. Then we have
+the <Highlight color={"neutral"}>Scheduling Logic</Highlight> which dictates at what date should the Task run
+(more specifically given a current time, we want to find the future time). Additionally, they contain a **Scheduling Policy**
+to define how the Task runs exactly (not as important to understand)
+
+These parts are separate and distant but critical to create a Task. The business logic cannot interfere with the scheduling logic
+and vice versa.
+
+This makes it possible to define different Tasks that have the same business logic (code) to run but a different scheduling
+algorithm or vice versa (it allows reusability, no need to rewrite lots of parts).
+
+In our example we can clearly identify the business logic is the code inside the async function:
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(interval = 1.5s)]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // [!code focus]
+    println!("Hello ChronoGrapher!");
+    // [!code focus]
+    Ok(())
+}
+```
+We can also identify where the scheduling logic is via (the interval = 1.5s more specifically):
+```rust title="src/main.rs" lineNumbers
+// [!code focus]
+#[task(interval = 1.5s)]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Hello ChronoGrapher!");
+    Ok(())
+}
+```
+Try changing the interval from 1.5s to something else (such as 3s) and notice what happens.
+</RenderProgrammingLanguageBased>
+
+In ChronoGrapher, the Business Logic part are ``TaskFrames`` components and the Scheduling Logic are ``TaskSchedules``
+components (the macro somewhat hides them for ergonomics).
+
+A Task itself is useless, we have to also **Schedule** it. <RenderProgrammingLanguageBased target_name={"Rust"}>Which is where the main function comes in:</RenderProgrammingLanguageBased>
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[chronographer::main]
+async fn main() {
+    // [!code highlight]
+    let task_inst = mytask();
+    // [!code highlight]
+    CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
+}
+```
+</RenderProgrammingLanguageBased>
+We spawn an instance of that Task and simply hand it out to the scheduler via the ``schedule`` method present in the
+``CHRONOGRAPHER_SCHEDULER`` global.
+<Callout type={"warning"} title={"Disclaimer About The CHRONOGRAPHER_SCHEDULER Global"}>
+    ``CHRONOGRAPHER_SCHEDULER`` is **NOT meant to be used in production**, it is a simple default scheduler. This is used
+    in demonstrating simple demos (as we do clearly), in almost all cases, you should assemble your own Scheduler.
+
+    We will learn how to create our own Scheduler in the next chapters, however, in the meantime we will be using
+    ``CHRONOGRAPHER_SCHEDULER`` as its prebuilt and intended for our case, but keep this disclaimer in mind.
+</Callout>
+
+A summary of how Tasks can be boiled down with this diagram:
+<ThemeBasedImage
+    light={"/diagram-light-2.svg"} dark={"/diagram-dark-2.svg"}
+    width={1200} height={1200}
+/>
+Where a Task has 3 separate parts (Business Logic, Scheduling Logic and Scheduling Policy). Then the Task is scheduled
+on the global CHRONOGRAPHER_SCHEDULER to execute at ``9:00 AM``.
+
+Once the time is reached, CHRONOGRAPHER_SCHEDULER alerts our Task **to start executing the business logic**. This leads us naturally
+to the scheduler territory, which we will be taking a look in the next chapter.
