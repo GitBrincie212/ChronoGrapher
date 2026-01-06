@@ -47,9 +47,9 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                             continue;
                         }
                          */
-                        store.reschedule(&clock, &idx).await.expect(&format!(
-                            "Failed to reschedule Task with the identifier {idx:?}"
-                        ));
+                        store.reschedule(&clock, &idx).await.unwrap_or_else(|_| {
+                            panic!("Failed to reschedule Task with the identifier {idx:?}")
+                        });
                         notifier.notify_waiters();
                     }
                 }

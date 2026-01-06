@@ -36,7 +36,7 @@ impl<C: SchedulerConfig> Ord for InternalScheduledItem<C> {
     }
 }
 
-type EarlyMutexLock<'a, C: SchedulerConfig> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>>;
+type EarlyMutexLock<'a, C> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>>;
 
 /// [`EphemeralSchedulerTaskStore`] is an implementation of [`SchedulerTaskStore`]
 /// that can operate in-memory and persistence (can be configured with a [`PersistenceBackend`])
@@ -96,12 +96,18 @@ type EarlyMutexLock<'a, C: SchedulerConfig> = MutexGuard<'a, BinaryHeap<Internal
 /// # See Also
 /// - [`SchedulerTaskStore`]
 /// - [`EphemeralSchedulerTaskStore::new`]
-pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
+pub struct EphemeralSchedulerTaskStore<C>
+where
+    C: SchedulerConfig<Timestamp = SystemTime>,
+{
     earliest_sorted: Mutex<BinaryHeap<InternalScheduledItem<C>>>,
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask>>,
 }
 
-impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
+impl<C> Default for EphemeralSchedulerTaskStore<C>
+where
+    C: SchedulerConfig<Timestamp = SystemTime>,
+{
     fn default() -> Self {
         Self {
             earliest_sorted: Mutex::new(BinaryHeap::new()),
@@ -111,12 +117,15 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
 }
 
 #[async_trait]
-impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
+impl<C> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C>
+where
+    C: SchedulerConfig<Timestamp = SystemTime>,
+{
     async fn retrieve(&self) -> Option<(Arc<ErasedTask>, C::Timestamp, C::TaskIdentifier)> {
         let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
         let task = self.tasks.get(&rev_item.1)?;
-        Some((task.value().clone(), rev_item.0.clone(), rev_item.1.clone()))
+        Some((task.value().clone(), rev_item.0, rev_item.1.clone()))
     }
 
     async fn get(&self, idx: &C::TaskIdentifier) -> Option<Arc<ErasedTask>> {
@@ -138,6 +147,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         idx: &C::TaskIdentifier,
     ) -> Result<(), TaskError> {
         let timestamp_now = clock.now().await;
+
         let task =
             self.tasks
                 .get(idx)
@@ -146,12 +156,13 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
                         "{idx:?}"
                     ))) as Arc<dyn Debug + Send + Sync>,
                 )?;
+
         let now = system_time_to_date_time(&timestamp_now);
         let future_time = task.schedule().next_after(&now)?;
         let sys_future_time = date_time_to_system_time(future_time);
 
         let mut lock = self.earliest_sorted.lock().await;
-        lock.push(InternalScheduledItem(sys_future_time, *idx));
+        lock.push(InternalScheduledItem(sys_future_time, idx.clone()));
         Ok(())
     }
 
@@ -163,10 +174,13 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         let last_exec_timestamp = clock.now().await;
         let last_exec = system_time_to_date_time(&last_exec_timestamp);
         let future_time = task.schedule().next_after(&last_exec)?;
+
         let idx = C::TaskIdentifier::generate();
         self.tasks.insert(idx.clone(), Arc::new(task));
-        let sys_future_time = SystemTime::from(future_time);
+
+        let sys_future_time = date_time_to_system_time(future_time);
         let entry = InternalScheduledItem(sys_future_time, idx.clone());
+
         let mut earliest_tasks = self.earliest_sorted.lock().await;
         earliest_tasks.push(entry);
 

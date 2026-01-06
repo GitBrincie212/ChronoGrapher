@@ -95,7 +95,10 @@ async fn main() {
         millis *= 0.05;
         let task = Task::simple(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
 
-        CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
+        CHRONOGRAPHER_SCHEDULER
+            .schedule(&task)
+            .await
+            .expect("Failed to schedule task");
     }
     dbg!("STARTING");
 
