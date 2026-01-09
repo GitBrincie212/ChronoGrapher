@@ -1,0 +1,10 @@
+{
+  "pages": [
+    "index",
+    "installation",
+    "inevitable_failure",
+    "tasks_to_workflows",
+    "inside_scheduler",
+    "scheduler_assembly"
+  ]
+}
