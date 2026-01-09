@@ -12,27 +12,18 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::{Mutex, RwLock};
 
-/// A timing wheel implementation for efficient task scheduling
+/// A timing wheel-based task store implementation for efficient task scheduling.
 ///
-/// This implementation provides O(1) insertion and removal operations,
-/// making it ideal for scenarios with millions of concurrent tasks.
+/// This implementation uses a timing wheel data structure to organize tasks by their scheduled execution time,
+/// providing O(1) insertion and removal operations for most common operations.
 ///
-/// # Algorithm Overview
-/// The timing wheel maintains an array of slots, where each slot contains
-/// a list of tasks scheduled to execute at approximately the same time.
-/// The wheel advances at fixed intervals (ticks), processing tasks in the
-/// current slot.
+/// # Constructor(s)
+/// - [`new()`](Self::new): Creates a new timing wheel with custom interval and slot count
+/// - [`default()`](Self::default): Creates a timing wheel with 1-second interval and 3600 slots
 ///
-/// # Performance Characteristics
-/// - **Insert**: O(1)
-/// - **Remove**: O(1)
-/// - **Peek**: O(1) (amortized)
-/// - **Space**: O(n) where n is number of active tasks
-///
-/// # Trade-offs
-/// - Tasks may execute up to `interval` duration later than scheduled
-/// - Memory usage is proportional to `num_slots` regardless of task count
-/// - Not suitable for tasks requiring precise timing
+/// # Trait Implementation(s)
+/// - [`SchedulerTaskStore`](crate::scheduler::task_store::SchedulerTaskStore): Provides the core task storage operations
+/// - [`Default`](std::default::Default): Creates a timing wheel with sensible defaults
 pub struct TimingWheelSchedulerTaskStore<C>
 where
     C: SchedulerConfig<Timestamp = SystemTime>,
