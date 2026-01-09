@@ -107,10 +107,10 @@ first with Tasks as they are the component developers face daily.
 ---
 
 # What Are Tasks?
-Tasks contain the <Highlight color={"success"}>Business Logic</Highlight> which is the code we want to run. Then we have
-the <Highlight color={"neutral"}>Scheduling Logic</Highlight> which dictates at what date should the Task run
-(more specifically given a current time, we want to find the future time). Additionally, they contain a **Scheduling Policy**
-to define how the Task runs exactly (not as important to understand)
+Tasks contain the <Highlight color={"success"}>Business Logic</Highlight> **which is the code we want to run**. Then we have
+the <Highlight color={"neutral"}>Scheduling Logic</Highlight> **which dictates at what date should the Task run**
+(more specifically given a current time, we want to find the future time). Additionally, Tasks contain a **Scheduling Policy**
+to define how should they run exactly (not as important to understand)
 
 These parts are separate and distant but critical to create a Task. The business logic cannot interfere with the scheduling logic
 and vice versa.
@@ -173,7 +173,10 @@ A summary of how Tasks can be boiled down with this diagram:
     width={1200} height={1200}
 />
 Where a Task has 3 separate parts (Business Logic, Scheduling Logic and Scheduling Policy). Then the Task is scheduled
-on the global CHRONOGRAPHER_SCHEDULER to execute at ``9:00 AM``.
+on the global ``CHRONOGRAPHER_SCHEDULER`` to execute at **9:00 AM**.
 
-Once the time is reached, CHRONOGRAPHER_SCHEDULER alerts our Task **to start executing the business logic**. This leads us naturally
-to the scheduler territory, which we will be taking a look in the next chapter.
+Once the time is reached, ``CHRONOGRAPHER_SCHEDULER`` alerts our Task **to start executing the business logic**. For
+the Scheduler side, we will be discussing this in future chapters, we will however, discuss how to make tasks reliable.
+> TL;DR. We set up a new project in <ProgrammingLanguage /> utilizing ChronoGrapher, and ran a simple "Hello World"
+example. Tasks are composed of TaskFrames (business logic), TaskSchedules (scheduling logic), and a Scheduling Policy,
+keeping logic and scheduling separate for reuse and flexibility.

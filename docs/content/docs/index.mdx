@@ -53,7 +53,7 @@ headaches and feature bloat.
 ---
 
 # When to Use ChronoGrapher (and When Not)
-ChronoGrapher shines when you need flexibility, extensibility and scalability that grow with your applications. While its
+ChronoGrapher shines when in flexibility, extensibility and scalability that grow with your applications. While its
 architecture fulfils the above strengths, it may not be the best fit for extremely simple cases such as cron jobs with no
 observability.
 
@@ -82,3 +82,8 @@ Airflow, Dagster, Prefect, ChronoGrapher, Cadence and Temporal).
 
 Understanding is just the first step. Next, we’ll walk you through installing and setting up ChronoGrapher in <ProgrammingLanguage />,
 afterward we will run our first task, while in parallel discussing the scheduling theory behind ChronoGrapher.
+
+> TL;DR. ChronoGrapher is a **[Job Scheduling Library](https://en.wikipedia.org/wiki/Job_scheduler)** and
+**[Workflow Orchestration Platform](https://dataengineering.wiki/Concepts/Data+Processing/Workflow+Orchestration)** designed
+to be minimal, extensible, scalable design and offer polyglot capabilities. Use it when CRON is too limited, but you don’t
+need the full complexity of enterprise orchestration tools.
