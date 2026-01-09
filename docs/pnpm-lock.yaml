@@ -29,6 +29,9 @@ importers:
       '@types/unist':
         specifier: ^3.0.3
         version: 3.0.3
+      animejs:
+        specifier: ^4.2.2
+        version: 4.2.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1105,6 +1108,9 @@ packages:
 
   ajv@8.12.0:
     resolution: {integrity: sha512-sRu1kpcO9yLtYxBKvqfTeh9KzZEwO3STyX1HT+4CaDzC6HpTGYhIhPIzj9XuKU7KYDwnaeh5hcOwjy1QuJzBPA==}
+
+  animejs@4.2.2:
+    resolution: {integrity: sha512-Ys3RuvLdAeI14fsdKCQy7ytu4057QX6Bb7m4jwmfd6iKmUmLquTwk1ut0e4NtRQgCeq/s2Lv5+oMBjz6c7ZuIg==}
 
   ansi-align@3.0.1:
     resolution: {integrity: sha512-IOfwwBF5iczOjp/WeY4YxyjqAFMQoZufdQWDd19SEExbVLNXqvpzSJ/M7Za4/sCPmQ0+GRquoA7bGcINcxew6w==}
@@ -3158,6 +3164,8 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
       uri-js: 4.4.1
+
+  animejs@4.2.2: {}
 
   ansi-align@3.0.1:
     dependencies:

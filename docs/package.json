@@ -19,6 +19,7 @@
     "@types/mdast": "^4.0.4",
     "@types/ms": "^2.1.0",
     "@types/unist": "^3.0.3",
+    "animejs": "^4.2.2",
     "class-variance-authority": "^0.7.1",
     "fumadocs-core": "16.4.3",
     "fumadocs-mdx": "14.2.4",
