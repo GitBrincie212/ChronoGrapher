@@ -1,42 +1,49 @@
-import { getPageImage, source } from '@/lib/source';
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
-import { notFound } from 'next/navigation';
-import { getMDXComponents } from '@/mdx-components';
-import type { Metadata } from 'next';
-import { createRelativeLink } from 'fumadocs-ui/mdx';
-import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
+import { CodeBlock, Pre } from "fumadocs-ui/components/codeblock";
+import {
+  DocsBody,
+  DocsDescription,
+  DocsPage,
+  DocsTitle,
+} from "fumadocs-ui/layouts/docs/page";
+import { createRelativeLink } from "fumadocs-ui/mdx";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { LLMCopyButton, ViewOptions } from "@/components/page-actions";
+import Highlight from "@/components/ui/highlight";
 import ThemeBasedImage from "@/components/ui/theme-based-image";
 import {
   ProgrammingLanguage,
   RenderProgrammingLanguageBased,
 } from "@/components/ui/toggle-language";
-import React from "react";
-import {CodeBlock, Pre} from "fumadocs-ui/components/codeblock";
-import Highlight from "@/components/ui/highlight";
+import { getPageImage, source } from "@/lib/source";
+import { getMDXComponents } from "@/mdx-components";
 
-export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
+export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
   const MDX = page.data.body;
-  
+
   // GitHub repository configuration
-  const owner = 'GitBrincie212';
-  const repo = 'ChronoGrapher';
+  const owner = "GitBrincie212";
+  const repo = "ChronoGrapher";
 
   return (
-      <DocsPage toc={page.data.toc} full={page.data.full}>
-        <DocsTitle className={"-mb-4"}>{page.data.title}</DocsTitle>
-        <DocsDescription>{page.data.description}</DocsDescription>
-        <DocsBody>
-          <div className="flex flex-row gap-2 items-center border-b -mt-8 pb-6">
-            <LLMCopyButton markdownUrl={`${page.url}.mdx`} />
-            <ViewOptions markdownUrl={`${page.url}.mdx`} githubUrl={`https://github.com/${owner}/${repo}/blob/master/docs/content/docs/${page.path}`}
-            />
-          </div>
+    <DocsPage toc={page.data.toc} full={page.data.full}>
+      <DocsTitle className={"-mb-4"}>{page.data.title}</DocsTitle>
+      <DocsDescription>{page.data.description}</DocsDescription>
+      <DocsBody>
+        <div className="flex flex-row gap-2 items-center border-b -mt-8 pb-6">
+          <LLMCopyButton markdownUrl={`${page.url}.mdx`} />
+          <ViewOptions
+            markdownUrl={`${page.url}.mdx`}
+            githubUrl={`https://github.com/${owner}/${repo}/blob/master/docs/content/docs/${page.path}`}
+          />
+        </div>
 
-          <MDX components={getMDXComponents({
+        <MDX
+          components={getMDXComponents({
             // this allows you to link to other pages with relative file paths
             a: createRelativeLink(source, page),
             ThemeBasedImage: ThemeBasedImage,
@@ -44,15 +51,17 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
             ProgrammingLanguage: ProgrammingLanguage,
             Highlight: Highlight,
             pre: ({ ref: _ref, ...props }) => (
-                <CodeBlock {...props}>
-                  <Pre>{props.children}</Pre>
-                </CodeBlock>
+              <CodeBlock {...props}>
+                <Pre>{props.children}</Pre>
+              </CodeBlock>
             ),
           })}
-          />
-          <div className="text-fd-muted-foreground opacity-50">Last Updated: {page.data.lastModified?.toDateString()}</div>
-        </DocsBody>
-      </DocsPage>
+        />
+        <div className="text-fd-muted-foreground opacity-50">
+          Last Updated: {page.data.lastModified?.toDateString()}
+        </div>
+      </DocsBody>
+    </DocsPage>
   );
 }
 
@@ -60,7 +69,9 @@ export async function generateStaticParams() {
   return source.generateParams();
 }
 
-export async function generateMetadata(props: PageProps<'/docs/[[...slug]]'>): Promise<Metadata> {
+export async function generateMetadata(
+  props: PageProps<"/docs/[[...slug]]">,
+): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug);
   if (!page) notFound();
