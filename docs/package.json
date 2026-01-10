@@ -24,6 +24,7 @@
     "fumadocs-core": "16.4.3",
     "fumadocs-mdx": "14.2.4",
     "fumadocs-ui": "16.4.3",
+    "highlight.js": "^11.11.1",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "^19.2.3",
