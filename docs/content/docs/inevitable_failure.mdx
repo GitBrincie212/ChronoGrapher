@@ -181,10 +181,10 @@ What if we want to repeat this logic for 2 additional parts? Let's just do that:
     }
 
     let mut result2: Result<(), TaskError> = Ok(());
-    for i in 0..5 {
-        result2 = fallible_part2();
-        if (result2.is_ok()) break;
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    for i in 0..5 { // <-- Same number of retries
+        result2 = fallible_part2(); // <-- Just different function used
+        if (result2.is_ok()) break; // <-- Same break logic
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await; // <-- Same delay
     }
 
     if result2.is_err() {
@@ -259,16 +259,25 @@ up or down, changing the entire logic completely.
 Workflows will be discussed in detail, in the next chapter, we will take a look in how to use them and the many
 other advantages that come with them. One teaser of them is:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
-    ```rust title="src/main.rs" lineNumbers
-#[task(interval = 3s)]
-#[workflow(
-    retry(3, 1.25s)
-)]
+```rust title="src/main.rs" lineNumbers
+// BEFORE: All that boilerplate
+let mut result: Result<(), TaskError> = Ok(());
+for i in 0..5 {
+    result = fallible_part();
+    if (result.is_ok()) break;
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+}
+
+// AFTER: With ChronoGrapher's workflow model
+#[workflow(retry(5, 100ms))]
 async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
-    // ...
+    fallible_part()
 }
 ```
 </RenderProgrammingLanguageBased>
+
+Workflows keep business logic pure & clean, without the need to manually handle those errors yourself,
+while explicitly stating the recovery steps to make the code resilient.
 
 > TL;DR. Handling failure in scheduling is a challenge. Solutions such as simply handling the error manually without the
 error type or extracting each fallible step in a function are highly susceptible. ChronoGrapher however, makes it easy
