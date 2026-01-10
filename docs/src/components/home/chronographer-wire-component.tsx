@@ -102,61 +102,27 @@ function WireChipComponent(props: {
   rightIcon: JSX.Element;
   idx: number;
 }) {
-  const serviceContainer = React.useRef<HTMLDivElement>(null);
-  const wireChipLeft = React.useRef<HTMLDivElement>(null);
-  const wireChipRight = React.useRef<HTMLDivElement>(null);
+  const wireChipContainer = React.useRef<HTMLDivElement>(null);
 
   const minWidth = props.width;
   const maxWidth = props.width * 2.0;
 
   useEffect(() => {
-    if (
-      !serviceContainer.current ||
-      !wireChipLeft.current ||
-      !wireChipRight.current
-    )
-      return;
-    const right_service_comp: HTMLDivElement = serviceContainer.current
-      .firstChild as HTMLDivElement;
-    const leftservice_comp: HTMLDivElement = serviceContainer.current
-      .lastChild as HTMLDivElement;
-    animate(right_service_comp, {
-      duration: 200,
-      x: [-100, 0],
-      scale: [0, 1],
-      delay: 300 * (props.idx + 1),
-    });
-
-    animate(leftservice_comp, {
+    if (!wireChipContainer.current) return;
+    animate(wireChipContainer.current, {
       duration: 500,
-      x: [100, 0],
-      scale: [0, 1],
-      delay: 300 * (props.idx + 1),
-    });
-
-    animate(wireChipLeft.current, {
-      duration: 500,
-      scale: [0, 1],
-      x: [-100, 0],
-      delay: 200 * (props.idx + 1),
-    });
-
-    animate(wireChipRight.current, {
-      duration: 500,
-      scale: [0, 1],
-      x: [100, 0],
-      delay: 200 * (props.idx + 1),
-    });
-  }, [props.idx]);
+      delay: 500,
+      scale: [0, 1]
+    })
+  }, []);
 
   return (
-    <div className={"w-screen relative justify-center items-center flex"}>
+    <div className={"w-screen relative justify-center items-center flex"} ref={wireChipContainer}>
       <div
         className={"absolute flex justify-between items-center"}
         style={{
           width: `calc(clamp(${minWidth}rem, ${props.width}%, ${maxWidth}rem) + 6.5rem)`,
         }}
-        ref={serviceContainer}
       >
         <ServiceBlockComponent left={false}>
           {props.rightIcon}
@@ -174,14 +140,12 @@ function WireChipComponent(props: {
         <div
           className="relative h-1 bg-linear-to-r from-fd-foreground/30 from-10% to-fd-foreground flex items-center"
           style={{ width: "calc((100% - 26rem)/2)" }}
-          ref={wireChipRight}
         >
           <WireChipPingComponent />
         </div>
         <div
           className="relative h-1 bg-linear-to-l from-fd-foreground/30 from-10% to-fd-foreground flex items-center"
           style={{ width: "calc((100% - 26rem)/2)" }}
-          ref={wireChipLeft}
         >
           <WireChipPingComponent left />
         </div>
@@ -196,32 +160,14 @@ function WireChipComponent(props: {
 
 export function ChronoGrapherWireComponent() {
   const parentContainer = React.useRef<HTMLDivElement>(null);
-  const imageContainer1 = React.useRef<HTMLDivElement>(null);
-  const imageContainer2 = React.useRef<HTMLDivElement>(null);
-  const imageContainer3 = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (
-      !parentContainer.current ||
-      !imageContainer1.current ||
-      !imageContainer2.current ||
-      !imageContainer3.current
-    )
-      return;
+    if (!parentContainer.current) return;
     animate(parentContainer.current, {
       duration: 1500,
       y: [20, 0],
       opacity: [0, 1],
     });
-
-    const image_anim_props = {
-      duration: 1000,
-      y: [250, 0],
-      opacity: [0, 1],
-    };
-    animate(imageContainer1.current, image_anim_props);
-    animate(imageContainer2.current, image_anim_props);
-    animate(imageContainer3.current, { ...image_anim_props, opacity: 0.6 });
   }, []);
 
   return (
@@ -241,10 +187,7 @@ export function ChronoGrapherWireComponent() {
             "to-fd-background-dark to-80% rounded-lg **:pointer-events-none **:select-none"
           }
         >
-          <div
-            className="w-full h-full *:p-16 mask-b-from-20% from-white to-transparent"
-            ref={imageContainer1}
-          >
+          <div className="w-full h-full *:p-16 mask-b-from-20% from-white to-transparent">
             <Image
               src={
                 useFumadocsTheme() === "light"
@@ -255,10 +198,7 @@ export function ChronoGrapherWireComponent() {
               fill
             />
           </div>
-          <div
-            className="z-10 absolute opacity-80 w-full h-full mix-blend-overlay *:p-16 mask-b-from-20% from-white to-transparent"
-            ref={imageContainer2}
-          >
+          <div className="z-10 absolute opacity-80 w-full h-full mix-blend-overlay *:p-16 mask-b-from-20% from-white to-transparent">
             <Image
               src={
                 useFumadocsTheme() === "light"
@@ -269,10 +209,7 @@ export function ChronoGrapherWireComponent() {
               fill
             />
           </div>
-          <div
-            className="z-20 absolute blur-lg opacity-60 w-full h-full *:p-16 mask-b-from-20% from-white to-transparent saturate-200"
-            ref={imageContainer3}
-          >
+          <div className="z-20 absolute blur-lg opacity-60 w-full h-full *:p-16 mask-b-from-20% from-white to-transparent saturate-200">
             <Image
               src={
                 useFumadocsTheme() === "light"
