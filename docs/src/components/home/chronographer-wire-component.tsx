@@ -112,12 +112,15 @@ function WireChipComponent(props: {
     animate(wireChipContainer.current, {
       duration: 500,
       delay: 500,
-      scale: [0, 1]
-    })
+      scale: [0, 1],
+    });
   }, []);
 
   return (
-    <div className={"w-screen relative justify-center items-center flex"} ref={wireChipContainer}>
+    <div
+      className={"w-screen relative justify-center items-center flex"}
+      ref={wireChipContainer}
+    >
       <div
         className={"absolute flex justify-between items-center"}
         style={{

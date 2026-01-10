@@ -70,5 +70,6 @@
 }
 
 .hljs {
+  /* biome-ignore lint/complexity/noImportantStyles: Used to remove the background of HighlightJS */
   background: transparent !important;
 }

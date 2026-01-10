@@ -1,25 +1,25 @@
 "use client";
 
+import hljs from "highlight.js";
 import HeroSection from "@/components/home/sections/HeroSection";
 import StrengthsSection from "@/components/home/sections/StrengthsSection";
-import hljs from 'highlight.js';
-import 'highlight.js/styles/github.css';
-import rust from 'highlight.js/lib/languages/rust';
-import {useEffect} from "react";
+import "highlight.js/styles/github.css";
+import rust from "highlight.js/lib/languages/rust";
+import { useEffect } from "react";
 
 export default function HomePage() {
-    useEffect(() => {
-        hljs.registerLanguage("rust", rust);
-        document.querySelectorAll('.highlightjs-highlight').forEach((el) => {
-            hljs.highlightElement(el as HTMLElement);
-        });
-    }, [])
+  useEffect(() => {
+    hljs.registerLanguage("rust", rust);
+    document.querySelectorAll(".highlightjs-highlight").forEach((el) => {
+      hljs.highlightElement(el as HTMLElement);
+    });
+  }, []);
 
-    return (
-      <main className="">
-        <HeroSection />
-        <StrengthsSection />
-        <div className={"w-screen min-h-[80rem]"}></div>
-      </main>
-    );
+  return (
+    <main className="">
+      <HeroSection />
+      <StrengthsSection />
+      <div className={"w-screen min-h-[80rem]"}></div>
+    </main>
+  );
 }
