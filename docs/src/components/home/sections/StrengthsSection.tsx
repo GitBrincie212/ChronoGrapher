@@ -220,7 +220,10 @@ export default function StrengthsSection() {
               setStrengthIdx={setStrengthIdx}
               strengthIdx={strengthIdx}
               idx={idx}
-              key={`strengths-toggle`}
+              key={
+                /* biome-ignore lint/suspicious/noArrayIndexKey: index won't change, as array is constant */
+                `strengths-toggle-${idx}`
+            }
             />
           ))}
         </div>
