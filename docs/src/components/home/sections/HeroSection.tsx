@@ -10,7 +10,7 @@ function ChronoGrapherCallToActionText() {
   const titleText = React.useRef<HTMLHeadingElement>(null);
   const paragraphText = React.useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!titleText.current || !paragraphText.current) return;
     animate(titleText.current, {
       duration: 1000,
@@ -20,7 +20,7 @@ function ChronoGrapherCallToActionText() {
 
     animate(paragraphText.current, {
       duration: 2000,
-      opacity: [0, 1],
+      opacity: [0, 0.45],
       y: [-10, 0],
     });
   }, []);
@@ -41,7 +41,7 @@ function ChronoGrapherCallToActionText() {
         </Highlight>
       </h1>
       <div
-        className="text-center w-screen font-light opacity-35"
+        className="text-center w-screen font-light opacity-0 font-[VioletSans]"
         ref={paragraphText}
       >
         One composable, scalable engine instead of many brittle schedulers.
@@ -51,22 +51,34 @@ function ChronoGrapherCallToActionText() {
 }
 
 export default function HeroSection() {
-  return (
-    <div className="w-screen h-96 mt-16 mb-48 relative">
-      <ChronoGrapherWireComponent />
-      <ChronoGrapherCallToActionText />
-      <div className="flex gap-4 w-screen justify-center items-center mt-8">
-        <CallToActionButton
-          title={"Getting Started"}
-          variant={"primary"}
-          href={"/docs/installation"}
-        />
-        <CallToActionButton
-          title={"View Roadmap"}
-          variant={"secondary"}
-          href={""}
-        />
+    const ctoButtons = React.useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!ctoButtons.current) return;
+
+        animate(ctoButtons.current, {
+            duration: 2000,
+            opacity: [0, 1],
+            y: [10, 0],
+        });
+    }, []);
+
+    return (
+      <div className="w-screen h-96 mt-16 mb-48 relative">
+        <ChronoGrapherWireComponent />
+        <ChronoGrapherCallToActionText />
+        <div className="flex gap-4 w-screen justify-center items-center mt-4 opacity-0" ref={ctoButtons}>
+          <CallToActionButton
+            title={"Getting Started"}
+            variant={"primary"}
+            href={"/docs/installation"}
+          />
+          <CallToActionButton
+            title={"View Roadmap"}
+            variant={"secondary"}
+            href={""}
+          />
+        </div>
       </div>
-    </div>
-  );
+    );
 }
