@@ -1,10 +1,10 @@
+use crate::prelude::NonObserverTaskHook;
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, Local, TimeZone, Timelike};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
-use crate::prelude::NonObserverTaskHook;
 
 pub struct SharedHook<T: Send + Sync + 'static>(pub T);
 impl<T: Send + Sync + 'static> NonObserverTaskHook for SharedHook<T> {}
