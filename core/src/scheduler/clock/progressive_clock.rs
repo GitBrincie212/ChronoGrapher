@@ -1,9 +1,9 @@
-use crate::scheduler::clock::SchedulerClock;
-use async_trait::async_trait;
-use std::time::SystemTime;
 use crate::scheduler::SchedulerConfig;
+use crate::scheduler::clock::SchedulerClock;
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;
+use async_trait::async_trait;
+use std::time::SystemTime;
 
 /// [`ProgressiveClock`] is an implementation of [`SchedulerClock`] trait, it is the default option
 /// for scheduling, unlike [`VirtualClock`], it moves forward no matter what and cannot be advanced
