@@ -26,3 +26,11 @@ uuid = { version = "1.18.1", features = ["v4"] }
 fastrand = "2.3.0"
 dashmap = { version = "7.0.0-rc2" }
 tokio_schedule = "0.3.2"
+
+[[bin]]
+name = "chronographer"  # Default CLI
+path = "src/bin/main.rs"
+
+[[bin]]
+name = "test"
+path = "src/bin/test.rs"
