@@ -15,18 +15,21 @@ function ServiceBlockComponent(props: {
   children: JSX.Element;
 }) {
   return (
-    <div
-      className={`relative p-0.5 ${props.left ? "bg-linear-to-r" : "bg-linear-to-l"} from-fd-foreground/30 to-transparent rounded z-100`}
-    >
-      <div className={"size-12 rounded bg-fd-background"} />
-      <div
-        className={
-          "absolute size-full flex items-center justify-center text-3xl inset-0 opacity-25"
-        }
-      >
-        {props.children}
+      <div className={"flex items-center"}>
+        <div className={`absolute w-full bg-fd-background h-full z-1000 ${props.left ? "right-full" : "left-full"}`}></div>
+        <div
+            className={`relative p-0.5 ${props.left ? "bg-linear-to-r" : "bg-linear-to-l"} from-fd-foreground/30 to-fd-background-dark rounded z-100`}
+        >
+          <div className={"size-12 rounded bg-fd-background"} />
+          <div
+              className={
+                "absolute size-full flex items-center justify-center text-3xl inset-0 opacity-25"
+              }
+          >
+            {props.children}
+          </div>
+        </div>
       </div>
-    </div>
   );
 }
 
