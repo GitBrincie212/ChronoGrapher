@@ -17,11 +17,11 @@ pub const EPSILON: Duration = Duration::from_millis(1);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chronographer::scheduler::DefaultSchedulerConfig;
     use chronographer::scheduler::clock::{
         AdvanceableSchedulerClock, SchedulerClock, VirtualClock,
     };
     use std::time::{Duration, UNIX_EPOCH};
-    use chronographer::scheduler::DefaultSchedulerConfig;
 
     #[tokio::test]
     async fn test_initial_epoch() {
@@ -44,9 +44,15 @@ mod tests {
         let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig> = &clock;
         let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig> = &clock;
         advanceable_clock.advance(Duration::from_secs(1)).await;
-        assert_eq!(scheduler_clock.now().await, UNIX_EPOCH + Duration::from_secs(1));
+        assert_eq!(
+            scheduler_clock.now().await,
+            UNIX_EPOCH + Duration::from_secs(1)
+        );
         advanceable_clock.advance(Duration::from_secs(100)).await;
-        assert_eq!(scheduler_clock.now().await, UNIX_EPOCH + Duration::from_secs(101));
+        assert_eq!(
+            scheduler_clock.now().await,
+            UNIX_EPOCH + Duration::from_secs(101)
+        );
     }
 
     #[tokio::test]
