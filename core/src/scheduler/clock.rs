@@ -8,7 +8,7 @@ pub use virtual_clock::VirtualClock;
 use crate::scheduler::SchedulerConfig;
 use async_trait::async_trait;
 use std::ops::Deref;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 /// [`SchedulerClock`] is a trait for implementing a custom scheduler clock, typical operations
 /// include getting the current time, idle for a specific duration (or til a specific date is reached).
@@ -57,7 +57,7 @@ pub trait SchedulerClock<C: SchedulerConfig>: 'static + Send + Sync {
     /// # See Also
     /// - [`SystemTime`]
     /// - [`SchedulerClock`]
-    async fn now(&self) -> C::Timestamp;
+    async fn now(&self) -> SystemTime;
 
     /// Idle until this specified time is reached (if it is in the past or present, it doesn't idle)
     ///
@@ -70,7 +70,7 @@ pub trait SchedulerClock<C: SchedulerConfig>: 'static + Send + Sync {
     /// # See Also
     /// - [`SystemTime`]
     /// - [`SchedulerClock`]
-    async fn idle_to(&self, to: C::Timestamp);
+    async fn idle_to(&self, to: SystemTime);
 }
 
 #[async_trait]
@@ -80,11 +80,11 @@ where
     T::Target: SchedulerClock<C>,
     C: SchedulerConfig,
 {
-    async fn now(&self) -> C::Timestamp {
+    async fn now(&self) -> SystemTime {
         self.deref().now().await
     }
 
-    async fn idle_to(&self, to: C::Timestamp) {
+    async fn idle_to(&self, to: SystemTime) {
         self.deref().idle_to(to).await
     }
 }
@@ -136,7 +136,7 @@ pub trait AdvanceableSchedulerClock<C: SchedulerConfig>: SchedulerClock<C> {
     /// - [`Duration`]
     /// - [`SchedulerClock`]
     /// - [`AdvanceableSchedulerClock`]
-    async fn advance_to(&self, to: C::Timestamp);
+    async fn advance_to(&self, to: SystemTime);
 }
 
 #[async_trait]
@@ -150,7 +150,7 @@ where
         self.deref().advance(duration).await
     }
 
-    async fn advance_to(&self, to: C::Timestamp) {
+    async fn advance_to(&self, to: SystemTime) {
         self.deref().advance_to(to).await
     }
 }

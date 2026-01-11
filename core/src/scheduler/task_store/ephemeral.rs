@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{Mutex, MutexGuard};
 
-struct InternalScheduledItem<C: SchedulerConfig>(C::Timestamp, C::TaskIdentifier);
+struct InternalScheduledItem<C: SchedulerConfig>(SystemTime, C::TaskIdentifier);
 
 impl<C: SchedulerConfig> Eq for InternalScheduledItem<C> {}
 
@@ -112,7 +112,7 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
-    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, C::Timestamp, C::TaskIdentifier)> {
+    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, C::TaskIdentifier)> {
         let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
         let task = self.tasks.get(&rev_item.1)?;
@@ -151,7 +151,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         let sys_future_time = date_time_to_system_time(future_time);
 
         let mut lock = self.earliest_sorted.lock().await;
-        lock.push(InternalScheduledItem(sys_future_time, *idx));
+        lock.push(InternalScheduledItem(sys_future_time, idx.clone()));
         Ok(())
     }
 

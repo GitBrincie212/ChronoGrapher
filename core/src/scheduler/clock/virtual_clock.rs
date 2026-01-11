@@ -118,27 +118,27 @@ impl VirtualClock {
 }
 
 #[async_trait]
-impl<F: SchedulerConfig<Timestamp = SystemTime>> SchedulerClock<F> for VirtualClock {
-    async fn now(&self) -> F::Timestamp {
+impl<C: SchedulerConfig> SchedulerClock<C> for VirtualClock {
+    async fn now(&self) -> SystemTime {
         let now = self.current_time.load(Ordering::Relaxed);
         UNIX_EPOCH + Duration::from_millis(now)
     }
 
-    async fn idle_to(&self, to: F::Timestamp) {
-        while <VirtualClock as SchedulerClock<F>>::now(self).await < to {
+    async fn idle_to(&self, to: SystemTime) {
+        while <VirtualClock as SchedulerClock<C>>::now(self).await < to {
             self.notify.notified().await;
         }
     }
 }
 
 #[async_trait]
-impl<F: SchedulerConfig<Timestamp = SystemTime>> AdvanceableSchedulerClock<F> for VirtualClock {
+impl<C: SchedulerConfig> AdvanceableSchedulerClock<C> for VirtualClock {
     async fn advance(&self, duration: Duration) {
-        let now = <VirtualClock as SchedulerClock<F>>::now(self).await;
-        <VirtualClock as AdvanceableSchedulerClock<F>>::advance_to(self, now + duration).await
+        let now = <VirtualClock as SchedulerClock<C>>::now(self).await;
+        <VirtualClock as AdvanceableSchedulerClock<C>>::advance_to(self, now + duration).await
     }
 
-    async fn advance_to(&self, to: F::Timestamp) {
+    async fn advance_to(&self, to: SystemTime) {
         let to_millis = to
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()

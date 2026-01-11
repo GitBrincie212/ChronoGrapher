@@ -9,9 +9,8 @@ use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDisp
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ScheduleStrategy, Task, TaskError, TaskFrame, TaskSchedule};
-use crate::utils::{TaskIdentifier, Timestamp};
+use crate::utils::TaskIdentifier;
 use std::sync::{Arc, LazyLock};
-use std::time::SystemTime;
 use tokio::join;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -20,7 +19,7 @@ use uuid::Uuid;
 
 pub trait SchedulerConfig: Sized + 'static {
     type TaskIdentifier: TaskIdentifier;
-    type Timestamp: Timestamp;
+    // type Timestamp: Timestamp;
     type SchedulerClock: SchedulerClock<Self>;
     type SchedulerTaskStore: SchedulerTaskStore<Self>;
     type SchedulerTaskDispatcher: SchedulerTaskDispatcher<Self>;
@@ -30,8 +29,7 @@ pub trait SchedulerConfig: Sized + 'static {
 pub struct DefaultSchedulerConfig;
 impl SchedulerConfig for DefaultSchedulerConfig {
     type TaskIdentifier = Uuid;
-    type Timestamp = SystemTime;
-    type SchedulerClock = ProgressiveClock<SystemTime>;
+    type SchedulerClock = ProgressiveClock;
     type SchedulerTaskStore = EphemeralSchedulerTaskStore<Self>;
     type SchedulerTaskDispatcher = DefaultTaskDispatcher;
     type SchedulerEngine = DefaultSchedulerEngine;
@@ -46,7 +44,7 @@ pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultGlobalScheduler>> = Lazy
     Arc::new(
         Scheduler::builder()
             .store(EphemeralSchedulerTaskStore::default())
-            .clock(ProgressiveClock::<SystemTime>::default())
+            .clock(ProgressiveClock::default())
             .dispatcher(DefaultTaskDispatcher)
             .engine(DefaultSchedulerEngine)
             .build(),

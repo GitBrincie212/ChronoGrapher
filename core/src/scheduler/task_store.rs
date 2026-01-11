@@ -9,6 +9,7 @@ use crate::task::TaskSchedule;
 use crate::task::{ErasedTask, TaskError};
 use async_trait::async_trait;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 /// [`SchedulerTaskStore`] is a trait for implementing a storage mechanism for tasks, it allows
 /// for retrieving the earliest task, storing a task with its task schedule, removing a task via
@@ -55,7 +56,7 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     /// # See Also
     /// - [`Task`]
     /// - [`SchedulerTaskStore`]
-    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, C::Timestamp, C::TaskIdentifier)>;
+    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, C::TaskIdentifier)>;
 
     /// Gets the task based on an index
     ///

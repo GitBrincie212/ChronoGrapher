@@ -1,11 +1,9 @@
 use crate::scheduler::clock::SchedulerClock;
 use async_trait::async_trait;
-use std::marker::PhantomData;
-
+use std::time::SystemTime;
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;
-use crate::utils::Timestamp;
 
 /// [`ProgressiveClock`] is an implementation of [`SchedulerClock`] trait, it is the default option
 /// for scheduling, unlike [`VirtualClock`], it moves forward no matter what and cannot be advanced
@@ -22,33 +20,28 @@ use crate::utils::Timestamp;
 /// # See Also
 /// - [`VirtualClock`]
 /// - [`SchedulerClock`]
-pub struct ProgressiveClock<T: Timestamp>(PhantomData<T>);
+#[derive(Default)]
+pub struct ProgressiveClock;
 
-impl<T: Timestamp> Default for ProgressiveClock<T> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<T: Timestamp> Clone for ProgressiveClock<T> {
+impl Clone for ProgressiveClock {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: Timestamp> Copy for ProgressiveClock<T> {}
+impl Copy for ProgressiveClock {}
 
 #[async_trait]
-impl<T: Timestamp, F: SchedulerConfig<Timestamp = T>> SchedulerClock<F> for ProgressiveClock<T> {
-    async fn now(&self) -> F::Timestamp {
-        T::now()
+impl<C: SchedulerConfig> SchedulerClock<C> for ProgressiveClock {
+    async fn now(&self) -> SystemTime {
+        SystemTime::now()
     }
 
-    async fn idle_to(&self, to: F::Timestamp) {
-        let now = T::now();
+    async fn idle_to(&self, to: SystemTime) {
+        let now = SystemTime::now();
         let duration = match to.duration_since(now) {
-            Some(duration) => duration,
-            None => {
+            Ok(duration) => duration,
+            Err(_) => {
                 return;
             }
         };
