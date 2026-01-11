@@ -30,16 +30,21 @@ function ServiceBlockComponent(props: {
   );
 }
 
-function WireChipPingComponent(props: { left?: boolean }) {
+function ChipWireComponent(props: { left?: boolean }) {
   const ping = React.useRef<HTMLDivElement>(null);
   const outerPingContainer = React.useRef<HTMLDivElement>(null);
   const [usesSecondary, setUsesSecondary] = React.useState<boolean>(false);
 
   function onPingAnimUpdate(e: JSAnimation) {
     outerPingContainer.current?.style.setProperty(
-      "--glow-pos",
+      "--glow-progress",
       `${e.progress * 100}%`,
     );
+
+    outerPingContainer.current?.style.setProperty(
+        "--glow-pos",
+        ping.current?.style.left || "0"
+    )
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: onPingAnimUpdate is a static function, nothing else
@@ -68,6 +73,7 @@ function WireChipPingComponent(props: { left?: boolean }) {
           duration: randDuration * 1.2,
           ease: "easeOutCubic",
         },
+        ease: "outQuad",
         onUpdate: onPingAnimUpdate,
         onComplete: () => setUsesSecondary(true),
       })
@@ -79,6 +85,7 @@ function WireChipPingComponent(props: { left?: boolean }) {
           duration: randDuration * 2,
           ease: "easeOutCubic",
         },
+        ease: "outQuad",
         onComplete: () => {
           setUsesSecondary(false);
         },
@@ -86,17 +93,31 @@ function WireChipPingComponent(props: { left?: boolean }) {
   }, [ping]);
 
   return (
-    <div
-      className={`absolute rounded-full opacity-0 size-4 ${props.left ? "left-[101%]" : "right-[101%]"} bg-white border-2 ${usesSecondary ? "border-fd-brand-secondary" : "border-fd-brand-primary"} z-10`}
-      style={{
-        filter: `drop-shadow(0 0 5px ${usesSecondary ? "var(--color-fd-brand-secondary)" : "var(--color-fd-brand-primary)"})`,
-      }}
-      ref={ping}
-    ></div>
+    <div className={"relative"} style={{ width: "calc((100% - 26rem)/2)" }} ref={outerPingContainer}>
+      <div className={`absolute w-full h-1 ${props.left ? "bg-linear-to-l" : "bg-linear-to-r"} from-fd-foreground/30 from-10% to-fd-foreground flex items-center`}>
+        <div
+            className={`absolute flex items-center opacity-0 ${props.left ? "left-[101%]" : "right-[101%]"}`}
+            ref={ping}
+        >
+          <div
+              className={`rounded-full size-4 bg-white border-2 ${usesSecondary ? "border-fd-brand-secondary" : "border-fd-brand-primary"} z-10`}
+              style={{
+                filter: `drop-shadow(0 0 5px ${usesSecondary ? "var(--color-fd-brand-secondary)" : "var(--color-fd-brand-primary)"})`,
+              }}
+          />
+          <div className={
+            `absolute min-h-2 w-32 ${usesSecondary
+                ? `${props.left ? "bg-linear-to-l right-full" : "bg-linear-to-r left-full"} from-fd-brand-secondary`
+                : `${props.left ? "bg-linear-to-r left-full" : "bg-linear-to-l right-full"} from-fd-brand-primary`
+            } to-transparent 
+          `}></div>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function WireChipComponent(props: {
+function ChipTransmissionComponent(props: {
   width: number;
   leftIcon: JSX.Element;
   rightIcon: JSX.Element;
@@ -140,18 +161,8 @@ function WireChipComponent(props: {
           width: `clamp(${minWidth}rem, ${props.width}%, ${maxWidth}rem)`,
         }}
       >
-        <div
-          className="relative h-1 bg-linear-to-r from-fd-foreground/30 from-10% to-fd-foreground flex items-center"
-          style={{ width: "calc((100% - 26rem)/2)" }}
-        >
-          <WireChipPingComponent />
-        </div>
-        <div
-          className="relative h-1 bg-linear-to-l from-fd-foreground/30 from-10% to-fd-foreground flex items-center"
-          style={{ width: "calc((100% - 26rem)/2)" }}
-        >
-          <WireChipPingComponent left />
-        </div>
+        <ChipWireComponent />
+        <ChipWireComponent left />
       </div>
       <div className={"w-104 flex justify-between items-center z-10"}>
         <div className="size-6 rounded-full bg-fd-background border-3 border-fd-foreground" />
@@ -226,7 +237,7 @@ export function ChronoGrapherWireComponent() {
         </div>
       </div>
       <div className="absolute gap-5 flex flex-col items-center justify-center h-full w-full -mt-8">
-        <WireChipComponent
+        <ChipTransmissionComponent
           width={40}
           idx={0}
           leftIcon={
@@ -270,7 +281,7 @@ export function ChronoGrapherWireComponent() {
             </svg>
           }
         />
-        <WireChipComponent
+        <ChipTransmissionComponent
           width={80}
           idx={1}
           leftIcon={
@@ -316,7 +327,7 @@ export function ChronoGrapherWireComponent() {
             </svg>
           }
         />
-        <WireChipComponent
+        <ChipTransmissionComponent
           width={60}
           idx={2}
           leftIcon={
@@ -359,7 +370,7 @@ export function ChronoGrapherWireComponent() {
             </svg>
           }
         />
-        <WireChipComponent
+        <ChipTransmissionComponent
           width={75}
           idx={3}
           leftIcon={
