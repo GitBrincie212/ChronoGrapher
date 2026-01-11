@@ -1,8 +1,8 @@
 const variants = {
   primary:
-    "bg-fd-brand-primary/10 border-fd-brand-primary/50 hover:bg-fd-brand-primary hover:ring-fd-brand-primary/75",
+    "bg-fd-brand-primary/10 border-fd-brand-primary/50 hover:bg-fd-brand-primary hover:text-fd-brand-primary-foreground hover:ring-fd-brand-primary/75 text-fd-brand-primary text-fd-brand-primary",
   secondary:
-    "bg-fd-brand-secondary/10 border-fd-brand-secondary/50 hover:bg-fd-brand-secondary hover:ring-fd-brand-secondary/75",
+    "bg-fd-brand-secondary/10 border-fd-brand-secondary/50 hover:bg-fd-brand-secondary hover:text-fd-brand-secondary-foreground hover:ring-fd-brand-secondary/75 text-fd-brand-secondary",
 } as const;
 
 export default function CallToActionButton(props: {
@@ -17,7 +17,7 @@ export default function CallToActionButton(props: {
         location.href = props.href;
       }}
       className={
-        "relative h-12 overflow-hidden rounded font-semibold px-5 py-2.5 text-white transition cursor-pointer " +
+        "relative h-12 overflow-hidden rounded font-semibold px-5 py-2.5 transition cursor-pointer " +
         `border duration-150 hover:ring-2 hover:ring-offset-4 hover:ring-offset-fd-background ${variants[props.variant]}`
       }
     >
