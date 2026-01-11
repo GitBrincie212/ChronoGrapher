@@ -174,8 +174,8 @@ impl TaskContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
-        self.hooks_container.attach(self, hook).await;
+    pub async fn attach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self, hook: Arc<T>) {
+        self.hooks_container.attach::<E, T>(self, hook).await;
     }
 
     /// Detaches a [`TaskHook`] from a specific [`TaskHookEvent`]. This is a much more

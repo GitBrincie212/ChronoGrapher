@@ -347,7 +347,7 @@ define_hook_event!(
 
 define_hook_event!(
     /// [`OnHookDetach`] is an implementation of [`TaskHookEvent`] (a system used closely with
-    /// [`TaskHook`]. The concrete payload type of [`OnHookDetach`] is ``TaskHookEvent<P>``.
+    /// [`TaskHook`]). The concrete payload type of [`OnHookDetach`] is ``TaskHookEvent<P>``.
     /// Unlike most events, this is generic-based TaskEvent, it has to do with lifecycle of TaskHooks
     ///
     /// # Constructor(s)
@@ -462,8 +462,8 @@ impl TaskHookContext {
     /// - [`TaskContext`]
     /// - [`TaskHook`]
     /// - [`TaskHookEvent`]
-    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
-        self.0.attach_hook::<E>(hook).await;
+    pub async fn attach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self, hook: Arc<T>) {
+        self.0.attach_hook::<E, T>(hook).await;
     }
 
     /// Detaches a [`TaskHook`] from a specific [`TaskHookEvent`]. This is a much more
@@ -544,8 +544,8 @@ impl TaskHookContainer {
     /// - [`TaskHookEvent`]
     /// - [`TaskHook`]
     /// - [`OnHookAttach`]
-    pub async fn attach<E: TaskHookEvent>(&self, ctx: &TaskContext, hook: Arc<impl TaskHook<E>>) {
-        let hook_id = hook.type_id();
+    pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskContext, hook: Arc<T>) {
+        let hook_id = TypeId::of::<T>();
         let erased_hook: Arc<dyn ErasedTaskHook> =
             Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
 
