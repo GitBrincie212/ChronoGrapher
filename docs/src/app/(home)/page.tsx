@@ -16,9 +16,8 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="">
+    <main className="overflow-x-hidden">
       <HeroSection />
-      <StrengthsSection />
       <div className={"w-screen min-h-[80rem]"}></div>
     </main>
   );
