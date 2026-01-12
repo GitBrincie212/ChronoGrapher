@@ -1,8 +1,8 @@
-use std::time::SystemTime;
 use crate::prelude::TaskError;
-use crate::task::schedule::TaskSchedule;
 #[allow(unused_imports)]
 use crate::task::Task;
+use crate::task::schedule::TaskSchedule;
+use std::time::SystemTime;
 
 /// [`TaskScheduleImmediate`] is an implementation of the [`TaskTrigger`] trait
 /// that executes any [`Task`] instance immediately once scheduled / rescheduled

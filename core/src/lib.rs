@@ -22,13 +22,13 @@ pub mod prelude {
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
 
     // Scheduling
-    pub use crate::task::trigger::TaskScheduleInterval;
-    pub use crate::task::trigger::schedule::calendar::TaskScheduleCalendar;
-    pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
     pub use crate::task::scheduling_strats::{
         CancelCurrentSchedulingPolicy, CancelPreviousSchedulingPolicy, ConcurrentSchedulingPolicy,
         SequentialSchedulingPolicy,
     };
+    pub use crate::task::trigger::TaskScheduleInterval;
+    pub use crate::task::trigger::schedule::calendar::TaskScheduleCalendar;
+    pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
 
     // TaskHooks / TaskHookEvents
     pub use crate::task::hooks::{NonObserverTaskHook, TaskHook, events::*};

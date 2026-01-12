@@ -1,12 +1,12 @@
 use crate::errors::ChronographerErrors;
+#[allow(unused_imports)]
+use crate::task::Task;
 use crate::task::TaskError;
+use crate::task::schedule::TaskSchedule;
 use chrono::TimeDelta;
 use std::fmt::Debug;
 use std::ops::Add;
 use std::time::{Duration, SystemTime};
-use crate::task::schedule::TaskSchedule;
-#[allow(unused_imports)]
-use crate::task::Task;
 
 /// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskTrigger`] trait
 /// that executes [`Task`] instances at a fixed interval. The interval is defined using either a [`TimeDelta`] or

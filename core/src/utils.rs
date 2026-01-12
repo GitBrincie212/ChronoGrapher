@@ -63,7 +63,9 @@ pub trait Timestamp: Clone + Ord + Send + Sync + 'static {
     fn millisecond(&self) -> u16;
 }
 
-pub trait TaskIdentifier: 'static + Debug + Clone + Eq + PartialEq<Self> + Hash + Send + Sync {
+pub trait TaskIdentifier:
+    'static + Debug + Clone + Eq + PartialEq<Self> + Hash + Send + Sync
+{
     fn generate() -> Self;
 }
 

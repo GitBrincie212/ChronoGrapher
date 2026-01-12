@@ -13,8 +13,8 @@ pub mod trigger; // skipcq: RS-D1001
 pub use frame_builder::*;
 pub use frames::*;
 pub use hooks::*;
-pub use trigger::*;
 pub use scheduling_strats::*;
+pub use trigger::*;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;

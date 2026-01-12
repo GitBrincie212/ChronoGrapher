@@ -1,10 +1,10 @@
 use crate::errors::ChronographerErrors;
 use crate::task::TaskError;
+use crate::task::schedule::TaskSchedule;
 use chrono::{DateTime, Utc};
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::SystemTime;
-use crate::task::schedule::TaskSchedule;
 
 /// [`TaskScheduleCron`] is an implementation of the [`TaskTrigger`] trait that executes [`Task`]
 /// instances, according to a cron expression. Learn more about cron expression in
