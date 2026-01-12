@@ -69,11 +69,11 @@ function ChipWireComponent(props: { left?: boolean }) {
     timeline
       .set(ping.current, { opacity: 1 })
       .add(ping.current, {
-        [moveProp]: "-10%",
+        [moveProp]: "-8%",
         scale: {
           from: 1,
           to: 0,
-          duration: randDuration * 1.2,
+          duration: randDuration * 1.7,
           ease: "easeOutCubic",
         },
         ease: "outQuad",
@@ -85,7 +85,7 @@ function ChipWireComponent(props: { left?: boolean }) {
         scale: {
           from: 1,
           to: 0,
-          duration: randDuration * 2,
+          duration: randDuration * 1.7,
           ease: "easeOutCubic",
         },
         ease: "outQuad",
@@ -113,7 +113,7 @@ function ChipWireComponent(props: { left?: boolean }) {
                 ? `${props.left ? "bg-linear-to-l right-full" : "bg-linear-to-r left-full"} from-fd-brand-secondary`
                 : `${props.left ? "bg-linear-to-r left-full" : "bg-linear-to-l right-full"} from-fd-brand-primary`
             } to-transparent 
-          `}></div>
+          `} />
         </div>
       </div>
     </div>
