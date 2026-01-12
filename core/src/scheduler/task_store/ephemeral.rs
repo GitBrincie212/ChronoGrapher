@@ -1,4 +1,3 @@
-use std::any::Any;
 use crate::errors::ChronographerErrors;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
@@ -7,6 +6,7 @@ use crate::task::{ErasedTask, TaskError, TriggerNotifier};
 use crate::utils::TaskIdentifier;
 use async_trait::async_trait;
 use dashmap::DashMap;
+use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt::Debug;
@@ -105,8 +105,10 @@ pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     fn default() -> Self {
-        let (tx, mut rx) =
-            tokio::sync::mpsc::channel::<(Box<dyn Any + Send + Sync>, Result<SystemTime, TaskError>)>(1024);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<(
+            Box<dyn Any + Send + Sync>,
+            Result<SystemTime, TaskError>,
+        )>(1024);
 
         let earliest_sorted = Arc::new(Mutex::new(BinaryHeap::new()));
         let earliest_sorted_clone = earliest_sorted.clone();
@@ -130,15 +132,14 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
         Self {
             earliest_sorted,
             tasks: DashMap::new(),
-            sender: tx
+            sender: tx,
         }
     }
 }
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
-    async fn init(&self) {
-    }
+    async fn init(&self) {}
 
     async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, C::TaskIdentifier)> {
         let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;

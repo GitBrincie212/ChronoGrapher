@@ -1,13 +1,13 @@
-use std::any::Any;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
 use crate::scheduler::task_dispatcher::{EngineNotifier, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::SchedulerTaskStore;
+use crate::task::TaskError;
 use async_trait::async_trait;
+use std::any::Any;
 use std::sync::Arc;
 use tokio::join;
-use crate::task::TaskError;
 
 pub struct DefaultSchedulerEngine;
 
@@ -43,9 +43,12 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                                 notifier.notify_waiters();
                             }
                         }
-                        
+
                         Some(err) => {
-                            eprintln!("Scheduler engine received an error for Task with identifier ({:?}): {:?}", id, err);
+                            eprintln!(
+                                "Scheduler engine received an error for Task with identifier ({:?}): {:?}",
+                                id, err
+                            );
                         }
                     }
                 }

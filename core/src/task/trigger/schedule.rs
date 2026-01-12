@@ -1,7 +1,7 @@
-use std::time::SystemTime;
-use async_trait::async_trait;
 use crate::prelude::TaskError;
 use crate::task::{TaskTrigger, TriggerNotifier};
+use async_trait::async_trait;
+use std::time::SystemTime;
 
 pub mod calendar; // skipcq: RS-D1001
 
