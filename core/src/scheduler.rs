@@ -8,7 +8,7 @@ use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ScheduleStrategy, Task, TaskError, TaskFrame, TaskSchedule};
+use crate::task::{ScheduleStrategy, Task, TaskError, TaskFrame, TaskTrigger};
 use crate::utils::TaskIdentifier;
 use std::sync::{Arc, LazyLock};
 use tokio::join;
@@ -168,7 +168,7 @@ impl<T: SchedulerConfig> From<SchedulerInitConfig<T>> for Scheduler<T> {
 ///     .dispatcher(MY_DISPATCHER)
 ///     .build();
 ///
-/// let idx = scheduler.schedule(MY_ARC_TASK_1).await; // Schedule with Arc value
+/// let idx = scheduler.trigger(MY_ARC_TASK_1).await; // Schedule with Arc value
 /// let idx2 = scheduler.schedule_owned(MY_TASK_2).await; // Schedules with owned value
 ///
 /// assert!(scheduler.exists(idx).await) // Checks if an ID exists
@@ -267,7 +267,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
     }
 
     /// Schedules a [`Task`] to run on the [`Scheduler`], if one
-    /// wishes to fully schedule an owned version, then there is a
+    /// wishes to fully trigger an owned version, then there is a
     /// convenience method of [`Scheduler::schedule_owned`] that is
     /// identical. This method acts more as a wrapper around the [`SchedulerTaskStore`]
     ///
@@ -289,7 +289,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
     /// - [`Task`]
     pub async fn schedule(
         &self,
-        task: &Task<impl TaskFrame, impl TaskSchedule, impl ScheduleStrategy>,
+        task: &Task<impl TaskFrame, impl TaskTrigger, impl ScheduleStrategy>,
     ) -> Result<C::TaskIdentifier, TaskError> {
         let erased = task.as_erased();
         self.store.store(&self.clock, erased).await

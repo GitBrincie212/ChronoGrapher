@@ -8,12 +8,12 @@ pub mod hooks; // skipcq: RS-D1001
 
 pub mod scheduling_strats; // skipcq: RS-D1001
 
-pub mod schedule; // skipcq: RS-D1001
+pub mod trigger; // skipcq: RS-D1001
 
 pub use frame_builder::*;
 pub use frames::*;
 pub use hooks::*;
-pub use schedule::*;
+pub use trigger::*;
 pub use scheduling_strats::*;
 
 #[allow(unused_imports)]
@@ -24,13 +24,13 @@ use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-pub type ErasedTask = Task<dyn TaskFrame, dyn TaskSchedule, dyn ScheduleStrategy>;
+pub type ErasedTask = Task<dyn TaskFrame, dyn TaskTrigger, dyn ScheduleStrategy>;
 
 /// [`TaskConfig`] is simply used as a builder to construct [`Task`], <br />
 /// it isn't meant to be used by itself, you may refer to [`Task::builder`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Task<T1, T2, T3>))]
-pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
+pub struct TaskConfig<T1: TaskFrame, T2: TaskTrigger, T3: ScheduleStrategy> {
     /// [`TaskFrame`] is the <u>**Main Logic Part Of The Task**</u>, this is where the logic lives in.
     /// It is an essential part of the system (as without it, a task is useless), more information
     /// can be viewed on the [`TaskFrame`] documentation on what its capabilities truly are
@@ -49,11 +49,11 @@ pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
     /// - [`DependencyTaskFrame`]
     frame: T1,
 
-    /// [`TaskSchedule`] defines <u>**When The Task Should Run**</u>, when a scheduler requests a
-    /// ``reschedule``, the [`TaskSchedule`] computes the next point of time to execute the task, there
+    /// [`TaskTrigger`] defines <u>**When The Task Should Run**</u>, when a scheduler requests a
+    /// ``reschedule``, the [`TaskTrigger`] computes the next point of time to execute the task, there
     /// are various default implementations which can be seen. This is also an essential part
     /// (as without it, the scheduler never knows when to run a task), for more information check the
-    /// [`TaskSchedule`] documentation
+    /// [`TaskTrigger`] documentation
     ///
     /// # Method Behavior
     /// This builder parameter method cannot be chained, as it is a typed builder,
@@ -61,7 +61,7 @@ pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
     /// inner workings under the hood, just sets the value
     ///
     /// # See Also
-    /// - [`TaskSchedule`]
+    /// - [`TaskTrigger`]
     /// - [`Scheduler`]
     /// - [`TaskScheduleCalendar`]
     /// - [`TaskScheduleCron`]
@@ -92,13 +92,13 @@ pub struct TaskConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
     schedule_strategy: T3,
 }
 
-impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, T2, T3>>
+impl<T1: TaskFrame, T2: TaskTrigger, T3: ScheduleStrategy> From<TaskConfig<T1, T2, T3>>
     for Task<T1, T2, T3>
 {
     fn from(config: TaskConfig<T1, T2, T3>) -> Self {
         Task {
             frame: Arc::new(config.frame),
-            schedule: Arc::new(config.schedule),
+            trigger: Arc::new(config.schedule),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
             schedule_strategy: Arc::new(config.schedule_strategy),
             id: Uuid::new_v4(),
@@ -120,7 +120,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, 
 ///   logic (and policy logic) to be injected to the task without manual writing. There are various
 ///   implementations of task frame and the task frame can be accessed via [`Task::frame`]
 ///
-/// - **[`TaskSchedule`]** The <u>When</u> will the task execute, it is used for calculating the next
+/// - **[`TaskTrigger`]** The <u>When</u> will the task execute, it is used for calculating the next
 ///   time to invoke this task. This part is useful to the scheduler mostly, tho outside parties can
 ///   also use it via [`Task::schedule`]
 ///
@@ -135,7 +135,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, 
 ///
 /// # Constructor(s)
 /// There are 2 ways when it comes to creating a [`Task`]. The former is [`Task::define`] which
-/// is used for defining simple tasks that only need a frame and a schedule (the important parts)
+/// is used for defining simple tasks that only need a frame and a trigger (the important parts)
 /// and acts as a convenience method, while the latter is [`Task::builder`] which creates a builder,
 /// allowing more customization over individual fields
 ///
@@ -155,24 +155,24 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> From<TaskConfig<T1, 
 /// - [`TaskFrame`]
 /// - [`Scheduler`]
 /// - [`TaskEvent`]
-/// - [`TaskSchedule`]
+/// - [`TaskTrigger`]
 /// - [`ScheduleStrategy`]
 // #[derive(Serialize, Deserialize)]
 pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static, T3: ?Sized + 'static> {
     frame: Arc<T1>,
-    schedule: Arc<T2>,
+    trigger: Arc<T2>,
     schedule_strategy: Arc<T3>,
     id: Uuid,
     hooks: Arc<TaskHookContainer>,
 }
 
-impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
-    /// A simple constructor that creates a simple [`Task`] from a task schedule and a task frame.
+impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2, SequentialSchedulingPolicy> {
+    /// A simple constructor that creates a simple [`Task`] from a task trigger and a task frame.
     /// Mostly used as a convenient method for simple enough tasks that don't need any of the other
     /// composite parts. Otherwise, the [`Task::builder`] may be preferred over.
     ///
     /// # Arguments
-    /// - **schedule** The [`TaskSchedule`], it is used for computing when the task should run.
+    /// - **trigger** The [`TaskTrigger`], it is used for computing when the task should run.
     /// - **task** The [`TaskFrame`], it is the logic part of the task.
     ///
     /// # Returns
@@ -181,7 +181,7 @@ impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
     /// # Example
     /// ```ignore
     /// use chronographer_core::task::Task;
-    /// use chronographer_core::schedule::TaskScheduleImmediate;
+    /// use chronographer_core::trigger::TaskScheduleImmediate;
     /// use chronographer_core::task::frames::ExecutionTaskFrame;
     ///
     /// Task::define(
@@ -197,12 +197,12 @@ impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
     /// - [`Task`]
     /// - [`Task::builder`]
     /// - [`TaskFrame`]
-    /// - [`TaskSchedule`]
+    /// - [`TaskTrigger`]
     pub fn simple(schedule: T2, frame: T1) -> Self {
         let id = Uuid::new_v4();
         Self {
             frame: Arc::new(frame),
-            schedule: Arc::new(schedule),
+            trigger: Arc::new(schedule),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
             schedule_strategy: Arc::new(SequentialSchedulingPolicy),
             id,
@@ -210,15 +210,15 @@ impl<T1: TaskFrame, T2: TaskSchedule> Task<T1, T2, SequentialSchedulingPolicy> {
     }
 }
 
-impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
+impl<T1: TaskFrame, T2: TaskTrigger, T3: ScheduleStrategy> Task<T1, T2, T3> {
     /// Gets the [`TaskFrame`] for outside parties
     pub fn frame(&self) -> &T1 {
         &self.frame
     }
 
-    /// Gets the [`TaskSchedule`] for outside parties
+    /// Gets the [`TaskTrigger`] for outside parties
     pub fn schedule(&self) -> &T2 {
-        &self.schedule
+        &self.trigger
     }
 
     /// Gets the [`ScheduleStrategy`] for outside parties
@@ -251,9 +251,9 @@ impl ErasedTask {
         &self.frame
     }
 
-    /// Gets the [`TaskSchedule`] for outside parties
-    pub fn schedule(&self) -> &dyn TaskSchedule {
-        &self.schedule
+    /// Gets the [`TaskTrigger`] for outside parties
+    pub fn trigger(&self) -> &dyn TaskTrigger {
+        self.trigger.as_ref()
     }
 
     /// Gets the [`ScheduleStrategy`] for outside parties
@@ -274,9 +274,9 @@ impl<T1: ?Sized, T2: ?Sized, T3: ?Sized> Task<T1, T2, T3> {
     }
 }
 
-impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
+impl<T1: TaskFrame, T2: TaskTrigger, T3: ScheduleStrategy> Task<T1, T2, T3> {
     /// Creates a [`Task`] builder used for more customization on the fields. For convenience,
-    /// if your task only consists of [`TaskSchedule`] and [`TaskFrame`] and you don't plan
+    /// if your task only consists of [`TaskTrigger`] and [`TaskFrame`] and you don't plan
     /// to modify any fields apart from the defaults, then [`Task::define`] does a better job
     ///
     /// # Example
@@ -287,7 +287,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
     /// };
     ///
     /// Task::builder()
-    ///     .schedule(TaskScheduleImmediate)
+    ///     .trigger(TaskScheduleImmediate)
     ///     .frame(ExecutionTaskFrame::new(|_| async {
     ///         unimplemented!()
     ///     }))
@@ -298,7 +298,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
     /// # See Also
     /// - [`Task`]
     /// - [`Task::define`]
-    /// - [`TaskSchedule`]
+    /// - [`TaskTrigger`]
     /// - [`TaskFrame`]
     pub fn builder() -> TaskConfigBuilder<T1, T2, T3> {
         TaskConfig::builder()
@@ -307,7 +307,7 @@ impl<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> Task<T1, T2, T3> {
     pub fn as_erased(&self) -> ErasedTask {
         ErasedTask {
             frame: self.frame.clone(),
-            schedule: self.schedule.clone(),
+            trigger: self.trigger.clone(),
             schedule_strategy: self.schedule_strategy.clone(),
             id: self.id,
             hooks: self.hooks.clone(),

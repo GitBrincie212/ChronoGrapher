@@ -3,7 +3,7 @@ use crate::task::dependency::{
 };
 use crate::task::{
     Debug, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent,
-    TaskSchedule,
+    TaskTrigger,
 };
 use crate::task::{Task, TaskError};
 use async_trait::async_trait;
@@ -93,7 +93,7 @@ implement_core_resolvent!(
 /// it isn't meant to be used by itself, you may refer to [`TaskDependency::builder`]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = TaskDependency))]
-pub struct TaskDependencyConfig<T1: TaskFrame, T2: TaskSchedule, T3: ScheduleStrategy> {
+pub struct TaskDependencyConfig<T1: TaskFrame, T2: TaskTrigger, T3: ScheduleStrategy> {
     /// The [`Task`] to monitor closely when it finishes a run and act accordingly
     ///
     /// # Method Behavior
@@ -173,7 +173,7 @@ impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
 impl<T1, T2, T3> From<TaskDependencyConfig<T1, T2, T3>> for TaskDependency
 where
     T1: TaskFrame,
-    T2: TaskSchedule,
+    T2: TaskTrigger,
     T3: ScheduleStrategy,
 {
     fn from(config: TaskDependencyConfig<T1, T2, T3>) -> Self {
@@ -269,7 +269,7 @@ impl TaskDependency {
     ) -> IncompleteTaskDependencyConfig<T1, T2, T3>
     where
         T1: TaskFrame,
-        T2: TaskSchedule,
+        T2: TaskTrigger,
         T3: ScheduleStrategy,
     {
         TaskDependencyConfig::<T1, T2, T3>::builder().task(task)
