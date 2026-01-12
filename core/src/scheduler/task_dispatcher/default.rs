@@ -1,12 +1,11 @@
 use crate::scheduler::SchedulerConfig;
-use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
+use crate::scheduler::task_dispatcher::{EngineNotifier, SchedulerTaskDispatcher};
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::sync::Arc;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
-use crate::utils::RescheduleAlerter;
 
 /// [`DefaultTaskDispatcher`] is an implementation of [`SchedulerTaskDispatcher`],
 /// this system works closely with the [`Scheduler`]. Its main job is to handle the execution of
@@ -39,9 +38,8 @@ use crate::utils::RescheduleAlerter;
 pub struct DefaultTaskDispatcher;
 
 #[async_trait]
-impl<F: SchedulerConfig> SchedulerTaskDispatcher<F> for DefaultTaskDispatcher {
-    async fn dispatch(&self, task: Arc<ErasedTask>, sender: &dyn RescheduleAlerter) {
-        task.schedule_strategy().handle(task.clone()).await;
-        sender.notify_task_finish().await;
+impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher {
+    async fn dispatch(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
+        task.schedule_strategy().handle(task.clone(), notifier).await;
     }
 }
