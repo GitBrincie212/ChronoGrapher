@@ -1,11 +1,10 @@
+use std::time::SystemTime;
 use crate::prelude::TaskError;
-use crate::task::TaskSchedule;
-use chrono::{DateTime, Local};
-
+use crate::task::schedule::TaskSchedule;
 #[allow(unused_imports)]
 use crate::task::Task;
 
-/// [`TaskScheduleImmediate`] is an implementation of the [`TaskSchedule`] trait
+/// [`TaskScheduleImmediate`] is an implementation of the [`TaskTrigger`] trait
 /// that executes any [`Task`] instance immediately once scheduled / rescheduled
 ///
 /// # Constructor(s)
@@ -14,7 +13,7 @@ use crate::task::Task;
 /// [`TaskScheduleImmediate::default`] via [`Default`] trait
 ///
 /// # Trait Implementation(s)
-/// Obviously, [`TaskScheduleImmediate`] implements the [`TaskSchedule`] trait but also:
+/// Obviously, [`TaskScheduleImmediate`] implements the [`TaskTrigger`] trait but also:
 /// - [`Debug`] (just prints the name, nothing more, nothing less)
 /// - [`Clone`]
 /// - [`Copy`]
@@ -25,12 +24,12 @@ use crate::task::Task;
 ///
 /// # See also
 /// - [`Task`]
-/// - [`TaskSchedule`]
+/// - [`TaskTrigger`]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TaskScheduleImmediate;
 
 impl TaskSchedule for TaskScheduleImmediate {
-    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
-        Ok(*time)
+    fn schedule(&self, time: SystemTime) -> Result<SystemTime, TaskError> {
+        Ok(time)
     }
 }

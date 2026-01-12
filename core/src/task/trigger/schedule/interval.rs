@@ -1,14 +1,14 @@
 use crate::errors::ChronographerErrors;
-use crate::task::{TaskError, TaskSchedule};
-use chrono::{DateTime, Local, TimeDelta};
+use crate::task::TaskError;
+use chrono::TimeDelta;
 use std::fmt::Debug;
 use std::ops::Add;
-use std::time::Duration;
-
+use std::time::{Duration, SystemTime};
+use crate::task::schedule::TaskSchedule;
 #[allow(unused_imports)]
 use crate::task::Task;
 
-/// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskSchedule`] trait
+/// [`TaskScheduleInterval`] is a straightforward implementation of the [`TaskTrigger`] trait
 /// that executes [`Task`] instances at a fixed interval. The interval is defined using either a [`TimeDelta`] or
 /// a [`Duration`], making it flexible for different time representations. This makes it well-suited
 /// for recurring jobs such as periodic cleanup tasks, heartbeat signals, polling operations... etc.
@@ -28,14 +28,14 @@ use crate::task::Task;
 /// # Examples
 /// ```ignore
 /// use std::time::Duration;
-/// use chronographer_core::schedule::TaskScheduleInterval;
+/// use chronographer_core::trigger::TaskScheduleInterval;
 ///
 /// // Run every 5 seconds
-/// let schedule = TaskScheduleInterval::duration(Duration::from_secs(5));
+/// let trigger = TaskScheduleInterval::duration(Duration::from_secs(5));
 /// ```
 ///
 /// # Trait Implementation(s)
-/// [`TaskScheduleInterval`] implements obviously the [`TaskSchedule`] trait but also a variety
+/// [`TaskScheduleInterval`] implements obviously the [`TaskTrigger`] trait but also a variety
 /// of other traits, those being:
 /// - [`Debug`]
 /// - [`Clone`]
@@ -57,7 +57,7 @@ use crate::task::Task;
 ///
 /// # See also
 /// - [`Task`]
-/// - [`TaskSchedule`]
+/// - [`TaskTrigger`]
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Copy)]
 pub struct TaskScheduleInterval(pub(crate) Duration);
 
@@ -154,7 +154,7 @@ impl TaskScheduleInterval {
 }
 
 impl TaskSchedule for TaskScheduleInterval {
-    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
+    fn schedule(&self, time: SystemTime) -> Result<SystemTime, TaskError> {
         Ok(time.add(self.0))
     }
 }
