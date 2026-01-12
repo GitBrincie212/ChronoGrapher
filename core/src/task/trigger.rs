@@ -1,30 +1,36 @@
 pub mod schedule; // skipcq: RS-D1001
 
-use std::any::Any;
 pub use crate::task::trigger::schedule::calendar::TaskCalendarField;
 pub use crate::task::trigger::schedule::calendar::TaskScheduleCalendar;
 pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
 pub use crate::task::trigger::schedule::immediate::TaskScheduleImmediate;
 pub use crate::task::trigger::schedule::interval::TaskScheduleInterval;
+use std::any::Any;
 
 use crate::prelude::TaskError;
+use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::task::Task;
-use std::time::SystemTime;
 use async_trait::async_trait;
-use crate::scheduler::SchedulerConfig;
+use std::time::SystemTime;
 
 pub struct TriggerNotifier {
     id: Box<dyn Any + Send + Sync>,
-    notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, TaskError>)>
+    notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, TaskError>)>,
 }
 
 impl TriggerNotifier {
     pub fn new<C: SchedulerConfig>(
-        id: <C as SchedulerConfig>::TaskIdentifier, 
-        notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, TaskError>)>) -> Self
-    {
-        Self { id: Box::new(id), notify }
+        id: <C as SchedulerConfig>::TaskIdentifier,
+        notify: tokio::sync::mpsc::Sender<(
+            Box<dyn Any + Send + Sync>,
+            Result<SystemTime, TaskError>,
+        )>,
+    ) -> Self {
+        Self {
+            id: Box::new(id),
+            notify,
+        }
     }
 
     pub async fn notify(self, time: Result<SystemTime, TaskError>) {

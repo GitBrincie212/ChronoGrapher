@@ -1,6 +1,6 @@
+use chronographer::prelude::*;
 use std::fmt::Debug;
 use std::sync::Arc;
-use chronographer::prelude::*;
 
 #[tokio::main]
 async fn main() {

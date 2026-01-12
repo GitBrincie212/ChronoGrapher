@@ -40,6 +40,8 @@ pub struct DefaultTaskDispatcher;
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher {
     async fn dispatch(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
-        task.schedule_strategy().handle(task.clone(), notifier).await;
+        task.schedule_strategy()
+            .handle(task.clone(), notifier)
+            .await;
     }
 }

@@ -1,3 +1,4 @@
+use crate::scheduler::task_dispatcher::EngineNotifier;
 use crate::task::{ErasedTask, TaskError};
 use async_trait::async_trait;
 use std::fmt::{Debug, Formatter};
@@ -6,7 +7,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use crate::scheduler::task_dispatcher::EngineNotifier;
 
 /// [`ScheduleStrategy`] defines how the task should be rescheduled and how the task acts when being
 /// overlapped by the same task instance or by others. It is their duty to handle calling

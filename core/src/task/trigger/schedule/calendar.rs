@@ -1,9 +1,9 @@
 use crate::task::TaskError;
+use crate::task::schedule::TaskSchedule;
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike, Utc};
 use std::fmt::Debug;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::time::SystemTime;
-use crate::task::schedule::TaskSchedule;
 
 /// [`TaskCalendarField`] is a trait that defines a field on the trigger,
 /// by itself it just holds data and how this data is scheduled, it is useful for
