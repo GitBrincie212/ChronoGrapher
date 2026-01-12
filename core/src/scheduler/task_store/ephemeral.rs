@@ -1,9 +1,10 @@
+use std::any::Any;
 use crate::errors::ChronographerErrors;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ErasedTask, TaskError};
-use crate::utils::{TaskIdentifier, date_time_to_system_time, system_time_to_date_time};
+use crate::task::{ErasedTask, TaskError, TriggerNotifier};
+use crate::utils::TaskIdentifier;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::cmp::Ordering;
@@ -97,21 +98,48 @@ type EarlyMutexLock<'a, C: SchedulerConfig> = MutexGuard<'a, BinaryHeap<Internal
 /// - [`SchedulerTaskStore`]
 /// - [`EphemeralSchedulerTaskStore::new`]
 pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
-    earliest_sorted: Mutex<BinaryHeap<InternalScheduledItem<C>>>,
+    earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask>>,
+    sender: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, TaskError>)>,
 }
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     fn default() -> Self {
+        let (tx, mut rx) =
+            tokio::sync::mpsc::channel::<(Box<dyn Any + Send + Sync>, Result<SystemTime, TaskError>)>(1024);
+
+        let earliest_sorted = Arc::new(Mutex::new(BinaryHeap::new()));
+        let earliest_sorted_clone = earliest_sorted.clone();
+        tokio::spawn(async move {
+            while let Some((id, time)) = rx.recv().await {
+                let id = id.downcast_ref::<C::TaskIdentifier>()
+                    .expect("Different type was used on TriggerNotifier, which was meant as for an identifier");
+                let mut lock = earliest_sorted_clone.lock().await;
+                match time {
+                    Ok(time) => lock.push(InternalScheduledItem(time, id.clone())),
+                    Err(err) => {
+                        eprintln!(
+                            "TaskTrigger corresponding to the id {:?} failed to compute a future time with the error {:?}",
+                            id, err
+                        )
+                    }
+                }
+            }
+        });
+
         Self {
-            earliest_sorted: Mutex::new(BinaryHeap::new()),
+            earliest_sorted,
             tasks: DashMap::new(),
+            sender: tx
         }
     }
 }
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
+    async fn init(&self) {
+    }
+
     async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, C::TaskIdentifier)> {
         let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
@@ -137,7 +165,6 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         clock: &C::SchedulerClock,
         idx: &C::TaskIdentifier,
     ) -> Result<(), TaskError> {
-        let timestamp_now = clock.now().await;
         let task =
             self.tasks
                 .get(idx)
@@ -146,13 +173,10 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
                         "{idx:?}"
                     ))) as Arc<dyn Debug + Send + Sync>,
                 )?;
-        let now = system_time_to_date_time(&timestamp_now);
-        let future_time = task.schedule().next_after(&now)?;
-        let sys_future_time = date_time_to_system_time(future_time);
 
-        let mut lock = self.earliest_sorted.lock().await;
-        lock.push(InternalScheduledItem(sys_future_time, idx.clone()));
-        Ok(())
+        let now = clock.now().await;
+        let notifier = TriggerNotifier::new::<C>(idx.clone(), self.sender.clone());
+        task.trigger().trigger(now, notifier).await
     }
 
     async fn store(
@@ -160,15 +184,12 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         clock: &C::SchedulerClock,
         task: ErasedTask,
     ) -> Result<C::TaskIdentifier, TaskError> {
-        let last_exec_timestamp = clock.now().await;
-        let last_exec = system_time_to_date_time(&last_exec_timestamp);
-        let future_time = task.schedule().next_after(&last_exec)?;
         let idx = C::TaskIdentifier::generate();
-        self.tasks.insert(idx.clone(), Arc::new(task));
-        let sys_future_time = SystemTime::from(future_time);
-        let entry = InternalScheduledItem(sys_future_time, idx.clone());
-        let mut earliest_tasks = self.earliest_sorted.lock().await;
-        earliest_tasks.push(entry);
+        let task = Arc::new(task);
+        self.tasks.insert(idx.clone(), task.clone());
+        let now = clock.now().await;
+        let notifier = TriggerNotifier::new::<C>(idx.clone(), self.sender.clone());
+        task.trigger().trigger(now, notifier).await?;
 
         Ok(idx)
     }
