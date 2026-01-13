@@ -5,7 +5,6 @@ pub use ephemeral::*;
 
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
-use crate::task::TaskSchedule;
 use crate::task::{ErasedTask, TaskError};
 use async_trait::async_trait;
 use std::sync::Arc;
