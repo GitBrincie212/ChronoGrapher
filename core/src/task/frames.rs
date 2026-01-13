@@ -38,7 +38,6 @@ use std::fmt::Debug;
 use std::ops::Deref;
 use std::sync::Arc;
 pub use timeoutframe::*;
-use uuid::Uuid;
 
 /// A task-related error (i.e. A task failure)
 pub type TaskError = Arc<dyn Debug + Send + Sync>;
@@ -74,7 +73,6 @@ pub struct TaskContext {
     hooks_container: Arc<TaskHookContainer>,
     depth: u64,
     frame: Arc<dyn TaskFrame>,
-    id: Uuid,
 }
 
 impl Clone for TaskContext {
@@ -83,7 +81,6 @@ impl Clone for TaskContext {
             hooks_container: self.hooks_container.clone(),
             depth: self.depth,
             frame: self.frame.clone(),
-            id: self.id,
         }
     }
 }
@@ -111,7 +108,6 @@ impl TaskContext {
             hooks_container: task.hooks.clone(),
             depth: 0,
             frame: task.frame.clone(),
-            id: task.id,
         }
     }
 
@@ -119,7 +115,6 @@ impl TaskContext {
         Self {
             hooks_container: self.hooks_container.clone(),
             frame: frame.clone(),
-            id: self.id,
             depth: self.depth + 1,
         }
     }

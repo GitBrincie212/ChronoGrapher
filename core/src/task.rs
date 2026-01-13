@@ -101,7 +101,6 @@ impl<T1: TaskFrame, T2: TaskTrigger, T3: ScheduleStrategy> From<TaskConfig<T1, T
             trigger: Arc::new(config.schedule),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
             schedule_strategy: Arc::new(config.schedule_strategy),
-            id: Uuid::new_v4(),
         }
     }
 }
@@ -162,7 +161,6 @@ pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static, T3: ?Sized + 'static
     frame: Arc<T1>,
     trigger: Arc<T2>,
     schedule_strategy: Arc<T3>,
-    id: Uuid,
     hooks: Arc<TaskHookContainer>,
 }
 
@@ -205,7 +203,6 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2, SequentialSchedulingPolicy> {
             trigger: Arc::new(schedule),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
             schedule_strategy: Arc::new(SequentialSchedulingPolicy),
-            id,
         }
     }
 }
@@ -263,11 +260,6 @@ impl ErasedTask {
 }
 
 impl<T1: ?Sized, T2: ?Sized, T3: ?Sized> Task<T1, T2, T3> {
-    /// Gets the ID associated with the [`Task`]
-    pub fn id(&self) -> &Uuid {
-        &self.id
-    }
-
     /// Gets the hooks container the [`Task`] has
     pub fn hooks(&self) -> &TaskHookContainer {
         &self.hooks
@@ -309,7 +301,6 @@ impl<T1: TaskFrame, T2: TaskTrigger, T3: ScheduleStrategy> Task<T1, T2, T3> {
             frame: self.frame.clone(),
             trigger: self.trigger.clone(),
             schedule_strategy: self.schedule_strategy.clone(),
-            id: self.id,
             hooks: self.hooks.clone(),
         }
     }
