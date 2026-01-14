@@ -22,6 +22,8 @@ pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
+pub mod assertframe;
+
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
 use async_trait::async_trait;
 pub use conditionframe::*;
