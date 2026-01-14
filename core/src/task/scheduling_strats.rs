@@ -1,3 +1,4 @@
+use crate::scheduler::task_dispatcher::EngineNotifier;
 use crate::task::{ErasedTask, TaskError};
 use async_trait::async_trait;
 use std::fmt::{Debug, Formatter};
@@ -56,7 +57,7 @@ pub trait ScheduleStrategy: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`TaskEventEmitter`]
     /// - [`ScheduleStrategy`]
-    async fn handle(&self, task: Arc<ErasedTask>);
+    async fn handle(&self, task: Arc<ErasedTask>, notifier: EngineNotifier);
 }
 
 #[async_trait]
@@ -65,8 +66,8 @@ where
     S: Deref + Send + Sync + 'static,
     S::Target: ScheduleStrategy,
 {
-    async fn handle(&self, task: Arc<ErasedTask>) {
-        self.deref().handle(task).await;
+    async fn handle(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
+        self.deref().handle(task, notifier).await;
     }
 }
 
@@ -95,9 +96,9 @@ pub struct SequentialSchedulingPolicy;
 
 #[async_trait]
 impl ScheduleStrategy for SequentialSchedulingPolicy {
-    async fn handle(&self, task: Arc<ErasedTask>) {
+    async fn handle(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
         let result: Result<(), TaskError> = task.run().await;
-        result.ok();
+        notifier.notify(result.err()).await;
     }
 }
 
@@ -126,11 +127,11 @@ pub struct ConcurrentSchedulingPolicy;
 
 #[async_trait]
 impl ScheduleStrategy for ConcurrentSchedulingPolicy {
-    async fn handle(&self, task: Arc<ErasedTask>) {
+    async fn handle(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
         let cloned_task = task.clone();
         tokio::spawn(async move {
             let result: Result<(), TaskError> = cloned_task.run().await;
-            result.ok();
+            notifier.notify(result.err()).await;
         });
     }
 }
@@ -176,7 +177,7 @@ impl Debug for CancelPreviousSchedulingPolicy {
 
 #[async_trait]
 impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
-    async fn handle(&self, task: Arc<ErasedTask>) {
+    async fn handle(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
         let old_handle = self.0.lock().await.take();
 
         if let Some(handle) = old_handle {
@@ -186,7 +187,7 @@ impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
         let cloned_task = task.clone();
         let curr_handle = tokio::spawn(async move {
             let result: Result<(), TaskError> = cloned_task.run().await;
-            result.ok();
+            notifier.notify(result.err()).await;
         });
 
         *self.0.lock().await = Some(curr_handle);
@@ -227,7 +228,7 @@ impl Debug for CancelCurrentSchedulingPolicy {
 
 #[async_trait]
 impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
-    async fn handle(&self, task: Arc<ErasedTask>) {
+    async fn handle(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
         let is_free = &self.0;
         if !is_free.load(Ordering::Relaxed) {
             return;
@@ -237,7 +238,7 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
         let cloned_task = task.clone();
         tokio::spawn(async move {
             let result: Result<(), TaskError> = cloned_task.run().await;
-            result.ok();
+            notifier.notify(result.err()).await;
             is_free_clone.store(true, Ordering::Relaxed);
         });
     }

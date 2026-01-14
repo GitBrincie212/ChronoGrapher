@@ -1,10 +1,12 @@
 use crate::errors::ChronographerErrors;
-use crate::task::{TaskError, TaskSchedule};
-use chrono::{DateTime, Local};
+use crate::task::TaskError;
+use crate::task::schedule::TaskSchedule;
+use chrono::{DateTime, Utc};
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::SystemTime;
 
-/// [`TaskScheduleCron`] is an implementation of the [`TaskSchedule`] trait that executes [`Task`]
+/// [`TaskScheduleCron`] is an implementation of the [`TaskTrigger`] trait that executes [`Task`]
 /// instances, according to a cron expression. Learn more about cron expression in
 /// [Wikipedia](https://en.wikipedia.org/wiki/Cron)
 ///
@@ -24,7 +26,7 @@ use std::sync::Arc;
 /// which requires a cron expression as a string
 ///
 /// # Trait Implementation(s)
-/// Apart from implementing [`TaskSchedule`], [`TaskScheduleCron`] also implements:
+/// Apart from implementing [`TaskTrigger`], [`TaskScheduleCron`] also implements:
 /// - [`Debug`],
 /// - [`Clone`]
 /// - [`Eq`]
@@ -37,18 +39,18 @@ use std::sync::Arc;
 ///
 /// ```ignore
 /// // Run at 12:00 (noon) every day
-/// use chronographer_core::schedule::TaskScheduleCron;
+/// use chronographer_core::trigger::TaskScheduleCron;
 ///
-/// let schedule = TaskScheduleCron::new("0 12 * * *".to_owned());
+/// let trigger = TaskScheduleCron::new("0 12 * * *".to_owned());
 ///
 /// // Run every 5 minutes
-/// let schedule = TaskScheduleCron::new("*/5 * * * *".to_owned());
+/// let trigger = TaskScheduleCron::new("*/5 * * * *".to_owned());
 /// ```
 ///
 /// # See also
 /// - [`Task`]
 /// - [`ScheduleCalendar`]
-/// - [`TaskSchedule`]
+/// - [`TaskTrigger`]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TaskScheduleCron(String);
 
@@ -70,8 +72,10 @@ impl TaskScheduleCron {
 }
 
 impl TaskSchedule for TaskScheduleCron {
-    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
-        cron_parser::parse(&self.0, time)
+    fn schedule(&self, time: SystemTime) -> Result<SystemTime, TaskError> {
+        let dt = DateTime::<Utc>::from(time);
+        cron_parser::parse(&self.0, &dt)
             .map_err(|e| Arc::new(ChronographerErrors::CronParserError(e.to_string())) as TaskError)
+            .map(|x| SystemTime::from(x))
     }
 }

@@ -95,7 +95,7 @@ async fn main() {
         millis *= 0.05;
         let task = Task::simple(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
 
-        CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
+        let _ = CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
     }
     dbg!("STARTING");
 
@@ -112,7 +112,7 @@ async fn main() {
 
     writeln!(file, "time_sec,tasks_per_sec").unwrap();
 
-    for _ in 0..=50 {
+    for i in 0..=50 {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         let current = COUNTER.load(Ordering::Relaxed);
@@ -124,7 +124,7 @@ async fn main() {
         let elapsed = start.elapsed().as_secs_f64();
         let avg = total as f64 / elapsed;
 
-        println!("Average tasks/sec: {:.2}", avg);
+        println!("{}", i);
         writeln!(file, "{:.2},{:.2}", elapsed, avg).unwrap();
     }
 }

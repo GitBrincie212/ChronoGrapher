@@ -1,14 +1,38 @@
 pub mod default; // skipcq: RS-D1001
 
 pub use default::*;
+use std::any::Any;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 use crate::scheduler::SchedulerConfig;
-use crate::task::ErasedTask;
-use crate::utils::RescheduleAlerter;
+use crate::task::{ErasedTask, TaskError};
 use async_trait::async_trait;
 use std::sync::Arc;
+
+pub struct EngineNotifier {
+    id: Box<dyn Any + Send + Sync>,
+    notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Option<TaskError>)>,
+}
+
+impl EngineNotifier {
+    pub fn new<C: SchedulerConfig>(
+        id: C::TaskIdentifier,
+        notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Option<TaskError>)>,
+    ) -> Self {
+        Self {
+            id: Box::new(id),
+            notify,
+        }
+    }
+
+    pub async fn notify(self, result: Option<TaskError>) {
+        self.notify
+            .send((self.id, result))
+            .await
+            .expect("Failed to send notification via SchedulerTaskDispatcher, could not receive from the SchedulerEngine");
+    }
+}
 
 /// [`SchedulerTaskDispatcher`] is a trait for implementing a scheduler task dispatcher. It acts as
 /// a central point for when a task wants to execute, it does not handle scheduling, in fact it
@@ -31,7 +55,7 @@ use std::sync::Arc;
 /// - [`Scheduler`]
 /// - [`DefaultTaskDispatcher`]
 #[async_trait]
-pub trait SchedulerTaskDispatcher<F: SchedulerConfig>: 'static + Send + Sync {
+pub trait SchedulerTaskDispatcher<C: SchedulerConfig>: 'static + Send + Sync {
     async fn init(&self) {}
 
     /// The main logic of the [`SchedulerTaskDispatcher`]. This is where it handles
@@ -48,5 +72,5 @@ pub trait SchedulerTaskDispatcher<F: SchedulerConfig>: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`Scheduler`]
     /// - [`SchedulerTaskDispatcher`]
-    async fn dispatch(&self, task: Arc<ErasedTask>, rescheduler_notifier: &dyn RescheduleAlerter);
+    async fn dispatch(&self, task: Arc<ErasedTask>, rescheduler_notifier: EngineNotifier);
 }

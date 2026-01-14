@@ -1,11 +1,13 @@
-use crate::task::{TaskError, TaskSchedule};
-use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike};
+use crate::task::TaskError;
+use crate::task::schedule::TaskSchedule;
+use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike, Utc};
 use std::fmt::Debug;
 use std::ops::{Bound, Deref, RangeBounds};
+use std::time::SystemTime;
 
-/// [`TaskCalendarField`] is a trait that defines a field on the schedule,
+/// [`TaskCalendarField`] is a trait that defines a field on the trigger,
 /// by itself it just holds data and how this data is scheduled, it is useful for
-/// [`TaskSchedule::Calendar`] only, all fields used in the calendar are zero-based
+/// [`TaskTrigger::Calendar`] only, all fields used in the calendar are zero-based
 /// (they start from zero), fields have their own ranges defined, typically:
 /// - **Year** can be any value (unrestricted)
 /// - **Month** must be between 0 and 11 range
@@ -244,10 +246,10 @@ pub type TaskScheduleCalendarBuilder<
     TaskCalendarBuilderField<Millisecond>,
 >;
 
-/// [`TaskScheduleCalendar`] is an implementation of the [`TaskSchedule`] trait that allows defining
+/// [`TaskScheduleCalendar`] is an implementation of the [`TaskTrigger`] trait that allows defining
 /// schedules with fine-grained control over individual calendar fields.
 ///
-/// Each field can be configured independently to restrict when the schedule should match.
+/// Each field can be configured independently to restrict when the trigger should match.
 /// By default, all fields are set to [`TaskCalendarFieldIdentity`], which means the field
 /// is set to the current time's field in [`TaskScheduleCalendar::next_after`]
 ///
@@ -260,7 +262,7 @@ pub type TaskScheduleCalendarBuilder<
 /// for configuring your calendar
 ///
 /// # Trait Implementation(s)
-/// [`TaskScheduleCalendar`] not only implements the [`TaskSchedule`] trait but also
+/// [`TaskScheduleCalendar`] not only implements the [`TaskTrigger`] trait but also
 /// the [`Clone`] trait in addition
 ///
 /// # Cloning Semantics
@@ -270,10 +272,10 @@ pub type TaskScheduleCalendarBuilder<
 ///
 /// # Examples
 /// ```ignore
-/// // Example: A schedule that runs every day at 12:30:00.00
-/// use chronographer_core::schedule::{TaskScheduleCalendar, TaskCalendarField};
+/// // Example: A trigger that runs every day at 12:30:00.00
+/// use chronographer_core::trigger::{TaskScheduleCalendar, TaskCalendarField};
 ///
-/// let schedule = TaskScheduleCalendar::builder()
+/// let trigger = TaskScheduleCalendar::builder()
 ///     .hour(TaskCalendarField::Exactly(12))
 ///     .minute(TaskCalendarField::Exactly(30))
 ///     .second(TaskCalendarField::Exactly(0))
@@ -281,7 +283,7 @@ pub type TaskScheduleCalendarBuilder<
 /// ```
 ///
 /// # See Also
-/// - [`TaskSchedule`]
+/// - [`TaskTrigger`]
 /// - [`TaskCalendarField`]
 pub struct TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond> {
     year: Year,
@@ -506,7 +508,8 @@ impl<
     Millisecond: TaskCalendarField + 'static,
 > TaskSchedule for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
 {
-    fn next_after(&self, time: &DateTime<Local>) -> Result<DateTime<Local>, TaskError> {
+    fn schedule(&self, now: SystemTime) -> Result<SystemTime, TaskError> {
+        let time = DateTime::<Utc>::from(now);
         let mut fields: [&dyn TaskCalendarField; 7] = [
             &self.millisecond,
             &self.second,
@@ -540,6 +543,6 @@ impl<
             dates[1],
             dates[0],
         );
-        Ok(modified)
+        Ok(SystemTime::from(modified))
     }
 }
