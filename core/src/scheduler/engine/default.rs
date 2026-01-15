@@ -9,6 +9,7 @@ use std::any::Any;
 use std::sync::Arc;
 use tokio::join;
 
+#[derive(Default, Debug, Clone, Copy)]
 pub struct DefaultSchedulerEngine;
 
 #[async_trait]
