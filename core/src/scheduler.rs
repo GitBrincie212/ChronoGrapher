@@ -1,7 +1,7 @@
 pub mod clock; // skipcq: RS-D1001
-pub mod engine;
+pub mod engine; // skipcq: RS-D1001
 pub mod task_dispatcher; // skipcq: RS-D1001
-pub mod task_store; // skipcq: RS-D1001 // skipcq: RS-D1001
+pub mod task_store; // skipcq: RS-D1001
 
 use crate::scheduler::clock::*;
 use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
