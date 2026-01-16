@@ -1,0 +1,27 @@
+.wire-container {
+    width: calc((100% - 26rem)/2);
+}
+
+.wire-container-outer {
+    mask: linear-gradient(180deg, white 10%, transparent 80%)
+}
+
+@media (max-width: 1536px) {
+    .wire-container {
+        width: calc((100% - 18.5rem)/2);
+    }
+
+    .wire-container-outer {
+        mask: linear-gradient(180deg, white 0%, transparent 60%)
+    }
+}
+
+@media (max-width: 1024px) {
+    .wire-container {
+        width: calc((100% - 15rem)/2);
+    }
+
+    .wire-container-outer {
+        mask: linear-gradient(180deg, white 0%, transparent 55%)
+    }
+}
