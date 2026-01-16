@@ -5,7 +5,8 @@ description: Description on how inevitable failure can happen, ways to mitigate 
 So far, in the previous chapter we've scheduled work which always succeeds as seen in our "Hello ChronoGrapher" script,
 while this was great for learning the basics, real-world code is rarely this simple.
 
-Thus, let's introduce a more "realistic" scenario via a new Task (where the function is a TaskFrame):
+Thus, let's introduce a more "realistic" scenario via a new Task (where the function is a TaskFrame). In the way
+explaining the major pain points we encounter and how ChronoGrapher tackles this problem:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 use chronographer::prelude::*;
@@ -43,7 +44,7 @@ async fn main() {
 
 # The Problem Space
 
-<Callout type={"warning"} title={"Disclaimer About The Script"}>
+<Callout type={"info"} title={"About The Script"}>
 This script is used to **simulate unpredictable failure (80% of the time)** for our purposes of explaining the problem.
 Real-world code has more complex logic with multiple failure points which can fail at any time.
 </Callout>
