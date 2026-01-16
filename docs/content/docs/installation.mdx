@@ -59,22 +59,27 @@ You should notice a "Hello World" printed every 1.5 seconds. Congratulations, th
 written in <ProgrammingLanguage />. While it was simple, let us step back and ask the bigger question "What's going on exactly?".
 
 To answer this question. We have to introduce two areas which ChronoGrapher separates from us, these being
-<Highlight color={"info"}>Schedulers</Highlight> and <Highlight color={"error"}>Tasks</Highlight>. Let us start
-first with Tasks as they are the component developers face daily.
+<Highlight color={"info"}>Schedulers</Highlight> and <Highlight color={"error"}>Tasks</Highlight>.
+
+For now, we will mainly be discussing about ``Tasks`` since it is a daily occurrence to interact with,
+in the future we will dive into ``Schedulers`` as well.
 
 ---
 
 # What Are Tasks?
-Tasks contain the <Highlight color={"success"}>Business Logic</Highlight> **which is the code we want to run**. Then we have
-the <Highlight color={"neutral"}>Scheduling Logic</Highlight> **which dictates at what date should the Task run**
-(more specifically given a current time, we want to find the future time). Additionally, Tasks contain a **Scheduling Policy**
-to define how should they run exactly (not as important to understand)
+Tasks contain the <Highlight color={"success"}>Business Logic</Highlight> and <Highlight color={"neutral"}>Scheduling Logic</Highlight>,
+the former is **the code we want to run**, which can be database operations, API requests, mantainence and other computation.
 
-These parts are separate and distant but critical to create a Task. The business logic cannot interfere with the scheduling logic
-and vice versa.
+While the latter **dictates at what date should the Task run**, more specifically given a current time,
+we want to find the future time.
 
-This makes it possible to define different Tasks that have the same business logic (code) to run but a different scheduling
-algorithm or vice versa (it allows reusability, no need to rewrite lots of parts).
+Additionally, Tasks contain a **Scheduling Policy** to define how should they run exactly (not as important to understand).
+These parts are separate and distant but critical to create a Task.
+
+The business logic cannot interfere with the scheduling logic and vice versa.
+
+This makes it possible to define different Tasks that have the same business logic (code) to run but a
+different scheduling algorithm or vice versa (it allows reusability, no need to rewrite lots of parts).
 
 In our example we can clearly identify the business logic is the code inside the async function:
 
@@ -102,6 +107,10 @@ Try changing the interval from 1.5s to something else (such as 3s) and notice wh
 
 In ChronoGrapher, the Business Logic part are ``TaskFrames`` components and the Scheduling Logic are ``TaskSchedules``
 components (the macro somewhat hides them for ergonomics).
+<Callout type={"info"} title={"Regarding The TaskSchedules"}>
+    TaskSchedules are a smaller but more common part of a larger system called ``TaskTriggers``. While ``TaskSchedules``
+    are themselves ``TaskTriggers``, their are semantics different (we will dive in detail, in the near future about them).
+</Callout>
 
 A Task itself is useless, we have to also **Schedule** it. <RenderProgrammingLanguageBased target_name={"Rust"}>Which is where the main function comes in:</RenderProgrammingLanguageBased>
 <RenderProgrammingLanguageBased target_name={"Rust"}>
