@@ -2,116 +2,29 @@
 title: From Tasks To Workflows
 description: Learn how to create Reliable Workflows from simple primitives
 ---
-So far, in the previous chapter we've scheduled work which always succeeds as seen in our "Hello ChronoGrapher" script,
-while this was great for learning the basics, real-world code is rarely this simple.
+We have discussed in the previous chapter about **Inevitable Failure** (errors which are not recoverable) and its
+various problems it poses, discussing in the way multiple solutions and ultimately ChronoGrapher's solution to this problem.
 
-Thus, let's introduce a more realistic scenario:
+Workflows aren't just for handling failure, they are more powerful. One can execute multiple ``TaskFrames`` in sequence/parallel,
+one can select dynamically one ``TaskFrame`` to execute and so on.
+
+Returning to our previous script:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-// [!code focus]
-use std::sync::Arc;
-// [!code focus]
 use chronographer::prelude::*;
-
-// [!code focus]
-// [!code highlight]
-// Add the "reqwest" crate to Cargo.toml
-
-// [!code focus]
-#[task(interval = 3s)]
-// [!code focus]
-async fn ping_server(ctx: &TaskContext) -> Result<(), TaskError> {
-    // [!code focus]
-    println!("Requesting From Server");
-    // [!code focus]
-    let response = reqwest::get("https://httpbin.org/status/500")
-    // [!code focus]
-        .await // For demonstration purposes, this always fails
-    // [!code focus]
-        .map_err(|x| Arc::new(x) as TaskError)?;
-    // [!code focus]
-    println!("Server Successfully Responded");
-    // [!code focus]
-
-    // [!code focus]
-    if response.status().is_server_error() {
-        // [!code focus]
-        return Err(Arc::new("The server doesn't work"));
-    // [!code focus]
-    }
-    // [!code focus]
-
-    // [!code focus]
-    println!("Successful Status: {}", response.status());
-    // [!code focus]
-    Ok(())
-// [!code focus]
-}
-
-#[chronographer::main]
-async fn main() {
-    let task_inst = mytask();
-    CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
-}
-```
-</RenderProgrammingLanguageBased>
-
-When we fail in a Task, the Scheduler by default panics immediately and terminates the Task from ever rescheduling
-(we definitely don't want this). As such, how can we prevent it?
-
-One approach is simply not to error out and either silently ignore or treat it ourselves with our patterns. The former
-is <Highlight color={"error"}>HIGHLY DANGEROUS</Highlight> and should <Highlight color={"error"}>NOT</Highlight> considered
-(especially in our example) as it hides failure.
-
-The latter is a better solution, however it quickly leads to boilerplate code. Want to create an audit log of the status
-codes? You will have to resolve fully errors yourself, some of you may ask "Can some program never succeed?".
-
-The answer is very much yes, and we should be aware of such extreme concerns, the boilerplate code you wrote for errors
-might make the program stuck, silently crumble or anything else.
-
-Fixing this might need more error tracking, which is more boilerplate and in turn being a maintainability nightmare.
-We can definitely do better than that
-
-# The Solution To This Problem (Workflows)
-Instead of writing boilerplate patterns for each concern, stuffing it in the business logic.
-**What if we compose the simpler primitives to form these patterns?**.
-
-This is why ChronoGrapher uses a ``TaskFrame``, before we discussed how they are simply the business logic (functions
-that run our code). However, they also shine when ``TaskFrames`` wrap each other.
-
-Think of TaskFrames like Russian nesting dolls, each layer adds functionality while keeping the core logic clean.
-This is **essentially function decorating** but for ``TaskFrames``.
-
-## Retry Logic
-
-<RenderProgrammingLanguageBased target_name={"Rust"}>
-In our code, we can attach another macro to define our workflow:
-```rust title="src/main.rs" lineNumbers
 use std::sync::Arc;
-use chronographer::prelude::*;
+use rand::prelude::*;
 
 #[task(interval = 3s)]
-// [!code focus]
-// [!code ++]
-#[workflow(
-    // [!code focus]
-    // [!code ++]
-    retry(3, 1.25s),
-// [!code focus]
-// [!code ++]
-)]
-async fn ping_server(ctx: &TaskContext) -> Result<(), TaskError> {
-    println!("Requesting From Server");
-    let response = reqwest::get("https://httpbin.org/status/500")
-        .await // For demonstration purposes, this always fails
-        .map_err(|x| Arc::new(x) as TaskError)?;
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Simulating real-world complex unpredictable logic");
+    let mut rng = rand::thread_rng();
 
-    println!("Server Successfully Responded");
-
-    if response.status().is_server_error() {
-        return Err(Arc::new("The server doesn't work"));
+    if rng.gen() <= 0.8 {
+        println!("Real-world complex unpredictable logic failed");
+        return Err(Arc::new("Complex real-world logic failed"));
     }
-    println!("Successful Status: {}", response.status());
+    println!("Real-world complex unpredictable logic succeeded");
     Ok(())
 }
 
@@ -122,119 +35,243 @@ async fn main() {
 }
 ```
 </RenderProgrammingLanguageBased>
-Just like that, we made our code more reliable by <u>retrying our pinging 3 times</u> til it succeeds or runs out of retries,
-with a <u>constant delay of 1.25 seconds per retry</u>. There are more configurations for retry we will discuss in upcoming
-chapters.
+<Callout type={"info"} title={"About the prints"}>
+    We have added more prints to reflect the process of how the Task works, these are for learning purposes only.
+</Callout>
 
-Try to tweak the number of retries or the delay in-between, or even both! While this code might succeed more often, there
-is still room for failure to leak through.
+## Retrying Our Task
 
-## Fallback Logic
-What if we want to **Fall back to some other business logic?**, ChronoGrapher allows just that. Workflows can contain multiple
-layers (retries, fallbacks, you name it) that handle additional logic, while business logic stays pure and clean.
+Let's attempt to make ``mytask`` more secure by adding a retry mechanism with the number of retries being 5 and the
+delay of each retry being 2 seconds:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
-In our code, we can attach another macro to define our workflow:
-```rust title="src/main.rs" lineNumbers
-use std::sync::Arc;
-use chronographer::prelude::*;
+```rust title="src/main.rs" lineNumbers=5
+#[task(interval = 3s)]
+// [!code focus]
+#[workflow(
+    // [!code focus]
+    retry(5, 2s)
+// [!code focus]
+)]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+Running the code, you may notice something like this in the output:
+```zsh title="terminal" lineNumbers
+Simulating real-world complex unpredictable logic
+Real-world complex unpredictable logic failed
+# After 2 seconds (1st retry)
+Simulating real-world complex unpredictable logic
+Real-world complex unpredictable logic failed
+# After 2 seconds (2nd retry)
+Simulating real-world complex unpredictable logic
+Real-world complex unpredictable logic succeeded
+```
+Sometimes you may notice even with plenty of retries, the Task can fail for all retries and still leak through.
+Try changing the number of retries or the delay to something else and notice how it behaves.
+
+## Fallbacks For Our Task
+To fix this issue, we can define another Task as a fallback to this one via:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
 // [!code focus]
 // [!code ++]
-use tokio::time::sleep;
-// [!code focus]
-// [!code ++]
-use std::time::Duration;
+use tokio::time::{sleep, Duration};
 
 // [!code focus]
 // [!code ++]
-#[task]
+// We tell ChronoGrapher to make it a TaskFrame only, not an entire Task
 // [!code focus]
 // [!code ++]
-async fn handle_ping_failure(ctx: &TaskContext) -> Result<(), TaskError> {
+#[taskframe]
+// [!code focus]
+// [!code ++]
+async fn mytask_fallback(ctx: &TaskContext) {
     // [!code focus]
     // [!code ++]
-    println!("Simulating Primary Fallback Logic");
+    println!("Simulating the resolving the error");
     // [!code focus]
     // [!code ++]
-    sleep(Duration::from_secs(1)).await;
+
     // [!code focus]
     // [!code ++]
-    Err(Arc::new("Throwing Test Error")) // Try to change this to an Ok(())
+    sleep(Duration::from_millis(500)).await;
+    // [!code focus]
+    // [!code ++]
+
+    // [!code focus]
+    // [!code ++]
+    println!("Resolved the error");
+    // [!code focus]
+    // [!code ++]
+    Ok(())
 // [!code focus]
 // [!code ++]
 }
 
 #[task(interval = 3s)]
+// [!code focus]
 #[workflow(
-    retry(3, 1.25s),
+    // [!code focus]
+    retry(5, 2s),
     // [!code focus]
     // [!code ++]
-    fallback(handle_ping_failure)
+    fallback(mytask_fallback)
+    // [!code focus]
 )]
-async fn ping_server(ctx: &TaskContext) -> Result<(), TaskError> {
-    println!("Requesting From Server");
-    let response = reqwest::get("https://httpbin.org/status/500")
-        .await // For demonstration purposes, this always fails
-        .map_err(|x| Arc::new(x) as TaskError)?;
-
-    println!("Server Successfully Responded");
-
-    if response.status().is_server_error() {
-        return Err(Arc::new("The server doesn't work"));
-    }
-
-    println!("Successful Status: {}", response.status());
-    Ok(())
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
 }
+```
+</RenderProgrammingLanguageBased>
+Running the code, you may notice this difference:
 
-    #[chronographer::main]
-    async fn main() {
-    let task_inst = mytask();
-    CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
+```zsh title="terminal" lineNumbers
+Simulating real-world complex unpredictable logic
+Real-world complex unpredictable logic failed
+
+# <...>
+
+# After 2 seconds (5th retry)
+Simulating real-world complex unpredictable logic
+Real-world complex unpredictable logic failed
+Simulating the resolving the error
+
+# After 500ms
+
+Resolved the error
+```
+
+If we really want, we can define more than one fallback like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval = 3s)]
+// [!code focus]
+#[workflow(
+    // [!code focus]
+    retry(5, 2s),
+    // [!code focus]
+    // [!code highlight]
+    fallback(mytask_fallback, my_other_fallback1, my_other_fallback2)
+    // [!code focus]
+)]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
 }
+```
+</RenderProgrammingLanguageBased>
+
+<Callout type={"error"} title={"Disclaimer About The Order Of The Workflow"}>
+    The last workflow TaskFrame executes the first on top and wraps the entire workflow,
+    the first workflow TaskFrame executes the last at the bottom and wraps only the ``mytask``.
+
+    This means if we define our workflow as:
+    <RenderProgrammingLanguageBased target_name={"Rust"}>
+    ```rust
+    #[workflow(
+        retry(5, 2s),
+        fallback(mytask_fallback)
+    )]
     ```
-</RenderProgrammingLanguageBased>
+    </RenderProgrammingLanguageBased>
+    It is <Highlight color={"error"}>NOT</Highlight> the same as defining our workflow as:
+    <RenderProgrammingLanguageBased target_name={"Rust"}>
+    ```rust
+    #[workflow(
+        fallback(mytask_fallback),
+        retry(5, 2s)
+    )]
+    ```
+    </RenderProgrammingLanguageBased>
+    The former **executes the retries** and when all retries failed **THEN the fallback**. Whereas the latter **executes the
+    fallback for every failure** and **THEN once everything fails, a retry occurs**.
+</Callout>
 
-You may observe the Task now magically works, no failures! However, suppose an unknown TaskFrame, which we want to use
-it as an additional fallback, when the first fallback fails, it triggers this one.
-
-We can **lay on top more Fallbacks in a chain** by simply:
+## Defining A Deadline For Our Task
+Currently, our workflow may run for an infinite time, potentially hanging indefinitely. To fix this we can define
+a timeout with the maximum time allowed being 6 seconds:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
-```rust title="src/main.rs" lineNumbers=13
+```rust title="src/main.rs" lineNumbers=5
+#[task(interval = 3s)]
+// [!code focus]
 #[workflow(
-    retry(3, 1.25s),
+    // [!code focus]
+    retry(5, 2s),
+    // [!code focus]
+    fallback(mytask_fallback),
     // [!code focus]
     // [!code ++]
-    fallback(handle_ping_failure, other_fallback)
+    timeout(6s)
+    // [!code focus]
 )]
-```
-</RenderProgrammingLanguageBased>
-
-Essentially the logic declares, if ``handle_ping_failure`` fails, then ``other_fallback`` takes its place. For our
-purposes we will configure ``other_fallback`` to be mostly the same as ``handle_ping_failure``:
-<RenderProgrammingLanguageBased target_name={"Rust"}>
-```rust title="src/main.rs" lineNumbers=6
-#[task]
-async fn other_fallback(ctx: &TaskContext) -> Result<(), TaskError> {
-    println!("Simulating Secondary Fallback Logic");
-    sleep(Duration::from_secs(2)).await;
-    Ok(()) // Try to configure this to an error
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
 }
 ```
 </RenderProgrammingLanguageBased>
+We notice in the output:
 
-## Timeout Logic
-Currently, these tasks can complete at any time. This **may not be a wanted behavior** as tasks **may hang**. Which
-is where timeouts come in handy, they enforce a deadline task frames must complete in.
+```zsh title="terminal" lineNumbers
+Simulating real-world complex unpredictable logic
+Real-world complex unpredictable logic failed
 
-We can lay a timeout on top by simply specifying:
+# <...>
+
+# [!code --]
+# After 2 seconds (3rd retry, was about to execute but got interrupted)
+# [!code --]
+  | Simulating real-world complex unpredictable logic
+# [!code --]
+  | Real-world complex unpredictable logic failed
+# [!code --]
+  | Simulating the resolving the error
+
+> Scheduler logs the timeout error from this Task
+# ...
+```
+
+
+When the workflow exceeds the maximum deadline, it fully cancels the workflow and throws a timeout error. Experiment by
+changing the maximum deadline of the timeout to a larger number.
 <RenderProgrammingLanguageBased target_name={"Rust"}>
-```rust title="src/main.rs" lineNumbers=21
+<Callout type={"error"} title={"Limitations Of Timeout"}>
+    Due rust's async model (cooperative cancelling), when a timeout occurs, it doesn't cancel immediately,
+    it only happens when an async point is hit. This means the workflow may fully complete even if a timeout error is thrown.
+
+    For async-heavy tasks, this is a non-issue. For tasks that are CPU-blocking most of the time, the solution is to yield
+    on specific points throughout your code (not too much though, for performance reasons)
+</Callout>
+</RenderProgrammingLanguageBased>
+
+## Delaying Our Task
+We may want to delay the execution of our workflow, say for one full second. We can model like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=5
+#[task(interval = 3s)]
+// [!code focus]
 #[workflow(
-    retry(3, 1.25s),
-    fallback(handle_ping_failure, other_fallback),
+    // [!code focus]
+    retry(5, 2s),
+    // [!code focus]
+    fallback(mytask_fallback),
+    // [!code focus]
+    timeout(10s),
     // [!code focus]
     // [!code ++]
-    timeout(5s)
+    delay(1s)
+// [!code focus]
 )]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
 ```
 </RenderProgrammingLanguageBased>
+Yet again our output differs slightly:
+```zsh title="terminal" lineNumbers
+# After one full second
+Simulating real-world complex unpredictable logic
+Real-world complex unpredictable logic failed
+
+# <...>
+```
