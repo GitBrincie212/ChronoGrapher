@@ -28,7 +28,7 @@ function ChronoGrapherCallToActionText() {
   return (
     <div className={"contents *:opacity-0"}>
       <h1
-        className={"text-center w-screen font-semibold text-4xl z-100"}
+        className={"text-center w-screen font-semibold text-3xl xl:text-4xl z-100"}
         ref={titleText}
       >
         One Unified{" "}
