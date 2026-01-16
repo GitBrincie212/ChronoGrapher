@@ -189,7 +189,7 @@ function ServiceBlockComponent(props: {
   return (
     <div className={"flex items-center"}>
       <div
-        className={`absolute w-full bg-fd-background h-full z-1000 ${props.left ? "right-full" : "left-full"}`}
+        className={`absolute w-full bg-fd-background h-1/2 z-1000 ${props.left ? "right-full" : "left-full"}`}
       ></div>
       <div
         className={`relative p-0.5 ${props.left ? "bg-linear-to-r" : "bg-linear-to-l"} from-fd-foreground/30 to-fd-background-dark rounded z-100`}
@@ -197,7 +197,7 @@ function ServiceBlockComponent(props: {
         <div className={"size-8 2xl:size-12 rounded bg-fd-background"} />
         <div
           className={
-            "absolute size-full flex items-center justify-center text-xl lg:text-2xl 2xl:text-3xl inset-0 opacity-25"
+            "absolute size-full flex items-center justify-center text-xl 2xl:text-3xl inset-0 opacity-25"
           }
         >
           {props.children}
