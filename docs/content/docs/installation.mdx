@@ -55,48 +55,6 @@ cargo run
 # ...
 ```
 </RenderProgrammingLanguageBased>
-<RenderProgrammingLanguageBased target_name={"Python"}>
-In your project's root folder (the top level), setup a venv project by running:
-```zsh title="shell"
-python3 -m venv .venv/ # For Windows: py -m venv .venv\
-```
-
-Once the ``.venv`` folder has been created in your project, install the chronographer package like so:
-```zsh title="shell"
-python3 -m pip install chronographer # For Windows: py -m pip install chronographer
-```
-If you ever need a specific version, you can always run the command:
-```zsh title="shell"
-python3 -m pip install chronographer==[VERSION] # For Windows: py -m pip install chronographer==[VERSION]
-```
-
-<Callout type={"idea"} title={"Requiring / Listing The ChronoGrapher Package"}>
-    If you want to require users of your project to install the package, you can include a ``requirements.txt`` file:
-    ```py title="requirements.txt"
-    chronographer==0.0.1a
-    ```
-    Then install all the packages with:
-    ```zsh title="shell"
-    python3 -m pip install -r requirements.txt # For Windows: py -m pip install -r requirements.txt
-    ```
-</Callout>
-
-That's it! The package has been successfully installed and you can now play with ChronoGrapher. For your first script,
-you will need to create a ``Main.py`` and insert:
-```py title="Main.py" lineNumbers
-from chronographer import TaskContext, Task, TaskScheduleInterval, CHRONOGRAPHER_SCHEDULER
-
-class MyTask(Task):
-    def __init__(&self):
-        super(self.execute, self.schedule,)
-
-    # [INCOMPLETE; WIP]
-
-task_var = my_task();
-CHRONOGRAPHER_SCHEDULER.schedule(task_var).await;
-
-```
-</RenderProgrammingLanguageBased>
 You should notice a "Hello World" printed every 1.5 seconds. Congratulations, that is your basic "Hello ChronoGrapher!" script
 written in <ProgrammingLanguage />. While it was simple, let us step back and ask the bigger question "What's going on exactly?".
 
