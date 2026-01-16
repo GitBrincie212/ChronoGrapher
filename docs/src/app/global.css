@@ -50,14 +50,14 @@
 }
 
 .dark {
-  --color-fd-background: hsl(256, 20%, 6%);
+  --color-fd-background: hsl(245, 52%, 5%);
   --color-fd-background-dark: hsl(250, 23%, 5%);
   --color-fd-background-light: hsl(252, 23%, 9%);
   --color-fd-neutral: hsl(260, 24%, 93%);
   --color-fd-neutral-dark: hsl(267, 9%, 77%);
   --color-fd-primary: hsl(270, 100%, 86%);
   --color-fd-primary-foreground: hsl(256, 60%, 6%);
-  --color-fd-brand-primary: hsl(270, 100%, 52%);
+  --color-fd-brand-primary: hsl(270, 100%, 61%);
   --color-fd-brand-primary-foreground: hsl(270, 100%, 20%);
   --color-fd-border: hsla(270, 50%, 40%, 0.3);
   --color-fd-accent: hsl(256, 23%, 22%);
@@ -67,7 +67,7 @@
   --color-fd-muted-foreground: hsl(256, 50%, 75%);
   --color-fd-secondary: hsl(270, 23%, 20%);
   --color-fd-secondary-foreground: hsl(256, 60%, 90%);
-  --color-fd-brand-secondary: hsl(333, 100%, 50%);
+  --color-fd-brand-secondary: hsl(333, 100%, 61%);
   --color-fd-brand-secondary-foreground: hsl(318, 71%, 9%);
   --color-fd-card: hsl(256, 23%, 10%);
   --color-fd-card-foreground: hsl(256, 60%, 90%);
