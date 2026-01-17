@@ -61,14 +61,16 @@ Running the code, you may notice something like this in the output:
 ```zsh title="terminal" lineNumbers
 Simulating real-world complex unpredictable logic
 Real-world complex unpredictable logic failed
+
 # After 2 seconds (1st retry)
 Simulating real-world complex unpredictable logic
 Real-world complex unpredictable logic failed
+
 # After 2 seconds (2nd retry)
 Simulating real-world complex unpredictable logic
 Real-world complex unpredictable logic succeeded
 ```
-The delay per retries can be configured via a **Backoff Strategy**, Backoff strategies controls how the delay scales
+The delay per retries can be configured via a **Backoff Strategy**, Backoff strategies control how the delay scales
 with the accumulative number of retries.
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 Use additionally ``linear(...)``, ``exponential(...)``, ``jitter(...)`` or ``custom(...)`` (for custom backoff strategies) to explicitly set:
@@ -484,7 +486,7 @@ it in a table like so:
 | Workflow Primitives   | Example   | Description           |
 |-----------------------|-----------|-----------------------|
 | retry(COUNT, BACKOFF_STRAT \|\| DURATION)     | retry(5, 2s) | Retries the inner workflow ``COUNT`` times with a delay deduced by ``BACKOFF_STRAT``      |
-| fallback(WORKFLOW)  | fallback(mytask_fallback) | If the inner workflow fails, it executes the ``WORKFLOW`` workflow |
+| fallback(WORKFLOW1, WORKFLOW2...)  | fallback(mytask_fallback) | If the inner workflow fails, it executes the ``WORKFLOW1`` workflow and cascades down to ``WORKFLOW2`` and onwards |
 | timeout(DURATION) | timeout(10s) | Stops / Timeouts the inner workflow if it takes more time than ``DURATION`` |
 | delay(DURATION) | delay(1s) | Delays our inner workflow from executing by ``DURATION`` duration |
 | threshold(THRESHOLD, [COUNT_LOGIC], [THRESHOLD_REACH_BEHAVIOR]) | threshold(10, errors, error("Threshold Reached")) | Imposes a threshold on the inner workflow with the number being ``THRESHOLD`` counted via ``COUNT_LOGIC``, if reached, do something with ``THRESHOLD_REACH_BEHAVIOR``|
