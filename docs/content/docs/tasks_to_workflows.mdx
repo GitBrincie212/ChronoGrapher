@@ -39,9 +39,9 @@ async fn main() {
     We have added more prints to reflect the process of how the Task works, these are for learning purposes only.
 </Callout>
 
-## Retrying Our Task
+## Retrying Our Workflow
 
-Let's attempt to make ``mytask`` more secure by adding a retry mechanism with the number of retries being 5 and the
+Let's attempt to make ``mytask`` more secure by adding a ``retry`` mechanism with the number of retries being 5 and the
 delay of each retry being 2 seconds:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=5
@@ -68,11 +68,23 @@ Real-world complex unpredictable logic failed
 Simulating real-world complex unpredictable logic
 Real-world complex unpredictable logic succeeded
 ```
+The delay per retries can be configured via a **Backoff Strategy**, Backoff strategies controls how the delay scales
+with the accumulative number of retries.
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+Use additionally ``linear(...)``, ``exponential(...)``, ``jitter(...)`` or ``custom(...)`` (for custom backoff strategies) to explicitly set:
+```rust title="src/main.rs" lineNumbers=6
+#[workflow(
+    // [!code focus]
+    retry(5, linear(2s, 1s))
+)]
+```
+</RenderProgrammingLanguageBased>
+
 Sometimes you may notice even with plenty of retries, the Task can fail for all retries and still leak through.
 Try changing the number of retries or the delay to something else and notice how it behaves.
 
-## Fallbacks For Our Task
-To fix this issue, we can define another Task as a fallback to this one via:
+## Fallbacks For Our Workflow
+To fix this issue, we can define another TaskFrame as a ``fallback`` to this one via:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
 // [!code focus]
@@ -188,9 +200,9 @@ async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
     fallback for every failure** and **THEN once everything fails, a retry occurs**.
 </Callout>
 
-## Defining A Deadline For Our Task
+## Defining A Deadline For Our Workflow
 Currently, our workflow may run for an infinite time, potentially hanging indefinitely. To fix this we can define
-a timeout with the maximum time allowed being 6 seconds:
+a ``timeout`` with the maximum time allowed being 6 seconds:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=5
 #[task(interval = 3s)]
@@ -244,8 +256,8 @@ changing the maximum deadline of the timeout to a larger number.
 </Callout>
 </RenderProgrammingLanguageBased>
 
-## Delaying Our Task
-We may want to delay the execution of our workflow, say for one full second. We can model like so:
+## Delaying Our Workflow
+We may want to delay the execution of our workflow, say for one full second. We can model with ``delay`` like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=5
 #[task(interval = 3s)]
@@ -275,3 +287,212 @@ Real-world complex unpredictable logic failed
 
 # <...>
 ```
+
+
+## Thresholds For Running Our Workflows
+
+Our workflows may want to run for a limited number of times. However, currently our workflows lack this ability, we can
+add this feature with ``threshold`` as demonstrated below:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=5
+#[task(interval = 3s)]
+// [!code focus]
+#[workflow(
+    // [!code focus]
+    retry(5, 2s),
+    // [!code focus]
+    fallback(mytask_fallback),
+    // [!code focus]
+    timeout(10s),
+    // [!code focus]
+    delay(1s),
+    // [!code focus]
+    // [!code ++]
+    threshold(3)
+// [!code focus]
+)]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+We effecitvely tell ChronoGrapher to limit the number of times the Task can run to 10 times.
+<Callout type={"info"} title={"Thresholds Encapsulating Sub-Workflows Vs Entire Workflow"}>
+    Thresholds have a special edge case, if they sit on top of the workflow (like our example). They effectively
+    cancel the ``Task`` entirely from the ``Scheduler``.
+
+    However, if they are present on a sub-workflow, they act as a skip no-operation wildcard when the threshold is exceeded.
+    The reason for this has to do with another system we will be discussing in the future.
+</Callout>
+
+Thresholds can be configured to error out when the threshold exceeds (instead of skipping, including its edge case). In
+addition to its counting logic.
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+By using ``errors``, ``successes``, ``identity`` or ``custom(...)``, one can change the counting towards threshold logic.
+Follow it by stating how it should react when the threshold is exceeded via ``skip``, ``error(...)`` or ``custom(...)``:
+```rust title="src/main.rs" lineNumbers=6
+#[workflow(
+    // ...
+    // [!code focus]
+    threshold(3, errors, error("Threshold got exceeded"))
+    // ...
+)]
+```
+</RenderProgrammingLanguageBased>
+With the threshold in place, we begin to see:
+```zsh title="terminal" lineNumbers
+# 1st Run
+Simulating real-world complex unpredictable logic
+# <...>
+
+# 2nd Run
+Simulating real-world complex unpredictable logic
+# <...>
+
+# 3rd Run
+Simulating real-world complex unpredictable logic
+# <...>
+
+# [!code --]
+# 4th Run
+# [!code --]
+# Got cancelled entirely from the threshold
+```
+
+Thresholds allow for conditional execution based on run count. However, what if we have an outside influence that dictates
+when our workflow executes or not, which leads us to:
+
+## Conditionally Executing Our Workflow
+Depending on specific circumestances, we may want to omit entirely the execution of a workflow until an outside requirement
+has been fulfiled. To achieve this we can use ``condition`` below:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=5
+// [!code focus]
+// [!code ++]
+#[predicate]
+// [!code focus]
+// [!code ++]
+async fn outside_function(_ctx: &TaskContext) -> bool {
+    // [!code focus]
+    // [!code ++]
+    println!("Rolling the dice to see if the workflow executes");
+    // [!code focus]
+    // [!code ++]
+    let mut rng = rand::thread_rng();
+    // [!code focus]
+    // [!code ++]
+
+    // [!code focus]
+    // [!code ++]
+    return rng.gen() <= 0.5;
+// [!code focus]
+// [!code ++]
+}
+
+#[task(interval = 3s)]
+// [!code focus]
+#[workflow(
+    // [!code focus]
+    retry(5, 2s),
+    // [!code focus]
+    fallback(mytask_fallback),
+    // [!code focus]
+    timeout(10s),
+    // [!code focus]
+    delay(1s),
+    // [!code focus]
+    threshold(10),
+    // [!code focus]
+    // [!code ++]
+    condition(outside_function)
+// [!code focus]
+)]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+The output is close to:
+```zsh title="terminal" lineNumbers
+Rolling the dice to see if the workflow executes
+
+# Predicate returned true this case (so we execute the workflow)
+Simulating real-world complex unpredictable logic
+Real-world complex unpredictable logic failed
+
+Rolling the dice to see if the workflow executes
+
+# [!code --]
+# The predicate returned false, thus, not executing our workflow further
+# [!code --]
+# | Simulating real-world complex unpredictable logic
+# [!code --]
+# | Real-world complex unpredictable logic failed
+
+# ...
+```
+
+Conditions can be configured to error out on failure and even configure a fallback TaskFrame to execute if the predicate
+returns false
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+By specifying ``true`` at the end to enable errors when the predicate returns false and by specifying another
+TaskFrame to execute via ``secondary``:
+```rust title="src/main.rs" lineNumbers=6
+#[workflow(
+    // ...
+    // [!code focus]
+    condition(outside_function, secondary = my_backup_taskframe, true)
+    // ...
+)]
+```
+</RenderProgrammingLanguageBased>
+
+<Callout type={"warning"} title={"Difference between condition and fallback"}>
+Conditions allow the primary sub-workflow to execute depending on a predicate, only when the predicate
+decides not to execute, does the condition execute the secondary sub-workflow.
+
+However, fallbacks on the other hand differ by the fact they always execute the primary sub-workflow
+then if the primary sub-workflow fails, they execute the secondary sub-workflow.
+</Callout>
+
+# Summary Of Workflow Primitives
+We have built an entire complex workflow from simple, barebones but configurable primitives (kind of crazy to think about).
+While this is not a practical workflow, as it doesn't solve a particular problem we have.
+
+A more visual representation of our workflow can be demonstrated as:
+<ThemeBasedImage
+    light={"/diagram-light-3.svg"} dark={"/diagram-dark-3.svg"}
+    width={1200} height={1200}
+/>
+While our workflow is as simple as:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=5
+#[workflow(
+    retry(5, 2s),
+    fallback(mytask_fallback),
+    timeout(10s),
+    delay(1s),
+    threshold(10),
+    condition(outside_function)
+)]
+```
+</RenderProgrammingLanguageBased>
+
+It emphasizes the composability and limitless creativity of ChronoGrapher. To truly grasp what we have learned, let's organize
+it in a table like so:
+| Workflow Primitives   | Example   | Description           |
+|-----------------------|-----------|-----------------------|
+| retry(COUNT, BACKOFF_STRAT \|\| DURATION)     | retry(5, 2s) | Retries the inner workflow ``COUNT`` times with a delay deduced by ``BACKOFF_STRAT``      |
+| fallback(WORKFLOW)  | fallback(mytask_fallback) | If the inner workflow fails, it executes the ``WORKFLOW`` workflow |
+| timeout(DURATION) | timeout(10s) | Stops / Timeouts the inner workflow if it takes more time than ``DURATION`` |
+| delay(DURATION) | delay(1s) | Delays our inner workflow from executing by ``DURATION`` duration |
+| threshold(THRESHOLD, [COUNT_LOGIC], [THRESHOLD_REACH_BEHAVIOR]) | threshold(10, errors, error("Threshold Reached")) | Imposes a threshold on the inner workflow with the number being ``THRESHOLD`` counted via ``COUNT_LOGIC``, if reached, do something with ``THRESHOLD_REACH_BEHAVIOR``|
+| condition(PREDICATE, [SECONDARY], [ERROR_ON_FALSE]) | condition(outer_func, secondary = my_backup_taskframe, true) | Executes the inner workflow if ``PREDICATE`` returns true, else if ``ERROR_ON_FALSE`` and/or ``SECONDARY`` are defined it executes and returns different results|
+
+In the next chapter will be exploring more ``TaskFrame`` units that aren't possible to model with the simpler workflow syntax
+we've been using all along as well as the low-level API (a bit more verbose but more expressive).
+
+> TL;DR. Composing multiple small configurable workflow primitives such as ``retry`` for retries
+on failure, ``fallback`` for a backup workflow, ``timeout`` for setting a maximum deadline, ``delay`` for delaying the
+execution of our workflow... etc. We can model complex logic, all without polluting the business logic
