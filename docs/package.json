@@ -24,11 +24,11 @@
     "fumadocs-core": "16.4.3",
     "fumadocs-mdx": "14.2.4",
     "fumadocs-ui": "16.4.3",
-    "highlight.js": "^11.11.1",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-shiki": "^0.9.1",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
@@ -40,6 +40,7 @@
     "@types/react-dom": "^19.2.3",
     "postcss": "^8.5.6",
     "serve": "^14.2.5",
+    "shiki": "^3.21.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3"
   }
