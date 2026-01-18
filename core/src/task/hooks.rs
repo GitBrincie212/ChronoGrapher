@@ -417,18 +417,6 @@ pub(crate) struct TaskHookEventCategory(pub DashMap<TypeId, Arc<dyn ErasedTaskHo
 #[derive(Clone)]
 pub struct TaskHookContext(pub(crate) TaskContext);
 impl TaskHookContext {
-    /// Accesses the [`TaskHooksContainer`], returning it in the process
-    ///
-    /// # Returns
-    /// The [`TaskHooksContainer`] to use
-    ///
-    /// # See Also
-    /// - [`TaskHooksContainer`]
-    /// - [`TaskContext`]
-    pub fn hooks(&self) -> &TaskHookContainer {
-        self.0.hooks()
-    }
-
     pub fn frame(&self) -> &dyn TaskFrame {
         self.0.frame()
     }

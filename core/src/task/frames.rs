@@ -72,7 +72,7 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 pub struct TaskContext {
     hooks_container: Arc<TaskHookContainer>,
     depth: u64,
-    frame: Arc<dyn TaskFrame>,
+    frame: Arc<dyn TaskFrame>
 }
 
 impl Clone for TaskContext {
@@ -122,18 +122,6 @@ impl TaskContext {
     pub async fn subdivide(&self, frame: Arc<dyn TaskFrame>) -> Result<(), TaskError> {
         let child_ctx = self.subdivided_ctx(frame.clone());
         frame.execute(&child_ctx).await
-    }
-
-    /// Accesses the [`TaskHooksContainer`], returning it in the process
-    ///
-    /// # Returns
-    /// The [`TaskHooksContainer`] to use
-    ///
-    /// # See Also
-    /// - [`TaskHooksContainer`]
-    /// - [`TaskContext`]
-    pub fn hooks(&self) -> &TaskHookContainer {
-        &self.hooks_container
     }
 
     pub fn frame(&self) -> &dyn TaskFrame {
