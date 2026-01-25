@@ -195,10 +195,23 @@ impl<T: NonObserverTaskHook> TaskHook<()> for T {
 }
 
 #[derive(Clone)]
-pub(crate) struct ErasedTaskHookWrapper<E: TaskHookEvent>(
-    pub(crate) Arc<dyn TaskHook<E>>,
-    pub(crate) PhantomData<E>,
-);
+pub(crate) struct ErasedTaskHookWrapper<E: TaskHookEvent> {
+    /// The hook as a trait object for calling on_event
+    hook: Arc<dyn TaskHook<E>>,
+    /// The original concrete hook stored as Any for downcasting back
+    concrete: Arc<dyn Any + Send + Sync>,
+    _marker: PhantomData<E>,
+}
+
+impl<E: TaskHookEvent> ErasedTaskHookWrapper<E> {
+    pub fn new<T: TaskHook<E>>(hook: Arc<T>) -> Self {
+        Self {
+            hook: hook.clone(),
+            concrete: hook,
+            _marker: PhantomData,
+        }
+    }
+}
 
 #[async_trait]
 pub trait ErasedTaskHook: Send + Sync {
@@ -213,11 +226,12 @@ impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
             .downcast_ref::<E::Payload>()
             .expect("Invalid payload type passed to TaskHook");
 
-        self.0.on_event(E::default(), ctx, payload).await;
+        self.hook.on_event(E::default(), ctx, payload).await;
     }
 
     fn as_arc_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
-        self
+        // Return the original concrete hook, not the wrapper
+        self.concrete.clone()
     }
 }
 
@@ -547,7 +561,7 @@ impl TaskHookContainer {
     pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskContext, hook: Arc<T>) {
         let hook_id = TypeId::of::<T>();
         let erased_hook: Arc<dyn ErasedTaskHook> =
-            Arc::new(ErasedTaskHookWrapper::<E>(hook.clone(), PhantomData));
+            Arc::new(ErasedTaskHookWrapper::<E>::new(hook.clone()));
 
         self.0
             .entry(E::EVENT_ID)
@@ -597,10 +611,17 @@ impl TaskHookContainer {
 
         let erased = hook.clone();
 
-        let typed: Arc<T> = erased
-            .as_arc_any()
-            .downcast()
-            .expect("TaskHook is not of type T (some other is masquerading the 'T' TaskHook)");
+        let typed: Arc<T> = match erased.as_arc_any().downcast::<T>() {
+            Ok(typed) => typed,
+            Err(actual) => panic!(
+                "Failed to downcast stored TaskHook to expected concrete type '{}'. Event ID: '{}'. Expected TypeId: {:?}, actual TypeId: {:?}. \
+                Ensure the hook stored under this event is of the requested type and there are no type mismatches.",
+                std::any::type_name::<T>(),
+                E::EVENT_ID,
+                TypeId::of::<T>(),
+                actual.as_ref().type_id()
+            ),
+        };
 
         self.emit::<OnHookDetach<E>>(ctx, &(typed as Arc<dyn TaskHook<E>>))
             .await;

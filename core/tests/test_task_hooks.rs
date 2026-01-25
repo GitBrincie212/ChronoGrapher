@@ -97,10 +97,6 @@ async fn test_detach_hooks() {
     task.emit_hook_event::<OnTaskStart>(&()).await;
     assert_eq!(on_start_count.load(Ordering::SeqCst), 1, "Hook should fire once before detach");
 
-    // Try to detach - this will panic due to type erasure bug
-    // The hook is stored as Arc<ErasedTaskHookWrapper<OnTaskStart>>
-    // But detach() tries to downcast to Arc<OnStartCountingHook>
-    // These have different TypeIds, so the downcast fails
     task.detach_hook::<OnTaskStart, OnStartCountingHook>().await;
     
     task.emit_hook_event::<OnTaskStart>(&()).await;
@@ -128,10 +124,6 @@ async fn test_get_hook() {
     task.attach_hook::<OnTaskStart>(hook).await;
 
     let retrieved_hook = task.get_hook::<OnTaskStart, OnStartCountingHook>();
-    // This will fail due to the same type erasure issue as detach
-    // The hook is stored as ErasedTaskHookWrapper<OnTaskStart>, not as OnStartCountingHook
-    // So the downcast in get() fails and returns None
-    // However, the hook still works when emitting events because emit() doesn't need the concrete type
     assert!(retrieved_hook.is_some(), "Hook should exist after attach");
 
     task.emit_hook_event::<OnTaskStart>(&()).await;
