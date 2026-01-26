@@ -1,2 +1,2 @@
-mod test_task_hooks;
+mod taskhook_test;
 mod virtual_clock_test;
