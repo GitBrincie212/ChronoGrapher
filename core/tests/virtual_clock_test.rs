@@ -1,8 +1,6 @@
-use std::time::{Duration, UNIX_EPOCH};
 use chronographer::scheduler::DefaultSchedulerConfig;
-use chronographer::scheduler::clock::{
-    AdvanceableSchedulerClock, SchedulerClock, VirtualClock,
-};
+use chronographer::scheduler::clock::{AdvanceableSchedulerClock, SchedulerClock, VirtualClock};
+use std::time::{Duration, UNIX_EPOCH};
 // A small value to avoid floating precision errors
 pub const EPSILON: Duration = Duration::from_millis(1);
 
@@ -20,7 +18,10 @@ macro_rules! assert_approx {
             diff <= epsilon_val,
             "assertion failed: `(left ≈ right)` \
              (left: `{:?}`, right: `{:?}`, difference: `{:?}`, epsilon: `{:?}`)",
-            left_val, right_val, diff, epsilon_val
+            left_val,
+            right_val,
+            diff,
+            epsilon_val
         );
     }};
 }

@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+use chronographer::errors::ChronographerErrors;
 use chronographer::prelude::*;
 use chronographer::task::{TaskFrame, TaskHookContext, TaskScheduleImmediate};
-use chronographer::errors::ChronographerErrors;
 
 type OnTaskStartPayload = <OnTaskStart as TaskHookEvent>::Payload;
 type OnTaskEndPayload = <OnTaskEnd as TaskHookEvent>::Payload;
@@ -15,7 +15,12 @@ struct OnStartCountingHook {
 
 #[async_trait]
 impl TaskHook<OnTaskStart> for OnStartCountingHook {
-    async fn on_event(&self, _event: OnTaskStart, _ctx: &TaskHookContext, _payload: &OnTaskStartPayload) {
+    async fn on_event(
+        &self,
+        _event: OnTaskStart,
+        _ctx: &TaskHookContext,
+        _payload: &OnTaskStartPayload,
+    ) {
         self.count.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -26,7 +31,12 @@ struct OnEndCountingHook {
 
 #[async_trait]
 impl TaskHook<OnTaskEnd> for OnEndCountingHook {
-    async fn on_event(&self, _event: OnTaskEnd, _ctx: &TaskHookContext, _payload: &OnTaskEndPayload) {
+    async fn on_event(
+        &self,
+        _event: OnTaskEnd,
+        _ctx: &TaskHookContext,
+        _payload: &OnTaskEndPayload,
+    ) {
         self.count.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -70,11 +80,19 @@ async fn test_attach_and_trigger_hooks() {
     task.attach_hook::<OnTaskEnd>(hook_end).await;
 
     task.emit_hook_event::<OnTaskStart>(&()).await;
-    assert_eq!(on_start_count.load(Ordering::SeqCst), 1, "OnTaskStart hook should fire once");
+    assert_eq!(
+        on_start_count.load(Ordering::SeqCst),
+        1,
+        "OnTaskStart hook should fire once"
+    );
 
     let no_error: Option<TaskError> = None;
     task.emit_hook_event::<OnTaskEnd>(&no_error).await;
-    assert_eq!(on_end_count.load(Ordering::SeqCst), 1, "OnTaskEnd hook should fire once");
+    assert_eq!(
+        on_end_count.load(Ordering::SeqCst),
+        1,
+        "OnTaskEnd hook should fire once"
+    );
 }
 
 #[tokio::test]
@@ -86,22 +104,28 @@ async fn test_detach_hooks() {
     });
 
     let should_succeed = Arc::new(AtomicBool::new(true));
-    let frame = SimpleTaskFrame {
-        should_succeed,
-    };
+    let frame = SimpleTaskFrame { should_succeed };
 
     let task = Task::simple(TaskScheduleImmediate, frame);
 
     task.attach_hook::<OnTaskStart>(hook.clone()).await;
-    
+
     task.emit_hook_event::<OnTaskStart>(&()).await;
-    assert_eq!(on_start_count.load(Ordering::SeqCst), 1, "Hook should fire once before detach");
+    assert_eq!(
+        on_start_count.load(Ordering::SeqCst),
+        1,
+        "Hook should fire once before detach"
+    );
 
     task.detach_hook::<OnTaskStart, OnStartCountingHook>().await;
-    
+
     task.emit_hook_event::<OnTaskStart>(&()).await;
-    
-    assert_eq!(on_start_count.load(Ordering::SeqCst), 1, "Hook should be detached, count should not increment");
+
+    assert_eq!(
+        on_start_count.load(Ordering::SeqCst),
+        1,
+        "Hook should be detached, count should not increment"
+    );
 }
 
 #[tokio::test]
@@ -113,13 +137,15 @@ async fn test_get_hook() {
     });
 
     let should_succeed = Arc::new(AtomicBool::new(true));
-    let frame = SimpleTaskFrame {
-        should_succeed,
-    };
+    let frame = SimpleTaskFrame { should_succeed };
 
     let task = Task::simple(TaskScheduleImmediate, frame);
 
-    assert!(task.get_hook::<OnTaskStart, OnStartCountingHook>().is_none(), "Hook should not exist before attach");
+    assert!(
+        task.get_hook::<OnTaskStart, OnStartCountingHook>()
+            .is_none(),
+        "Hook should not exist before attach"
+    );
 
     task.attach_hook::<OnTaskStart>(hook).await;
 
@@ -127,5 +153,9 @@ async fn test_get_hook() {
     assert!(retrieved_hook.is_some(), "Hook should exist after attach");
 
     task.emit_hook_event::<OnTaskStart>(&()).await;
-    assert_eq!(on_start_count.load(Ordering::SeqCst), 1, "Retrieved hook should work");
+    assert_eq!(
+        on_start_count.load(Ordering::SeqCst),
+        1,
+        "Retrieved hook should work"
+    );
 }
