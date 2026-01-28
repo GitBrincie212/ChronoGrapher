@@ -1,4 +1,7 @@
-use crate::task::{ConsensusGTFE, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure, OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, TaskError, TaskFrame};
+use crate::task::{
+    ConsensusGTFE, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure,
+    OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, TaskError, TaskFrame,
+};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -139,9 +142,9 @@ impl TaskFrame for SequentialTaskFrame {
             let result = ctx.subdivide(taskframe.clone()).await.err();
             ctx.emit::<OnChildTaskFrameEnd>(&result.clone()).await;
             match self.policy.should_quit(result).await {
-                ConsensusGTFE::SkipResult => {},
+                ConsensusGTFE::SkipResult => {}
                 ConsensusGTFE::ReturnSuccess => break,
-                ConsensusGTFE::ReturnError(err) => {return Err(err)}
+                ConsensusGTFE::ReturnError(err) => return Err(err),
             }
         }
         Ok(())
