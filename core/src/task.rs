@@ -22,7 +22,6 @@ use dashmap::DashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use uuid::Uuid;
 
 pub type ErasedTask = Task<dyn TaskFrame, dyn TaskTrigger, dyn ScheduleStrategy>;
 
@@ -197,7 +196,6 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2, SequentialSchedulingPolicy> {
     /// - [`TaskFrame`]
     /// - [`TaskTrigger`]
     pub fn simple(schedule: T2, frame: T1) -> Self {
-        let id = Uuid::new_v4();
         Self {
             frame: Arc::new(frame),
             trigger: Arc::new(schedule),
