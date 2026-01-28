@@ -188,7 +188,7 @@ pub trait ResolvableFrameDependency: FrameDependency {
 ///
 /// # Supertrait(s)
 /// For implementing this trait, one has to also implement the [`FrameDependency`] since
-/// this is an hooks of a dependency to allow unresolving it manually
+/// this is a hooks of a dependency to allow unresolving it manually
 ///
 /// # Trait Implementation(s)
 /// Specifically, there are 3 dependencies which implement [`UnresolvableFrameDependency`], those being:
