@@ -47,7 +47,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
 
                         Some(err) => {
                             eprintln!(
-                                "Scheduler engine received an error for Task with identifier ({:?}): {:?}",
+                                "Scheduler engine received an error for Task with identifier ({:?}):\n\t {:?}",
                                 id, err
                             );
                         }
