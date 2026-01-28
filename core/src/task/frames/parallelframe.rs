@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use crate::task::SequentialTaskFrame;
 use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure};
-use crate::task::{OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, TaskError, TaskFrame};
+use crate::task::{ConsensusGTFE, OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, TaskError, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -153,11 +153,13 @@ impl TaskFrame for ParallelTaskFrame {
 
         while let Some(result) = js.join_next().await {
             let Ok(k) = result else {
-                continue;
+                continue
             };
-            let should_quit = self.policy.should_quit(k).await;
-            if let Some(res) = should_quit {
-                return res;
+            
+            match self.policy.should_quit(k.err()).await {
+                ConsensusGTFE::SkipResult => continue,
+                ConsensusGTFE::ReturnSuccess => break,
+                ConsensusGTFE::ReturnError(err) => {return Err(err)}
             }
         }
 

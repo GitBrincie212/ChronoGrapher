@@ -5,6 +5,12 @@ use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 
+pub enum ConsensusGTFE {
+    SkipResult,
+    ReturnError(TaskError),
+    ReturnSuccess
+}
+
 /// [`GroupedTaskFrameExecBehavior`] is a mechanism used in conjunction with [`ParallelTaskFrame`]
 /// and [`SequentialTaskFrame`] **(we call them grouped task frames)**, it defines the behavior for
 /// how it should behave according to the results of its child [`TaskFrame`]s
@@ -37,7 +43,7 @@ use async_trait::async_trait;
 /// - [`GroupedTaskFrameExecBehavior::should_quit`]
 #[async_trait]
 pub trait GroupedTaskFramesExecBehavior: Send + Sync {
-    async fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>>;
+    async fn should_quit(&self, result: Option<TaskError>) -> ConsensusGTFE;
 }
 
 /// [`GroupedTaskFramesQuitOnSuccess`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -69,10 +75,10 @@ pub struct GroupedTaskFramesQuitOnSuccess;
 
 #[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
-    async fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
+    async fn should_quit(&self, result: Option<TaskError>) -> ConsensusGTFE {
         match result {
-            Ok(()) => Some(Ok(())),
-            Err(_) => None,
+            None => ConsensusGTFE::ReturnSuccess,
+            Some(_) => ConsensusGTFE::SkipResult,
         }
     }
 }
@@ -106,10 +112,10 @@ pub struct GroupedTaskFramesQuitOnFailure;
 
 #[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
-    async fn should_quit(&self, result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
+    async fn should_quit(&self, result: Option<TaskError>) -> ConsensusGTFE {
         match result {
-            Ok(()) => None,
-            Err(err) => Some(Err(err)),
+            None => ConsensusGTFE::SkipResult,
+            Some(err) => ConsensusGTFE::ReturnError(err),
         }
     }
 }
@@ -136,8 +142,8 @@ pub struct GroupedTaskFramesSilent;
 
 #[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
-    async fn should_quit(&self, _result: Result<(), TaskError>) -> Option<Result<(), TaskError>> {
-        None
+    async fn should_quit(&self, _result: Option<TaskError>) -> ConsensusGTFE {
+        ConsensusGTFE::SkipResult
     }
 }
 
