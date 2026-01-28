@@ -115,8 +115,8 @@ pub struct SchedulerInitConfig<T: SchedulerConfig> {
     engine: T::SchedulerEngine,
 }
 
-impl<T: SchedulerConfig> From<SchedulerInitConfig<T>> for Scheduler<T> {
-    fn from(config: SchedulerInitConfig<T>) -> Self {
+impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
+    fn from(config: SchedulerInitConfig<C>) -> Self {
         Self {
             dispatcher: Arc::new(config.dispatcher),
             store: Arc::new(config.store),
