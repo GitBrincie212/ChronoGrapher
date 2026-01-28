@@ -72,7 +72,7 @@ pub type TaskError = Arc<dyn Debug + Send + Sync>;
 pub struct TaskContext {
     hooks_container: Arc<TaskHookContainer>,
     depth: u64,
-    frame: Arc<dyn TaskFrame>
+    frame: Arc<dyn TaskFrame>,
 }
 
 impl Clone for TaskContext {

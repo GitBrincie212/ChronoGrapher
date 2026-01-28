@@ -1,7 +1,10 @@
 use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{ConditionalFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame};
+use crate::task::{
+    ConditionalFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame,
+    RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
+};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -89,7 +92,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
             RetriableTaskFrame::instant_filterless_builder()
                 .retries(retries)
                 .frame(self.0)
-                .build()
+                .build(),
         )
     }
 
@@ -130,7 +133,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
                 .retries(retries)
                 .frame(self.0)
                 .backoff_strat(ConstantBackoffStrategy::new(delay))
-                .build()
+                .build(),
         )
     }
 
@@ -176,7 +179,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
                 .retries(retries)
                 .frame(self.0)
                 .backoff_strat(strat)
-                .build()
+                .build(),
         )
     }
 

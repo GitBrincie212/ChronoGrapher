@@ -8,7 +8,7 @@ use async_trait::async_trait;
 pub enum ConsensusGTFE {
     SkipResult,
     ReturnError(TaskError),
-    ReturnSuccess
+    ReturnSuccess,
 }
 
 /// [`GroupedTaskFrameExecBehavior`] is a mechanism used in conjunction with [`ParallelTaskFrame`]

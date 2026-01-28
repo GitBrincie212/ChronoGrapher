@@ -297,22 +297,18 @@ define_event_group!(
 
 #[derive(TypedBuilder)]
 #[builder(build_method(into = RetriableTaskFrame<T1, T2, T3>))]
-pub struct RetriableTaskFrameConfig<
-    T1: TaskFrame,
-    T2: RetryBackoffStrategy,
-    T3: RetryErrorFilter
-> {
+pub struct RetriableTaskFrameConfig<T1: TaskFrame, T2: RetryBackoffStrategy, T3: RetryErrorFilter> {
     frame: T1,
     retries: NonZeroU32,
     backoff_strat: T2,
-    when: T3
+    when: T3,
 }
 
 impl<T1, T2, T3> From<RetriableTaskFrameConfig<T1, T2, T3>> for RetriableTaskFrame<T1, T2, T3>
 where
     T1: TaskFrame,
     T2: RetryBackoffStrategy,
-    T3: RetryErrorFilter
+    T3: RetryErrorFilter,
 {
     fn from(config: RetriableTaskFrameConfig<T1, T2, T3>) -> Self {
         Self {
@@ -385,50 +381,46 @@ where
 pub struct RetriableTaskFrame<
     T1: TaskFrame,
     T2: RetryBackoffStrategy = ConstantBackoffStrategy,
-    T3: RetryErrorFilter = ()
+    T3: RetryErrorFilter = (),
 > {
     frame: Arc<T1>,
     retries: NonZeroU32,
     backoff_strat: T2,
-    when: T3
+    when: T3,
 }
 
 type IncompleteFilterlessInstantBuilder<T> = RetriableTaskFrameConfigBuilder<
-    T, ConstantBackoffStrategy, (),
-    ((), (), (ConstantBackoffStrategy,), ((),))
+    T,
+    ConstantBackoffStrategy,
+    (),
+    ((), (), (ConstantBackoffStrategy,), ((),)),
 >;
 
 type IncompleteInstantBuilder<T1, T2: RetryErrorFilter> = RetriableTaskFrameConfigBuilder<
-    T1, ConstantBackoffStrategy, T2,
-    ((), (), (ConstantBackoffStrategy,), ())
+    T1,
+    ConstantBackoffStrategy,
+    T2,
+    ((), (), (ConstantBackoffStrategy,), ()),
 >;
 
-type IncompleteFilterlessBuilder<T1, T2: RetryBackoffStrategy> = RetriableTaskFrameConfigBuilder<
-    T1, T2, (),
-    ((), (), (), ((),))
->;
+type IncompleteFilterlessBuilder<T1, T2: RetryBackoffStrategy> =
+    RetriableTaskFrameConfigBuilder<T1, T2, (), ((), (), (), ((),))>;
 
 impl<T1: TaskFrame, T2: RetryBackoffStrategy> RetriableTaskFrame<T1, T2> {
-    pub fn filterless_builder() -> IncompleteFilterlessBuilder<T1, T2>
-    {
-        RetriableTaskFrameConfig::builder()
-            .when(())
+    pub fn filterless_builder() -> IncompleteFilterlessBuilder<T1, T2> {
+        RetriableTaskFrameConfig::builder().when(())
     }
 }
 
-
 impl<T1: TaskFrame, T2: RetryErrorFilter> RetriableTaskFrame<T1, ConstantBackoffStrategy, T2> {
-    pub fn instant_builder() -> IncompleteInstantBuilder<T1, T2>
-    {
+    pub fn instant_builder() -> IncompleteInstantBuilder<T1, T2> {
         RetriableTaskFrameConfig::builder()
             .backoff_strat(ConstantBackoffStrategy::new(Duration::ZERO))
     }
 }
 
-
 impl<T: TaskFrame> RetriableTaskFrame<T> {
-    pub fn instant_filterless_builder() -> IncompleteFilterlessInstantBuilder<T>
-    {
+    pub fn instant_filterless_builder() -> IncompleteFilterlessInstantBuilder<T> {
         RetriableTaskFrameConfig::builder()
             .backoff_strat(ConstantBackoffStrategy::new(Duration::ZERO))
             .when(())
