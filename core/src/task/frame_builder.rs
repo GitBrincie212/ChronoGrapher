@@ -1,10 +1,7 @@
 use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{
-    ConditionalFrame, DependencyTaskFrame, FallbackTaskFrame, RetriableTaskFrame, TaskFrame,
-    TimeoutTaskFrame,
-};
+use crate::task::{ConditionalFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
@@ -88,7 +85,12 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         self,
         retries: NonZeroU32,
     ) -> TaskFrameBuilder<RetriableTaskFrame<T>> {
-        TaskFrameBuilder(RetriableTaskFrame::new_instant(self.0, retries))
+        TaskFrameBuilder(
+            RetriableTaskFrame::instant_filterless_builder()
+                .retries(retries)
+                .frame(self.0)
+                .build()
+        )
     }
 
     /// Stacks this [`TaskFrame`] with a delayed [`RetriableTaskFrame`], i.e.
@@ -123,7 +125,13 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         retries: NonZeroU32,
         delay: Duration,
     ) -> TaskFrameBuilder<RetriableTaskFrame<T>> {
-        TaskFrameBuilder(RetriableTaskFrame::new(self.0, retries, delay))
+        TaskFrameBuilder(
+            RetriableTaskFrame::filterless_builder()
+                .retries(retries)
+                .frame(self.0)
+                .backoff_strat(ConstantBackoffStrategy::new(delay))
+                .build()
+        )
     }
 
     /// Stacks this [`TaskFrame`] with a [`RetriableTaskFrame`] that contains a retry backoff strategy,
@@ -163,9 +171,13 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     where
         RetriableTaskFrame<T, T2>: TaskFrame,
     {
-        TaskFrameBuilder(RetriableTaskFrame::<T, T2>::new_with(
-            self.0, retries, strat,
-        ))
+        TaskFrameBuilder(
+            RetriableTaskFrame::filterless_builder()
+                .retries(retries)
+                .frame(self.0)
+                .backoff_strat(strat)
+                .build()
+        )
     }
 
     /// Stacks this [`TaskFrame`] with a [`TimeoutTaskFrame`] that timeouts after it reaches a specific

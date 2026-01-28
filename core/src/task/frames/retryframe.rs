@@ -6,6 +6,19 @@ use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
+use typed_builder::TypedBuilder;
+
+#[async_trait]
+pub trait RetryErrorFilter: Send + Sync {
+    async fn execute(&self, error: &Option<TaskError>) -> bool;
+}
+
+#[async_trait]
+impl RetryErrorFilter for () {
+    async fn execute(&self, _error: &Option<TaskError>) -> bool {
+        true
+    }
+}
 
 /// [`RetryBackoffStrategy`] is a trait for computing a new delay from when
 /// a [`RetriableTaskFrame`] fails and wants to retry. There are multiple
@@ -282,6 +295,35 @@ define_event_group!(
     OnRetryAttemptStart, OnRetryAttemptEnd
 );
 
+#[derive(TypedBuilder)]
+#[builder(build_method(into = RetriableTaskFrame<T1, T2, T3>))]
+pub struct RetriableTaskFrameConfig<
+    T1: TaskFrame,
+    T2: RetryBackoffStrategy,
+    T3: RetryErrorFilter
+> {
+    frame: T1,
+    retries: NonZeroU32,
+    backoff_strat: T2,
+    when: T3
+}
+
+impl<T1, T2, T3> From<RetriableTaskFrameConfig<T1, T2, T3>> for RetriableTaskFrame<T1, T2, T3>
+where
+    T1: TaskFrame,
+    T2: RetryBackoffStrategy,
+    T3: RetryErrorFilter
+{
+    fn from(config: RetriableTaskFrameConfig<T1, T2, T3>) -> Self {
+        Self {
+            frame: Arc::new(config.frame),
+            retries: config.retries,
+            backoff_strat: config.backoff_strat,
+            when: config.when,
+        }
+    }
+}
+
 /// Represents a **retriable task frame** which wraps a [`TaskFrame`]. This task frame type acts as a
 /// **wrapper node** within the task frame hierarchy, providing a retry mechanism for execution.
 ///
@@ -340,74 +382,62 @@ define_event_group!(
 /// # See Also
 /// - [`TaskFrame`]
 /// - [`RetryBackoffStrategy`]
-pub struct RetriableTaskFrame<T: TaskFrame, T2: RetryBackoffStrategy = ConstantBackoffStrategy> {
-    frame: Arc<T>,
+pub struct RetriableTaskFrame<
+    T1: TaskFrame,
+    T2: RetryBackoffStrategy = ConstantBackoffStrategy,
+    T3: RetryErrorFilter = ()
+> {
+    frame: Arc<T1>,
     retries: NonZeroU32,
     backoff_strat: T2,
+    when: T3
 }
+
+type IncompleteFilterlessInstantBuilder<T> = RetriableTaskFrameConfigBuilder<
+    T, ConstantBackoffStrategy, (),
+    ((), (), (ConstantBackoffStrategy,), ((),))
+>;
+
+type IncompleteInstantBuilder<T1, T2: RetryErrorFilter> = RetriableTaskFrameConfigBuilder<
+    T1, ConstantBackoffStrategy, T2,
+    ((), (), (ConstantBackoffStrategy,), ())
+>;
+
+type IncompleteFilterlessBuilder<T1, T2: RetryBackoffStrategy> = RetriableTaskFrameConfigBuilder<
+    T1, T2, (),
+    ((), (), (), ((),))
+>;
+
+impl<T1: TaskFrame, T2: RetryBackoffStrategy> RetriableTaskFrame<T1, T2> {
+    pub fn filterless_builder() -> IncompleteFilterlessBuilder<T1, T2>
+    {
+        RetriableTaskFrameConfig::builder()
+            .when(())
+    }
+}
+
+
+impl<T1: TaskFrame, T2: RetryErrorFilter> RetriableTaskFrame<T1, ConstantBackoffStrategy, T2> {
+    pub fn instant_builder() -> IncompleteInstantBuilder<T1, T2>
+    {
+        RetriableTaskFrameConfig::builder()
+            .backoff_strat(ConstantBackoffStrategy::new(Duration::ZERO))
+    }
+}
+
 
 impl<T: TaskFrame> RetriableTaskFrame<T> {
-    /// Creates / Constructs a [`RetriableTaskFrame`] that has a specified delay per retry.
-    /// This constructor is for TaskFrames which guarantee persistence
-    ///
-    /// # Argument(s)
-    /// This method accepts 3 arguments, the first being the [`TaskFrame`] as ``frame``, the second
-    /// being the number of retries as ``retries`` and the third being a constant delay as ``delay``
-    ///
-    /// # Returns
-    /// The constructed [`RetriableTaskFrame`] instance that wraps a [`TaskFrame`] as ``frame`` which
-    /// will be retried ``retries`` times until it succeeds with each retry having a delay of ``delay``
-    ///
-    /// # See Also
-    /// - [`TaskFrame`]
-    /// - [`RetriableTaskFrame`]
-    pub fn new(frame: T, retries: NonZeroU32, delay: Duration) -> Self {
-        Self::new_with(frame, retries, ConstantBackoffStrategy::new(delay))
-    }
-
-    /// Creates / Constructs a [`RetriableTaskFrame`] that has no delay per retry.
-    /// This constructor is for TaskFrames which guarantee persistence
-    ///
-    /// # Argument(s)
-    /// This method accepts 2 arguments, the first being the [`TaskFrame`] as ``frame`` and
-    /// the second being the number of retries as ``retries``
-    ///
-    /// # Returns
-    /// The constructed [`RetriableTaskFrame`] instance that wraps a [`TaskFrame`] as ``frame`` which
-    /// will be retried ``retries`` times until it succeeds with no delay in between
-    ///
-    /// # See Also
-    /// - [`TaskFrame`]
-    /// - [`RetriableTaskFrame`]
-    pub fn new_instant(task: T, retries: NonZeroU32) -> Self {
-        Self::new(task, retries, Duration::ZERO)
+    pub fn instant_filterless_builder() -> IncompleteFilterlessInstantBuilder<T>
+    {
+        RetriableTaskFrameConfig::builder()
+            .backoff_strat(ConstantBackoffStrategy::new(Duration::ZERO))
+            .when(())
     }
 }
 
-impl<T: TaskFrame, T2: RetryBackoffStrategy> RetriableTaskFrame<T, T2> {
-    /// Creates / Constructs a [`RetriableTaskFrame`] that has a custom backoff strategy per retry.
-    /// This constructor is for TaskFrames which guarantee persistence
-    ///
-    /// # Argument(s)
-    /// This method accepts 3 arguments, the first being the [`TaskFrame`] as ``frame``, the second
-    /// being the number of retries as ``retries`` and the third being a custom [`RetryBackoffStrategy`]
-    /// as ``backoff_strat``
-    ///
-    /// # Returns
-    /// The constructed [`RetriableTaskFrame`] instance that wraps a [`TaskFrame`] as ``frame`` which
-    /// will be retried ``retries`` times until it succeeds with each retry's delay being computed
-    /// in a [`RetryBackoffStrategy`] via ``backoff_strat``
-    ///
-    /// # See Also
-    /// - [`TaskFrame`]
-    /// - [`RetryBackoffStrategy`]
-    /// - [`RetriableTaskFrame`]
-    pub fn new_with(task: T, retries: NonZeroU32, backoff_strat: T2) -> Self {
-        Self {
-            frame: Arc::new(task),
-            retries,
-            backoff_strat,
-        }
+impl<T1: TaskFrame, T2: RetryBackoffStrategy, T3: RetryErrorFilter> RetriableTaskFrame<T1, T2, T3> {
+    pub fn builder() -> RetriableTaskFrameConfigBuilder<T1, T2, T3> {
+        RetriableTaskFrameConfig::builder()
     }
 }
 
@@ -416,19 +446,19 @@ impl<T: TaskFrame, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T,
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
         let subdivided = ctx.subdivided_ctx(self.frame.clone());
-        for retry in 0u32..self.retries.get() {
+        for retry in 0u32..=self.retries.get() {
             ctx.emit::<OnRetryAttemptStart>(&retry).await;
 
             error = self.frame.execute(&subdivided).await.err();
 
             ctx.emit::<OnRetryAttemptEnd>(&(retry, error.clone())).await;
 
-            if error.is_none() {
+            if error.is_none() || !self.when.execute(&error).await {
                 return Ok(());
             }
 
-            if retry == self.retries.get() - 1 {
-                continue;
+            if retry == self.retries.get() {
+                break;
             }
 
             let delay = self.backoff_strat.compute(retry).await;
