@@ -134,7 +134,7 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
         ctx.emit::<OnTimeout>(&self.max_duration).await; // skipcq: RS-E1015
         Err(Arc::new(std::io::Error::new(
             std::io::ErrorKind::TimedOut,
-            "Task timed out",
+            "TaskFrame's runtime got timeout",
         )))
     }
 }

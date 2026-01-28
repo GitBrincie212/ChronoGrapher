@@ -42,11 +42,6 @@ pub enum ChronographerErrors {
     #[error("Dependencies have not been resolved")]
     TaskDependenciesUnresolved,
 
-    /// This error is meant to happen when a timeout occurs on [`TimeoutTaskFrame`], i.e.
-    /// if a threshold of time counts down fully to zero but the task frame hasn't completed
-    #[error("`{0}` Timed out")]
-    TimeoutError(String),
-
     #[error("{0}")]
     CronParserError(String),
 
