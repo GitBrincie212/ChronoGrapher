@@ -9,7 +9,7 @@ use std::time::Duration;
 use typed_builder::TypedBuilder;
 
 #[async_trait]
-pub trait RetryErrorFilter: Send + Sync {
+pub trait RetryErrorFilter: Send + Sync + 'static {
     async fn execute(&self, error: &Option<TaskError>) -> bool;
 }
 
@@ -145,8 +145,8 @@ impl ExponentialBackoffStrategy {
     ///
     /// # See Also
     /// - [`ExponentialBackoffStrategy`]
-    pub fn new_with(factor: f64, max_duration: f64) -> Self {
-        Self(factor, max_duration)
+    pub fn new_with(factor: f64, max_duration: Duration) -> Self {
+        Self(factor, max_duration.as_secs_f64())
     }
 }
 
@@ -154,6 +154,26 @@ impl ExponentialBackoffStrategy {
 impl RetryBackoffStrategy for ExponentialBackoffStrategy {
     async fn compute(&self, retry: u32) -> Duration {
         Duration::from_secs_f64(self.0.powf(retry as f64).min(self.1))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LinearBackoffStrategy(Duration, Duration);
+
+impl LinearBackoffStrategy {
+    pub fn new(factor: Duration) -> Self {
+        Self(factor, Duration::from_secs_f64(f64::INFINITY))
+    }
+    
+    pub fn new_with(factor: Duration, max_duration: Duration) -> Self {
+        Self(factor, max_duration)
+    }
+}
+
+#[async_trait]
+impl RetryBackoffStrategy for LinearBackoffStrategy {
+    async fn compute(&self, retry: u32) -> Duration {
+        (self.0 * retry).min(self.1)
     }
 }
 
@@ -296,25 +316,55 @@ define_event_group!(
 );
 
 #[derive(TypedBuilder)]
-#[builder(build_method(into = RetriableTaskFrame<T1, T2, T3>))]
-pub struct RetriableTaskFrameConfig<T1: TaskFrame, T2: RetryBackoffStrategy, T3: RetryErrorFilter> {
-    frame: T1,
+#[builder(
+    build_method(into = RetriableTaskFrame<T>),
+    mutators(
+        pub fn constant(&mut self, duration: Duration){
+            self.backoff = Box::new(ConstantBackoffStrategy::new(duration));
+        }
+    
+        pub fn exponential(&mut self, factor: f64){
+            self.backoff = Box::new(ExponentialBackoffStrategy::new(factor));
+        }
+        
+        
+        pub fn linear(&mut self, factor: Duration){
+            self.backoff = Box::new(LinearBackoffStrategy::new(factor));
+        }
+    
+        pub fn bounded_exponential(&mut self, factor: f64, max: Duration){
+            self.backoff = Box::new(ExponentialBackoffStrategy::new_with(factor, max));
+        }
+        
+        pub fn bounded_linear(&mut self, factor: Duration, max: Duration){
+            self.backoff = Box::new(LinearBackoffStrategy::new_with(factor, max));
+        }
+    
+        pub fn backoff(&mut self, backoff: impl RetryBackoffStrategy){
+            self.backoff = Box::new(backoff) as Box<dyn RetryBackoffStrategy>;
+        }
+    )
+)]
+pub struct RetriableTaskFrameConfig<T: TaskFrame> {
+    frame: T,
     retries: NonZeroU32,
-    backoff_strat: T2,
-    when: T3,
+
+    #[builder(via_mutators(init = Box::new(ConstantBackoffStrategy::new(Duration::ZERO))))]
+    backoff: Box<dyn RetryBackoffStrategy>,
+
+    #[builder(
+        setter(transform = |val: impl RetryErrorFilter| Arc::new(val) as Arc<dyn RetryErrorFilter>),
+        default = Arc::new(())
+    )]
+    when: Arc<dyn RetryErrorFilter>,
 }
 
-impl<T1, T2, T3> From<RetriableTaskFrameConfig<T1, T2, T3>> for RetriableTaskFrame<T1, T2, T3>
-where
-    T1: TaskFrame,
-    T2: RetryBackoffStrategy,
-    T3: RetryErrorFilter,
-{
-    fn from(config: RetriableTaskFrameConfig<T1, T2, T3>) -> Self {
+impl<T: TaskFrame> From<RetriableTaskFrameConfig<T>> for RetriableTaskFrame<T> {
+    fn from(config: RetriableTaskFrameConfig<T>) -> Self {
         Self {
             frame: Arc::new(config.frame),
             retries: config.retries,
-            backoff_strat: config.backoff_strat,
+            backoff_strat: config.backoff,
             when: config.when,
         }
     }
@@ -378,63 +428,21 @@ where
 /// # See Also
 /// - [`TaskFrame`]
 /// - [`RetryBackoffStrategy`]
-pub struct RetriableTaskFrame<
-    T1: TaskFrame,
-    T2: RetryBackoffStrategy = ConstantBackoffStrategy,
-    T3: RetryErrorFilter = (),
-> {
-    frame: Arc<T1>,
+pub struct RetriableTaskFrame<T: TaskFrame> {
+    frame: Arc<T>,
     retries: NonZeroU32,
-    backoff_strat: T2,
-    when: T3,
-}
-
-type IncompleteFilterlessInstantBuilder<T> = RetriableTaskFrameConfigBuilder<
-    T,
-    ConstantBackoffStrategy,
-    (),
-    ((), (), (ConstantBackoffStrategy,), ((),)),
->;
-
-type IncompleteInstantBuilder<T1, T2: RetryErrorFilter> = RetriableTaskFrameConfigBuilder<
-    T1,
-    ConstantBackoffStrategy,
-    T2,
-    ((), (), (ConstantBackoffStrategy,), ()),
->;
-
-type IncompleteFilterlessBuilder<T1, T2: RetryBackoffStrategy> =
-    RetriableTaskFrameConfigBuilder<T1, T2, (), ((), (), (), ((),))>;
-
-impl<T1: TaskFrame, T2: RetryBackoffStrategy> RetriableTaskFrame<T1, T2> {
-    pub fn filterless_builder() -> IncompleteFilterlessBuilder<T1, T2> {
-        RetriableTaskFrameConfig::builder().when(())
-    }
-}
-
-impl<T1: TaskFrame, T2: RetryErrorFilter> RetriableTaskFrame<T1, ConstantBackoffStrategy, T2> {
-    pub fn instant_builder() -> IncompleteInstantBuilder<T1, T2> {
-        RetriableTaskFrameConfig::builder()
-            .backoff_strat(ConstantBackoffStrategy::new(Duration::ZERO))
-    }
+    backoff_strat: Box<dyn RetryBackoffStrategy>,
+    when: Arc<dyn RetryErrorFilter>,
 }
 
 impl<T: TaskFrame> RetriableTaskFrame<T> {
-    pub fn instant_filterless_builder() -> IncompleteFilterlessInstantBuilder<T> {
-        RetriableTaskFrameConfig::builder()
-            .backoff_strat(ConstantBackoffStrategy::new(Duration::ZERO))
-            .when(())
-    }
-}
-
-impl<T1: TaskFrame, T2: RetryBackoffStrategy, T3: RetryErrorFilter> RetriableTaskFrame<T1, T2, T3> {
-    pub fn builder() -> RetriableTaskFrameConfigBuilder<T1, T2, T3> {
+    pub fn builder() -> RetriableTaskFrameConfigBuilder<T> {
         RetriableTaskFrameConfig::builder()
     }
 }
 
 #[async_trait]
-impl<T: TaskFrame, T2: RetryBackoffStrategy> TaskFrame for RetriableTaskFrame<T, T2> {
+impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         let mut error: Option<TaskError> = None;
         let subdivided = ctx.subdivided_ctx(self.frame.clone());

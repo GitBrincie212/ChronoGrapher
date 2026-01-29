@@ -89,7 +89,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         retries: NonZeroU32,
     ) -> TaskFrameBuilder<RetriableTaskFrame<T>> {
         TaskFrameBuilder(
-            RetriableTaskFrame::instant_filterless_builder()
+            RetriableTaskFrame::builder()
                 .retries(retries)
                 .frame(self.0)
                 .build(),
@@ -129,10 +129,10 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         delay: Duration,
     ) -> TaskFrameBuilder<RetriableTaskFrame<T>> {
         TaskFrameBuilder(
-            RetriableTaskFrame::filterless_builder()
+            RetriableTaskFrame::builder()
                 .retries(retries)
                 .frame(self.0)
-                .backoff_strat(ConstantBackoffStrategy::new(delay))
+                .backoff(ConstantBackoffStrategy::new(delay))
                 .build(),
         )
     }
@@ -166,19 +166,16 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrameBuilder`]
     /// - [`TaskFrameBuilder::with_retry`]
     /// - [`TaskFrameBuilder::with_backoff_retry`]
-    pub fn with_backoff_retry<T2: RetryBackoffStrategy>(
+    pub fn with_backoff_retry(
         self,
         retries: NonZeroU32,
-        strat: T2,
-    ) -> TaskFrameBuilder<RetriableTaskFrame<T, T2>>
-    where
-        RetriableTaskFrame<T, T2>: TaskFrame,
-    {
+        strat: impl RetryBackoffStrategy,
+    ) -> TaskFrameBuilder<RetriableTaskFrame<T>> {
         TaskFrameBuilder(
-            RetriableTaskFrame::filterless_builder()
+            RetriableTaskFrame::builder()
                 .retries(retries)
                 .frame(self.0)
-                .backoff_strat(strat)
+                .backoff(strat)
                 .build(),
         )
     }
