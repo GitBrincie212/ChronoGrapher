@@ -37,7 +37,7 @@ impl<C: SchedulerConfig> Ord for InternalScheduledItem<C> {
     }
 }
 
-type EarlyMutexLock<'a, C: SchedulerConfig> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>>;
+type EarlyMutexLock<'a, C> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>>;
 
 /// [`EphemeralSchedulerTaskStore`] is an implementation of [`SchedulerTaskStore`]
 /// that can operate in-memory and persistence (can be configured with a [`PersistenceBackend`])

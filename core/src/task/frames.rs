@@ -22,6 +22,7 @@ pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
+use crate::task::DashMap;
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
 use async_trait::async_trait;
 pub use conditionframe::*;
@@ -34,9 +35,11 @@ pub use parallelframe::*;
 pub use retryframe::*;
 pub use selectframe::*;
 pub use sequentialframe::*;
+use std::any::Any;
+use std::any::TypeId;
 use std::fmt::Debug;
-use std::ops::Deref;
-use std::sync::Arc;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, RwLock};
 pub use timeoutframe::*;
 
 /// A task-related error (i.e. A task failure)
@@ -73,6 +76,7 @@ pub struct TaskContext {
     hooks_container: Arc<TaskHookContainer>,
     depth: u64,
     frame: Arc<dyn TaskFrame>,
+    shared_data: Arc<DashMap<TypeId, Box<dyn Any + Send + Sync>>>,
 }
 
 impl Clone for TaskContext {
@@ -81,6 +85,39 @@ impl Clone for TaskContext {
             hooks_container: self.hooks_container.clone(),
             depth: self.depth,
             frame: self.frame.clone(),
+            shared_data: self.shared_data.clone(),
+        }
+    }
+}
+
+pub struct SharedHandle<T> {
+    data: Arc<RwLock<T>>,
+    is_owner: bool,
+}
+
+impl<T> SharedHandle<T> {
+    fn owner(data: Arc<RwLock<T>>) -> Self {
+        Self {
+            data,
+            is_owner: true,
+        }
+    }
+    fn existing(data: Arc<RwLock<T>>) -> Self {
+        Self {
+            data,
+            is_owner: false,
+        }
+    }
+
+    pub fn read(&self) -> impl Deref<Target = T> + '_ {
+        self.data.read().unwrap()
+    }
+
+    pub fn write(&self) -> Option<impl DerefMut<Target = T> + '_> {
+        if self.is_owner {
+            Some(self.data.write().unwrap())
+        } else {
+            None
         }
     }
 }
@@ -108,6 +145,7 @@ impl TaskContext {
             hooks_container: task.hooks.clone(),
             depth: 0,
             frame: task.frame.clone(),
+            shared_data: Arc::new(DashMap::new()),
         }
     }
 
@@ -116,6 +154,7 @@ impl TaskContext {
             hooks_container: self.hooks_container.clone(),
             frame: frame.clone(),
             depth: self.depth + 1,
+            shared_data: self.shared_data.clone(),
         }
     }
 
@@ -185,6 +224,33 @@ impl TaskContext {
     /// - [`TaskHookEvent`]
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
         self.hooks_container.get::<E, T>()
+    }
+
+    pub fn shared<T, F>(&self, creator: F) -> SharedHandle<T>
+    where
+        T: Any + Send + Sync + 'static,
+        F: FnOnce() -> T,
+    {
+        let type_id = TypeId::of::<T>();
+        if let Some(existing) = self.shared_data.get(&type_id) {
+            return SharedHandle::existing(
+                existing.downcast_ref::<Arc<RwLock<T>>>().unwrap().clone(),
+            );
+        }
+        let data = Arc::new(RwLock::new(creator()));
+        self.shared_data.insert(type_id, Box::new(data.clone()));
+
+        SharedHandle::owner(data)
+    }
+
+    pub fn get_shared<T>(&self) -> Option<SharedHandle<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        let type_id = TypeId::of::<T>();
+        self.shared_data.get(&type_id).map(|data| {
+            SharedHandle::existing(data.downcast_ref::<Arc<RwLock<T>>>().unwrap().clone())
+        })
     }
 }
 
