@@ -112,8 +112,9 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
 impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
     async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
         match ctx.subdivide(self.0.clone()).await {
-            Err(err) => {
-                ctx.emit::<OnFallbackEvent>(&err).await;
+            Err(primary_error) => {
+                let _error_handle = ctx.shared(|| primary_error.clone());
+                ctx.emit::<OnFallbackEvent>(&primary_error).await;
                 ctx.subdivide(self.1.clone()).await
             }
             res => res,
