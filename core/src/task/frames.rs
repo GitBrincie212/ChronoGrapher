@@ -38,6 +38,7 @@ pub use sequentialframe::*;
 use std::any::Any;
 use std::any::TypeId;
 use std::fmt::Debug;
+use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 pub use timeoutframe::*;
@@ -238,6 +239,24 @@ impl TaskContext {
             );
         }
         let data = Arc::new(RwLock::new(creator()));
+        self.shared_data.insert(type_id, Box::new(data.clone()));
+
+        SharedHandle::owner(data)
+    }
+
+    pub async fn shared_async<T, F, Fut>(&self, creator: F) -> SharedHandle<T>
+    where
+        T: Any + Send + Sync + 'static,
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = T> + Send + 'static,
+    {
+        let type_id = TypeId::of::<T>();
+        if let Some(existing) = self.shared_data.get(&type_id) {
+            return SharedHandle::existing(
+                existing.downcast_ref::<Arc<RwLock<T>>>().unwrap().clone(),
+            );
+        }
+        let data = Arc::new(RwLock::new(creator().await));
         self.shared_data.insert(type_id, Box::new(data.clone()));
 
         SharedHandle::owner(data)
