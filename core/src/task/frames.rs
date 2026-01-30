@@ -93,33 +93,22 @@ impl Clone for TaskContext {
 
 pub struct SharedHandle<T> {
     data: Arc<RwLock<T>>,
-    is_owner: bool,
 }
 
 impl<T> SharedHandle<T> {
     fn owner(data: Arc<RwLock<T>>) -> Self {
-        Self {
-            data,
-            is_owner: true,
-        }
+        Self { data }
     }
     fn existing(data: Arc<RwLock<T>>) -> Self {
-        Self {
-            data,
-            is_owner: false,
-        }
+        Self { data }
     }
 
     pub fn read(&self) -> impl Deref<Target = T> + '_ {
         self.data.read().unwrap()
     }
 
-    pub fn write(&self) -> Option<impl DerefMut<Target = T> + '_> {
-        if self.is_owner {
-            Some(self.data.write().unwrap())
-        } else {
-            None
-        }
+    pub fn write(&self) -> impl DerefMut<Target = T> + '_ {
+        self.data.write().unwrap()
     }
 }
 
