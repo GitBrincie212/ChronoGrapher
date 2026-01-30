@@ -15,5 +15,7 @@ async fn main() {
     let task = Task::simple(TaskScheduleInterval::from_secs(4), exec_frame);
     let _ = CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
     CHRONOGRAPHER_SCHEDULER.start().await;
-    loop {}
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
 }
