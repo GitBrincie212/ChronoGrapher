@@ -76,6 +76,6 @@ impl TaskSchedule for TaskScheduleCron {
         let dt = DateTime::<Utc>::from(time);
         cron_parser::parse(&self.0, &dt)
             .map_err(|e| Arc::new(ChronographerErrors::CronParserError(e.to_string())) as TaskError)
-            .map(|x| SystemTime::from(x))
+            .map(SystemTime::from)
     }
 }

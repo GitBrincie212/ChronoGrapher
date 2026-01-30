@@ -164,7 +164,7 @@ impl LinearBackoffStrategy {
     pub fn new(factor: Duration) -> Self {
         Self(factor, Duration::from_secs_f64(f64::INFINITY))
     }
-    
+
     pub fn new_with(factor: Duration, max_duration: Duration) -> Self {
         Self(factor, max_duration)
     }
@@ -322,24 +322,23 @@ define_event_group!(
         pub fn constant(&mut self, duration: Duration){
             self.backoff = Box::new(ConstantBackoffStrategy::new(duration));
         }
-    
+
         pub fn exponential(&mut self, factor: f64){
             self.backoff = Box::new(ExponentialBackoffStrategy::new(factor));
         }
-        
-        
+
         pub fn linear(&mut self, factor: Duration){
             self.backoff = Box::new(LinearBackoffStrategy::new(factor));
         }
-    
+
         pub fn bounded_exponential(&mut self, factor: f64, max: Duration){
             self.backoff = Box::new(ExponentialBackoffStrategy::new_with(factor, max));
         }
-        
+
         pub fn bounded_linear(&mut self, factor: Duration, max: Duration){
             self.backoff = Box::new(LinearBackoffStrategy::new_with(factor, max));
         }
-    
+
         pub fn backoff(&mut self, backoff: impl RetryBackoffStrategy){
             self.backoff = Box::new(backoff) as Box<dyn RetryBackoffStrategy>;
         }

@@ -18,7 +18,7 @@ pub trait TaskSchedule: 'static + Send + Sync {
 #[async_trait]
 impl<T: TaskSchedule> TaskTrigger for T {
     async fn trigger(&self, now: SystemTime, notifier: TriggerNotifier) -> Result<(), TaskError> {
-        let date = self.schedule(now).map_err(TaskError::from)?;
+        let date = self.schedule(now)?;
         notifier.notify(Ok(date)).await;
         Ok(())
     }

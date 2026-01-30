@@ -50,7 +50,7 @@ pub enum ChronographerErrors {
 
     #[error("Supplied TaskIdentifier `{0}` is non-existent in the current SchedulerTaskStore")]
     TaskIdentifierNonExistent(String),
-    
+
     #[error("ThresholdTaskFrame's threshold has been surpassed")]
     ThresholdReachError,
 }

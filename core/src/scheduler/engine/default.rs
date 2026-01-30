@@ -30,7 +30,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                         .expect("Different type was used on EngineNotifier, which was meant as for an identifier");
                     match err {
                         None => {
-                            if let Some(_task) = store.get(&id).await {
+                            if let Some(_task) = store.get(id).await {
                                 /*
                                 if let Some(max_runs) = task.max_runs()
                                     && task.runs() >= max_runs.get()
@@ -38,9 +38,9 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                                     continue;
                                 }
                                  */
-                                store.reschedule(&clock, &id).await.expect(&format!(
-                                    "Failed to reschedule Task with the identifier {id:?}"
-                                ));
+                                store.reschedule(&clock, id).await.unwrap_or_else(|_| {
+                                    panic!("Failed to reschedule Task with the identifier {id:?}")
+                                });
                                 notifier.notify_waiters();
                             }
                         }

@@ -145,7 +145,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
         let task = self.tasks.get(&rev_item.1)?;
-        Some((task.value().clone(), rev_item.0.clone(), rev_item.1.clone()))
+        Some((task.value().clone(), rev_item.0, rev_item.1.clone()))
     }
 
     async fn get(&self, idx: &C::TaskIdentifier) -> Option<Arc<ErasedTask>> {
