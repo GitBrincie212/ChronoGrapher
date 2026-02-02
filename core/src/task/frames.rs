@@ -103,12 +103,16 @@ impl<T> SharedHandle<T> {
         Self { data }
     }
 
-    pub fn read(&self) -> impl Deref<Target = T> + '_ {
-        self.data.read().unwrap()
+    pub fn read(&self) -> Result<impl Deref<Target = T> + '_, TaskError> {
+        self.data.read().map_err(|_| {
+            std::sync::Arc::new("Shared data lock is poisoned due to a panic while holding the write lock") as TaskError
+        })
     }
 
-    pub fn write(&self) -> impl DerefMut<Target = T> + '_ {
-        self.data.write().unwrap()
+    pub fn write(&self) -> Result<impl DerefMut<Target = T> + '_, TaskError> {
+        self.data.write().map_err(|_| {
+            std::sync::Arc::new("Shared data lock is poisoned due to a panic while holding the write lock") as TaskError
+        })
     }
 }
 
@@ -223,9 +227,9 @@ impl TaskContext {
     {
         let type_id = TypeId::of::<T>();
         if let Some(existing) = self.shared_data.get(&type_id) {
-            return SharedHandle::existing(
-                existing.downcast_ref::<Arc<RwLock<T>>>().unwrap().clone(),
-            );
+            if let Some(data_ref) = existing.downcast_ref::<Arc<RwLock<T>>>() {
+                return SharedHandle::existing(data_ref.clone());
+            }
         }
         let data = Arc::new(RwLock::new(creator()));
         self.shared_data.insert(type_id, Box::new(data.clone()));
@@ -241,9 +245,9 @@ impl TaskContext {
     {
         let type_id = TypeId::of::<T>();
         if let Some(existing) = self.shared_data.get(&type_id) {
-            return SharedHandle::existing(
-                existing.downcast_ref::<Arc<RwLock<T>>>().unwrap().clone(),
-            );
+            if let Some(data_ref) = existing.downcast_ref::<Arc<RwLock<T>>>() {
+                return SharedHandle::existing(data_ref.clone());
+            }
         }
         let data = Arc::new(RwLock::new(creator().await));
         self.shared_data.insert(type_id, Box::new(data.clone()));
@@ -256,8 +260,9 @@ impl TaskContext {
         T: Send + Sync + 'static,
     {
         let type_id = TypeId::of::<T>();
-        self.shared_data.get(&type_id).map(|data| {
-            SharedHandle::existing(data.downcast_ref::<Arc<RwLock<T>>>().unwrap().clone())
+        self.shared_data.get(&type_id).and_then(|data| {
+            data.downcast_ref::<Arc<RwLock<T>>>()
+                .map(|data_ref| SharedHandle::existing(data_ref.clone()))
         })
     }
 }

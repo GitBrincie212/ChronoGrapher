@@ -20,9 +20,9 @@ async fn test_shared_creates_and_retrieves_same_instance() {
             let handle1 = ctx.shared(|| 42i32);
             let handle2 = ctx.shared(|| 100i32);
 
-            *handle1.write() = 10;
+            *handle1.write().unwrap() = 10;
 
-            if *handle2.read() == 10 {
+            if *handle2.read().unwrap() == 10 {
                 self.result.store(1, Ordering::SeqCst);
             }
 
@@ -57,10 +57,10 @@ async fn test_shared_read_and_write() {
         async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
             let handle = ctx.shared(|| AtomicUsize::new(0));
 
-            handle.write().fetch_add(5, Ordering::SeqCst);
-            if handle.read().load(Ordering::SeqCst) == 5 {
-                handle.write().fetch_add(3, Ordering::SeqCst);
-                if handle.read().load(Ordering::SeqCst) == 8 {
+            handle.write().unwrap().fetch_add(5, Ordering::SeqCst);
+            if handle.read().unwrap().load(Ordering::SeqCst) == 5 {
+                handle.write().unwrap().fetch_add(3, Ordering::SeqCst);
+                if handle.read().unwrap().load(Ordering::SeqCst) == 8 {
                     self.result.store(1, Ordering::SeqCst);
                 }
             }
@@ -97,9 +97,9 @@ async fn test_shared_async_creates_and_retrieves_same_instance() {
             let handle1 = ctx.shared_async(|| async { 42i32 }).await;
             let handle2 = ctx.shared_async(|| async { 100i32 }).await;
 
-            *handle1.write() = 10;
+            *handle1.write().unwrap() = 10;
 
-            if *handle2.read() == 10 {
+            if *handle2.read().unwrap() == 10 {
                 self.result.store(1, Ordering::SeqCst);
             }
 
@@ -172,7 +172,7 @@ async fn test_get_shared_returns_some_when_exists() {
             let handle: Option<SharedHandle<i32>> = ctx.get_shared();
 
             if let Some(h) = handle
-                && *h.read() == 42
+                && *h.read().unwrap() == 42
             {
                 self.result.store(1, Ordering::SeqCst);
             }
@@ -209,10 +209,10 @@ async fn test_shared_data_isolated_by_type() {
             let int_handle = ctx.shared(|| 42i32);
             let str_handle = ctx.shared(|| String::from("hello"));
 
-            if *int_handle.read() == 42 && *str_handle.read() == "hello" {
-                *int_handle.write() = 100;
+            if *int_handle.read().unwrap() == 42 && *str_handle.read().unwrap() == "hello" {
+                *int_handle.write().unwrap() = 100;
 
-                if *int_handle.read() == 100 && *str_handle.read() == "hello" {
+                if *int_handle.read().unwrap() == 100 && *str_handle.read().unwrap() == "hello" {
                     self.result.store(1, Ordering::SeqCst);
                 }
             }
