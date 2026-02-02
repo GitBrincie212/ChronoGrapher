@@ -148,7 +148,9 @@ impl<T> SharedHandle<T> {
     /// ```
     pub fn read(&self) -> Result<impl Deref<Target = T> + '_, TaskError> {
         self.data.read().map_err(|_| {
-            std::sync::Arc::new("Shared data lock is poisoned due to a panic while holding the write lock") as TaskError
+            std::sync::Arc::new(
+                "Shared data lock is poisoned due to a panic while holding the write lock",
+            ) as TaskError
         })
     }
 
@@ -174,7 +176,9 @@ impl<T> SharedHandle<T> {
     /// ```
     pub fn write(&self) -> Result<impl DerefMut<Target = T> + '_, TaskError> {
         self.data.write().map_err(|_| {
-            std::sync::Arc::new("Shared data lock is poisoned due to a panic while holding the write lock") as TaskError
+            std::sync::Arc::new(
+                "Shared data lock is poisoned due to a panic while holding the write lock",
+            ) as TaskError
         })
     }
 }
@@ -303,7 +307,7 @@ impl TaskContext {
     /// // Create shared counter
     /// let counter = ctx.shared(|| AtomicUsize::new(0));
     /// counter.write().unwrap().fetch_add(1, Ordering::SeqCst);
-    /// 
+    ///
     /// // Later in the same task, get the same instance
     /// let same_counter = ctx.shared(|| AtomicUsize::new(999)); // creator ignored
     /// let value = same_counter.read().unwrap().load(Ordering::SeqCst);
@@ -352,7 +356,7 @@ impl TaskContext {
     /// let config = ctx.shared_async(|| async {
     ///     load_config_from_database().await
     /// }).await;
-    /// 
+    ///
     /// // Later in the same task, get the same instance synchronously
     /// let same_config = ctx.shared_async(|| async {
     ///     panic!("This won't be called");
