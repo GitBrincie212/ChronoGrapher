@@ -91,6 +91,30 @@ impl Clone for TaskContext {
     }
 }
 
+/// [`SharedHandle`] provides thread-safe access to shared data within task execution.
+/// It wraps data in an [`Arc<RwLock<T>>`] to allow concurrent read and write access.
+///
+/// # Semantics
+/// The handle provides controlled access to shared data through read and write locks.
+/// Multiple readers can access the data simultaneously, while writers have exclusive access.
+/// The data is isolated by type, meaning each type `T` has its own shared instance.
+///
+/// # Method(s)
+/// - [`read()`] - Acquires a read lock for shared read access
+/// - [`write()`] - Acquires a write lock for exclusive write access
+///
+/// # Accessing/Modifying Field(s)
+/// The underlying data cannot be accessed directly. Use the provided `read()` and `write()`
+/// methods to access the data safely.
+///
+/// # Error(s)
+/// Both `read()` and `write()` methods return a [`TaskError`] if the lock is poisoned,
+/// which occurs when a thread panics while holding the lock.
+///
+/// # See Also
+/// - [`TaskContext::shared()`]
+/// - [`TaskContext::shared_async()`]
+/// - [`TaskContext::get_shared()`]
 pub struct SharedHandle<T> {
     data: Arc<RwLock<T>>,
 }
@@ -103,12 +127,51 @@ impl<T> SharedHandle<T> {
         Self { data }
     }
 
+    /// Acquires a read lock for shared read access to the underlying data.
+    ///
+    /// # Semantics
+    /// This method provides read-only access to the shared data. Multiple threads can
+    /// hold read locks simultaneously. The returned guard dereferences to the inner type `T`.
+    ///
+    /// # Returns
+    /// A `Result` containing a dereference guard to the shared data, or a [`TaskError`]
+    /// if the lock is poisoned due to a panic while holding a write lock.
+    ///
+    /// # Error(s)
+    /// Returns a [`TaskError`] with message "Shared data lock is poisoned due to a panic while holding the write lock"
+    /// when the underlying `RwLock` is poisoned.
+    ///
+    /// # Example(s)
+    /// ```rust
+    /// let handle = ctx.shared(|| 42i32);
+    /// let value = *handle.read().unwrap(); // Read the shared value
+    /// ```
     pub fn read(&self) -> Result<impl Deref<Target = T> + '_, TaskError> {
         self.data.read().map_err(|_| {
             std::sync::Arc::new("Shared data lock is poisoned due to a panic while holding the write lock") as TaskError
         })
     }
 
+    /// Acquires a write lock for exclusive write access to the underlying data.
+    ///
+    /// # Semantics
+    /// This method provides exclusive write access to the shared data. Only one thread can
+    /// hold a write lock at a time, and no other threads can hold read locks while a write lock is held.
+    /// The returned guard dereferences to the inner type `T` and allows modification.
+    ///
+    /// # Returns
+    /// A `Result` containing a mutable dereference guard to the shared data, or a [`TaskError`]
+    /// if the lock is poisoned due to a panic while holding the lock.
+    ///
+    /// # Error(s)
+    /// Returns a [`TaskError`] with message "Shared data lock is poisoned due to a panic while holding the write lock"
+    /// when the underlying `RwLock` is poisoned.
+    ///
+    /// # Example(s)
+    /// ```rust
+    /// let handle = ctx.shared(|| 42i32);
+    /// *handle.write().unwrap() = 100; // Modify the shared value
+    /// ```
     pub fn write(&self) -> Result<impl DerefMut<Target = T> + '_, TaskError> {
         self.data.write().map_err(|_| {
             std::sync::Arc::new("Shared data lock is poisoned due to a panic while holding the write lock") as TaskError
@@ -220,6 +283,36 @@ impl TaskContext {
         self.hooks_container.get::<E, T>()
     }
 
+    /// Creates or retrieves a shared data instance of type `T` using a synchronous creator function.
+    ///
+    /// # Semantics
+    /// This method provides type-based shared data storage within the task context. Each type `T`
+    /// has its own shared instance that persists across the task's execution. If the shared data
+    /// for type `T` doesn't exist, it's created using the provided `creator` function. If it already
+    /// exists, the existing instance is returned. The data is isolated by type, not by instance.
+    ///
+    /// # Argument(s)
+    /// - `creator` - A function that creates the initial value of type `T` if it doesn't exist.
+    ///   This function is only called once per type `T` for the task context.
+    ///
+    /// # Returns
+    /// A [`SharedHandle<T>`] that provides thread-safe read and write access to the shared data.
+    ///
+    /// # Example(s)
+    /// ```rust
+    /// // Create shared counter
+    /// let counter = ctx.shared(|| AtomicUsize::new(0));
+    /// counter.write().unwrap().fetch_add(1, Ordering::SeqCst);
+    /// 
+    /// // Later in the same task, get the same instance
+    /// let same_counter = ctx.shared(|| AtomicUsize::new(999)); // creator ignored
+    /// let value = same_counter.read().unwrap().load(Ordering::SeqCst);
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskContext::shared_async()`] - Async version for async initialization
+    /// - [`TaskContext::get_shared()`] - Get existing shared data without creating
+    /// - [`SharedHandle`] - Handle for accessing the shared data
     pub fn shared<T, F>(&self, creator: F) -> SharedHandle<T>
     where
         T: Any + Send + Sync + 'static,
@@ -237,6 +330,39 @@ impl TaskContext {
         SharedHandle::owner(data)
     }
 
+    /// Creates or retrieves a shared data instance of type `T` using an asynchronous creator function.
+    ///
+    /// # Semantics
+    /// This method provides type-based shared data storage within the task context, similar to
+    /// [`TaskContext::shared()`], but supports asynchronous initialization. Each type `T`
+    /// has its own shared instance that persists across the task's execution. If the shared data
+    /// for type `T` doesn't exist, it's created by awaiting the provided `creator` function.
+    /// If it already exists, the existing instance is returned immediately without awaiting.
+    ///
+    /// # Argument(s)
+    /// - `creator` - An async function that creates the initial value of type `T` if it doesn't exist.
+    ///   This function is only called once per type `T` for the task context.
+    ///
+    /// # Returns
+    /// A [`SharedHandle<T>`] that provides thread-safe read and write access to the shared data.
+    ///
+    /// # Example(s)
+    /// ```rust
+    /// // Create shared data with async initialization
+    /// let config = ctx.shared_async(|| async {
+    ///     load_config_from_database().await
+    /// }).await;
+    /// 
+    /// // Later in the same task, get the same instance synchronously
+    /// let same_config = ctx.shared_async(|| async {
+    ///     panic!("This won't be called");
+    /// }).await;
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskContext::shared()`] - Synchronous version
+    /// - [`TaskContext::get_shared()`] - Get existing shared data without creating
+    /// - [`SharedHandle`] - Handle for accessing the shared data
     pub async fn shared_async<T, F, Fut>(&self, creator: F) -> SharedHandle<T>
     where
         T: Any + Send + Sync + 'static,
@@ -255,6 +381,35 @@ impl TaskContext {
         SharedHandle::owner(data)
     }
 
+    /// Retrieves an existing shared data instance of type `T` without creating it.
+    ///
+    /// # Semantics
+    /// This method provides access to existing shared data without creating a new instance.
+    /// If shared data for type `T` exists, it returns a [`SharedHandle<T>`] to access it.
+    /// If no shared data for type `T` exists, it returns `None`. This is useful when you want
+    /// to conditionally use shared data that may or may not have been initialized elsewhere.
+    ///
+    /// # Returns
+    /// An `Option<SharedHandle<T>>` containing the handle if the shared data exists,
+    /// or `None` if no shared data of type `T` has been created.
+    ///
+    /// # Example(s)
+    /// ```rust
+    /// // Try to get existing shared data
+    /// if let Some(cache) = ctx.get_shared::<Cache>() {
+    ///     // Use existing cache
+    ///     let value = cache.read().unwrap().get(&key);
+    /// } else {
+    ///     // No cache available, create it
+    ///     let cache = ctx.shared(|| Cache::new());
+    ///     cache.write().unwrap().insert(key, value);
+    /// }
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskContext::shared()`] - Create or retrieve shared data
+    /// - [`TaskContext::shared_async()`] - Create or retrieve shared data with async initialization
+    /// - [`SharedHandle`] - Handle for accessing the shared data
     pub fn get_shared<T>(&self) -> Option<SharedHandle<T>>
     where
         T: Send + Sync + 'static,
