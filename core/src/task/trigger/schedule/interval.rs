@@ -1,7 +1,7 @@
 use crate::errors::ChronographerErrors;
 #[allow(unused_imports)]
 use crate::task::Task;
-use crate::task::TaskError;
+use crate::task::DynArcError;
 use crate::task::schedule::TaskSchedule;
 use chrono::TimeDelta;
 use std::fmt::Debug;
@@ -154,7 +154,7 @@ impl TaskScheduleInterval {
 }
 
 impl TaskSchedule for TaskScheduleInterval {
-    fn schedule(&self, time: SystemTime) -> Result<SystemTime, TaskError> {
+    fn schedule(&self, time: SystemTime) -> Result<SystemTime, DynArcError> {
         Ok(time.add(self.0))
     }
 }

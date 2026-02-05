@@ -1,4 +1,4 @@
-use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
+use crate::task::{TaskContext, DynArcError, TaskFrame, TaskHookEvent};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::clone::Clone;
@@ -10,12 +10,12 @@ use typed_builder::TypedBuilder;
 
 #[async_trait]
 pub trait RetryErrorFilter: Send + Sync + 'static {
-    async fn execute(&self, error: &Option<TaskError>) -> bool;
+    async fn execute(&self, error: &Option<DynArcError>) -> bool;
 }
 
 #[async_trait]
 impl RetryErrorFilter for () {
-    async fn execute(&self, _error: &Option<TaskError>) -> bool {
+    async fn execute(&self, _error: &Option<DynArcError>) -> bool {
         true
     }
 }
@@ -285,7 +285,7 @@ define_event!(
     /// - [`TaskHookEvent`]
     /// - [`Task`]
     /// - [`TaskFrame`]
-    OnRetryAttemptEnd, (u32, Option<TaskError>)
+    OnRetryAttemptEnd, (u32, Option<DynArcError>)
 );
 
 define_event_group!(
@@ -443,8 +443,8 @@ impl<T: TaskFrame> RetriableTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
-        let mut error: Option<TaskError> = None;
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
+        let mut error: Option<DynArcError> = None;
         let subdivided = ctx.subdivided_ctx(self.frame.clone());
         for retry in 0u32..=self.retries.get() {
             ctx.emit::<OnRetryAttemptStart>(&retry).await;

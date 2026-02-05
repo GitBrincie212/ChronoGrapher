@@ -2,7 +2,7 @@
 use crate::task::SequentialTaskFrame;
 use crate::task::frames::misc::{GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure};
 use crate::task::{
-    ConsensusGTFE, OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, TaskError, TaskFrame,
+    ConsensusGTFE, OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, DynArcError, TaskFrame,
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -137,7 +137,7 @@ impl ParallelTaskFrame {
 
 #[async_trait]
 impl TaskFrame for ParallelTaskFrame {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         let mut js = tokio::task::JoinSet::new();
 
         for frame in self.tasks.iter() {

@@ -2,14 +2,13 @@ use crate::errors::ChronographerErrors;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ErasedTask, TaskError, TriggerNotifier};
+use crate::task::{ErasedTask, DynArcError, TriggerNotifier};
 use crate::utils::TaskIdentifier;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{Mutex, MutexGuard};
@@ -100,14 +99,14 @@ type EarlyMutexLock<'a, C: SchedulerConfig> = MutexGuard<'a, BinaryHeap<Internal
 pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask>>,
-    sender: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, TaskError>)>,
+    sender: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
 }
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     fn default() -> Self {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<(
             Box<dyn Any + Send + Sync>,
-            Result<SystemTime, TaskError>,
+            Result<SystemTime, DynArcError>,
         )>(1024);
 
         let earliest_sorted = Arc::new(Mutex::new(BinaryHeap::new()));
@@ -165,14 +164,14 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         &self,
         clock: &C::SchedulerClock,
         idx: &C::TaskIdentifier,
-    ) -> Result<(), TaskError> {
+    ) -> Result<(), DynArcError> {
         let task =
             self.tasks
                 .get(idx)
                 .ok_or(
                     Arc::new(ChronographerErrors::TaskIdentifierNonExistent(format!(
                         "{idx:?}"
-                    ))) as Arc<dyn Debug + Send + Sync>,
+                    ))) as DynArcError
                 )?;
 
         let now = clock.now().await;
@@ -184,7 +183,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         &self,
         clock: &C::SchedulerClock,
         task: ErasedTask,
-    ) -> Result<C::TaskIdentifier, TaskError> {
+    ) -> Result<C::TaskIdentifier, DynArcError> {
         let idx = C::TaskIdentifier::generate();
         let task = Arc::new(task);
         self.tasks.insert(idx.clone(), task.clone());

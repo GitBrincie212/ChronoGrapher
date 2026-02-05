@@ -1,4 +1,4 @@
-use crate::task::TaskError;
+use crate::task::DynArcError;
 use crate::task::TaskHookEvent;
 #[allow(unused_imports)]
 use crate::task::{ParallelTaskFrame, SequentialTaskFrame, TaskFrame};
@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 pub enum ConsensusGTFE {
     SkipResult,
-    ReturnError(TaskError),
+    ReturnError(DynArcError),
     ReturnSuccess,
 }
 
@@ -43,7 +43,7 @@ pub enum ConsensusGTFE {
 /// - [`GroupedTaskFrameExecBehavior::should_quit`]
 #[async_trait]
 pub trait GroupedTaskFramesExecBehavior: Send + Sync {
-    async fn should_quit(&self, result: Option<TaskError>) -> ConsensusGTFE;
+    async fn should_quit(&self, result: Option<DynArcError>) -> ConsensusGTFE;
 }
 
 /// [`GroupedTaskFramesQuitOnSuccess`] is an implementation of [`GroupedTaskFramesExecBehavior`] trait,
@@ -75,7 +75,7 @@ pub struct GroupedTaskFramesQuitOnSuccess;
 
 #[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnSuccess {
-    async fn should_quit(&self, result: Option<TaskError>) -> ConsensusGTFE {
+    async fn should_quit(&self, result: Option<DynArcError>) -> ConsensusGTFE {
         match result {
             None => ConsensusGTFE::ReturnSuccess,
             Some(_) => ConsensusGTFE::SkipResult,
@@ -112,7 +112,7 @@ pub struct GroupedTaskFramesQuitOnFailure;
 
 #[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesQuitOnFailure {
-    async fn should_quit(&self, result: Option<TaskError>) -> ConsensusGTFE {
+    async fn should_quit(&self, result: Option<DynArcError>) -> ConsensusGTFE {
         match result {
             None => ConsensusGTFE::SkipResult,
             Some(err) => ConsensusGTFE::ReturnError(err),
@@ -142,7 +142,7 @@ pub struct GroupedTaskFramesSilent;
 
 #[async_trait]
 impl GroupedTaskFramesExecBehavior for GroupedTaskFramesSilent {
-    async fn should_quit(&self, _result: Option<TaskError>) -> ConsensusGTFE {
+    async fn should_quit(&self, _result: Option<DynArcError>) -> ConsensusGTFE {
         ConsensusGTFE::SkipResult
     }
 }
@@ -188,7 +188,7 @@ define_event!(
     /// # See Also
     /// - [`ParallelTaskFrame`]
     /// - [`SequentialTaskFrame`]
-    OnChildTaskFrameEnd, Option<TaskError>
+    OnChildTaskFrameEnd, Option<DynArcError>
 );
 
 define_event_group!(

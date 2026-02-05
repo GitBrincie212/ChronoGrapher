@@ -1,6 +1,6 @@
 use crate::task::{
     ConsensusGTFE, GroupedTaskFramesExecBehavior, GroupedTaskFramesQuitOnFailure,
-    OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, TaskError, TaskFrame,
+    OnChildTaskFrameEnd, OnChildTaskFrameStart, TaskContext, DynArcError, TaskFrame,
 };
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -136,7 +136,7 @@ impl SequentialTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SequentialTaskFrame {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         for taskframe in self.tasks.iter() {
             ctx.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
             let result = ctx.subdivide(taskframe.clone()).await.err();

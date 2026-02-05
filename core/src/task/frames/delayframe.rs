@@ -1,5 +1,5 @@
 use crate::task::TaskHookEvent;
-use crate::task::{TaskContext, TaskError, TaskFrame};
+use crate::task::{TaskContext, DynArcError, TaskFrame};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -169,7 +169,7 @@ impl<T: TaskFrame> DelayTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         ctx.emit::<OnDelayStart>(&self.delay).await;
         let deadline = Instant::now() + self.delay;
         tokio::time::sleep_until(deadline).await;

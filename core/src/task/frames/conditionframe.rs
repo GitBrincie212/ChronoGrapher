@@ -3,7 +3,7 @@ use crate::errors::ChronographerErrors;
 use crate::task::FallbackTaskFrame;
 use crate::task::TaskHookEvent;
 use crate::task::noopframe::NoOperationTaskFrame;
-use crate::task::{TaskContext, TaskError, TaskFrame};
+use crate::task::{TaskContext, DynArcError, TaskFrame};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -377,7 +377,7 @@ where
 
 #[async_trait]
 impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         let result = self.predicate.execute(ctx).await;
         if result {
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015

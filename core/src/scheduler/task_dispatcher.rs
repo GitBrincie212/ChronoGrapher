@@ -6,19 +6,19 @@ use std::any::Any;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 use crate::scheduler::SchedulerConfig;
-use crate::task::{ErasedTask, TaskError};
+use crate::task::{ErasedTask, DynArcError};
 use async_trait::async_trait;
 use std::sync::Arc;
 
 pub struct EngineNotifier {
     id: Box<dyn Any + Send + Sync>,
-    notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Option<TaskError>)>,
+    notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Option<DynArcError>)>,
 }
 
 impl EngineNotifier {
     pub fn new<C: SchedulerConfig>(
         id: C::TaskIdentifier,
-        notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Option<TaskError>)>,
+        notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Option<DynArcError>)>,
     ) -> Self {
         Self {
             id: Box::new(id),
@@ -26,7 +26,7 @@ impl EngineNotifier {
         }
     }
 
-    pub async fn notify(self, result: Option<TaskError>) {
+    pub async fn notify(self, result: Option<DynArcError>) {
         self.notify
             .send((self.id, result))
             .await

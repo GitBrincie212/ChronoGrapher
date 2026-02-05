@@ -10,7 +10,7 @@ struct MyTaskFrameB;
 
 #[async_trait]
 impl TaskFrame for MyTaskFrameA {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         self.1.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let hook = Arc::new(SharedHook(Arc::new(format!(
             "Hello World {}",
@@ -27,7 +27,7 @@ impl TaskFrame for MyTaskFrameA {
 
 #[async_trait]
 impl TaskFrame for MyTaskFrameB {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         println!(
             "{:?}",
             ctx.get_hook::<(), SharedHook<Arc<String>>>()

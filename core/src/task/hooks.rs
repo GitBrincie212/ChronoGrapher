@@ -1,4 +1,4 @@
-use crate::task::TaskError;
+use crate::task::DynArcError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
 use crate::{define_event, define_event_group};
@@ -157,7 +157,7 @@ impl TaskHookEvent for () {
 /// - [`TaskFrame`]
 #[async_trait]
 pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
-    async fn on_event(&self, event: E, ctx: &TaskHookContext, payload: &E::Payload);
+    async fn on_event(&self, ctx: &TaskHookContext, payload: &E::Payload);
 }
 
 /// [`NonObserverTaskHook`] is an alias for [`TaskHook`] where the event type is
@@ -187,7 +187,6 @@ pub trait NonObserverTaskHook: Send + Sync + 'static {}
 impl<T: NonObserverTaskHook> TaskHook<()> for T {
     async fn on_event(
         &self,
-        _event: (),
         _ctx: &TaskHookContext,
         _payload: &<() as TaskHookEvent>::Payload,
     ) {
@@ -226,7 +225,7 @@ impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
             .downcast_ref::<E::Payload>()
             .expect("Invalid payload type passed to TaskHook");
 
-        self.hook.on_event(E::default(), ctx, payload).await;
+        self.hook.on_event(ctx, payload).await;
     }
 
     fn as_arc_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
@@ -284,7 +283,7 @@ define_event!(
     /// - [`TaskHookEvent`]
     /// - [`Task`]
     /// - [`TaskFrame`]
-    OnTaskEnd, Option<TaskError>
+    OnTaskEnd, Option<DynArcError>
 );
 
 define_event_group!(

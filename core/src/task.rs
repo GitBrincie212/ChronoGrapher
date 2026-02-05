@@ -230,7 +230,7 @@ impl ErasedTask {
     /// # See Also
     /// - [`TaskEventEmitter`]
     /// - [`Scheduler`]
-    pub async fn run(&self) -> Result<(), TaskError> {
+    pub async fn run(&self) -> Result<(), DynArcError> {
         let ctx = TaskContext::new(self);
         ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
         let result = self.frame.execute(&ctx).await;

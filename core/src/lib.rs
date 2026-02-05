@@ -9,7 +9,7 @@ pub mod utils; // skipcq: RS-D1001
 pub mod prelude {
     // Core
     pub use crate::scheduler::CHRONOGRAPHER_SCHEDULER;
-    pub use crate::task::{Task, TaskContext, TaskError};
+    pub use crate::task::{Task, TaskContext, DynArcError};
 
     // Common frames
     pub use crate::task::delayframe::DelayTaskFrame;

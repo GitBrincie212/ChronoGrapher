@@ -3,7 +3,7 @@ use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
 use crate::scheduler::task_dispatcher::{EngineNotifier, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::TaskError;
+use crate::task::DynArcError;
 use async_trait::async_trait;
 use std::any::Any;
 use std::sync::Arc;
@@ -21,7 +21,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
         dispatcher: Arc<C::SchedulerTaskDispatcher>,
     ) {
         let (scheduler_send, mut scheduler_receive) =
-            tokio::sync::mpsc::channel::<(Box<dyn Any + Send + Sync>, Option<TaskError>)>(1024);
+            tokio::sync::mpsc::channel::<(Box<dyn Any + Send + Sync>, Option<DynArcError>)>(1024);
         let notifier = tokio::sync::Notify::new();
         join!(
             async {
