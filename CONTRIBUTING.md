@@ -41,7 +41,7 @@ there, implementing the feature, bug fixes or changes requested on the issue
     ```shell
     cargo test
     ```
-9. Look into the [Style Guidelines](GUIDELINES.md) document and ensure everything is followed
+9. Look into the [Guidelines](GUIDELINES.md) **[COMING SOON]** document and ensure everything is followed
 10. Commit all your changes (you can commit multiple times without repeating the process 
 for grouping various changes, which is one of the style guidelines)
     ```shell
