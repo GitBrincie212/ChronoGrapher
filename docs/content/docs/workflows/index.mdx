@@ -1,0 +1,192 @@
+---
+title: Handling Failure
+description: Learn why handle failure and why its critical and how ChronoGrapher solves it
+optional: true
+---
+
+We have discussed in the previous chapter how to set up a "Hello ChronoGrapher" scripts. However, real-world codebases
+deal with multiple failure points, such as database operations, API requests and so on.
+
+For demonstrative purposes, we will use a simple script that approximates the real-world by randomly failing 80% of the time.
+Let's modify our previous script to simulate failure:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+// [!code ++]
+use std::sync::Arc;
+// [!code ++]
+use rand::prelude::*;
+
+// [!code highlight]
+// Add the "rand" crate to Cargo.toml (with thread_rng feature)
+
+// [!code ++]
+#[task(interval(3s))]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    // [!code ++]
+    println!("Simulating real-world complex unpredictable logic");
+    // [!code ++]
+    let mut rng = rand::thread_rng();
+    // [!code ++]
+    if rng.gen() <= 0.8 {
+        // [!code ++]
+        return Err(Arc::new("Complex real-world logic failed"));
+    // [!code ++]
+    }
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main() {
+    let task_inst = mytask();
+    let _ = CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
+}
+```
+</RenderProgrammingLanguageBased>
+<br /> <br />
+
+# The Problem Space
+
+Since we have introduced potential failure, one question that arises is
+> What Happens When Failure Leaks Through The Task?
+
+The answer is more nuanced than it seems **depending on the Scheduler**. In our case with ``CHRONOGRAPHER_SCHEDULER``,
+when a Task fails in, it panics and fully terminates said Task.
+
+This behavior is intentional and specific to this demo scheduler. Production schedulers handle it more differently, such
+as logging errors in a logs file, alerting via slack... etc.
+
+This is usually not an intended behavior, as such caution is required to minimize failures. Solving this problem fully
+is impossible, as failures can **and SHOULD** leak through the task.
+
+The obvious question to ask is:
+> **What solutions do we have to mitigate this problem?**
+
+There are plenty of ways other frameworks solve this problem with their own approaches and tradeoffs. We will briefly discuss
+some of the obvious ones and show how ChronoGrapher handles the problem.
+
+## Solution 1: Manual Patterns
+In utilities such as cron, this is the expected way of handling most stuff. The Scheduler there is dumb and has one responsibility,
+the developer tries to patch the errors themselves.
+
+Which leads simple cases such as retrying our code 5 times, to involve heavy boilerplate code, encouraging a non-reusable:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+use std::sync::Arc;
+use rand::prelude::*;
+use tokio::time::{sleep, Duration};
+
+#[task(interval(3s))]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    let mut final_res: Result<(), TaskError> = Ok(());
+    for _ in 0..5 {
+        println!("Simulating real-world complex unpredictable logic");
+
+        let mut rng = rand::thread_rng();
+        if rng.gen() <= 0.8 {
+            final_res = Err(Arc::new("Complex real-world logic failed"));
+            continue;
+        }
+
+        sleep(Duration::from_millis(500)).await; // Delay in-between
+    }
+
+    match final_res {
+        Ok(()) => Ok(())
+        Err(res) => {
+            // ...Tries to address the error via a fallback...
+        }
+    }
+    final_res
+}
+
+// ...
+```
+</RenderProgrammingLanguageBased>
+
+In our simple example, it doesn't do much. However, imagine now 10 different failure points, each requiring a retry plus
+a fallback. To top it all off, we may need to add another fallback for safety. This approach in turn scales poorly as:
+
+- You introduce massive maintenance burden for every Task you create.
+- Outside developers have to understand how <u>you</u> implement retries, fallbacks.
+- One mistake costing hours to find one simple bug in retry logic and fallback logic.
+- Want to make retries/fallbacks more powerful? Good luck, you have to change the entire codebase or write your own complementary logic.
+
+In exchange, you get:
+- Control over the order of operations
+- Fully explicit logic
+
+Far from ideal, to fix this, libraries themselves to provide these basic utilities and developers work on top of these
+utilities, which leads us to the second solution.
+
+## Solution 2: Fixed Provided Patterns
+Suppose a hypothetical (but realistic) scheduling library, they provide utilities such as retries and fallbacks in the form
+presented below:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use hypothetical_schedule_lib::prelude::*;
+use std::sync::Arc;
+use rand::prelude::*;
+
+// This is theoretical code (which doesn't run)
+
+#[task(
+    schedule = interval(3s),
+    retry_count = 10,
+    retry_delay = 500ms,
+    fallback = other_task_fallback
+)]
+async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Simulating real-world complex unpredictable logic");
+    let mut rng = rand::thread_rng();
+
+    if rng.gen() <= 0.8 {
+        return Err(Arc::new("Complex real-world logic failed"));
+    }
+
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+This approach is more of a bandage solution to the problem. While developers won't have to reinvent the wheel
+(retries, fallbacks) with this approach, new problems arise:
+- The ordering of retries and fallbacks is pinned
+- If developers want more, they have to tweak the library themselves or find other hacky ways
+- The design is opinionated in how you manage fallbacks and retries
+
+Overall, this approach can be significantly improved. Which leads us to how ChronoGrapher
+handles this, and how it marries these 2 solutions as one, while keeping each's strengths and minimizing weaknesses.
+
+# The ChronoGrapher Way
+ChronoGrapher's solution marries the strengths of the two previously mentioned solutions (manual boilerplate
+and fixed library-provided utilities), by introducing a different model to think about workflows.
+
+Instead of thinking workflows have fixed retries, fixed fallbacks, ChronoGrapher models workflows with **TaskFrames**,
+while we have mentioned partially true they only handle execution.
+
+**Workflow Primitives** they are simple ``TaskFrame`` single-responsible objects which wrap other ``TaskFrames``,
+they execute additional code on top of the wrapped ``TaskFrame``.
+
+The power comes by chaining multiple types of these Workflow Primitives in a declarative way. Each simple workflow
+primitive works in harmony with other ones to produce something more complex.
+
+<u>Think of them as "Russian Stacking Dolls"</u>. Each doll has its own responsibility, it does one and only thing very well,
+and by stacking multiple of these together, you can assemble an entire workflow.
+
+With the theory aside, we can move to the next chapter which discusses in detail how to use basic workflow primitives.
+Some of these include using ChronoGrapher's ``retries``, ``fallback`` and how workflow ordering matters now.
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(interval(2s))]
+#[workflow(retry(5, 2s))]
+async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+> TL;DR. Handling failure in scheduling is a challenge. Solutions such as manual boilerplate or library-defined fixed
+mechanisms are brittle. ChronoGrapher marries these solutions while keeping their strengths intact.
+To achieve this it uses its own workflow model (simple primitives → complex workflows)
