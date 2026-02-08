@@ -1,0 +1,150 @@
+---
+title: "AI Use Guidelines"
+description: "Discusses when its allowed and how to use AI in ChronoGrapher"
+---
+
+AI is one of the more prevalent and controversial topics in recent times, but a critical thing to mention in the contribution
+guidelines, as software development more and more relies on AI in some areas.
+
+ChronoGrapher's team is partially mixed with AI, while it is an invaluable tool in some specific niches, it is overrated
+in areas where it was advertised. We encourage human-crafted content over AI-based content.
+
+In this guideline spec, we will mention why and how improper use of AI harms the project, the niches where AI should be used
+correctly and best practices.
+
+# About Vibe Coding / AI-Assisted Coding
+One of the first use cases which ChronoGrapher's team <Highlight color={"error"}>STRICTLY DISCOURAGES</Highlight> is **Vibe Coding**, it is defined as:
+> an AI-assisted software development method where developers describe desired functionality
+in natural language prompts, and a Large Language Model (LLM) generates the code.
+
+The main idea is coding is fully delegated to AI, and the software engineer writes in natural language (via prompts) what
+the code wants to do.
+
+This can be achieved with "simple" general-purpose tools such as [ChatGPT](https://chatgpt.com), [Gemini](https://gemini.google.com),
+[Claude](https://claude.ai/)... etc. Or with more specialized IDEs and AI systems such as [Cursor](https://cursor.com),
+[Claude Code](https://claude.com/product/claude-code) and so on and so forth.
+
+The reason for why it is heavily discouraged is it promotes <u>**Poorly-Written Code**, **Inconsistent Code Styles** and
+**Mindless Prompting Till It Works**</u>.
+
+These disadvantages are what waste both the contributor's time (they're just a puppet really controlling a guessing system)
+and the team's time (as they would need to check the code rigorously).
+
+Besides this time loss, its proven time and time again that Vibe Coding is not a sustainable practice and requires heavy
+rewriting when faced with scalability issues.
+
+Examples include [Microsoft Reporting ~30% Of Its Code is AI-Generated](https://www.cnbc.com/2025/04/29/satya-nadella-says-as-much-as-30percent-of-microsoft-code-is-written-by-ai.html).
+While large companies can afford massive QA pipelines, AI-assisted development has also contributed to an increase in rushed and fragile products,
+including security incidents such as [The Tea App Breach](https://www.bbc.com/news/articles/ce87rer52k3o), and many others.
+
+To top it all off, most of <u>the project relies on skills such as **System-Design**, **Architectural Thinking**,
+**Tradeoff Awareness** and **Deep Problem-Solving**</u>.
+
+With all major negativity aside, the only niches where AI-Assisted Coding is useful (not fully Vibe Coding) are:
+- Writing partially unit-tests (though humans should be involved as well).
+- Simple to medium debugging purposes (often fails and thus needs human ingenuity again).
+- Rarely boilerplate-writing (usually however, you would make it more ergonomic via macros and such).
+- Emulation of a system without the code (how would the users interact with the system).
+
+So in summary, most of the time, the human should be in-charge of writing the code. Only partially the AI may assist
+the human for the above use cases, proper use increases productivity and vice versa.
+
+# About AI-Written PRs, Commit Messages
+ChronoGrapher's team is <Highlight color={"error"}>OPPOSED</Highlight> to AI-written **Pull Requests** and **Commit Messages**,
+as they clearly signal low-quality and quick-and-dirty style work.
+
+Contributors must document thoroughly what they have done, what they have added, what they have fixed and everything
+in-between, letting LLMs write the description is clearly laziness.
+
+Though it can be used for assisting in what to write but most of the content written in the PR should be written by
+a human and not a machine.
+
+# About AI-Assisted Documentation
+While documentation is a boring topic to some, it is equally important as the system's code. Poor documentation leads
+to frustration, unconsidered gotchas... etc.
+
+To alleviate this, usually documentation is assisted by AI (or fully made), depending on the circumstance it may be
+encouraged or discouraged but generally ChronoGrapher's team is <Highlight color={"warn"}>MIXED</Highlight>.
+
+On one hand, fully letting the LLM document your system is a recipe for disaster as it omits information, doesn't follow
+the documentation guidelines... etc. This is the same as vibe coding but for technical writing.
+
+On the other, one can leverage the LLM's abilities of professional technical writing, point of view of documentation and
+greater knowledge of multiple sources of documentation.
+
+Just like above, these newfound powers should be controlled, as such LLMs must act as assistants and the documentation
+should be crafted by the contributor themselves, even if it is boring.
+
+Which is where the **Document-Critic Flow** can help, whereby the contributor writes the documentation themselves while following
+the guidelines and the AI assists in the documentation by criticizing areas.
+
+These can be grammar mistakes, structural issues... etc. Instead of the contributor, however, blindly copy-pasting
+documentation (very similar to Vibe Coding), they critique and tweak the documentation.
+
+Though, not all feedback should be trusted by AI, depending on what and how you wrote the documentation, you may need
+to clarify something's done on purpose, for example the fact docs are still WIP.
+
+While this loop can help, the key is control, the contributor must pilot the writing and do 70% of the work, whereas
+the AI handles pointing some polishing, structural and grammatical issues.
+
+The documentation guidelines depend on what content you are writing, for example [API Documentation Guidelines](./api_docs_guidelines)
+has different rules versus [Guidebook Documentation Guidelines](./guidebook_guidelines).
+
+# About AI-Assisted Architectural Thinking
+Instead of fully dedicating the LLM into thinking more in-depth about the code and the design space,
+the LLM assists in the decision-making process by offering its own "perspective".
+
+Questions may range from "how to maximize ergonomics for X", "why does Y fail at scale and how to fix"... etc.
+While LLMs tend to provide the complete code, it shouldn't be directly copy-pasted (as its Vibe Coding).
+
+The idea is gaining another perspective of the problem, think of it like an assistant offering their own solution on
+things, while sometimes itself isn't useful, it often leads to an approach unconsidered.
+
+The contributor shouldn't follow blindly the solution given to them (again this is Vibe Coding), in fact, they should
+constructively criticize and outline why they <Highlight color={"success"}>SHOULD</Highlight> and
+<Highlight color={"error"}>SHOULDN'T</Highlight> follow this approach.
+
+By following this principle, while considering the tradeoffs, they <u>may</u> naturally land on a good design by considering
+other perspectives that tackle this problem.
+
+By no means it works all the time, as the LLMs often fail providing a good solution, <u>they are only meant to nudge in the
+right direction, not be the pilot</u>.
+
+Once the contributor has landed on a good solution, they should start implementing mostly by themselves, whilst implementing
+rarely they should be assisted by LLMs.
+
+In addition to suggesting solutions, it can be partially used for criticism in how well the architecture is defined,
+without following blindly its feedback without critical logical assessment done by the contributor.
+
+The ChronoGrapher team <Highlight color={"success"}>ENCOURAGES</Highlight> this practice. As it promotes actual **Critical
+Thinking** and **Creativity** instead of blindly copy-pasting, however it is not without its downsides.
+
+For one, this requires time, and as mentioned it is non-guaranteed (very common) the AI's perspective may work, the creative
+part comes now from this nudging in the right direction, by mixing or by thinking differently.
+
+# Disclose AI Use-Cases
+When opening a PR, the individual should disclose exactly where AI has been used, not following this principle at best
+the maintainer (McBrincie212) will close your PR, at worst they may fully backlist any PRs from you.
+
+The description of AI usage should be in bullet list and reasonably detailed, and not a simple "I used AI in X" but rather explain
+where it helped specifically and by how much you've altered its output.
+
+It is a recommended practice (though can be omitted if a minor thing) for contributors to mention which decisions have
+been influenced by AI.
+
+It should be mentioned that if the code is majorly refactored by the contributor (at least around ~60-80%), it doesn't count as
+fully AI-generated content and hence can be omitted in the description.
+
+If the PR has most of its content (around ~40%) written by AI, it may be fully terminated and even lead to a shadow-ban
+if repeated throughout.
+
+Keep in mind also the above principles, here is a bullet list of what is allowed, what is allowed with caution and what isn't
+allowed:
+- [ ✅ ] Using AI as an assistant in documentation (~70% have to be human-written or heavily refactored).
+- [ ✅ ] Using AI for assisting architectural thinking (never relying on it to fully tell the solution).
+- [ ⚠️ ] Using AI for assisting criticism (never blindly following its instructions).
+- [ ⚠️ ] Using AI for writing code (depends on what kind of code and how critical).
+- [ 🚫 ] Letting AI write most of the documentation (even for a small feature).
+- [ 🚫 ] Vibe coding features (even if small ones).
+
+When in doubt, ask the maintainer (McBrincie212) before you submit.
