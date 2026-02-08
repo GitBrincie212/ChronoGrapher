@@ -1,0 +1,66 @@
+---
+title: "Summary & Practical Patterns"
+description: "Learn how to combine Workflow primitives and some common patterns"
+---
+
+In the previous chapters of our *"Tasks To Workflow"* series, we have mentioned every workflow primitive,
+along with their syntax, their configurations, and briefly explained when to use them.
+
+In this chapter we will start by summarizing every workflow primitive and discuss in more detail when to use them
+as well as how to use them via some common workflow patterns.
+
+# Summary Of All Workflow Primitives
+``retry(...)`` allows retrying a workflow part for a specified number of times, where developers can provide the
+number of retries and optionally the delay per retry (constant/fixed), or for more control a **Backoff Strategy**.
+
+Then there is ``fallback(...)``, it accepts one or multiple TaskFrames which act as backups. When the workflow part
+fails, it goes through the first to last fallback til it finds success or ultimately fails entirely.
+
+Next is ``timeout(...)``, used to enforce a deadline in execution time for a workflow part. If the workflow part
+takes longer than the specified duration, it is canceled and a timeout error is returned back.
+
+``delay(...)`` Allows for delaying a part of our workflow, for an arbitrary time.
+
+Whereas ``condition(...)`` allows for injecting logic that deduces if the workflow part should run or not, based on a
+predicate. With configurations such as fallback to another TaskFrame in case the predicate returns false.
+
+Lastly ``threshold(...)`` enforces an upper limit (similar to timeout) for the number of runs allowed. With the logic
+that deduces whenever this run counts or not and the behavior when the threshold is reached being configurable.
+
+## Use Cases Per Workflow Primitive
+Retries are useful for API requests, database queries and other portions of our workflow, where in the hope by retrying
+the part, it will most likely resolve the problem itself. An example of this is:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+use std::sync::OnceLock;
+use reqwest::{Client, Error, StatusCode};
+
+static REQWEST_CLIENT: OnceLock<Client> = OnceLock::new();
+
+#[task(interval(2s))]
+#[workflow(
+  retry(5, exponential(2), when = [])
+])
+async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    let client = REQWEST_CLIENT.get_or_init(|| Client::new());
+    let res = client.get("https://httpbin.org/status/200,404,500").send()
+        .await
+        .map_err(|| Arc::new("Error while sending request"));
+
+    println!("Website responded with {}", res.status());
+
+    if res.status().is_err() {
+        // Option 2: Only retry on server errors (500s)
+        // if response.status().is_server_error() {
+        //     return Err(TaskError::new(format!(
+        //         "Server error: {}",
+        //         response.status()
+        //     )));
+        // }
+    }
+
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
