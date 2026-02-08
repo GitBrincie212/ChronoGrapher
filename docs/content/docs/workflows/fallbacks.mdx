@@ -1,0 +1,157 @@
+---
+title: Fallback Patterns & Usage
+description: Learn when and how to use fallbacks, the nuisances of workflow ordering and common patterns
+---
+
+In the previous chapter, we were introduced to ChronoGrapher's workflow model by discussing some of the basics
+about retries and when to use.
+
+However, coming back to our current script and modifying it slightly to introduce a new status code:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+use reqwest::{Error, StatusCode};
+
+#[task(interval(2s))]
+#[workflow(retry(3, 2s))]
+async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    let res = reqwest::get("https://httpbin.org/status/200,429,500,403")
+        .await
+        .map_err(|e| Arc::new(format!("Request failed: {e}")))?;
+
+    // For demonstration purposes
+    println!("Website responded with {}", res.status());
+
+    // In real code, you would describe in more detail the errors
+    match res.status() {
+        200 => Ok(()),
+        429 => Err(Arc::new("Too many requests present in our web page")),
+        500 => Err(Arc::new("Server error regarding web page")),
+        403 => Err(Arc::new("Forbidden access")) // Cannot be resolved with retries
+        _ => Err(Arc::new(format!("HTTP {} error", res.status()))),
+    }
+}
+```
+</RenderProgrammingLanguageBased>
+You may notice how when we added the 403 status code, it presents us with a new problem, the fact this kind of error
+can't be resolved by our retry logic, which presents us with the possibility, the error will leak through.
+
+# Using Fallbacks
+
+To fix this issue, we can use **Fallbacks**. They allow us to execute a backup ``TaskFrame`` when the main one fails,
+in our case we can wire one like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+// [!code ++]
+use rand::prelude::*;
+
+// [!code highlight]
+// Make sure to include the rand crate with the thread_rng feature enabled
+
+// [!code ++]
+#[taskframe]
+// [!code ++]
+async fn myfallback(ctx: &TaskContext) -> Result<(), TaskError> {
+    // [!code ++]
+    // Real code is more complex than this demo
+    // [!code ++]
+    println!("Simulating fallback logic, attempting to fix this issue");
+    // [!code ++]
+
+    // [!code ++]
+    let mut rng = rand::thread_rng();
+
+    // [!code ++]
+    // Fallbacks can fail to, and SHOULD leak through their errors
+    // [!code ++]
+    rng.gen() <= 0.8
+// [!code ++]
+}
+
+#[task(interval(2s))]
+#[workflow(
+    retry(3, 2s),
+    // [!code ++]
+    fallback(myfallback),
+)]
+async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+Now when our code runs, we may see:
+```zsh title="terminal"
+# 1st run of Task (after 2 total seconds)
+(Attempt: 0/3) Website responded with 403
+(Attempt: 1/3) Website responded with 403 # AFTER 2 SECONDS
+(Attempt: 2/3) Website responded with 403 # AFTER 2 SECONDS
+(Attempt: 3/3) Website responded with 403 # AFTER 2 SECONDS
+
+Simulating fallback logic, attempting to fix this issue
+
+# <...>
+```
+
+> It should be noted, fallbacks are <Highlight color={"error"}>NOT RANDOM</Highlight>, their failure depends on
+what error they are handling, for demonstration purposes we kept it simple.
+
+> Additionally, 403 status code is forbidden access and thus cannot be retrying it is redundant. A pro tip is
+to use the ``when`` parameter on retries which is covered in a later chapter.
+
+Since our fallback is a ``TaskFrame``. We can also lay on top its own workflow definition, though this is best
+spared for advanced patterns in the next following chapters.
+
+Try to move the fallback below the retry like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[workflow(
+    fallback(myfallback),
+    retry(3, 2s)
+)]
+```
+</RenderProgrammingLanguageBased>
+You may notice something interesting, the output of the workflow is completely different, all by re-ordering
+two primitives:
+```zsh title="terminal"
+# 1st run of Task (after 2 total seconds)
+(Attempt: 0/3) Website responded with 500
+Simulating fallback logic, attempting to fix this issue
+
+# 2nd run of Task (after 4 total seconds)
+(Attempt: 0/3) Website responded with 403
+Simulating fallback logic, attempting to fix this issue
+(Attempt: 1/3) Website responded with 403
+Simulating fallback logic, attempting to fix this issue
+(Attempt: 2/3) Website responded with 403
+Simulating fallback logic, attempting to fix this issue
+
+# 2nd run of Task (after 6 total seconds)
+(Attempt: 0/3) Website responded with 200
+
+# <...>
+```
+
+# Workflow Order Matters
+
+This is one of the more subtle things about ChronoGrapher's workflow model. **<u>The order of workflow primitives MATTERS</u>**,
+to illustrate this better we can look how each of these executes.
+
+The original workflow's execution semantics are described as:
+> retry → fallback: Try 3 times, if still failing, run fallback
+
+The modified workflow's execution semantics differ by:
+> fallback → retry: Run fallback on error, retry the entire thing if the fallback and primary logic fail
+
+So when should you use fallbacks? Generally, you should use them when a workflow part may error out and it contains errors
+which are recoverable, which allows you to split the error handling logic from business logic.
+
+When it comes to the patterns, the "retries with outer fallback" should be used when there are non-transient errors,
+the "retries with inner fallback" should be used for errors that are immediately resolvable.
+
+Which will lead us to the next chapter, we will be discussing more about ``timeout`` and ``delay``, how they are useful
+for expressing control flow with time as their parameter and how to assemble a basic workflow.
+
+> TL;DR. Fallbacks are a workflow primitive which defines a backup ``TaskFrame`` to execute when the primary logic fails with
+an error, the job of the backup is to handle the error gracefully. Fallbacks can be chained with retries, but the ordering
+of which matters heavily.
