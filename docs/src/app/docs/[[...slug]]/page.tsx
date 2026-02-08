@@ -31,16 +31,27 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle className={"-mb-4"}>{page.data.title}</DocsTitle>
+      <div className="flex flex-row gap-2 items-center -mb-4">
+          <DocsTitle>{page.data.title}</DocsTitle>
+          {page.data.optional && (
+              <div className={"bg-linear-to-r from-fd-brand-primary to-fd-brand-secondary p-px rounded-[0.425rem]"}>
+                  <div className={
+                      "rounded-md px-2 font-semibold bg-fd-background select-none"
+                  }>
+                      <div className={"bg-linear-to-r from-fd-brand-primary to-fd-brand-secondary text-transparent bg-clip-text"}>OPTIONAL</div>
+                  </div>
+              </div>
+          )}
+      </div>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
-        <div className="flex flex-row gap-2 items-center border-b -mt-8 pb-6">
-          <LLMCopyButton markdownUrl={`${page.url}.mdx`} />
-          <ViewOptions
-            markdownUrl={`${page.url}.mdx`}
-            githubUrl={`https://github.com/${owner}/${repo}/blob/master/docs/content/docs/${page.path}`}
-          />
-        </div>
+          <div className="flex flex-row gap-2 items-center -mt-10 border-b pb-4">
+              <LLMCopyButton markdownUrl={`${page.url}.mdx`} />
+              <ViewOptions
+                  markdownUrl={`${page.url}.mdx`}
+                  githubUrl={`https://github.com/${owner}/${repo}/blob/master/docs/content/docs/${page.path}`}
+              />
+          </div>
 
         <MDX
           components={getMDXComponents({
