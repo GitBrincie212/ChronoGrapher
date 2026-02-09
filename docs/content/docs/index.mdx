@@ -28,8 +28,8 @@ data pipelines, these domains include but are not limited to:
 ---
 
 # Why Does ChronoGrapher Exist?
-While most scheduling solutions have their strengths, they also introduce friction and limitations that developers face daily
-(and yes, ChronoGrapher isn’t completely immune). Common pain points include:
+While most scheduling solutions have their strengths, they also introduce friction and limitations that developers face daily.
+ChronoGrapher acknowledges these issues and aims to mitigate them, common pain points include:
 
 - **Opinionated Bloated Design:** Many solutions enforce strict patterns and include unnecessary features. Forcing developers
 to either migrate painfully or work around rigid limitations introduced by the scheduling solution.
@@ -46,13 +46,12 @@ or debugging workflows often requires strange workarounds.
 We believe developers don't deserve these frictions posed to them on a day-to-day basis. In an ideal world, scheduling should
 be manageable, scalable and highly powerful to meet their current and future needs.
 
-ChronoGrapher draws lessons from past scheduling solutions, avoiding common pitfalls such as migration
-headaches and feature bloat.
+ChronoGrapher draws lessons from past scheduling solutions, avoiding common pitfalls such as feature bloat.
 
 ---
 
 # When to Use ChronoGrapher (and When Not)
-ChronoGrapher shines when in flexibility, extensibility and scalability that grow with your applications. While its
+ChronoGrapher shines when flexibility, extensibility and scalability grow with your applications. While its
 architecture fulfils the above strengths, it may not be the best fit for extremely simple cases such as cron jobs with no
 observability.
 
@@ -69,14 +68,17 @@ get an idea of how it compares with other scheduling solutions:
     Most scheduling solutions do not fit cleanly into a single category. For clarity, the diagram presents each tool at a representative position along the spectrum.
 </Callout>
 
-The spectrum has 2 edges transitioning from green (left) to orange (middle) to red (right). The axis measures the
-complexity versus scalability of each solution
+The axis transitions from most simple solutions with few features (requiring handling them manually) to complex
+enterprise-level solutions with tons of features, in simple terms ``Complexity x Scalability``.
+
+The spectrum has 2 edges transitioning from green (left) to orange (middle) to red (right), this is more of visual flair
+than anything to help distinguish better the solutions.
 
 The left side features scheduling solutions (from left to middle: CRON, node-cron, APScheduler, Quartz, Celery, BullMQ and
-Sidekiq) which are minimal, easy to use but unscalable.
+Sidekiq) which are minimal and easy to use, but especially towards left prove unscalable.
 
 Whereas on the right side features enterprise-ready complex scheduling solutions (from middle to right: Sidekiq, Apache
-Airflow, Dagster, Prefect, ChronoGrapher, Cadence and Temporal).
+Airflow, Dagster, Prefect, ChronoGrapher, Temporal and Cadence), providing many features.
 
 ---
 
