@@ -22,8 +22,8 @@ pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
-use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
-use async_trait::async_trait;
+pub mod thresholdframe; // skipcq: RS-D1001
+
 pub use conditionframe::*;
 pub use delayframe::*;
 pub use dependencyframe::*;
@@ -34,13 +34,17 @@ pub use parallelframe::*;
 pub use retryframe::*;
 pub use selectframe::*;
 pub use sequentialframe::*;
-use std::fmt::Debug;
-use std::ops::Deref;
-use std::sync::Arc;
+pub use thresholdframe::*;
 pub use timeoutframe::*;
 
+use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
+use async_trait::async_trait;
+use std::ops::Deref;
+use std::error::Error;
+use std::sync::Arc;
+
 /// A task-related error (i.e. A task failure)
-pub type TaskError = Arc<dyn Debug + Send + Sync>;
+pub type DynArcError = Arc<dyn Error + Send + Sync>;
 
 /// [`TaskContext`] is a mechanism that wraps commonly needed information
 /// inside it which can be accessed by [`TaskFrame`], it essentially wraps
@@ -119,7 +123,7 @@ impl TaskContext {
         }
     }
 
-    pub async fn subdivide(&self, frame: Arc<dyn TaskFrame>) -> Result<(), TaskError> {
+    pub async fn subdivide(&self, frame: Arc<dyn TaskFrame>) -> Result<(), DynArcError> {
         let child_ctx = self.subdivided_ctx(frame.clone());
         frame.execute(&child_ctx).await
     }
@@ -281,7 +285,7 @@ pub trait TaskFrame: 'static + Send + Sync {
     /// - [`Task`]
     /// - [`TaskContext`]
     /// - [`TaskFrame`]
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError>;
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError>;
 }
 
 #[async_trait]
@@ -290,7 +294,7 @@ where
     S: Deref + Send + Sync + 'static,
     S::Target: TaskFrame,
 {
-    async fn execute(&self, task: &TaskContext) -> Result<(), TaskError> {
-        self.deref().execute(task).await
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
+        self.deref().execute(ctx).await
     }
 }
