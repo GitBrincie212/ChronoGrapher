@@ -144,10 +144,11 @@ We spawn an instance of that Task and simply hand it out to the scheduler via th
     </RenderProgrammingLanguageBased>
 </Callout>
 
-A summary of how Tasks can be boiled down with this diagram:
+A summary of how Tasks work, can be boiled down with this diagram:
 <ThemeBasedImage
     light={"/diagram-light-2.svg"} dark={"/diagram-dark-2.svg"}
     width={1200} height={1200}
+    alt={"Diagram of Task's layout and communication between the Scheduler"}
 />
 Where a Task has 3 separate parts (Business Logic, Scheduling Logic and Scheduling Policy). Then the Task is scheduled
 on the global ``CHRONOGRAPHER_SCHEDULER`` to execute at **9:00 AM**.
