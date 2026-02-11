@@ -1,0 +1,188 @@
+---
+title: Importance Of Monitoring
+description: Learn the problem space, importance of it and how ChronoGrapher solves it
+optional: true
+---
+
+In the previous chapters, we have discussed workflows and their various patterns which help
+solidify the business logic against failure and scale without significant rework.
+
+# The Problem Space
+However, one question arises:
+> In the manual approach, we have total control over our code, if ChronoGrapher makes us the workflow primitives.
+How can we inspect them in a reliable, granular way?
+
+Before we answer the question, we have to understand what really is monitoring and why we need it. To put it bluntly,
+monitoring involves watching closely our running task instances and gathering data about them.
+
+As our codebase grow with new task definitions, different workflow models per task, so does our need to stay
+alert when something goes wrong. Which is why monitoring is such an important topic in real-world systems.
+
+As we always do, for demonstration purposes, let's simplify real-world constraints and capture it in one example by assuming
+two different tasks, each doing their own part in the entirety of the system.
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude;
+
+#[task(interval(2s))]
+async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Simulating Task 1's Actions");
+    Ok(())
+}
+
+#[task(interval(3s))]
+#[workflow(
+    retry(3, 1s),
+    timeout(5s)
+)]
+async fn task2(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Simulating Task 2's Actions");
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main() {
+    let task1_inst = task1();
+    let task2_inst = task2();
+    let _ = CHRONOGRAPHER_SCHEDULER.schedule(task1_inst).await;
+    let _ = CHRONOGRAPHER_SCHEDULER.schedule(task2_inst).await;
+}
+```
+</RenderProgrammingLanguageBased>
+In our case we don't care the shape of our tasks and what they really do, they are almost like a black box to us,
+we are however looking to extract data about them.
+
+In real-world systems, the extracted data can be appended to logs, alert our team if specific criteria are met, provide
+metrics about the tasks themselves or from others, which they can access at runtime... etc.
+
+## Solution 1: Manual Tracking
+The idea is simple, we track things ourselves and write them to our logs, alert systems... etc. Using utilities such as
+cron, this is the only way of dealing with monitoring.
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(interval(2s))]
+async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+    write_start_to_log("task1");
+    println!("Simulating Task 1's Actions");
+    write_end_to_log("task1");
+    Ok(())
+}
+
+#[task(interval(3s))]
+#[workflow(
+    retry(3, 1s),
+    timeout(5s)
+)]
+async fn task2(ctx: &TaskContext) -> Result<(), TaskError> {
+    write_start_to_log("task2");
+    println!("Simulating Task 2's Actions");
+    write_end_to_log("task2");
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+Yet again, we encounter the same problem with workflows, the manual tracking is intrusive as it
+involves explicitly writing inside the business logic.
+
+Not to mention for workflows, we can't listen to anything at all. The system in the future might need to know
+how many retries happened, how many timeouts have occurred and so on.
+
+Business logic and workflows evolve independently, yet the manual tracking approach would need to account for both
+of them, which proves how unscalable is such solution.
+
+So we have to pivot to another solution, let's assume for a second we go with the "Fixed Provided Patterns" discussed
+in the [Workflow Theory](./workflows/), but in summary:
+> Some scheduling library provides us with retries and fallbacks, they execute in a specified order (explicit from
+the library), we can tweak a few parameters but has minimal flexibility.
+
+## Solution 2: Fixed Event APIs
+Let's suppose our hypothetical but realistic library from [Workflow Theory](./workflows/), however, this time
+we will introduce fixed events which we can listen to like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(interval(2s))]
+#[listen(
+    task_start = logger_for_start,
+    task_end = logger_for_end
+)]
+async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Simulating Task 1's Actions");
+    Ok(())
+}
+
+#[task(interval(3s))]
+#[workflow(
+    retry(3, 1s),
+    timeout(5s)
+)]
+#[listen(
+    task_start = logger_for_start,
+    task_end = logger_for_end,
+    timeout = some_other_listener
+)]
+async fn task2(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Simulating Task 2's Actions");
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+The idea is we can register one or multiple listeners on pre-defined events for our hypothetical library, on
+paper this seems to solve the problem in a good enough manner.
+
+In practice, just like workflows, this is more of a bandage solution. While it is a step in the right direction, there
+are 3 main areas which prove how constraint the system is:
+- Third-party extensions providing their own events to listen to.
+- Business logic needing to communicate with its own listeners.
+- Listeners forced to be isolated from one and the other.
+
+This is usually how platforms such as [Apache Airflow](https://airflow.apache.org) work. One permutation of this solution
+involves integrating with something such as [Prometheus](https://prometheus.io/).
+
+But the underlying problem is not addressed, plus if integrations are the only way to go then users with basic needs
+will struggle, as they would have to install an entire platform for logging and monitoring.
+
+Additionally, this solution doesn't align with ChronoGrapher's model at all, there can be multiple retries and timeouts at
+varying positions in ChronoGrapher.
+
+All in all, just like previously, this approach has room for improvement. Which leads us to how ChronoGrapher
+handles this, and how it solves the problem elegantly.
+
+# The ChronoGrapher Way
+ChronoGrapher uses its own model to monitor Tasks which are called ``TaskHooks``, they accept a generic for the event
+which tells ChronoGrapher this TaskHook wants to listen to this event.
+
+However, they are not limited to one event, they can run their own <Highlight color={"neutral"}>Side Effects</Highlight> per event,
+which is a fancy way of saying different code that reacts for every event.
+
+In later chapters we will discuss more advanced topics about ``TaskHooks``, however for teasers. ``TaskHooks`` are more
+powerful than just listening to events, as they can emit their own set of events which allows subsequently other ``TaskHooks``
+to listen to, this is called <Highlight color={"info"}>Hook-To-Hook Communication</Highlight>.
+
+``TaskFrames`` (generally workflows) and even business logic can attach their own internal TaskHooks for tracking events
+themselves, they can also fetch ``TaskHook`` instance by type and its subscribed event type.
+
+However, ``TaskHooks`` aren't just <Highlight color={"idea"}>Event Listener</Highlight>, they can be used as <Highlight color={"warn"}>State Managers</Highlight>
+which attach additional state to a Task, and this state can be read and written to.
+
+Another use of ``TaskHooks`` is as simple as by being present in a Task, essentially acting as <Highlight color={"success"}>Markers</Highlight>.
+Finally, less commonly, they can be used as <Highlight color={"error"}>Post-Error Handlers</Highlight>.
+
+While typical error handlers and post-error handlers resolve a problem, the post-error handler lets through the error and
+tries to work things out to resolve the issue before its ultimately shut down.
+
+``TaskHooks`` can also be used in a mixed scenarios, acting as both a <Highlight color={"warn"}>State Managers</Highlight>,
+a <Highlight color={"success"}>Markers</Highlight> and an <Highlight color={"idea"}>Event Listener</Highlight>. Essentially
+handling multiple requirements on their own without fragmentation.
+
+All these topics will be covered gradually in subsequent chapters, this is more of a taste on how truly powerful this
+system can be, when used to its fullest potential.
+
+With the theory aside, we can move to the next chapters which focus on using TaskHooks practically with their various
+patterns while also advising on when best use them versus workflows.
+
+> TL;DR. Monitoring in scheduling is a difficult problem. Solutions such as manual tracking or library-defined fixed
+events are unscalable. ChronoGrapher innovates with its own TaskHook system, merging Event Listening, State Management,
+Markers and Post-Error Handling in one system.

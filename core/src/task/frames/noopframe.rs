@@ -1,4 +1,4 @@
-use crate::task::{TaskContext, TaskError, TaskFrame};
+use crate::task::{TaskContext, DynArcError, TaskFrame};
 use async_trait::async_trait;
 
 /// Represents a **no-operation task frame** that does nothing. This task frame type
@@ -34,7 +34,7 @@ pub struct NoOperationTaskFrame;
 
 #[async_trait]
 impl TaskFrame for NoOperationTaskFrame {
-    async fn execute(&self, _ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, _ctx: &TaskContext) -> Result<(), DynArcError> {
         Ok(())
     }
 }

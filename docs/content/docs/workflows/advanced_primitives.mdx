@@ -1,0 +1,128 @@
+---
+title: Advanced Workflow Primitives
+description: Learn more about conditions, thresholds
+---
+
+In our previous brief chapter, we explained how to use timeouts and delays. In this one, however, you will learn
+how to use more advanced components such as ``condition`` and ``threshold``.
+
+Afterward we will be combining the knowledge we've gathered to make our own workflow.
+
+# Workflow Conditions In Depth
+Complex / advanced workflows may require conditional execution on specific parts. While we can pollute the
+business logic with a condition, we can use ``condition`` to alleviate us:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust
+condition(predicate = ..., fallback? = ..., falsey_behavior = success? | error? | custom(...)?)
+```
+</RenderProgrammingLanguageBased>
+Where the ``predicate`` is a function we provide that returns true/false (boolean), it accepts a ctx argument which
+is a context object that gives more information regarding the workflow, depth, the TaskFrame itself and generally
+anything else living in ``TaskContext``.
+
+However, we can do much more than just that, we are able to define a fallback with the optional ``fallback`` argument.
+Even control the behavior of the conditional when the predicate returns false via ``falsey_behavior``.
+
+By default, there is no ``fallback`` and the falsey_behavior is set to ``success``.
+
+<Callout type={"error"} title={"Conditionals are NOT Fallbacks"}>
+    A common misconception is how conditionals are similar to fallbacks. This is not the case, as they work
+    differently with different semantics.
+
+    A fallback always executes the business logic (primary logic) first, AND then switches to the secondary
+    when the primary logic fails / errors out.
+
+    In the other hand, a condition may execute the business logic (primary logic) OR switch to the secondary
+    depending on our predicate's boolean value.
+</Callout>
+
+Some examples include:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust
+condition(|cond_ctx| async {
+    let mut rng = rand::thread_rng().gen();
+    rng.gen() <= 0.5
+}) // With named arguments, you get the idea
+
+condition(|cond_ctx| async {
+    !(cfg!(debug_assertions))
+}, falsey_behavior = success)
+
+condition(|cond_ctx| async {
+    // ...
+}, other_fallback, custom(Arc::new("Cool condition error"))
+```
+</RenderProgrammingLanguageBased>
+For readability purposes, since conditionals live alongside other workflow primitives. It's better to extract the predicate
+into its own function and reference there:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust
+// From the first example
+async fn my_outer_predicate(_cond_ctx: &ConditionContext) -> bool {
+    let mut rng = rand::thread_rng().gen();
+    rng.gen() <= 0.5
+}
+
+// ...Somewhere in a workflow...
+
+condition(my_outer_predicate) // Much more clean
+```
+</RenderProgrammingLanguageBased>
+
+Try to write your own conditional, perhaps it could check via a global state and based on that return true/false.
+
+It should be noted ``ConditionContext`` encapsulates the information of ``TaskContext``, without control such as emitting
+events, talking to the scheduler handle... etc.
+
+Use a condition when you have conditional logic (a predicate) which deduces whenever or not to execute the workflow.
+As its more declarative to workflow than an if statement in the business logic
+
+# Workflow Thresholds In Depth
+In some cases, we may need our workflow to run a limited number of times, and once this threshold exceeds, the entire
+workflow (or some part of it) is skipped. While this can be achieved with a ``conditional``.
+
+A cleaner way is via ``threshold`` which has the following structure:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust
+threshold(max = ..., counting_logic = successes? | identity? | fails? | custom(...)?, threshold_behavior = skip? | error? | custom(...)?)
+```
+</RenderProgrammingLanguageBased>
+The ``max`` argument dictates the number of times a run which has special conditions is allowed to run. These special
+conditions are dictated via ``counting_logic``, which is a predicate function.
+
+It returns true/false and depending on the value, either it counts it towards the threshold or not respectively.
+Then there is ``threshold_behavior`` which dictates what should happen when the threshold is reached and the workflow part tries
+to run again.
+
+By default, ``counting_logic`` tracks every run regardless if it succeeded or failed and ``threshold_behavior`` is set to always
+skip the workflow portion.
+
+<Callout type={"warning"} title={"Special Case Of Threshold"}>
+    There is a special case for threshold and when its set to skip the workflow portion. If it lives at the top of the workflow,
+    when the threshold is reached, it fully cancels the Task from the Scheduler (for both optimization and other reasons).
+</Callout>
+
+Using and configuring ``threshold`` is demonstrated below with the examples:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust
+threshold(max = 10) // or: threshold(10)
+threshold(max = 3, counting_logic = identity) // or: threshold(3, identity), or just threshold(3)
+threshold(max = 7, threshold_behavior = skip) // or: threshold(7, skip) or just threshold(7)
+threshold(max = 5, counting_logic = successes) // or: threshold(5, successes)
+threshold(max = 6, counting_logic = fails) // or: threshold(5, fails)
+threshold(max = 8, counting_logic = custom(|ctx, err| err.is_some())) // or: threshold(8, custom(|ctx, err| err.is_some()))
+threshold(max = 4, threshold_behavior = error) // or: threshold(4, error)
+```
+</RenderProgrammingLanguageBased>
+
+Try to tweak the threshold number, see how you greatly limit/increase the number of runs. Then try seeing what happens
+if you use different configuration options and notice from there.
+
+Use thresholds when you want to limit the number of executions of part of a workflow (or the entirety). Use the additional
+configurations (``counting_logic`` and ``threshold_behavior``) for more control over how to threshold.
+
+With that said, most workflow primitives are covered. In the next chapter we will take a look in practical setups and
+how to use them, we will additionally see common combinations of these workflow primitives.
+
+> TL;DR. Use ``condition`` when you need to execute a workflow part conditionally based on outside state or computation,
+whereas use ``threshold`` when you need to limit the number of times that workflow part runs (with what runs count).

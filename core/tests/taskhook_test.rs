@@ -17,7 +17,6 @@ struct OnStartCountingHook {
 impl TaskHook<OnTaskStart> for OnStartCountingHook {
     async fn on_event(
         &self,
-        _event: OnTaskStart,
         _ctx: &TaskHookContext,
         _payload: &OnTaskStartPayload,
     ) {
@@ -33,7 +32,6 @@ struct OnEndCountingHook {
 impl TaskHook<OnTaskEnd> for OnEndCountingHook {
     async fn on_event(
         &self,
-        _event: OnTaskEnd,
         _ctx: &TaskHookContext,
         _payload: &OnTaskEndPayload,
     ) {
@@ -47,7 +45,7 @@ struct SimpleTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SimpleTaskFrame {
-    async fn execute(&self, _ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, _ctx: &TaskContext) -> Result<(), DynArcError> {
         if self.should_succeed.load(Ordering::SeqCst) {
             Ok(())
         } else {
@@ -86,7 +84,7 @@ async fn test_attach_and_trigger_hooks() {
         "OnTaskStart hook should fire once"
     );
 
-    let no_error: Option<TaskError> = None;
+    let no_error: Option<DynArcError> = None;
     task.emit_hook_event::<OnTaskEnd>(&no_error).await;
     assert_eq!(
         on_end_count.load(Ordering::SeqCst),

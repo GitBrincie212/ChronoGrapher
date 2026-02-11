@@ -7,7 +7,7 @@ pub use crate::task::trigger::schedule::immediate::TaskScheduleImmediate;
 pub use crate::task::trigger::schedule::interval::TaskScheduleInterval;
 use std::any::Any;
 
-use crate::prelude::TaskError;
+use crate::prelude::DynArcError;
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::task::Task;
@@ -16,7 +16,7 @@ use std::time::SystemTime;
 
 pub struct TriggerNotifier {
     id: Box<dyn Any + Send + Sync>,
-    notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, TaskError>)>,
+    notify: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
 }
 
 impl TriggerNotifier {
@@ -24,7 +24,7 @@ impl TriggerNotifier {
         id: <C as SchedulerConfig>::TaskIdentifier,
         notify: tokio::sync::mpsc::Sender<(
             Box<dyn Any + Send + Sync>,
-            Result<SystemTime, TaskError>,
+            Result<SystemTime, DynArcError>,
         )>,
     ) -> Self {
         Self {
@@ -33,7 +33,7 @@ impl TriggerNotifier {
         }
     }
 
-    pub async fn notify(self, time: Result<SystemTime, TaskError>) {
+    pub async fn notify(self, time: Result<SystemTime, DynArcError>) {
         self.notify
             .send((self.id, time))
             .await
@@ -43,5 +43,5 @@ impl TriggerNotifier {
 
 #[async_trait]
 pub trait TaskTrigger: 'static + Send + Sync {
-    async fn trigger(&self, now: SystemTime, notifier: TriggerNotifier) -> Result<(), TaskError>;
+    async fn trigger(&self, now: SystemTime, notifier: TriggerNotifier) -> Result<(), DynArcError>;
 }

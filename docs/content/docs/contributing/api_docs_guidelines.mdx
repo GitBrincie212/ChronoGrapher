@@ -1,0 +1,299 @@
+---
+title: "API Documentation Guidelines"
+description: "Strict, rigorous guidelines and practices for API documentation"
+---
+
+This page mentions how to write effective API documentation for the ChronoGrapher project,
+this domain knowledge applies to the core, every SDK, every extension / integration... etc.
+
+API documentation should be the final part, once the feature stabilizes, documenting too early will lead
+to technical debt. As such ensure you will rarely make significant changes later down the line.
+
+It should be mentioned, contributors are expected to have experience reading API documentation from other projects and
+from ChronoGrapher while also partially writing their own.
+
+The page doesn't go in-depth on how to describe things clearly as it is something gained through experience, it is advised
+to look at ChronoGrapher's countless API docs for components and learn from there.
+
+However, in summary ChronoGrapher's language is meant to be overly strict and explicit, while it strives for
+simplicity, it knows API docs are not the first source beginner devs preview, it emphasizes more correctness.
+
+This page should be used as a reference, it is not made to be consumed in one seat. It's an ever-evolving
+part of ChronoGrapher with new entries showing as the project progresses.
+
+# Goals Of API Documentation
+When writing API documentation for ChronoGrapher, regardless of environment, the main goals stay consistent and
+specifically are:
+- **Information-Heavy:** When documenting a feature via API docs, you should pack as much information for
+  developers to get the full context about the very thing they are using. This can be as simple as a summary on what
+  it does, the inner workings, use cases, references to other components... etc.
+- **Skim Friendliness:** Unlike the guidebook, API documentation is not made for one seat, rather its made to convey
+  maximum information in a structure that allows skimming. To achieve this structure, API documentation has special
+  headers clarifying only one specific thing about this component.
+- **Syntax and Language-Bound:** API documentation is made for one programming language and covers the syntax and features
+  of the programming language that ChronoGrapher uses for this feature. While this is one of the goals, one should not
+  over-emphasize syntax but still explain the general concept.
+
+# What API Documentation Isn't
+API documentation is its own category of documentation. It achieves these above goals very well and does not strive to
+excel in more requirements than it needs to (other parts carry such as the guidebook):
+- **Narrative Flow** Since API documentation targets one struct / class, one method / function and something very niche.
+  It doesn't try to establish any narrative flow between previous entries, as typically users won't navigate
+  API documentation the same way <u>(this is the job of the guidebook)</u>.
+- **One-Binge Content** As discussed above, because its information-heavy, it has to include every edge case, every
+  nuisance this feature has, which in turn increases the size of the content. Unlike the guidebook, it cannot be split
+  to chunks, <u>for this reason the guidebook exists (as a more human teachable form of content)</u>.
+- **How To X** While API documentations have examples, they aren't meant to describe how something can be
+  made via the compilation of features. They are scoped to this feature only. Within a single documentation entry,
+  assume readers have understood earlier examples in that same entry, but don't assume knowledge from other components.
+
+# API Documentation Headers
+To make API documentation skim-friendly, there are special agreed-upon headers you can use to mark a specific informative
+section the use of them is heavily encouraged as not only API docs are not made for one-seat (as discussed above).
+
+But in addition, developers often search and skim to find their answer to their question for one specific error, an
+edge case or something else tailored to the component. Headers allow for quick access without info-dump.
+
+There are multiple groups of sections. Each with their own subgroups and best suited for one specific thing, use them wisely
+for documentation. Each section is rated out of 5 based on the importance and how recommended it is to include it.
+
+<Callout type={"warning"} title={"Disclaimer About API Documentation Headers"}>
+    Typically, any trivial feature documented such as a getter/setter method or anything remotely simple
+    that doesn't do much, may benefit from omitting some of the clauses, do not overuse headers where unnecessary.
+
+    Dictating if something is trivial requires experience, its best to view API docs examples from ChronoGrapher and
+    see where and which headers are omitted, while also discussing it with the mantainer (McBrincie212).
+</Callout>
+
+The structure of API documentation will be discussed later, the list of the special API docs headers can be found below:
+
+## ChronoGrapher-Specific Headers
+
+This has to do with ChronoGrapher-specific components and systems. These include but are not limited to ``TaskFrames``,
+``TaskTriggers``, ``SchedulerEngine``, ``SchedulerTaskStore``, ``PersistenceBackend``... etc. Sections include:
+
+**TaskFrame Sections**
+- ``# Events`` Describes the events which the ``TaskFrame`` fires, when they are fired and what payload they have. **(REQUIRED)**
+- ``# Decorating / Wrapping Behaivior`` Documents how ``TaskFrames`` behave when wrapping inner ``TaskFrame(s)``. **(REQUIRED)**
+- ``# Execution Error(s)`` Document what kind of errors may appear whilst the TaskFrame is executing, under what conditions. **(REQUIRED)**
+- ``# Supported TaskHook(s)`` Describes what kind of TaskHooks are supported which change the behavior of the TaskFrame in some way. **(RECOMMENDED)**
+
+**TaskHook Sections**
+- ``# TaskHook Type`` Describes the type of the ``TaskHook``, a marker? An observer? An error handler? A state manager? **(REQUIRED)**
+- ``# How To Attach`` Documents how to attach this TaskHook to tasks, does it need manual ``attach_hook`` or are there methods
+  that do it automatically? **(RECOMMENDED)**
+- ``# Supported Event(s) / THEG(s)`` Describes the events and THEGs which the ``TaskHook`` supports. **(REQUIRED)**
+- ``# Supported TaskHook(s)`` Describes what kind of TaskHooks are supported which change the behavior of this TaskHook in some way. **(RECOMMENDED)**
+
+**TaskHook Event Sections (NOT THEGs)**
+- ``# Payload Type`` Lists the payload type, what it represents, what information it has...etc. **(REQUIRED)**
+- ``# Is Emittable`` Explains if the event emittable, if not then why isn't it. **(RECOMMENDED)**
+
+**THEGs Sections**
+- ``# Common Payload Type`` Lists the payload type that is present in all ``TaskHookEvents`` which implement this THEG. **(REQUIRED)**
+- ``# Is Emittable`` Explains if the events of this THEG are emittable, if not then why isn't it. **(RECOMMENDED)**
+- ``# Supported Events`` Lists the events which are supported by this THEG (the implementors). **(RECOMMENDED)**
+
+**SchedulingStrategy Sections**
+- ``# Policy Semantics`` Describes the semantics of the strategy / policy, how rescheduling and overlapping tasks are handled. **(REQUIRED)**
+- ``# Supported TaskHook(s)`` Describes what kind of TaskHooks are supported which change the behavior of the ScheduleStrategy in some way. **(RECOMMENDED)**
+
+**TaskTrigger Sections (NOT TaskSchedules)**
+- ``# Waiting Semantics`` Informs the user what kind of thing (computation, outside event... etc.) does the TaskTrigger wait for. **(REQUIRED)**
+- ``# Triggering Errors`` Describes the various errors which may appear during triggering, this is when the trigger is called. **(REQUIRED)**
+- ``# Computation Errors`` Describes the various errors which may appear during computation, this is when alerting. **(REQUIRED)**
+
+**TaskSchedule Sections**
+- ``# Scheduling Semantics`` Informs the user about the TaskSchedule's behavior of computing the timings. **(REQUIRED)**
+- ``# Schedule Errors`` Describes the various errors which may appear during the TaskSchedule computing. **(REQUIRED)**
+
+**FrameDependency Sections**
+- ``# Dependency Semantics`` Explains the dependency's semantics, what does it wait for. **(REQUIRED)**
+- ``# Resolving & Unresolving`` Describes if the FrameDependency can be resolved and unresolved or not. **(RECOMMENDED)**
+
+**SchedulerEngine Sections**
+- ``# Engine Semantics`` Describes how the SchedulerEngine works, how it talks to other components and so on. **(REQUIRED)**
+- ``# Supported Config Shape`` Lists the various configuration shapes which the SchedulerEngine supports. **(REQUIRED)**
+- ``# Supported TaskHook(s)`` Describes what kind of TaskHooks are supported which change the behavior of the SchedulerEngine in some way. **(RECOMMENDED)**
+
+**SchedulerClock Sections**
+- ``# Timing Semantics`` Describes how the SchedulerClock works, what time it represents, how it idles and so on. **(REQUIRED)**
+- ``# Supported Config Shape`` Lists the various configuration shapes which the SchedulerClock supports. **(REQUIRED)**
+- ``# Is Advancable`` Explains if the SchedulerClock can be manually advanced or not. **(REQUIRED)**
+
+**SchedulerTaskDispatcher Sections**
+- ``# Dispatching Semantics`` Describes how the SchedulerTaskDispatcher works, how does it exactly dispatch tasks and so on. **(REQUIRED)**
+- ``# Supported Config Shape`` Lists the various configuration shapes which the SchedulerTaskDispatcher supports. **(REQUIRED)**
+- ``# Supported TaskHook(s)`` Describes what kind of TaskHooks are supported which change the behavior of the SchedulerTaskDispatcher in some way. **(RECOMMENDED)**
+
+**SchedulerTaskStore Section**
+- ``# Store Semantics`` Explains how the SchedulerTaskStore works, how does it sort earliest and so on. **(REQUIRED)**
+- ``# Supported Config Shape`` Lists the various configuration shapes which the SchedulerTaskStore supports. **(REQUIRED)**
+- ``# Supported PersistenceBackends`` Describes if the SchedulerTaskStore is persistent and what kind of backends it supports. **(REQUIRED)**
+- ``# Supported TaskHook(s)`` Describes what kind of TaskHooks are supported which change the behavior of the SchedulerTaskStore in some way. **(RECOMMENDED)**
+
+**SchedulerConfig Sections**
+- ``# Component Compatibility`` Which composites work together and if there are any restrictions. **(REQUIRED)**
+- ``# Defaults`` Lists the default composites if not specified. **(RECOMMENDED)**
+
+**PersistenceBackend Sections**
+- ``# Storage Format`` Describes the data format used for persistence (JSON, binary, database... etc.). **(REQUIRED)**
+- ``# Recovery Semantics`` Explains how state is recovered after crashes/restarts. **(RECOMMENDED)**
+- ``# Checkpoint Behaivior`` Describes how checkpoints are stored during TaskFrame execution. **(RECOMMENDED)**
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+## Rust-Specific Headers
+This has to do with Rust's general things and patterns, such as consts, traits, builders, structs, enums... etc. Section include:
+**Struct Sections**
+- ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters). **(REQUIRED)**
+- ``# Semantics`` Lists how the struct is meant to be used and what it does. **(REQUIRED)**
+- ``# Constructor(s)`` Lists the various constructors you can use (including builders, normal rust initialization and via the Default trait). **(REQUIRED)**
+- ``# Accessing/Modifying Field(s)`` Lists the fields which you can access and/or modify (via setters/getters or via just normal Rust fields). **(REQUIRED)**
+- ``# Trait Implementation(s)`` Lists the various implementations the struct implements (not including blanket implementations). **(REQUIRED)**
+- ``# Generic(s)`` Describes the generics which the struct may have (don't include it if there aren't any). **(RECOMMENDED)**
+
+**Enum Sections**
+- ``# Variant(s)`` Lists and briefly describes the variants of this enum. **(REQUIRED)**
+- ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters). **(REQUIRED)**
+- ``# Semantics`` Lists how the enum is meant, what each variant is best suited to and what it does. **(REQUIRED)**
+- ``# Constructor(s)`` Lists the various constructors you can use (including builders, normal rust initialization and via the Default trait) for each variant. **(REQUIRED)**
+- ``# Accessing/Modifying Field(s)`` Lists the fields which you can access and/or modify (via setters/getters or via just normal Rust fields). **(REQUIRED)**
+- ``# Trait Implementation(s)`` Lists the various implementations the enum implements (not including blanket implementations). **(REQUIRED)**
+- ``# Generic(s)`` Describes the generics which the enum may have (don't include it if there aren't any). **(RECOMMENDED)**
+
+**Trait Sections**
+- ``# Required Method(s)`` Lists the various required methods and what they are meant to do, if any. **(REQUIRED)**
+- ``# Required Subtrait(s)`` Lists the various subtraits required for this trait to be implemented, if any. **(REQUIRED)**
+- ``# Supertrait(s)`` Lists the various supertraits which require this trait and extend on top of, if any. **(REQUIRED)**
+- ``# Semantics`` Lists how the trait is meant to be implemented, used and what it does. **(REQUIRED)**
+- ``# Implementation(s)`` Lists the various implementations of this trait and briefly describes them (not blanket implementations), if any. **(REQUIRED)**
+- ``# Object Safety / Dynamic Dispatching`` Describes if the trait is object safe / dynamic dispatchable, if not why. **(REQUIRED)**
+- ``# Blanket Implementation(s)`` Lists the blanket implementations of this trait, if any. **(RECOMMENDED)**
+- ``# Optional Method(s)`` Lists the various optional methods, what they are meant to do and their default behavior (ideally follow it after required). **(RECOMMENDED)**
+- ``# Generic(s)`` Describes the generics which the trait may have (don't include it if there aren't any). **(RECOMMENDED)**
+
+**Builder Sections (NOT The Structs)**
+- ``# Required Builder Methods`` Lists the various required builder methods, what they require as arguments and their semantics. **(REQUIRED)**
+- ``# Builder Initializer(s)`` Lists the various ways to produce this builder and briefly describes the semantics for each construction method. **(REQUIRED)**
+- ``# Optional Builder Methods`` Lists the various optional builder methods, what they require as arguments, their semantics, the defaults. **(RECOMMENDED)**
+
+**Builder Method Sections (INCLUDES Method Section)**
+- ``# Default Value`` Informs the user about the default value of the builder value, if there is any. **(REQUIRED)**
+- ``# Builder Method Chaining`` Informs the user if multiple identical builder methods are allowed, if yes what do they do, how they modify. **(REQUIRED)**
+
+**Method Sections**
+- ``# Argument(s)`` Lists the various arguments the method accepts, their type and the semantics for each argument, if any. **(REQUIRED)**
+- ``# Returns`` Lists what the method returns back to the developer, the type and the semantics, if these are constant return values describe each return clause, if any. **(REQUIRED)**
+- ``# Error(s)`` Lists the various errors which may appear, under what conditions each error appears in. **(REQUIRED)**
+- ``# Panics`` Lists the various reasons the method may panic, under what circumstances and why. **(REQUIRED)**
+- ``# Semantics`` Lists how the method is meant to be used and what it does. **(REQUIRED)**
+</RenderProgrammingLanguageBased>
+
+## Miscellaneous Headers
+This has to do with any miscellaneous sections, they are universal and  apply to both ChronoGrapher-specific
+component and general Rust stuff. Sections include:
+- ``# Example(s)`` Lists various examples on how to use this system in practice. **(REQUIRED)**
+- ``# See Also`` Lists any relevant ``struct``, ``enum``, ``trait``, ``methods``, ``type-alias``, ``constants``, in addition
+  to explaining how they relate briefly. That are either mentioned on the documentation or are recommended to be seen,
+  for using this on methods, list as well the parent ``struct``, ``enum`` or ``trait``. **(REQUIRED)**
+- ``# FAQ & Troubleshooting`` Common issues when using this thing as well as answering frequently asked questions **(RECOMMENDED)**
+
+## Making A Good Example
+When listing any example(s) in the ``Example(s)`` header, you should always have runnable code written as the example,
+then summarizing how the example works as best as possible in around 6 lines.
+
+Examples should gradually start from simple to more niche and complex territory while maintaining the same clarity,
+assume knowledge of the previous examples and only describe anything new present in this example.
+
+Depending on the complexity of certain characteristics, it may be more wise to split it in two or more multiple examples,
+discussing only this characteristic in question.
+
+The inverse applies as well with simple characteristics merging to one example, given the summary can keep its size and
+clarity intact. List at least one example with a maximum of 4 examples for a feature.
+
+You can also describe specific interactions with other features, but it should be at the bottom. The smaller the examples,
+the better overall for simplicity, try to strip / hide anything unnecessary.
+
+An example of a good API docs first example is the following:
+<Callout type={"idea"} title={"The Structure Of One Good API-Docs Example"}>
+    <RenderProgrammingLanguageBased target_name={"Rust"}>
+        ```rust
+        let payment_process = TaskFrameBuilder::builder(handle_payment)
+            .with_timeout(Duration::from_secs(30)) // It cannot exceed 30 seconds
+            .with_fallback(handle_payment_failure) // If it does or fails, execute this
+            .with_instant_retry(NonZeroU32::new(3).unwrap()) // If all fail, retry 3 times
+            .build();
+        ```
+        This is an example of using the "low-level" TaskFrameBuilder to assemble an entire workflow, it takes
+        a ``TaskFrame`` in our case "handle_payment". Then it workflow primitives are attached via the ``with_*`` methods
+        (for example ``with_timeout`` for a timeout primitive).
+
+        This chain goes on til we hit the ``build`` method where it gives back our workflow for ``handle_payment`` with the
+        corresponding workflow primitives, each wrapping from top to bottom (the retry is at the top, whereas the timeout
+        is at the bottom).
+    </RenderProgrammingLanguageBased>
+</Callout>
+This is a beginner example, as such, it only uses 3 workflow primitives and nothing complex, more advanced examples
+as said should skip the explanation.
+
+For our case the explanation of the ``builder`` methods, ``with_*`` methods and how ``build`` returns the workflow
+
+# Making A Good "FAQ & Troubleshooting"
+This section should describe any common questions developers may have around this feature. It's best to take on the
+perspective of a beginner developer looking up this feature and analyze the questions they may have.
+
+One should at least include 3 questions. Depending on the circumstances, the ideal number of questions may vary
+depending on the complexity, for simple topics keep 3, for more complex include maybe 6 questions.
+
+Each question should be in the format of Q/A, an example of this is:
+```
+**Q: Why doesn't [feature X] work with [feature Y]**
+A: ...Explanation of why [feature X] doesn't work with [feature Y] and mention if there are any workarounds...
+```
+
+Code examples are encouraged, though they should be more brief than the examples, only capturing the inherit question /
+problem.
+
+# API Documentation Header Structure
+Ordering API Documentation headers is a subtle but very important thing to get right. Since the goal is skimming, developers
+should train their muscle memory to recognize where information lies to quickly find and consume.
+
+For this reason, maintain always consistent ordering (compared to other components) in the API documentation. A structure
+for the API doc headers to follow is:
+```text
+A summary of the component no more than 6 lines best describing the feature's functionality, its use cases,
+some of its edge cases... etc.
+
+[ChronoGrapher-Specific Sections Here]
+The section of headers where related to ChronoGrapher-specific components / systems, follow the
+structure outlined from before.
+
+[Language-Specific Sections Here]
+The section of headers where related to Language-specific features, follow the
+structure outlined from before in your chosen programming language.
+
+# Example(s)
+Look above on the "Making A Good Example" section
+
+# FAQ & Troubleshooting
+Look above on the "Making A Good FAQ & Troubleshooting"
+
+# See Also
+Lists relevant / similar components, which includes both language-specific features used in the making of this component
+(for example, in Python, the classes it inherits, in Rust the traits it implements). While briefly describing what
+they are and their correlation in 2 lines.
+```
+
+The ordering of the sections and headers listed above follow the exact same order as they should appear in actual
+API documentation. For example the ``TaskFrame`` section is above compared to the ``TaskHook`` section.
+
+Similarly, the header ``# Events`` is above of ``# Execution Error(s)`` in the TaskFrame section.
+
+# Introducing New API Docs Headers
+There may be times, where specific API headers don't fit in explaining your system. While contributors should typically avoid
+introducing new headers in already-established systems, they can introduce new ones if:
+- Contributors are creating an entirely new system, OR
+- Contributors can't describe something specific with the current headers (and it is something recurrent).
+
+However, it is best to discuss this with the maintainer of the project (McBrincie212) beforehand, to reach a conclusion,
+introducing new headers could mean updating this spec and previous other API docs.

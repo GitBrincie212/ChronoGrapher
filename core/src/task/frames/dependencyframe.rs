@@ -3,7 +3,7 @@ use crate::errors::ChronographerErrors;
 use crate::task::Debug;
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
-use crate::task::{Arc, TaskContext, TaskError, TaskFrame};
+use crate::task::{Arc, TaskContext, DynArcError, TaskFrame};
 use async_trait::async_trait;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
@@ -38,12 +38,12 @@ pub trait DependentFailBehavior: Send + Sync {
     /// # See Also
     /// - [`DependencyTaskFrame`]
     /// - [`DependentFailBehavior`]
-    async fn execute(&self) -> Result<(), TaskError>;
+    async fn execute(&self) -> Result<(), DynArcError>;
 }
 
 #[async_trait]
 impl<DFB: DependentFailBehavior> DependentFailBehavior for Arc<DFB> {
-    async fn execute(&self) -> Result<(), TaskError> {
+    async fn execute(&self) -> Result<(), DynArcError> {
         self.as_ref().execute().await
     }
 }
@@ -55,7 +55,7 @@ pub struct DependentFailureOnFail;
 
 #[async_trait]
 impl DependentFailBehavior for DependentFailureOnFail {
-    async fn execute(&self) -> Result<(), TaskError> {
+    async fn execute(&self) -> Result<(), DynArcError> {
         Err(Arc::new(ChronographerErrors::TaskDependenciesUnresolved))
     }
 }
@@ -66,7 +66,7 @@ pub struct DependentSuccessOnFail;
 
 #[async_trait]
 impl DependentFailBehavior for DependentSuccessOnFail {
-    async fn execute(&self) -> Result<(), TaskError> {
+    async fn execute(&self) -> Result<(), DynArcError> {
         Ok(())
     }
 }
@@ -269,7 +269,7 @@ impl<T: TaskFrame> DependencyTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         let mut handles: Vec<JoinHandle<bool>> = Vec::with_capacity(self.dependencies.len());
 
         for dep in &self.dependencies {

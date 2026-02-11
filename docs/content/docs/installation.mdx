@@ -44,7 +44,7 @@ async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
 #[chronographer::main]
 async fn main() {
     let task_inst = mytask();
-    CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
+    let _ = CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
 }
 ```
 Now you can run the code via:
@@ -120,24 +120,35 @@ async fn main() {
     // [!code highlight]
     let task_inst = mytask();
     // [!code highlight]
-    CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
+    let _ = CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
 }
 ```
 </RenderProgrammingLanguageBased>
 We spawn an instance of that Task and simply hand it out to the scheduler via the ``schedule`` method present in the
 ``CHRONOGRAPHER_SCHEDULER`` global.
 <Callout type={"warning"} title={"Disclaimer About The CHRONOGRAPHER_SCHEDULER Global"}>
-    ``CHRONOGRAPHER_SCHEDULER`` is **NOT meant to be used in production**, it is a simple default scheduler. This is used
-    in demonstrating simple demos (as we do clearly), in almost all cases, you should assemble your own Scheduler.
+    ``CHRONOGRAPHER_SCHEDULER`` is **NOT meant to be used in production**, it is a simple default scheduler.
+
+    This is used for demonstrative purposes and learning more about ChronoGrapher's Tasks which are universal and
+    don't have to do with how the Scheduler itself is configured.
 
     We will learn how to create our own Scheduler in the next chapters, however, in the meantime we will be using
     ``CHRONOGRAPHER_SCHEDULER`` as its prebuilt and intended for our case, but keep this disclaimer in mind.
+
+    <RenderProgrammingLanguageBased target_name="Rust">
+        Additionally, it should be mentioned the schedule method returns a ``Result`` back, which means it can
+        succeed but can also fail. Therefore, in most cases, developers should gracefully handle any errors from scheduling tasks.
+
+        For demonstration purposes and simplicity we silently ignore it, this should never be done under any circumstances
+        in any real-world code.
+    </RenderProgrammingLanguageBased>
 </Callout>
 
-A summary of how Tasks can be boiled down with this diagram:
+A summary of how Tasks work, can be boiled down with this diagram:
 <ThemeBasedImage
     light={"/diagram-light-2.svg"} dark={"/diagram-dark-2.svg"}
     width={1200} height={1200}
+    alt={"Diagram of Task's layout and communication between the Scheduler"}
 />
 Where a Task has 3 separate parts (Business Logic, Scheduling Logic and Scheduling Policy). Then the Task is scheduled
 on the global ``CHRONOGRAPHER_SCHEDULER`` to execute at **9:00 AM**.

@@ -1,4 +1,4 @@
-use crate::task::{TaskContext, TaskError, TaskFrame};
+use crate::task::{TaskContext, DynArcError, TaskFrame};
 use async_trait::async_trait;
 
 /// Represents a **no-operation task frame** that does nothing. This task frame type
@@ -34,7 +34,7 @@ pub struct DynamicTaskFrame<T>(T);
 impl<T, F> DynamicTaskFrame<T>
 where
     T: (Fn(&TaskContext) -> F) + Send + Sync + 'static,
-    F: Future<Output = Result<(), TaskError>> + Send + 'static,
+    F: Future<Output = Result<(), DynArcError>> + Send + 'static,
 {
     pub fn new(func: T) -> Self {
         Self(func)
@@ -45,9 +45,9 @@ where
 impl<T, F> TaskFrame for DynamicTaskFrame<T>
 where
     T: (Fn(&TaskContext) -> F) + Send + Sync + 'static,
-    F: Future<Output = Result<(), TaskError>> + Send + 'static,
+    F: Future<Output = Result<(), DynArcError>> + Send + 'static,
 {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         self.0(ctx).await
     }
 }

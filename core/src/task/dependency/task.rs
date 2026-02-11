@@ -5,7 +5,7 @@ use crate::task::{
     Debug, OnTaskEnd, ScheduleStrategy, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent,
     TaskTrigger,
 };
-use crate::task::{Task, TaskError};
+use crate::task::{Task, DynArcError};
 use async_trait::async_trait;
 use std::num::NonZeroU64;
 use std::sync::Arc;
@@ -56,7 +56,7 @@ pub trait TaskResolvent: Send + Sync {
     /// - [`TaskDependency`]
     /// - [`TaskContext`]
     /// - [`TaskResolvent`]
-    async fn should_count(&self, ctx: &TaskHookContext, result: Option<TaskError>) -> bool;
+    async fn should_count(&self, ctx: &TaskHookContext, result: Option<DynArcError>) -> bool;
 }
 
 macro_rules! implement_core_resolvent {
@@ -66,7 +66,7 @@ macro_rules! implement_core_resolvent {
 
         #[async_trait]
         impl TaskResolvent for $name {
-            async fn should_count(&self, ctx: &TaskHookContext, result: Option<TaskError>) -> bool {
+            async fn should_count(&self, ctx: &TaskHookContext, result: Option<DynArcError>) -> bool {
                 $code(ctx, result)
             }
         }
@@ -76,12 +76,12 @@ macro_rules! implement_core_resolvent {
 implement_core_resolvent!(
     TaskResolveSuccessOnly,
     "0b9473f5-9ce2-49d2-ba68-f4462d605e51",
-    (|_ctx: &TaskHookContext, result: Option<TaskError>| result.is_none())
+    (|_ctx: &TaskHookContext, result: Option<DynArcError>| result.is_none())
 );
 implement_core_resolvent!(
     TaskResolveFailureOnly,
     "d5a9db33-9b4e-407e-b2a3-f1487f10be1c",
-    (|_ctx: &TaskHookContext, result: Option<TaskError>| result.is_some())
+    (|_ctx: &TaskHookContext, result: Option<DynArcError>| result.is_some())
 );
 implement_core_resolvent!(
     TaskResolveIdentityOnly,
@@ -153,7 +153,6 @@ struct TaskDependencyTracker {
 impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
     async fn on_event(
         &self,
-        _event: OnTaskEnd,
         ctx: &TaskHookContext,
         payload: &<OnTaskEnd as TaskHookEvent>::Payload,
     ) {

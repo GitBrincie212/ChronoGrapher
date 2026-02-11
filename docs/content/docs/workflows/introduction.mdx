@@ -1,0 +1,183 @@
+---
+title: Basic Use Of Retries
+description: Learn how and when to use basic retries
+---
+
+In the previous chapter we have discussed the theory about handling failure and how other solutions
+as well as ChronoGrapher approach the problem, we haven't discussed however, how to actually create workflows.
+
+One of the common workflow primitives to encounter are **Retries**, they wrap one and only ``TaskFrame`` with the goal of
+constantly retrying as the ``TaskFrame`` fails, til it succeeds or the number of retries have been exhausted.
+
+Let's suppose we have the following task:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+use reqwest::{Error, StatusCode};
+
+#[task(interval(2s))]
+async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    let res = reqwest::get("https://httpbin.org/status/200,429,500")
+        .await
+        .map_err(|e| Arc::new(format!("Request failed: {e}")))?;
+
+    // For demonstration purposes
+    println!("Website responded with {}", res.status());
+
+    // In real code, you would describe in more detail the errors
+    match res.status() {
+        200 => Ok(()),
+        429 => Err(Arc::new("Too many requests present in our web page")),
+        500 => Err(Arc::new("Server error regarding web page")),
+        _ => Err(Arc::new(format!("HTTP {} error", res.status()))),
+    }
+}
+```
+</RenderProgrammingLanguageBased>
+In our example, we send an HTTP request to some service. Then this service can return success or an error (for
+demonstration purposes, we have 2 errors to care about).
+
+Running the above code yields us something similar to:
+```zsh title="terminal"
+# 1st run of Task (after 2 total seconds)
+[DEBUG] Website responded with 200
+
+# 2nd run of Task (after 4 total seconds)
+Website responded with 429
+
+# [!code --]
+# ERROR LEAKED THROUGH, CAUSING:
+# [!code --]
+Scheduler engine received an error for Task with identifier (...):
+# [!code --]
+    Too many requests present in our web page
+
+# <...>
+```
+
+You may notice how the error is leaking through, causing the Scheduler to shut down our Task.
+
+However, by requesting, we may encounter rare errors such as (but not limited to):
+- 500: Server error in the website
+- 429: Too many requests
+
+These types of errors may appear unpredictably, later down the line when retrying, they may succeed successfully, hence,
+It isn't in our control to fully handle them.
+
+To fix this we can add retries, which re-attempt requests once we hit an error:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+// [!code ++]
+#[workflow(retry(3))]
+async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...Same code as before... //
+}
+```
+</RenderProgrammingLanguageBased>
+
+The code retries the request for 3 total times, before either it succeeds or always hit an error, try tweaking
+the number of retries and see how it changes.
+
+Re-running our code, we may notice a difference:
+```zsh title="terminal"
+# 1st run of Task (after 2 total seconds)
+(Attempt: 0/3) Website responded with 200
+
+# 2nd run of Task (after ~4 total seconds)
+(Attempt: 0/3) Website responded with 429
+(Attempt: 1/3) Website responded with 500
+(Attempt: 2/3) Website responded with 200
+
+# 3rd run of Task (after ~6 total seconds)
+(Attempt 0/3) Website responded with 500
+(Attempt 1/3) Website responded with 429
+(Attempt 2/3) Website responded with 500
+(Attempt 3/3) Website responded with 500
+
+# [!code --]
+# ERROR LEAKED THROUGH, CAUSING:
+# [!code --]
+Scheduler engine received an error for Task with identifier (...):
+# [!code --]
+    Server error regarding web page
+
+# <...>
+```
+**Note:** The attempts (i.e. ``(Attempt X/3)``) are for visual purposes, they show which attempt we are on. The 0th
+attempt is when our code runs normally, above zero is when retries occur.
+
+Notice the multiple debugs for each run? This means our Task is being retried, though in our case its dumb and immediately
+retries. To fix this, we can declare a delay per retry like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+// [!code ++]
+#[workflow(retry(3, 2s))]
+async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...Same code as before... //
+}
+```
+</RenderProgrammingLanguageBased>
+> **Note:** the ``2s`` argument is syntax sugar for the following expression:
+> ```rust
+> std::time::Duration::from_secs(2)
+> ```
+> It isn't restricted to just seconds, with ``y`` you can declare years, ``M`` for months, ``w`` for weeks,
+> ``d`` for days, ``h`` for hours, ``m`` for minutes and even ``ms`` for milliseconds.
+
+With this modification, each retry waits around for 2 total seconds. Tweaking the delay results in faster/slower
+retries, depending on the task itself, it might be better to have slower retries over faster ones.
+
+In our case however, 2 seconds is just enough time to follow with another request to our service.
+
+Now running our code again, we notice:
+```zsh title="terminal"
+# 1st run of Task (after 2 total seconds)
+(Attempt: 0/3) Website responded with 200 #0th retry
+
+# 2nd run of Task (after ~4 total seconds)
+(Attempt: 0/3) Website responded with 429
+(Attempt: 1/3) Website responded with 500 # AFTER 2 SECONDS
+(Attempt: 2/3) Website responded with 200 # AFTER 2 SECONDS
+
+# 3rd run of Task (after ~10 total seconds)
+(Attempt: 0/3) Website responded with 500
+(Attempt: 1/3) Website responded with 429 # AFTER 2 SECONDS
+(Attempt: 2/3) Website responded with 500 # AFTER 2 SECONDS
+(Attempt: 3/3) Website responded with 500 # AFTER 2 SECONDS
+
+# [!code --]
+# ERROR LEAKED THROUGH, CAUSING:
+# [!code --]
+Scheduler engine received an error for Task with identifier (...):
+# [!code --]
+    Server error regarding web page
+
+# <...>
+```
+
+<Callout type={"idea"} title={"Pro Tip: Naming Workflow Primitive Arguments"}>
+Instead of just dropping values to the arguments, we can name them like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+    ```rust
+    #[workflow(retry(max = 3, delay = 2s))]
+    ```
+</RenderProgrammingLanguageBased>
+
+You can even mix them up. <Highlight color={"error"}>HOWEVER</Highlight>, named arguments must come after positional arguments:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+    ```rust
+    #[workflow(retry(3, delay = 2s))]
+    ```
+</RenderProgrammingLanguageBased>
+</Callout>
+
+Generally retries should be used when tasks may randomly fail (without being able to control). We have touched on
+API requests as a practical example, but so can retries be used in database queries.
+
+Retries are one of the many workflow primitives which ChronoGrapher has in store. In the next chapter we will be analyzing
+fallbacks, and how to combine them.
+
+> TL;DR. Retries allow for re-attempting of a workflow part til the number of retries is exhausted, or it succeeds. They should
+be used to remedy 'transient' errors, you can control the number of retry attempts and the delay in-between.

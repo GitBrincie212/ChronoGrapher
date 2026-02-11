@@ -1,13 +1,31 @@
 use chronographer::prelude::*;
-use std::fmt::Debug;
 use std::sync::Arc;
+use async_trait::async_trait;
+use chronographer::errors::ChronographerErrors::ThresholdReachError;
+use chronographer::task::TaskHookContext;
+
+pub struct MyCoolTaskHook;
+
+#[async_trait]
+impl TaskHook<OnTaskStart> for MyCoolTaskHook {
+    async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskStart as TaskHookEvent>::Payload) {
+        println!("Interested event triggered!");
+    }
+}
+
+#[async_trait]
+impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
+    async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskEnd as TaskHookEvent>::Payload) {
+        println!("Interested event triggered!");
+    }
+}
 
 #[tokio::main]
 async fn main() {
     let exec_frame = DynamicTaskFrame::new(|_ctx| async {
         println!("Trying primary task...");
         //sleep(Duration::from_secs_f64(1.234)).await;
-        Err(Arc::new("task failed") as Arc<dyn Debug + Send + Sync>)
+        Err(Arc::new(ThresholdReachError) as DynArcError)
     });
 
     //let timeout_frame = DelayTaskFrame::new(exec_frame, Duration::from_secs(3));

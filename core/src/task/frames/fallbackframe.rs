@@ -1,6 +1,6 @@
 use crate::define_event;
 use crate::task::TaskHookEvent;
-use crate::task::{TaskContext, TaskError, TaskFrame};
+use crate::task::{TaskContext, DynArcError, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -33,7 +33,7 @@ define_event!(
     /// - [`TaskHookEvent`]
     /// - [`Task`]
     /// - [`TaskFrame`]
-    OnFallbackEvent, TaskError
+    OnFallbackEvent, DynArcError
 );
 
 /// Represents a **fallback task frame** which wraps two other task frames. This task frame type acts as a
@@ -110,7 +110,7 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
 
 #[async_trait]
 impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         match ctx.subdivide(self.0.clone()).await {
             Err(primary_error) => {
                 ctx.emit::<OnFallbackEvent>(&primary_error).await;

@@ -1,0 +1,153 @@
+---
+title: TaskHook Introduction
+description: Learn how to use TaskHooks effectively
+---
+
+In our previous chapter, we have discussed the theory of monitoring and how important it is to get right, discussing
+the various other solutions, but we haven't dived to how to actually use ``TaskHooks``.
+
+Briefly restating ChronoGrapher's solutions, it uses ``TaskHooks``, they allow us to introspect at a deep level our Tasks,
+while they can also satisfy multiple needs such as state management, markers... etc.
+
+There are 2 phases to use the ``TaskHooks``, the former is the **Implementation / Definition Phase** while the
+latter is **Registration Phase**, in the first, we explicitly declare something as a ``TaskHook``
+and more specifically what events it can listen to.
+
+Think of events as actions that happen in our code, such as retries, business logic doing (or have done) something
+and even other TaskHooks triggering their own events.
+
+## Implementation / Definition Phase
+In the same previous code lets define our ``TaskHook`` like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=1
+use async_trait::async_trait;
+
+pub struct MyCoolTaskHook;
+
+#[async_trait]
+impl TaskHook<OnTaskStart> for MyCoolTaskHook {
+    async fn on_event(
+        &self,
+        ctx: &TaskHookContext,
+        payload: &<OnTaskStart as TaskHookEvent>::Payload
+    ) {
+        println!("Interested \"OnTaskStart\" event triggered!");
+    }
+}
+
+#[async_trait]
+impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
+    async fn on_event(
+        &self,
+        ctx: &TaskHookContext,
+        payload: &<OnTaskEnd as TaskHookEvent>::Payload
+    ) {
+        println!("Interested \"OnTaskEnd\" event triggered! With error = {:?}", payload);
+    }
+}
+```
+Let's take a step back and analyze what is happening, we can observe we declared a struct named ``MyCoolTaskHook``
+and later down the line we implement ``TaskHook<OnTaskStart>``.
+
+The ``OnTaskStart`` is an event defined by ChronoGrapher which allows to listen to when a Task is about to start.
+
+> Should be noted that we have an ``async_trait`` macro for convenience which must be used, it requires a third-party
+crate called simply ``async_trait`` to be installed.
+</RenderProgrammingLanguageBased>
+
+TaskHook has a generic, this generic declares what event it listens to, for our case it listens only to the event
+``OnTaskStart``. After that we implement an ``on_event`` method.
+
+This method contains the code to execute when we listen to the event, or commonly called the
+<Highlight color={"neutral"}>Side Effects</Highlight>, this method contains the ``self`` instance, a context object and a payload.
+
+The ``self`` is just an instance of our ``TaskHook``, it works typically like any struct, the context object gives us
+detailed information about the event in question such as which ``TaskFrame`` triggered it.
+
+Finally, the payload is extra metadata associated with the event, every event has its own payload which gives detailed
+information about what exactly happened, in our case its empty.
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+    We again implement the ``TaskHook`` with the generic, this time being ``TaskHook<OnTaskEnd>``, the only difference is
+    the payload being ``Option<TaskError>`` which indicates if the Task failed or succeeded.
+
+    The ``OnTaskEnd`` is an event defined by ChronoGrapher which allows to listen to when a Task is has ended.
+</RenderProgrammingLanguageBased>
+
+With that said, in the first phase we have declared our TaskHook to listen and execute different code for the events
+``OnTaskStart`` and ``OnTaskEnd``, we are not done, however.
+
+## Registration Phase
+
+The second phase or known as **Registration Phase** involves us attaching the TaskHook somewhere, more specifically
+one of our Tasks as currently TaskHooks do nothing.
+
+To achieve this we can change our code in the following way:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=28
+#[task(interval(2s))]
+// [!code ++]
+#[hooks({
+    // [!code ++]
+    MyCoolTaskHook: [OnTaskStart, OnTaskEnd]
+// [!code ++]
+})]
+async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Simulating Task 1's Actions");
+    Ok(())
+}
+
+#[task(interval(3s))]
+#[workflow(
+    retry(3, 1s),
+    timeout(5s)
+)]
+// [!code ++]
+#[hooks({
+    // [!code ++]
+    MyCoolTaskHook: [OnTaskStart, OnTaskEnd]
+// [!code ++]
+})]
+async fn task2(ctx: &TaskContext) -> Result<(), TaskError> {
+    println!("Simulating Task 2's Actions");
+    Ok(())
+}
+    ```
+</RenderProgrammingLanguageBased>
+This automatically attaches our ``MyCoolTaskHook`` TaskHook to our Task instance (both task1 and task2) when we
+instantiate. You may notice in the terminal the following:
+```zsh title="terminal"
+# After 2 seconds
+Interested "OnTaskStart" event triggered!
+Simulating Task 1's Actions
+Interested "OnTaskEnd" event triggered! With error = None
+
+# After 1 second
+Interested "OnTaskStart" event triggered!
+Simulating Task 2's Actions
+Interested "OnTaskEnd" event triggered! With error = None
+```
+
+The "Interested ... event" prints come from our TaskHook, as it is triggered based on these events.
+Try to change task2 to throw an error and notice what the ``TaskHook`` prints.
+
+<Callout type={"idea"} title={"Attaching To All TaskHook Events"}>
+    Instead of manually listing the events to attach to, you can also do the following:
+    <RenderProgrammingLanguageBased target_name={"Rust"}>
+        ```rust title="src/main.rs" lineNumbers=28
+        #[task(interval(2s))]
+        #[hooks(MyCoolTaskHook)]
+        async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+        // ...
+    }
+        ```
+    </RenderProgrammingLanguageBased>
+    This attaches the TaskHook to every event it implements.
+</Callout>
+
+Most of the time we typically attach a TaskHook to every event, however, there may scenarios where we only want to
+attach the TaskHook only to specific events.
+
+Try removing the ``OnTaskEnd`` entry on ``task2``, notice how it no longer prints the ``OnTaskEnd`` contents?
+
+<h1><Highlight color={"error"}>[DOCUMENTATION UNFINISHED; WIP; FOR DEVELOPER]</Highlight></h1>

@@ -1,0 +1,128 @@
+---
+title: "Introduction & Prerequisites"
+description: "Learn how to get better involved with the ChronoGrapher product and its team"
+---
+This chapter will mainly discuss the contributions process, it includes a specs / guidelines reference
+for quick access with a brief description.
+
+**Before fully contributing, ideally you should talk to the maintainer of ChronoGrapher (McBrincie212) and never
+hesitate to ask any questions (even if simple ones).**
+
+# Guideline Reference
+
+The following guidelines should be used as references, they aren't meant to be fully memorized in one go
+(with time, though, you build intuition), search and learn about the necessary guidelines in your domain:
+
+- **[API Docs Guidelines](./contributing/api_docs_guidelines)** Explains ChronoGrapher's API documentation structure, why its rigorous, its goals,
+  when API docs are best fit and when they aren't and special semantic headers used.
+
+- **[AI Use Case Guidelines](./contributing/ai_use_guidelines)** Discusses the use of Generative AI in the contribution process, what is and isn't allowed,
+  disclosing AI use case in PRs and what punishments may ensue if improper use is noticed.
+
+- **[Guidebook Guidelines](./contributing/vision_goals_guidelines)** Teaches how the structure of ChronoGrapher's guidebook,
+  its goals, where the guidebook is best fit and when it isn't and how to use each component.
+
+**Before you take a look in the guidelines**, we should first mention some of the prerequisite
+knowledge and experience required to be helpful in this large-scale project.
+
+# Recommended Experience Level
+The ideal contributor for ChronoGrapher has:
+1. At least 6 months intermediate Rust experience (knows async/await, tokio, traits, lifetimes... etc.).
+2. Knows how to critique and design good architecture (design patterns and so on).
+3. Understand **Workflow Orchestration** and **Distributed Systems** concepts (persistence, fault tolerance... etc.).
+4. Intermediate experience with most of ChronoGrapher's systems.
+5. Aligned fully with the vision and goals of ChronoGrapher.
+6. Knows how to document APIs and help with the guidebook.
+
+While having most if not all strengths is not a requirement, contributors must be comfortable with at least 4 strengths,
+the more experience you have, the more of a net positive.
+
+It's best to strive forward and learn these skills beforehand when attempting to contribute, the more strengths,
+the better of a team player. The lower the number of strengths, the fewer, easier and less important tasks you will be assigned to (and vice versa).
+
+# Contribution Guide
+Assuming you are a first-time contributor of the ChronoGrapher project (it is an honor to consider contributing),
+before you start right away, it is best to take things gradually, most basic activities include:
+- Add missing standalone unit tests, testing only one component (only interact with other components if necessary).
+- Being alert for any GitHub issue that may have the tag <Highlight color={"neutral"}>Newcomer Friendly</Highlight>.
+- Attempting to fix typos, broken links and/or clarify something much better (both guidebook and API docs).
+- Trying to translate the guidebook in your language if it hasn't already been fully translated.
+- Improve error messages for better debugging experience.
+- Fixing any straightforward bug which has steps in an issue to reproduce it.
+
+The next level is tailored to contributors who have a good level of familiarity with ChronoGrapher and its codebase,
+previous and newer but harder activities may be assigned to them such as:
+- Optimize components identified by our benchmarks, if there is any room (don't overdo it prematurely).
+- Create new features utilizing existing task-related, scheduler-related or miscellaneous related systems.
+- Add integration unit tests, verifying the interaction between components of same or different systems.
+- Rewrite portions of the codebase to make the code more readable, understandable and clean.
+
+Final level includes visionaries, very familiar with ChronoGrapher, know very well what it strives to be and
+how best they can reshape ChronoGrapher to accomplish these goals. They are mainly focused on these activities:
+- Proposing new systems and architectures to solve problem(s) while abiding by its design philosophy.
+- Building new extensions on top of ChronoGrapher's core or with other extensions.
+- Integrating mature proven solutions with ChronoGrapher's ecosystem.
+- Assembling new SDKs for ChronoGrapher's core or extensions targeting other programming languages.
+- Constructing the future of ChronoGrapher and proposing how best to coordinate the team.
+- Writing guides for patterns and systems (could be new ones or old ones previously left undocumented).
+- Mentor Level-1 and Level-2 Contributors and improve their efficiency.
+
+# Progressing Through Contributor Levels
+It should be emphasized that these levels are <Highlight color={"error"}>NOT</Highlight> rigid, rather suggestive.
+The talent of a contributor is recognized and heavily rewarded for every level with increased responsibility.
+
+Progressing through levels works as a spectrum, and not an immediate abrupt. Often times the more you contribute
+to ChronoGrapher while demonstrating improved knowledge, the more complex tasks will be assigned from next level
+and slowly transition.
+
+With that said, the next chapters will mainly emphasize guidelines, they will be long and mostly there for reference.
+Good luck in your journey to contribute your skills in the ChronoGrapher project.
+
+# Goals Of ChronoGrapher
+## Ergonomics & Developer Experience
+ChronoGrapher has a design philosophy embedded within, it is expected for contributors to follow rigorously and that design
+philosophy consists of 3 principles:
+- **Minimalism Over Bloat** Design few systems which do their job perfectly instead of multiple scattered, overlapping
+  similar systems, they should be future-proof and consistent.
+- **Emergent Over Predefined** Design adaptable systems, they shouldn't predefine strictly behavior. Allow users
+  to freely extend and use the system even if not initially intended.
+- **Simplicity Over Complexity** Design systems which aren't complex to get working, **HOWEVER**, complexity and power are
+  a spectrum, the goal is to maximize power while minimizing complexity as much as possible.
+
+A prime example of this are ``TaskHooks`` which are one emergent and minimal system, emergent since concepts such as
+**Hook-To-Hook Communication** didn't initially exist but the system does support them.
+
+And minimal as its one system being able to adapt to multiple responsibilities, finally simple as it involves marking
+something a ``TaskHook`` and then registering it on a Task.
+
+The above principles have to do with <Highlight color={"success"}>Ergonomics & DX</Highlight>, which are the most critical
+to get right in the project, however, there is also the <Highlight color={"warn"}>Performance</Highlight> side of the project.
+
+## Ecosystem Integrations
+Once contributors have successfully made a system, they should be on the lookout to integrate this system with another ecosystem,
+for example web frameworks, programming languages, distributed systems... etc.
+
+To achieve this, contributors can write extensions utilizing the standalone system and the ecosystem, the idea is to
+make the system as native as possible and ergonomic to use in this niche.
+
+Contributors should integrate where necessary, if the system they make for ChronoGrapher works well enough without any
+adjustments, they shouldn't really bother to create a whole new extension.
+
+An example of this are the language bindings / SDKs of ChronoGrapher, the core contains common definitions and systems used and the
+bindings / SDKs wrap the core around and expose it in a native way.
+
+## Performance
+Performance is one of the topics that should be considered at the final stage, once the API and code have been stabilized
+and unit-tests run correctly.
+
+Contributors should always seek the opportunity to optimize their code as much as possible, though with control, as
+to avoid [Premature Optimization](https://wiki.c2.com/?PrematureOptimization) and avoid harming the other goals.
+
+If performance hits the ceiling, one should always consider reviewing the architecture since often times it may be the culprit,
+or handle things more smart to save compute.
+
+Contributors should write benchmarks for their code using [CodSpeed](https://codspeed.io), these benchmarks should cover common
+use-cases of the system in action and integrations with other systems while nothing else too niche.
+
+It is recommended for contributors to profile code with tools such as [Samply](https://github.com/mstange/samply) as opposed to just guessing
+around or manually timing functions.

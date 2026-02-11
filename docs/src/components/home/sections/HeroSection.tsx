@@ -1,7 +1,7 @@
 import { waapi } from "animejs";
 import React, { useEffect } from "react";
-import CallToActionButton from "@/components/home/call-to-action-button";
-import { ChronoGrapherWireComponent } from "@/components/home/chronographer-wire-component";
+import CallToActionButton from "@/components/home/CallToActionButton";
+import { ChronoGrapherWireComponent } from "@/components/home/ChronoGrapherWireComponent";
 import Highlight from "@/components/ui/highlight";
 
 import animate = waapi.animate;
@@ -44,7 +44,7 @@ function ChronoGrapherCallToActionText() {
         className="text-center w-screen font-light opacity-0 font-[VioletSans]"
         ref={paragraphText}
       >
-        One composable, scalable engine instead of many brittle schedulers.
+        One extensible, scalable engine instead of many brittle fragmented schedulers.
       </div>
     </div>
   );

@@ -77,7 +77,7 @@ struct MyTaskFrame;
 
 #[async_trait]
 impl TaskFrame for MyTaskFrame {
-    async fn execute(&self, _ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, _ctx: &TaskContext) -> Result<(), DynArcError> {
         yield_now().await;
         COUNTER.fetch_add(1, Ordering::Relaxed);
         Ok(())

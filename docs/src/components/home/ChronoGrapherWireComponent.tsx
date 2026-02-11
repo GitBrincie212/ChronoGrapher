@@ -7,7 +7,7 @@ import React, { type JSX, useEffect } from "react";
 import ChronoGrapherDark from "@/assets/chronographer-dark.svg";
 import ChronoGrapherLight from "@/assets/chronographer-light.svg";
 import { useFumadocsTheme } from "@/components/theme";
-import styles from "./chronographer-wire-component.module.css";
+import styles from "./ChronoGrapherWireComponent.module.css";
 
 import animate = waapi.animate;
 
@@ -192,7 +192,7 @@ function ServiceBlockComponent(props: {
         className={`absolute w-full bg-fd-background h-1/2 z-1000 ${props.left ? "right-full" : "left-full"}`}
       ></div>
       <div
-        className={`relative p-0.5 ${props.left ? "bg-linear-to-r" : "bg-linear-to-l"} from-fd-foreground/30 to-fd-background-dark rounded z-100`}
+        className={`relative p-0.5 ${props.left ? "bg-linear-to-r" : "bg-linear-to-l"} from-fd-foreground/30 to-fd-background-100p rounded z-100`}
       >
         <div className={"size-8 2xl:size-12 rounded bg-fd-background"} />
         <div
@@ -268,9 +268,9 @@ function ChipWireComponent(props: { left?: boolean }) {
           <div
             className={`rounded-full size-4 bg-white border-2 ${usesSecondary ? "border-fd-brand-secondary" : "border-fd-brand-primary"} z-20`}
           />
-          <div
-            className={`absolute blur-md saturate-200  rounded-full size-6 ${usesSecondary ? "bg-fd-brand-secondary" : "bg-fd-brand-primary"} z-10`}
-          />
+          <div className={`absolute size-24 flex items-center z-10`}>
+            <div className={`blur-md saturate-200 rounded-full size-6 ${usesSecondary ? "bg-fd-brand-secondary" : "bg-fd-brand-primary"}`}/>
+          </div>
           <div
             className={`absolute min-h-2 w-18 2xl:w-36 ${
               usesSecondary
@@ -348,8 +348,8 @@ export function ChronoGrapherWireComponent() {
       <div className="z-100 p-0.5 bg-linear-to-b from-fd-foreground from-30% via-fd-muted via-70% to-fd-background rounded-lg">
         <div
           className={
-            "relative size-60 lg:size-68 2xl:size-96 flex items-center justify-center bg-linear-to-b from-fd-background-light " +
-            "to-fd-background-dark to-80% rounded-lg **:pointer-events-none **:select-none"
+            "relative size-60 lg:size-68 2xl:size-96 flex items-center justify-center bg-linear-to-b from-fd-background-100n " +
+            "to-fd-background-100p to-80% rounded-lg **:pointer-events-none **:select-none"
           }
         >
           <div className="w-full h-full *:p-8 *:lg:p-10 *:2xl:p-16 mask-b-from-20% from-white to-transparent">

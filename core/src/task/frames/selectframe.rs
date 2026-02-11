@@ -1,6 +1,6 @@
 use crate::define_event;
 use crate::errors::ChronographerErrors;
-use crate::task::{TaskContext, TaskError, TaskFrame, TaskHookEvent};
+use crate::task::{TaskContext, DynArcError, TaskFrame, TaskHookEvent};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -198,7 +198,7 @@ impl SelectTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SelectTaskFrame {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         let idx = self.accessor.select(ctx).await;
         if let Some(frame) = self.frames.get(idx) {
             ctx.emit::<OnTaskFrameSelection>(&(idx, frame.clone()))

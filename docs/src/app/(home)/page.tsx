@@ -1,13 +1,13 @@
 "use client";
 
 import HeroSection from "@/components/home/sections/HeroSection";
-import ShowcaseSection from "@/components/home/sections/ShowcaseSection";
+import IntegrationsSection from "@/components/home/sections/IntegrationsSection";
 
 export default function HomePage() {
   return (
     <main className="overflow-x-hidden">
       <HeroSection />
-      <ShowcaseSection />
+      <IntegrationsSection />
     </main>
   );
 }

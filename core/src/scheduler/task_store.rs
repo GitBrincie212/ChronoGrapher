@@ -5,7 +5,7 @@ pub use ephemeral::*;
 
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
-use crate::task::{ErasedTask, TaskError};
+use crate::task::{ErasedTask, DynArcError};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -113,7 +113,7 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
         &self,
         clock: &C::SchedulerClock,
         idx: &C::TaskIdentifier,
-    ) -> Result<(), TaskError>;
+    ) -> Result<(), DynArcError>;
 
     /// Stores a task as an entry, returning its index
     ///
@@ -134,7 +134,7 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
         &self,
         clock: &C::SchedulerClock,
         task: ErasedTask,
-    ) -> Result<C::TaskIdentifier, TaskError>;
+    ) -> Result<C::TaskIdentifier, DynArcError>;
 
     /// Removes a task based on an index, depending on the implementation,
     /// it may handle differently the case where the index does not exist

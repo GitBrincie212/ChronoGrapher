@@ -1,6 +1,6 @@
 use crate::define_event;
 use crate::task::TaskHookEvent;
-use crate::task::{TaskContext, TaskError, TaskFrame};
+use crate::task::{TaskContext, DynArcError, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::Duration;
@@ -123,7 +123,7 @@ impl<T: TaskFrame> TimeoutTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), TaskError> {
+    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
         let result =
             tokio::time::timeout(self.max_duration, ctx.subdivide(self.frame.clone())).await;
 

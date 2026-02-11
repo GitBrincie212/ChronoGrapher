@@ -11,11 +11,7 @@
 }
 
 @theme {
-  --color-fd-background: hsl(253, 32%, 89%);
-  --color-fd-neutral: hsl(300, 3%, 20%);
-  --color-fd-neutral-dark: hsl(300, 3%, 13%);
-  --color-fd-background-dark: hsl(254, 19%, 82%);
-  --color-fd-background-light: hsl(260, 100%, 96%);
+  --color-fd-background: hsl(251, 19%, 84%);
   --color-fd-border: hsla(270, 40%, 80%, 0.5);
   --color-fd-accent: hsl(270, 40%, 88%);
   --color-fd-accent-foreground: hsl(270, 100%, 20%);
@@ -25,7 +21,7 @@
   --color-fd-secondary: hsl(270, 60%, 90%);
   --color-fd-secondary-foreground: hsl(256, 60%, 10%);
   --color-fd-card: hsl(256, 60%, 92%);
-  --color-fd-card-foreground: hsl(256, 100%, 20%);
+  --color-fd-card-foreground: hsl(255, 92%, 5%);
   --color-fd-popover-foreground: hsl(256, 100%, 20%);
   --color-fd-popover: hsl(256, 60%, 96%);
   --color-fd-primary: hsl(270, 100%, 52%);
@@ -35,6 +31,9 @@
   --color-fd-ring: hsl(270, 100%, 52%);
   --color-fd-brand-secondary: hsl(325, 100%, 37%);
   --color-fd-brand-secondary-foreground: hsl(320, 23%, 87%);
+
+  --color-fd-background-100p: hsl(258, 17%, 77%);
+  --color-fd-background-100n: hsl(260, 100%, 96%);
 }
 
 @theme static {
@@ -50,11 +49,7 @@
 }
 
 .dark {
-  --color-fd-background: hsl(245, 52%, 5%);
-  --color-fd-background-dark: hsl(250, 23%, 5%);
-  --color-fd-background-light: hsl(252, 23%, 9%);
-  --color-fd-neutral: hsl(260, 24%, 93%);
-  --color-fd-neutral-dark: hsl(267, 9%, 77%);
+  --color-fd-background: hsl(240, 18%, 7%);
   --color-fd-primary: hsl(270, 100%, 86%);
   --color-fd-primary-foreground: hsl(256, 60%, 6%);
   --color-fd-brand-primary: hsl(270, 100%, 61%);
@@ -74,6 +69,9 @@
   --color-fd-popover-foreground: hsl(256, 60%, 90%);
   --color-fd-popover: hsl(256, 23%, 6%);
   --color-fd-ring: hsl(270, 100%, 86%);
+
+  --color-fd-background-100n: hsl(250, 20%, 6%);
+  --color-fd-background-100p: hsl(252, 9%, 10%);
 }
 
 .hljs {

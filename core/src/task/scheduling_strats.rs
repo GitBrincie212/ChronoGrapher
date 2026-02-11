@@ -1,5 +1,5 @@
 use crate::scheduler::task_dispatcher::EngineNotifier;
-use crate::task::{ErasedTask, TaskError};
+use crate::task::{ErasedTask, DynArcError};
 use async_trait::async_trait;
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
@@ -97,7 +97,7 @@ pub struct SequentialSchedulingPolicy;
 #[async_trait]
 impl ScheduleStrategy for SequentialSchedulingPolicy {
     async fn handle(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
-        let result: Result<(), TaskError> = task.run().await;
+        let result: Result<(), DynArcError> = task.run().await;
         notifier.notify(result.err()).await;
     }
 }
@@ -130,7 +130,7 @@ impl ScheduleStrategy for ConcurrentSchedulingPolicy {
     async fn handle(&self, task: Arc<ErasedTask>, notifier: EngineNotifier) {
         let cloned_task = task.clone();
         tokio::spawn(async move {
-            let result: Result<(), TaskError> = cloned_task.run().await;
+            let result: Result<(), DynArcError> = cloned_task.run().await;
             notifier.notify(result.err()).await;
         });
     }
@@ -186,7 +186,7 @@ impl ScheduleStrategy for CancelPreviousSchedulingPolicy {
 
         let cloned_task = task.clone();
         let curr_handle = tokio::spawn(async move {
-            let result: Result<(), TaskError> = cloned_task.run().await;
+            let result: Result<(), DynArcError> = cloned_task.run().await;
             notifier.notify(result.err()).await;
         });
 
@@ -237,7 +237,7 @@ impl ScheduleStrategy for CancelCurrentSchedulingPolicy {
         let is_free_clone = is_free.clone();
         let cloned_task = task.clone();
         tokio::spawn(async move {
-            let result: Result<(), TaskError> = cloned_task.run().await;
+            let result: Result<(), DynArcError> = cloned_task.run().await;
             notifier.notify(result.err()).await;
             is_free_clone.store(true, Ordering::Relaxed);
         });

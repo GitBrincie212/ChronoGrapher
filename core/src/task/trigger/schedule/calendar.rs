@@ -1,4 +1,4 @@
-use crate::task::TaskError;
+use crate::task::DynArcError;
 use crate::task::schedule::TaskSchedule;
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike, Utc};
 use std::fmt::Debug;
@@ -508,7 +508,7 @@ impl<
     Millisecond: TaskCalendarField + 'static,
 > TaskSchedule for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
 {
-    fn schedule(&self, now: SystemTime) -> Result<SystemTime, TaskError> {
+    fn schedule(&self, now: SystemTime) -> Result<SystemTime, DynArcError> {
         let time = DateTime::<Utc>::from(now);
         let mut fields: [&dyn TaskCalendarField; 7] = [
             &self.millisecond,

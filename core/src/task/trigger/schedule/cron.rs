@@ -1,5 +1,5 @@
 use crate::errors::ChronographerErrors;
-use crate::task::TaskError;
+use crate::task::DynArcError;
 use crate::task::schedule::TaskSchedule;
 use chrono::{DateTime, Utc};
 use std::fmt::Debug;
@@ -72,10 +72,10 @@ impl TaskScheduleCron {
 }
 
 impl TaskSchedule for TaskScheduleCron {
-    fn schedule(&self, time: SystemTime) -> Result<SystemTime, TaskError> {
+    fn schedule(&self, time: SystemTime) -> Result<SystemTime, DynArcError> {
         let dt = DateTime::<Utc>::from(time);
         cron_parser::parse(&self.0, &dt)
-            .map_err(|e| Arc::new(ChronographerErrors::CronParserError(e.to_string())) as TaskError)
-            .map(SystemTime::from)
+            .map_err(|e| Arc::new(ChronographerErrors::CronParserError(e.to_string())) as DynArcError)
+            .map(|x| SystemTime::from(x))
     }
 }
