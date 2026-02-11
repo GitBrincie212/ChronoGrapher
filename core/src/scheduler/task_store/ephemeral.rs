@@ -2,7 +2,7 @@ use crate::errors::ChronographerErrors;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ErasedTask, DynArcError, TriggerNotifier};
+use crate::task::{DynArcError, ErasedTask, TriggerNotifier};
 use crate::utils::TaskIdentifier;
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -36,7 +36,7 @@ impl<C: SchedulerConfig> Ord for InternalScheduledItem<C> {
     }
 }
 
-type EarlyMutexLock<'a, C: SchedulerConfig> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>>;
+type EarlyMutexLock<'a, C> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>>;
 
 /// [`EphemeralSchedulerTaskStore`] is an implementation of [`SchedulerTaskStore`]
 /// that can operate in-memory and persistence (can be configured with a [`PersistenceBackend`])
@@ -99,7 +99,8 @@ type EarlyMutexLock<'a, C: SchedulerConfig> = MutexGuard<'a, BinaryHeap<Internal
 pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask>>,
-    sender: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
+    sender:
+        tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
 }
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
@@ -144,7 +145,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
         let task = self.tasks.get(&rev_item.1)?;
-        Some((task.value().clone(), rev_item.0.clone(), rev_item.1.clone()))
+        Some((task.value().clone(), rev_item.0, rev_item.1.clone()))
     }
 
     async fn get(&self, idx: &C::TaskIdentifier) -> Option<Arc<ErasedTask>> {
@@ -171,7 +172,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
                 .ok_or(
                     Arc::new(ChronographerErrors::TaskIdentifierNonExistent(format!(
                         "{idx:?}"
-                    ))) as DynArcError
+                    ))) as DynArcError,
                 )?;
 
         let now = clock.now().await;
