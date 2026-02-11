@@ -52,5 +52,7 @@ async fn main() {
 
     let _ = CHRONOGRAPHER_SCHEDULER.schedule(&mytask).await;
     CHRONOGRAPHER_SCHEDULER.start().await;
-    loop {}
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
 }

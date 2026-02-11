@@ -8,7 +8,7 @@ use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ScheduleStrategy, Task, DynArcError, TaskFrame, TaskTrigger};
+use crate::task::{DynArcError, ScheduleStrategy, Task, TaskFrame, TaskTrigger};
 use crate::utils::TaskIdentifier;
 use std::sync::{Arc, LazyLock};
 use tokio::join;
@@ -44,7 +44,7 @@ pub static CHRONOGRAPHER_SCHEDULER: LazyLock<Arc<DefaultGlobalScheduler>> = Lazy
     Arc::new(
         Scheduler::builder()
             .store(EphemeralSchedulerTaskStore::default())
-            .clock(ProgressiveClock::default())
+            .clock(ProgressiveClock)
             .dispatcher(DefaultTaskDispatcher)
             .engine(DefaultSchedulerEngine)
             .build(),
@@ -129,8 +129,8 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
 
 pub enum SchedulerHandleInstructions<C: SchedulerConfig> {
     Reschedule(C::TaskIdentifier), // Forces the Task to reschedule (instances may still run)
-    Halt(C::TaskIdentifier), // Cancels the Task's current execution, if any
-    Block(C::TaskIdentifier), // Blocks the Task from rescheduling
+    Halt(C::TaskIdentifier),       // Cancels the Task's current execution, if any
+    Block(C::TaskIdentifier),      // Blocks the Task from rescheduling
 }
 
 /// [`Scheduler`] is the instance that hosts all the three composites those being:

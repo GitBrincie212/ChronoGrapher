@@ -22,6 +22,9 @@ pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
+use crate::prelude::NonObserverTaskHook;
+use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
+use async_trait::async_trait;
 pub mod thresholdframe; // skipcq: RS-D1001
 
 pub use conditionframe::*;
@@ -39,8 +42,8 @@ pub use timeoutframe::*;
 
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
 use async_trait::async_trait;
-use std::ops::Deref;
 use std::error::Error;
+use std::ops::Deref;
 use std::sync::Arc;
 
 /// A task-related error (i.e. A task failure)
@@ -189,6 +192,26 @@ impl TaskContext {
     /// - [`TaskHookEvent`]
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
         self.hooks_container.get::<E, T>()
+    }
+
+    pub async fn shared<H>(&self, creator: impl FnOnce() -> H) -> Arc<H>
+    where
+        H: NonObserverTaskHook + Send + Sync + 'static,
+    {
+        if let Some(hook) = self.get_hook::<(), H>() {
+            hook
+        } else {
+            let hook = Arc::new(creator());
+            self.attach_hook::<(), H>(hook.clone()).await;
+            hook
+        }
+    }
+
+    pub fn get_shared<H>(&self) -> Option<Arc<H>>
+    where
+        H: NonObserverTaskHook + Send + Sync + 'static,
+    {
+        self.get_hook::<(), H>()
     }
 }
 
