@@ -2,7 +2,7 @@ use crate::errors::ChronographerErrors;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{ErasedTask, DynArcError, TriggerNotifier};
+use crate::task::{DynArcError, ErasedTask, TriggerNotifier};
 use crate::utils::TaskIdentifier;
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -99,7 +99,8 @@ type EarlyMutexLock<'a, C> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>
 pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask>>,
-    sender: tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
+    sender:
+        tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
 }
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
@@ -171,7 +172,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
                 .ok_or(
                     Arc::new(ChronographerErrors::TaskIdentifierNonExistent(format!(
                         "{idx:?}"
-                    ))) as DynArcError
+                    ))) as DynArcError,
                 )?;
 
         let now = clock.now().await;

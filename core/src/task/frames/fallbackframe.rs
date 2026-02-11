@@ -1,6 +1,6 @@
 use crate::define_event;
 use crate::task::TaskHookEvent;
-use crate::task::{TaskContext, DynArcError, TaskFrame};
+use crate::task::{DynArcError, TaskContext, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 

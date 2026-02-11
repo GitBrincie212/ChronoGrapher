@@ -1,21 +1,29 @@
-use chronographer::prelude::*;
-use std::sync::Arc;
 use async_trait::async_trait;
 use chronographer::errors::ChronographerErrors::ThresholdReachError;
+use chronographer::prelude::*;
 use chronographer::task::TaskHookContext;
+use std::sync::Arc;
 
 pub struct MyCoolTaskHook;
 
 #[async_trait]
 impl TaskHook<OnTaskStart> for MyCoolTaskHook {
-    async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskStart as TaskHookEvent>::Payload) {
+    async fn on_event(
+        &self,
+        ctx: &TaskHookContext,
+        payload: &<OnTaskStart as TaskHookEvent>::Payload,
+    ) {
         println!("Interested event triggered!");
     }
 }
 
 #[async_trait]
 impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
-    async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskEnd as TaskHookEvent>::Payload) {
+    async fn on_event(
+        &self,
+        ctx: &TaskHookContext,
+        payload: &<OnTaskEnd as TaskHookEvent>::Payload,
+    ) {
         println!("Interested event triggered!");
     }
 }

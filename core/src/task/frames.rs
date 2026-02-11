@@ -42,8 +42,8 @@ pub use timeoutframe::*;
 
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
 use async_trait::async_trait;
-use std::ops::Deref;
 use std::error::Error;
+use std::ops::Deref;
 use std::sync::Arc;
 
 /// A task-related error (i.e. A task failure)
