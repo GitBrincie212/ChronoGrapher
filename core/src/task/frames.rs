@@ -22,6 +22,7 @@ pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
+use crate::prelude::NonObserverTaskHook;
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
 use async_trait::async_trait;
 pub use conditionframe::*;
@@ -84,7 +85,6 @@ impl Clone for TaskContext {
         }
     }
 }
-
 
 impl TaskContext {
     /// Constructs / Creates a new [`TaskContext`] instance based for use inside [`TaskFrame`],
@@ -188,6 +188,25 @@ impl TaskContext {
         self.hooks_container.get::<E, T>()
     }
 
+    pub async fn shared<H>(&self, creator: impl FnOnce() -> H) -> Arc<H>
+    where
+        H: NonObserverTaskHook + Send + Sync + 'static,
+    {
+        if let Some(hook) = self.get_hook::<(), H>() {
+            hook
+        } else {
+            let hook = Arc::new(creator());
+            self.attach_hook::<(), H>(hook.clone()).await;
+            hook
+        }
+    }
+
+    pub fn get_shared<H>(&self) -> Option<Arc<H>>
+    where
+        H: NonObserverTaskHook + Send + Sync + 'static,
+    {
+        self.get_hook::<(), H>()
+    }
 }
 
 /// [`TaskFrame`] represents a unit of work which hosts the actual computation logic for
