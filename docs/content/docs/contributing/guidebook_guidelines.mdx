@@ -15,5 +15,51 @@ from ChronoGrapher while also partially writing their own.
 The page doesn't go in-depth on how to describe things clearly as it is something gained through experience, it is advised
 to look at ChronoGrapher's guidebook docs and learn from there.
 
-However, in summary ChronoGrapher's language is meant to be overly strict and explicit, while it strives for
-simplicity, it knows guidebooks are the first source beginner devs preview and emphasizes narration and progressiveness.
+In summary ChronoGrapher's language is meant to be overly strict and explicit, it strives for simplicity while
+emphasizing narration and progressiveness, as the guidebook is the first source beginner devs preview.
+
+# Goals Of Guidebook Documentation
+When writing Guidebook documentation for ChronoGrapher, regardless of environment, the main goals stay consistent and
+specifically are:
+- **Progressive Learning:** The guidebook is meant to introduce features gradually, from simple to complex ones. Even
+  when simple and complex features are interconnected, the guidebook focuses on the main feature (though it leave
+  some explanation for the complex one if necessary).
+- **Patterns, Concepts and Thinking Model:** Whereas API documentation is concerned with syntax. The guidebook teaches concepts, patterns
+  and thinking models regardless the programming language (though still depending on the user's programming language, there
+  are examples to follow).
+- **Focused Learning** The guidebook is built for developers to learn effectively concepts. As such it uses visual components,
+  breaks components to small chapters (around 1k words) and explains why and how things work the way they do, as well as when
+  to actually use them.
+
+# What The Guidebook Isn't For
+Guidebook documentation is its own category of documentation. It achieves these above goals very well and does not strive to
+excel in more requirements than it needs to (other parts carry such as API documentation):
+- **Component-specific Niches** The guidebook doesn't concern itself with introducing every minute detail about the component
+  it describes. Instead, it gradually introduces it, anything too niche, too advanced or otherwise unnecessary isn't present
+  in the guidebook, this is the job of API documentation.
+- **How To X** While the guidebook has examples and uses commonly with one or multiple components for any common problem,
+  if there is a problem that is too specific. The guidebook simply won't cover it as to not increase cognitive load for
+  no apparent reason.
+
+# Visual Components
+While powerful as pictures describe a thousand words and preferable in some cases due to their reduced cognitive load,
+they should be used sparingly as too much noise may distract.
+
+## Media
+Media is not as common of a sight in the documentation, except for **Diagrams** which are meant to show interaction
+between multiple components or represent visually the placement of these components.
+
+Examples include but are not limited to:
+<ThemeBasedImage
+    light={"/diagram-light-1.svg"} dark={"/diagram-dark-1.svg"}
+    width={1200} height={1200}
+    alt={"Spectrum Diagram From Left (most simple / minimal) To Right (most complex / enterprise)"}
+/>
+<ThemeBasedImage
+    light={"/diagram-light-2.svg"} dark={"/diagram-dark-2.svg"}
+    width={1200} height={1200}
+    alt={"Diagram of Task's layout and communication between the Scheduler"}
+/>
+Diagrams should be ``1200x1200`` pixels in resolution, the guidebook uses [Excalidraw](https://excalidraw.com) to draw
+these diagrams, any type of media (either animation or diagrams) should have a light/dark mode version of itself.
+
