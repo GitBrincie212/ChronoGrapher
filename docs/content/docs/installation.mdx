@@ -30,21 +30,28 @@ or by simply running the command:
 cargo add chronographer
 ```
 
+We recommend installing [anyhow](https://docs.rs/anyhow/latest/) or [thiserror](https://docs.rs/thiserror/latest/) alongside,
+this allows for better error handling, simply run ``cargo add anyhow`` or ``cargo add thiserror`` to install the respective
+crate.
+
+For simple use cases, we will be using ``anyhow``, however these concepts should transfer over for Rust users using
+the ``thiserror`` or any other crate or utility for error handling.
+
 # The "Hello ChronoGrapher" Script
 Navigate to the ``src/main.rs`` file, then rewrite it with the code:
 ```rust title="src/main.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[task(interval = 1.5s)]
-async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+#[task(schedule = interval(2s))]
+async fn MyTask(ctx: &TaskContext) -> Result<(), TaskError> {
     println!("Hello ChronoGrapher!");
     Ok(())
 }
 
 #[chronographer::main]
-async fn main() {
-    let task_inst = mytask();
-    let _ = CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
+async fn main(scheduler: DefaultAnyhowScheduler) {
+    let task_inst = MyTask::instance();
+    let _ = scheduler.schedule(task_inst).await;
 }
 ```
 Now you can run the code via:
@@ -64,19 +71,22 @@ To answer this question. We have to introduce two areas which ChronoGrapher sepa
 For now, we will mainly be discussing about ``Tasks`` since it is a daily occurrence to interact with,
 in the future we will dive into ``Schedulers`` as well.
 
----
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+<Callout type={"info"} title={"The \"scheduler\" argument"}>
+    The scheduler argument can have any kind of name and any ``Scheduler`` type. Though there are additional constraints on
+    what ``Scheduler`` type is allowed which we will discuss later.
 
+    However, more importantly, note ``DefaultAnyhowScheduler`` is a type alias to a ``Scheduler`` with configurations
+    for working with ``anyhow``.
+</Callout>
+</RenderProgrammingLanguageBased>
+<br />
 # What Are Tasks?
 Tasks contain the <Highlight color={"success"}>Business Logic</Highlight> and <Highlight color={"neutral"}>Scheduling Logic</Highlight>,
 the former is **the code we want to run**, which can be database operations, API requests, mantainence and other computation.
 
 While the latter **dictates at what date should the Task run**, more specifically given a current time,
-we want to find the future time.
-
-Additionally, Tasks contain a **Scheduling Policy** to define how should they run exactly (not as important to understand).
-These parts are separate and distant but critical to create a Task.
-
-The business logic cannot interfere with the scheduling logic and vice versa.
+we want to find the future time. Both cannot interfere with the other.
 
 This makes it possible to define different Tasks that have the same business logic (code) to run but a
 different scheduling algorithm or vice versa (it allows reusability, no need to rewrite lots of parts).
@@ -85,8 +95,8 @@ In our example we can clearly identify the business logic is the code inside the
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-#[task(interval = 1.5s)]
-async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+#[task(schedule = interval(2s))]
+async fn MyTask(ctx: &TaskContext) -> Result<(), TaskError> {
     // [!code focus]
     println!("Hello ChronoGrapher!");
     // [!code focus]
@@ -96,8 +106,8 @@ async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
 We can also identify where the scheduling logic is via (the interval = 1.5s more specifically):
 ```rust title="src/main.rs" lineNumbers
 // [!code focus]
-#[task(interval = 1.5s)]
-async fn mytask(ctx: &TaskContext) -> Result<(), TaskError> {
+#[task(schedule = interval(2s))]
+async fn MyTask(ctx: &TaskContext) -> Result<(), TaskError> {
     println!("Hello ChronoGrapher!");
     Ok(())
 }
@@ -116,33 +126,15 @@ A Task itself is useless, we have to also **Schedule** it. <RenderProgrammingLan
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 #[chronographer::main]
-async fn main() {
+async fn main(scheduler: DefaultAnyhowScheduler) {
     // [!code highlight]
-    let task_inst = mytask();
+    let task_inst = MyTask::instance();
     // [!code highlight]
-    let _ = CHRONOGRAPHER_SCHEDULER.schedule(task_inst).await;
+    let _ = scheduler.schedule(task_inst).await;
 }
 ```
 </RenderProgrammingLanguageBased>
-We spawn an instance of that Task and simply hand it out to the scheduler via the ``schedule`` method present in the
-``CHRONOGRAPHER_SCHEDULER`` global.
-<Callout type={"warning"} title={"Disclaimer About The CHRONOGRAPHER_SCHEDULER Global"}>
-    ``CHRONOGRAPHER_SCHEDULER`` is **NOT meant to be used in production**, it is a simple default scheduler.
-
-    This is used for demonstrative purposes and learning more about ChronoGrapher's Tasks which are universal and
-    don't have to do with how the Scheduler itself is configured.
-
-    We will learn how to create our own Scheduler in the next chapters, however, in the meantime we will be using
-    ``CHRONOGRAPHER_SCHEDULER`` as its prebuilt and intended for our case, but keep this disclaimer in mind.
-
-    <RenderProgrammingLanguageBased target_name="Rust">
-        Additionally, it should be mentioned the schedule method returns a ``Result`` back, which means it can
-        succeed but can also fail. Therefore, in most cases, developers should gracefully handle any errors from scheduling tasks.
-
-        For demonstration purposes and simplicity we silently ignore it, this should never be done under any circumstances
-        in any real-world code.
-    </RenderProgrammingLanguageBased>
-</Callout>
+We spawn an instance of that Task and simply hand it out to the scheduler via the ``schedule`` method.
 
 A summary of how Tasks work, can be boiled down with this diagram:
 <ThemeBasedImage
@@ -150,11 +142,13 @@ A summary of how Tasks work, can be boiled down with this diagram:
     width={1200} height={1200}
     alt={"Diagram of Task's layout and communication between the Scheduler"}
 />
-Where a Task has 3 separate parts (Business Logic, Scheduling Logic and Scheduling Policy). Then the Task is scheduled
-on the global ``CHRONOGRAPHER_SCHEDULER`` to execute at **9:00 AM**.
+Where a Task has 2 separate parts (Business Logic, Scheduling Logic). Then the Task interacts with the ``Scheduler``
+to schedule at a specific time(more specifically execute at **9:00 AM**).
 
-Once the time is reached, ``CHRONOGRAPHER_SCHEDULER`` alerts our Task **to start executing the business logic**. For
-the Scheduler side, we will be discussing this in future chapters, we will however, discuss how to make tasks reliable.
+Once the time is reached, our Scheduler alerts our Task **to start executing the business logic**, then once our
+Task finished, it alerts the Scheduler that it wants to schedule again, repeating this cycle.
+
+For the Scheduler side, we will be discussing this in future chapters, we will however, discuss how to make tasks reliable.
 > TL;DR. We set up a new project in <ProgrammingLanguage /> utilizing ChronoGrapher, and ran a simple "Hello World"
-example. Tasks are composed of TaskFrames (business logic), TaskSchedules (scheduling logic), and a Scheduling Policy,
+example. Tasks are composed of TaskFrames (business logic), TaskSchedules (scheduling logic),
 keeping logic and scheduling separate for reuse and flexibility.
