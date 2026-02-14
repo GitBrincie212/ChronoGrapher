@@ -1,4 +1,4 @@
-use crate::errors::ChronographerErrors;
+use crate::errors::StandardCoreErrorsCG;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::task_store::SchedulerTaskStore;
@@ -38,67 +38,9 @@ impl<C: SchedulerConfig> Ord for InternalScheduledItem<C> {
 
 type EarlyMutexLock<'a, C> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>>;
 
-/// [`EphemeralSchedulerTaskStore`] is an implementation of [`SchedulerTaskStore`]
-/// that can operate in-memory and persistence (can be configured with a [`PersistenceBackend`])
-///
-/// # Usage Note(s)
-/// By default [`EphemeralSchedulerTaskStore`] operates in-memory,
-/// it doesn't store any information on the disk, while being fast, it makes it brittle
-/// to crashes and shutdowns. For enterprise use, it is advised to configure a
-/// backend. It is mostly meant to be used for demos or for debugging (where one
-/// doesn't care to persist information on disk)
-///
-/// # Constructor(s)
-/// When constructing a new [`EphemeralSchedulerTaskStore`], one can use
-/// [`EphemeralSchedulerTaskStore::ephemeral`] for ephemeral-only (in-memory) storage or
-/// [`EphemeralSchedulerTaskStore<T>::persistent`] for backend storage with a provided
-/// backend
-///
-/// # Trait Implementation(s)
-/// [`EphemeralSchedulerTaskStore`] obviously implements the [`SchedulerTaskStore`]
-///
-/// # Example
-/// ```ignore
-/// use std::sync::Arc;
-/// use std::time::{Duration, SystemTime};
-/// use chronographer_core::clock::VirtualClock;
-/// use chronographer_core::scheduler::task_store::EphemeralDefaultTaskStore;
-/// use chronographer_core::task::{NoOperationTaskFrame, Task, TaskScheduleInterval};
-/// use chronographer_core::scheduler::task_store::SchedulerTaskStore;
-///
-/// let my_store = EphemeralDefaultTaskStore::new();
-/// let my_clock = Arc::new(VirtualClock::from_value(0));
-///
-/// let primary_task = Task::define(
-///     TaskScheduleInterval::from_secs_f64(3.0),
-///     NoOperationTaskFrame
-/// );
-///
-/// let secondary_task = Task::define(
-///     TaskScheduleInterval::from_secs_f64(1.0),
-///     NoOperationTaskFrame
-/// );
-///
-/// let tertiary_task = Task::define(
-///     TaskScheduleInterval::from_secs_f64(2.0),
-///     NoOperationTaskFrame
-/// );
-///
-/// my_store.store(my_clock.clone(), Arc::new(primary_task)).await;
-/// my_store.store(my_clock.clone(), Arc::new(secondary_task)).await;
-/// my_store.store(my_clock, Arc::new(tertiary_task)).await;
-///
-/// my_store.retrieve(); // earliest: primary_task
-/// my_store.pop();
-/// my_store.retrieve(); // earliest: tertiary_task
-/// ```
-///
-/// # See Also
-/// - [`SchedulerTaskStore`]
-/// - [`EphemeralSchedulerTaskStore::new`]
 pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
-    tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask>>,
+    tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask<C::Error>>>,
     sender:
         tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
 }
@@ -141,14 +83,14 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
 impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
     async fn init(&self) {}
 
-    async fn retrieve(&self) -> Option<(Arc<ErasedTask>, SystemTime, C::TaskIdentifier)> {
+    async fn retrieve(&self) -> Option<(Arc<ErasedTask<C::Error>>, SystemTime, C::TaskIdentifier)> {
         let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
         let task = self.tasks.get(&rev_item.1)?;
         Some((task.value().clone(), rev_item.0, rev_item.1.clone()))
     }
 
-    async fn get(&self, idx: &C::TaskIdentifier) -> Option<Arc<ErasedTask>> {
+    async fn get(&self, idx: &C::TaskIdentifier) -> Option<Arc<ErasedTask<C::Error>>> {
         self.tasks.get(idx).map(|x| x.value().clone())
     }
 
@@ -170,7 +112,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
             self.tasks
                 .get(idx)
                 .ok_or(
-                    Arc::new(ChronographerErrors::TaskIdentifierNonExistent(format!(
+                    Arc::new(StandardCoreErrorsCG::TaskIdentifierNonExistent(format!(
                         "{idx:?}"
                     ))) as DynArcError,
                 )?;
@@ -183,7 +125,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
     async fn store(
         &self,
         clock: &C::SchedulerClock,
-        task: ErasedTask,
+        task: ErasedTask<C::Error>,
     ) -> Result<C::TaskIdentifier, DynArcError> {
         let idx = C::TaskIdentifier::generate();
         let task = Arc::new(task);
