@@ -15,6 +15,9 @@ Let's suppose we have the following task:
 use chronographer::prelude::*;
 use reqwest::{Error, StatusCode};
 
+[!code highlight]
+// Install the "reqwest" and "anyhow" crates (the former for API requests and the latter for error handling)
+
 #[task(interval(2s))]
 async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
     let res = reqwest::get("https://httpbin.org/status/200,429,500")
