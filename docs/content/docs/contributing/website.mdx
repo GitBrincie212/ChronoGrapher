@@ -1,0 +1,130 @@
+---
+title: Tweaking The Website
+description: Get basic idea on how to work and produce for the guidebook and the website
+optional: true
+---
+
+import { File, Folder, Files } from 'fumadocs-ui/components/files';
+
+In this page, we will get a basic overview of how to work with the website and more specifically the guidebook.
+For further information regarding guidelines, visit [Guidebook Guidelines](/contributing/guidebook_guidelines).
+
+# Structure & Components
+The guidebook uses [Fumadocs](https://www.fumadocs.dev) to present its documentation, it is encouraged to check for anything
+specific, however we will get a surface overview of how the guidebook is organized.
+
+<Files>
+    <Folder name="content" defaultOpen>
+        <Folder name="docs" defaultOpen>
+            <Folder name="my_collapsible" defaultOpen>
+                <File name="index.mdx" icon={
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16"><path fill="currentColor" fillRule="evenodd" d="M3.443 4.699A1.294 1.294 0 0 0 1 5.294v5.956a.75.75 0 0 0 1.5 0V6.139l1.834 3.54a.75.75 0 0 0 1.332 0L7.5 6.138v5.111a.75.75 0 0 0 1.5 0V5.294A1.294 1.294 0 0 0 6.557 4.7L5 7.703zm9.807.051a.75.75 0 0 0-1.5 0v4.69l-.47-.47a.75.75 0 1 0-1.06 1.06l1.75 1.75a.75.75 0 0 0 1.06 0l1.75-1.75a.75.75 0 1 0-1.06-1.06l-.47.47z" clipRule="evenodd"/></svg>
+                }/>
+                <File name="hello_world.mdx" icon={
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16"><path fill="currentColor" fillRule="evenodd" d="M3.443 4.699A1.294 1.294 0 0 0 1 5.294v5.956a.75.75 0 0 0 1.5 0V6.139l1.834 3.54a.75.75 0 0 0 1.332 0L7.5 6.138v5.111a.75.75 0 0 0 1.5 0V5.294A1.294 1.294 0 0 0 6.557 4.7L5 7.703zm9.807.051a.75.75 0 0 0-1.5 0v4.69l-.47-.47a.75.75 0 1 0-1.06 1.06l1.75 1.75a.75.75 0 0 0 1.06 0l1.75-1.75a.75.75 0 1 0-1.06-1.06l-.47.47z" clipRule="evenodd"/></svg>
+                }/>
+                <File name="test.mdx" icon={
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16"><path fill="currentColor" fillRule="evenodd" d="M3.443 4.699A1.294 1.294 0 0 0 1 5.294v5.956a.75.75 0 0 0 1.5 0V6.139l1.834 3.54a.75.75 0 0 0 1.332 0L7.5 6.138v5.111a.75.75 0 0 0 1.5 0V5.294A1.294 1.294 0 0 0 6.557 4.7L5 7.703zm9.807.051a.75.75 0 0 0-1.5 0v4.69l-.47-.47a.75.75 0 1 0-1.06 1.06l1.75 1.75a.75.75 0 0 0 1.06 0l1.75-1.75a.75.75 0 1 0-1.06-1.06l-.47.47z" clipRule="evenodd"/></svg>
+                }/>
+                <File name="meta.json" icon={
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" fillRule="evenodd" d="M7.835 3.97A1 1 0 0 1 6.865 5c-.41.012-.722.077-.955.17a.87.87 0 0 0-.398.29c-.051.085-.116.263-.116.606V9.23c0 .928-.25 1.782-.84 2.459l-.01.012q-.136.15-.288.281q.159.141.3.306c.592.666.838 1.515.838 2.436v3.231c0 .34.07.514.124.598l.012.019c.062.1.152.183.323.244l.033.013c.23.092.547.158.976.17a1 1 0 0 1-.057 2c-.591-.017-1.147-.11-1.646-.307a2.57 2.57 0 0 1-1.324-1.059c-.322-.5-.441-1.084-.441-1.678v-3.23c0-.568-.147-.9-.337-1.112l-.023-.026c-.18-.214-.53-.438-1.212-.56A1 1 0 0 1 1 12.044v-.132a1 1 0 0 1 .821-.984c.665-.12 1.032-.338 1.233-.558c.198-.231.342-.578.342-1.14V6.067c0-.605.118-1.204.447-1.71l.02-.028a2.86 2.86 0 0 1 1.304-1.015c.5-.2 1.053-.295 1.639-.313a1 1 0 0 1 1.029.97m8.33 0a1 1 0 0 1 1.03-.97c.585.018 1.138.113 1.638.313a2.86 2.86 0 0 1 1.324 1.043c.33.506.447 1.105.447 1.71V9.23c0 .56.144.908.343 1.139c.2.22.567.437 1.232.558a1 1 0 0 1 .821.984v.132a1 1 0 0 1-.824.984c-.682.122-1.033.346-1.212.56l-.023.026c-.19.211-.337.544-.337 1.111v3.231c0 .594-.12 1.179-.44 1.678a2.57 2.57 0 0 1-1.325 1.06c-.499.196-1.055.289-1.646.306a1 1 0 1 1-.057-2c.429-.012.746-.078.976-.17l.029-.011l.004-.002a.58.58 0 0 0 .323-.244l.012-.02c.055-.083.124-.257.124-.597v-3.23c0-.922.246-1.771.839-2.437q.14-.165.3-.306a3 3 0 0 1-.288-.281l-.011-.012c-.59-.677-.84-1.53-.84-2.46V6.067c0-.343-.065-.521-.116-.607a.87.87 0 0 0-.398-.289c-.233-.093-.544-.158-.955-.17a1 1 0 0 1-.97-1.03M9 14a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1m3 0a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1m3 0a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1" clipRule="evenodd"/></svg>
+                }/>
+            </Folder>
+            <File name="meta.json" icon={
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" fillRule="evenodd" d="M7.835 3.97A1 1 0 0 1 6.865 5c-.41.012-.722.077-.955.17a.87.87 0 0 0-.398.29c-.051.085-.116.263-.116.606V9.23c0 .928-.25 1.782-.84 2.459l-.01.012q-.136.15-.288.281q.159.141.3.306c.592.666.838 1.515.838 2.436v3.231c0 .34.07.514.124.598l.012.019c.062.1.152.183.323.244l.033.013c.23.092.547.158.976.17a1 1 0 0 1-.057 2c-.591-.017-1.147-.11-1.646-.307a2.57 2.57 0 0 1-1.324-1.059c-.322-.5-.441-1.084-.441-1.678v-3.23c0-.568-.147-.9-.337-1.112l-.023-.026c-.18-.214-.53-.438-1.212-.56A1 1 0 0 1 1 12.044v-.132a1 1 0 0 1 .821-.984c.665-.12 1.032-.338 1.233-.558c.198-.231.342-.578.342-1.14V6.067c0-.605.118-1.204.447-1.71l.02-.028a2.86 2.86 0 0 1 1.304-1.015c.5-.2 1.053-.295 1.639-.313a1 1 0 0 1 1.029.97m8.33 0a1 1 0 0 1 1.03-.97c.585.018 1.138.113 1.638.313a2.86 2.86 0 0 1 1.324 1.043c.33.506.447 1.105.447 1.71V9.23c0 .56.144.908.343 1.139c.2.22.567.437 1.232.558a1 1 0 0 1 .821.984v.132a1 1 0 0 1-.824.984c-.682.122-1.033.346-1.212.56l-.023.026c-.19.211-.337.544-.337 1.111v3.231c0 .594-.12 1.179-.44 1.678a2.57 2.57 0 0 1-1.325 1.06c-.499.196-1.055.289-1.646.306a1 1 0 1 1-.057-2c.429-.012.746-.078.976-.17l.029-.011l.004-.002a.58.58 0 0 0 .323-.244l.012-.02c.055-.083.124-.257.124-.597v-3.23c0-.922.246-1.771.839-2.437q.14-.165.3-.306a3 3 0 0 1-.288-.281l-.011-.012c-.59-.677-.84-1.53-.84-2.46V6.067c0-.343-.065-.521-.116-.607a.87.87 0 0 0-.398-.289c-.233-.093-.544-.158-.955-.17a1 1 0 0 1-.97-1.03M9 14a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1m3 0a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1m3 0a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1" clipRule="evenodd"/></svg>
+            }/>
+            <File name="index.mdx" icon={
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16"><path fill="currentColor" fillRule="evenodd" d="M3.443 4.699A1.294 1.294 0 0 0 1 5.294v5.956a.75.75 0 0 0 1.5 0V6.139l1.834 3.54a.75.75 0 0 0 1.332 0L7.5 6.138v5.111a.75.75 0 0 0 1.5 0V5.294A1.294 1.294 0 0 0 6.557 4.7L5 7.703zm9.807.051a.75.75 0 0 0-1.5 0v4.69l-.47-.47a.75.75 0 1 0-1.06 1.06l1.75 1.75a.75.75 0 0 0 1.06 0l1.75-1.75a.75.75 0 1 0-1.06-1.06l-.47.47z" clipRule="evenodd"/></svg>
+            } />
+        </Folder>
+    </Folder>
+    <Folder name="public">
+        <File name="anim1.gif" />
+        <File name="image1.svg" />
+        <File name="image2.png" />
+    </Folder>
+    <Folder name="src">
+        <Folder name="components">
+            <File name="my_component1.tsx" icon={
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512">
+                    <path fill="currentColor"
+                          d="M300.703 254.826c0-35.044-37.946-57.065-68.14-39.543c-30.192 17.521-30.192 61.564 0 79.086c30.194 17.521 68.14-4.5 68.14-39.543m104.01-84.17c30.06-143.69-36.073-188.782-148.5-84.772c-105.814-99.2-181.166-67.937-149.102 84.17c-147.86 44.576-138.064 128.486 1.203 171.347c-31.864 140.083 27.656 191.186 147.899 85.372C372.848 531.384 434.75 482.405 402.909 340.8c151.907-51.504 138.28-126.054 1.804-170.143m-20.441-5.411c-23.831-5.376-46.89-9.289-70.343-11.424c-12.356-18.067-26.748-36.115-43.287-52.906c90.138-86.46 143.263-59.445 113.63 64.33M151.602 282.48c8.917 19.039 20.641 36.474 29.459 51.104c-14.359-1.469-29.827-3.699-46.294-6.614a1307 1307 0 0 1 16.834-44.49m-1.203-51.704c-6.56-15.746-12.545-30.943-17.435-45.091c16.998-3.524 33.656-6.723 48.097-7.816c-10.748 16.884-20.957 34.537-30.662 52.907m12.625 26.453c14.702-29.443 30.254-57.391 47.496-82.366c30.594-1.76 60.863-1.604 90.784.601c16.781 23.383 32.443 51.33 47.496 81.765c-11.264 23.278-27.259 50.104-45.692 78.76c-30.778 2.33-62.336 2.008-94.391 0c-16.247-24.89-31.505-51.107-45.693-78.76m197.199 25.251c5.838 14.167 11.233 28.606 16.233 43.288a455 455 0 0 1-45.693 7.215c10.295-15.95 20.06-32.885 29.46-50.503m-29.46-104.61c16.393 2.243 32.229 5.045 47.496 8.416a484 484 0 0 1-17.435 44.49c-9.306-18.354-19.297-36.019-30.06-52.907m-46.293-26.454c-18.725-.735-37.773-.711-57.116 0c8.468-11.137 17.906-22.77 28.258-34.87c10.087 10.888 19.645 22.608 28.858 34.87m-43.288-50.502c-16.539 16.791-30.93 34.238-43.287 52.305c-23.453 2.135-47.113 6.048-70.943 11.423c-28.258-125.654 24.093-150.189 114.23-63.728M113.725 321.56c-125.253-37.676-119.241-96.394-1.203-131.064c7.221 21.91 15.962 44.163 25.853 65.532c-9.61 22.1-18.119 44.797-24.65 65.532m15.631 25.251c21.243 5.211 43.755 7.712 67.337 10.221c14.188 20.024 28.882 38.64 44.49 54.71c-91.786 87.978-142.953 56.014-111.827-64.93m126.256 49.901c-10.877-11.263-21.032-24.025-30.662-37.876c21.467.452 42.2.502 61.925 0a322 322 0 0 1-31.263 37.876m15.03 15.03c16.747-18.195 31.51-36.64 44.49-55.311c22.154-1.63 44.6-5.034 67.336-10.22c31.408 128.733-25.62 147.742-111.826 65.532m126.856-91.384c-6.44-20.735-14.572-42.23-24.048-64.33a611 611 0 0 0 25.25-64.931c115.234 34.87 124.452 90.583-1.202 129.261"/>
+                </svg>
+            } />
+            <File name="my_component2.tsx" icon={
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 512 512">
+                    <path fill="currentColor"
+                          d="M300.703 254.826c0-35.044-37.946-57.065-68.14-39.543c-30.192 17.521-30.192 61.564 0 79.086c30.194 17.521 68.14-4.5 68.14-39.543m104.01-84.17c30.06-143.69-36.073-188.782-148.5-84.772c-105.814-99.2-181.166-67.937-149.102 84.17c-147.86 44.576-138.064 128.486 1.203 171.347c-31.864 140.083 27.656 191.186 147.899 85.372C372.848 531.384 434.75 482.405 402.909 340.8c151.907-51.504 138.28-126.054 1.804-170.143m-20.441-5.411c-23.831-5.376-46.89-9.289-70.343-11.424c-12.356-18.067-26.748-36.115-43.287-52.906c90.138-86.46 143.263-59.445 113.63 64.33M151.602 282.48c8.917 19.039 20.641 36.474 29.459 51.104c-14.359-1.469-29.827-3.699-46.294-6.614a1307 1307 0 0 1 16.834-44.49m-1.203-51.704c-6.56-15.746-12.545-30.943-17.435-45.091c16.998-3.524 33.656-6.723 48.097-7.816c-10.748 16.884-20.957 34.537-30.662 52.907m12.625 26.453c14.702-29.443 30.254-57.391 47.496-82.366c30.594-1.76 60.863-1.604 90.784.601c16.781 23.383 32.443 51.33 47.496 81.765c-11.264 23.278-27.259 50.104-45.692 78.76c-30.778 2.33-62.336 2.008-94.391 0c-16.247-24.89-31.505-51.107-45.693-78.76m197.199 25.251c5.838 14.167 11.233 28.606 16.233 43.288a455 455 0 0 1-45.693 7.215c10.295-15.95 20.06-32.885 29.46-50.503m-29.46-104.61c16.393 2.243 32.229 5.045 47.496 8.416a484 484 0 0 1-17.435 44.49c-9.306-18.354-19.297-36.019-30.06-52.907m-46.293-26.454c-18.725-.735-37.773-.711-57.116 0c8.468-11.137 17.906-22.77 28.258-34.87c10.087 10.888 19.645 22.608 28.858 34.87m-43.288-50.502c-16.539 16.791-30.93 34.238-43.287 52.305c-23.453 2.135-47.113 6.048-70.943 11.423c-28.258-125.654 24.093-150.189 114.23-63.728M113.725 321.56c-125.253-37.676-119.241-96.394-1.203-131.064c7.221 21.91 15.962 44.163 25.853 65.532c-9.61 22.1-18.119 44.797-24.65 65.532m15.631 25.251c21.243 5.211 43.755 7.712 67.337 10.221c14.188 20.024 28.882 38.64 44.49 54.71c-91.786 87.978-142.953 56.014-111.827-64.93m126.256 49.901c-10.877-11.263-21.032-24.025-30.662-37.876c21.467.452 42.2.502 61.925 0a322 322 0 0 1-31.263 37.876m15.03 15.03c16.747-18.195 31.51-36.64 44.49-55.311c22.154-1.63 44.6-5.034 67.336-10.22c31.408 128.733-25.62 147.742-111.826 65.532m126.856-91.384c-6.44-20.735-14.572-42.23-24.048-64.33a611 611 0 0 0 25.25-64.931c115.234 34.87 124.452 90.583-1.202 129.261"/>
+                </svg>
+            } />
+        </Folder>
+        <Folder name="assets">
+            <File name="my_font.ttf" />
+            <File name="cool_image.png" />
+        </Folder>
+        <File name="global.css" icon={
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="m5 3l-.65 3.34h13.59L17.5 8.5H3.92l-.66 3.33h13.59l-.76 3.81l-5.48 1.81l-4.75-1.81l.33-1.64H2.85l-.79 4l7.85 3l9.05-3l1.2-6.03l.24-1.21L21.94 3z"/></svg>
+        }/>
+    </Folder>
+</Files>
+
+In the main [GitHub Repository](https://github.com/GitBrincie212/ChronoGrapher) under the ``docs`` folder lies the website,
+there are many folders and files but a few are important:
+- ``content/docs`` The place where the actual documentation resides in.
+- ``public`` This is where images go, such as diagrams, animations... etc.
+- ``src/components`` Includes the React components (and ones that are meant for MDX) reside in.
+- ``src/assets`` Unlike public, assets is commonly used for anything in the landing page itself.
+- ``src/app/docs/[[...slug]]`` Contains the code that handles displaying a documentation page (like this one).
+- ``src/app/(home)`` Has the code for the landing page.
+
+The top 4-5 bullets are the most important of all. As these folders will be something you interact almost daily,
+we will be mainly focusing on the top 2 which are ``content/docs`` and ``public`` folders.
+
+The ``content/docs`` includes sub-folders and 2 filetypes commonly encountered, these are ``.mdx`` files and ``meta.json``
+files, both serve different roles with the most important being ``.mdx``.
+
+The MDX file is similar to any typical [Markdown](https://www.markdownguide.org) file, however it has the power to use
+React components and define a title and a description for its page.
+
+The format of an MDX file is:
+```mdx title="my_document.mdx"
+---
+title: My Title XYZ
+description: Lorem ipsum dollar - some dummy description
+---
+
+<...>
+```
+<Callout type={"idea"} title={"Marking Page / Chapter As Optional"}>
+    Some chapters are meant to be optional or "extra-content", for this reason the ``optional`` tag exists,
+    which inserts a badge, to use it simply type ``optional: true`` in-between the ``---`` block.
+</Callout>
+
+It should be mentioned that ``My Title XYZ`` is the title and ``Lorem ipsum dollar - some dummy description`` is the
+description while also the ``<...>`` is simply your Markdown / MDX content.
+
+There is a special filename called ``index.mdx``, this is entry root file which displays when users go in the
+specific folder, in our case its [Introduction & Prerequisites](/docs/contributing).
+
+For the ``meta.json`` files, these are used to organize explicitly, they indicate the folder as a collapsible with the
+same name as the folder, they have the format.
+```json title="meta.json"
+{
+  "title": "My Title ABC",
+  "pages": [
+    "document1",
+    "document2",
+    "document3"
+    // <...>
+  ],
+  "icon": "MyIcon",
+  "defaultOpen": true
+}
+```
+Where the title is ``My Title ABC``, the icon which is optional is ``MyIcon`` and we specify that its default open via
+``defaultOpen`` property, and the documents it includes belong in the folder and can be any number of them.
+
+<Callout type={"info"} title={"For Adding Icons"}>
+    Though its uncommon practice to add icons in the collapsibles, you may generally need to add for something, for this reason
+    check the [Loader API From Fumadocs](https://www.fumadocs.dev/docs/headless/source-api#icons).
+</Callout>
