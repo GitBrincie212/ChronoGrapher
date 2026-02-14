@@ -46,7 +46,7 @@ in our case we can wire one like so:
 use rand::prelude::*;
 
 // [!code highlight]
-// Make sure to include the rand crate with the thread_rng feature enabled
+// Make sure to include the rand crate with the thread_rng feature enabled for this demo
 
 // [!code ++]
 #[taskframe]
@@ -60,9 +60,10 @@ async fn myfallback(ctx: &TaskContext) -> Result<(), TaskError> {
 
     // [!code ++]
     let mut rng = rand::thread_rng();
+    // [!code ++]
 
     // [!code ++]
-    // Fallbacks can fail to, and SHOULD leak through their errors
+    // Fallbacks can fail too, and SHOULD leak through their errors\
     // [!code ++]
     rng.gen() <= 0.8
 // [!code ++]
@@ -142,6 +143,8 @@ The original workflow's execution semantics are described as:
 
 The modified workflow's execution semantics differ by:
 > fallback → retry: Run fallback on error, retry the entire thing if the fallback and primary logic fail
+
+---
 
 So when should you use fallbacks? Generally, you should use them when a workflow part may error out and it contains errors
 which are recoverable, which allows you to split the error handling logic from business logic.
