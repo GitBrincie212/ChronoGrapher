@@ -27,13 +27,6 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                     match err {
                         None => {
                             if let Some(_task) = store.get(&id).await {
-                                /*
-                                if let Some(max_runs) = task.max_runs()
-                                    && task.runs() >= max_runs.get()
-                                {
-                                    continue;
-                                }
-                                 */
                                 store.reschedule(&clock, &id).await.unwrap_or_else(|_| {
                                     panic!("Failed to reschedule Task with the identifier {id:?}")
                                 });
@@ -61,6 +54,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                                     id,
                                     scheduler_send.clone()
                                 );
+
                                 dispatcher.dispatch(task, sender).await;
                                 continue;
                             }
@@ -71,7 +65,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                         }
                     }
                 }
-            }
+            },
         );
     }
 }
