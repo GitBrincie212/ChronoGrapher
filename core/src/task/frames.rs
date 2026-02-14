@@ -6,192 +6,110 @@ pub mod fallbackframe; // skipcq: RS-D1001
 
 pub mod noopframe; // skipcq: RS-D1001
 
-pub mod parallelframe; // skipcq: RS-D1001
+pub mod collectionframe; // skipcq: RS-D1001
 
 pub mod retryframe; // skipcq: RS-D1001
 
-pub mod selectframe; // skipcq: RS-D1001
-
-pub mod sequentialframe; // skipcq: RS-D1001
-
 pub mod timeoutframe; // skipcq: RS-D1001
-
-pub mod misc; // skipcq: RS-D1001
 
 pub mod delayframe; // skipcq: RS-D1001
 
 pub mod dynamicframe; // skipcq: RS-D1001
 
-use crate::prelude::NonObserverTaskHook;
-use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
-use async_trait::async_trait;
 pub mod thresholdframe; // skipcq: RS-D1001
 
 pub use conditionframe::*;
 pub use delayframe::*;
 pub use dependencyframe::*;
 pub use fallbackframe::*;
-pub use misc::*;
 pub use noopframe::*;
-pub use parallelframe::*;
+pub use collectionframe::*;
 pub use retryframe::*;
-pub use selectframe::*;
-pub use sequentialframe::*;
 pub use thresholdframe::*;
 pub use timeoutframe::*;
 
-use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookEvent};
+use crate::prelude::NonObserverTaskHook;
+use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookContext, TaskHookEvent};
 use async_trait::async_trait;
 use std::error::Error;
 use std::ops::Deref;
 use std::sync::Arc;
 
-/// A task-related error (i.e. A task failure)
 pub type DynArcError = Arc<dyn Error + Send + Sync>;
 
-/// [`TaskContext`] is a mechanism that wraps commonly needed information
-/// inside it which can be accessed by [`TaskFrame`], it essentially wraps
-/// - metadata: [`TaskMetadata`]
-/// - emitter: [`TaskEventEmitter`]
-/// - priority: [`TaskPriority`]
-/// - runs: ``u64``
-/// - debug_label: ``String``
-/// - max_runs: ``Option<NonZeroU64>``
-///
-/// All of them fetched in [`Task`]. The [`TaskContext`] object can also
-/// be restricted to disallow event emission, this is useful to ensure
-/// no other source can emit naively any [`TaskEvent`]
-///
-/// # Constructor(s)
-/// There are no public constructors as this context's constructor is sealed
-///
-/// # Task Implementation(s)
-/// The [`TaskContext`] only implements [`Clone`] and [`Debug`] as there is no other use for it.
-/// Where for [`Debug`] it outputs all the fields except the event emitter (it holds no data, so no
-/// point in recording that)
-///
-/// # See Also
-/// - [`Task`]
-/// - [`TaskFrame`]
-/// - [`TaskMetadata`]
-/// - [`TaskPriority`]
-/// - [`TaskEventEmitter`]
-pub struct TaskContext {
-    hooks_container: Arc<TaskHookContainer>,
-    depth: u64,
-    frame: Arc<dyn TaskFrame>,
+#[derive(Clone)]
+pub struct RestrictTaskFrameContext<'a> {
+    pub(crate) hooks_container: Arc<TaskHookContainer>,
+    pub(crate) depth: u64,
+    pub(crate) frame: &'a dyn ErasedTaskFrame
 }
 
-impl Clone for TaskContext {
-    fn clone(&self) -> Self {
-        Self {
-            hooks_container: self.hooks_container.clone(),
-            depth: self.depth,
-            frame: self.frame.clone(),
-        }
-    }
-}
+#[derive(Clone)]
+pub struct TaskFrameContext<'a>(pub(crate) RestrictTaskFrameContext<'a>);
 
-impl TaskContext {
-    /// Constructs / Creates a new [`TaskContext`] instance based for use inside [`TaskFrame`],
-    /// unlike most constructors, this mechanism is sealed and accessible only in the library's
-    /// internal code
-    ///
-    /// # Argument(s)
-    /// This method accepts 2 arguments, those being [`Task`] and [`TaskEventEmitter`] wrapped in an
-    /// ``Arc<T>``, the former is for retrieving most of the data. While the latter is not only to prove
-    /// that this construction is made internally on [`Task`] but also to share it with [`TaskFrame`]
-    /// to emit its own events
-    ///
-    /// # Returns
-    /// The constructed instance to be used
-    ///
-    /// # See Also
-    /// - [`Task`]
-    /// - [`TaskEventEmitter`]
-    /// - [`TaskContext`]
-    pub(crate) fn new(task: &ErasedTask) -> Self {
-        Self {
-            hooks_container: task.hooks.clone(),
-            depth: 0,
-            frame: task.frame.clone(),
-        }
+impl<'a> TaskFrameContext<'a> {
+    pub(crate) fn subdivided_ctx(
+        &self, frame: &'a dyn ErasedTaskFrame,
+    ) -> Self {
+        Self(RestrictTaskFrameContext {
+            hooks_container: self.0.hooks_container.clone(),
+            frame,
+            depth: self.0.depth + 1,
+        })
     }
 
-    pub(crate) fn subdivided_ctx(&self, frame: Arc<dyn TaskFrame>) -> Self {
-        Self {
-            hooks_container: self.hooks_container.clone(),
-            frame: frame.clone(),
-            depth: self.depth + 1,
-        }
+    pub async fn erased_subdivide(
+        &self, frame: &'a dyn ErasedTaskFrame
+    ) -> Result<(), DynArcError> {
+        let child_ctx = self.subdivided_ctx(frame);
+        frame.erased_execute(&child_ctx).await
     }
 
-    pub async fn subdivide(&self, frame: Arc<dyn TaskFrame>) -> Result<(), DynArcError> {
-        let child_ctx = self.subdivided_ctx(frame.clone());
+    pub async fn subdivide<T: TaskFrame>(
+        &self, frame: &'a T
+    ) -> Result<(), T::Error> {
+        let child_ctx = self.subdivided_ctx(frame);
         frame.execute(&child_ctx).await
     }
 
-    pub fn frame(&self) -> &dyn TaskFrame {
-        &self.frame
+    pub fn as_restricted(&self) -> &RestrictTaskFrameContext<'a> {
+        &self.0
+    }
+}
+
+impl<'a> RestrictTaskFrameContext<'a> {
+    pub(crate) fn new(task: &'a ErasedTask<impl Error + Send + Sync>) -> Self {
+        Self {
+            hooks_container: task.hooks.clone(),
+            depth: 0,
+            frame: task.frame.as_ref().erased()
+        }
     }
 
-    /// Emits an event to relevant [`TaskHook(s)`] that have subscribed to it
-    ///
-    /// # Arguments
-    /// The method accepts one argument, that being the payload to supply
-    /// from the generic ``E`` where it is the [`TaskHookEvent`] type
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    /// - [`TaskHook`]
-    /// - [`TaskHookEvent`]
-    pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload) {
-        self.hooks_container.emit::<E>(self, payload).await;
+    pub fn frame(&self) -> &dyn ErasedTaskFrame {
+        self.frame
     }
 
-    /// Attaches an **Ephemeral** [`TaskHook`] to a specific [`TaskHookEvent`]. This is a much more
-    /// ergonomic method-alias to the relevant [`TaskHookContainer::attach_ephemeral`] method.
-    ///
-    /// When the program crashes, these TaskHooks do not persist. Depending on the circumstances,
-    /// this may not be a wanted behavior, if you can guarantee your TaskHook is persistable,
-    /// then [`TaskContext::attach_persistent_hook`] is the ideal method for you
-    ///
-    /// # Arguments
-    /// The method accepts one argument, that being the [`TaskHook`] instance
-    /// to supply, which will subscribe to the [`TaskHookEvent`]
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    /// - [`TaskHook`]
-    /// - [`TaskHookEvent`]
-    pub async fn attach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self, hook: Arc<T>) {
-        self.hooks_container.attach::<E, T>(self, hook).await;
+    pub async fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
+        self.hooks_container.emit::<EV>(&TaskHookContext::new(
+            self.frame, self.depth, self.hooks_container.clone()
+        ), payload).await;
     }
 
-    /// Detaches a [`TaskHook`] from a specific [`TaskHookEvent`]. This is a much more
-    /// ergonomic method-alias to the relevant [`TaskHookContainer::detach`] method
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    /// - [`TaskHook`]
-    /// - [`TaskHookEvent`]
-    pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
-        self.hooks_container.detach::<E, T>(self).await;
+    pub async fn attach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self, hook: Arc<TH>) {
+        self.hooks_container.attach::<EV, TH>(&TaskHookContext::new(
+            self.frame, self.depth, self.hooks_container.clone()
+        ), hook).await;
     }
 
-    /// Gets a [`TaskHook`] instance from a specific [`TaskHookEvent`]. This is a much more
-    /// ergonomic method-alias to the relevant [`TaskHookContainer::get`] method
-    ///
-    /// # Returns
-    /// An optional [`TaskHook`] instance, if it doesn't exist ``None`` is returned,
-    /// if it does, then it returns ``Some(TaskHook)``
-    ///
-    /// # See Also
-    /// - [`TaskContext`]
-    /// - [`TaskHook`]
-    /// - [`TaskHookEvent`]
-    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
-        self.hooks_container.get::<E, T>()
+    pub async fn detach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) {
+        self.hooks_container.detach::<EV, TH>(&TaskHookContext::new(
+            self.frame, self.depth, self.hooks_container.clone()
+        )).await;
+    }
+
+    pub fn get_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) -> Option<Arc<TH>> {
+        self.hooks_container.get::<EV, TH>()
     }
 
     pub async fn shared<H>(&self, creator: impl FnOnce() -> H) -> Arc<H>
@@ -215,109 +133,46 @@ impl TaskContext {
     }
 }
 
-/// [`TaskFrame`] represents a unit of work which hosts the actual computation logic for
-/// the [`Scheduler`] to invoke, this is a part of the task system
-///
-/// # Required Method(s)
-/// When one implements the [`TaskFrame`] trait, one has to implement [`TaskFrame::execute`] which
-/// encapsulates mainly the async execution logic of the [`Task`], the method has as argument
-/// a [`TaskContext`], wrapping any essential logic (while also being impossible to create it
-/// outside the [`Task`]), the method also returns either `Ok(())` on success, or a `TaskError`
-/// on failure. The method also handles the emission of local task frame events
-/// (learn more about in [`TaskEvent`])
-///
-/// # Usage Notes
-/// This is one of many components which are combined to form a task, other components are needed
-/// to fuse them to a task. By itself it is not as useful, as such combine it to form a task with other
-/// composites
-///
-/// [`TaskFrame`] can be decorated with other task unit implementations to expand the behavior, such
-/// as adding retry mechanism via [`RetryFrame`], adding timeout via [`TimeoutFrame`]... etc. Some
-/// examples (from simple to complex) include:
-/// - **RetriableTaskFrame<T>** Executes a task frame ``T``, when the task frame succeeds at some point
-/// it stops and returns the success results. Otherwise, if it fails, it retires it ``N`` times (controlled
-/// by the developer) til it succeeds, or it reaches this threshold with a specified backoff retry strategy
-///
-/// - **RetriableTaskFrame<DependencyTaskFrame<T>>** Executes a task frame ``T``, if all of its
-/// dependencies are resolved and ``T`` succeeds at some point (both have to be satisfied), it stops
-/// and returns the success results. Otherwise, if it fails, it retires it ``N`` (controlled by the
-/// developer) til it succeeds with a specified backoff retry strategy
-///
-/// - **``RetriableTaskFrame<TimeoutTaskFrame<T>>``**: Execute task frame `T`, when the
-/// task frame succeeds within a maximum duration of `D` (can be controlled by the developer)
-/// then finish, otherwise if it exceeds its maximum duration or if the task frame failed then
-/// abort it and retry it again, repeating this process `N` times (can be controlled by the developer)
-/// with a specified backoff retry strategy
-///
-/// - **``FallbackTaskFrame<TimeoutTaskFrame<T1>, RetriableTaskFrame<T2>>``**: Execute task frame `T1`,
-/// when the task frame succeeds within a maximum duration of `D` (can be controlled by the developer)
-/// then finish, otherwise if it either fails or it reaches its maximum duration then execute
-/// task frame `T2` (as a fallback), try/retry executing this task frame for `N` times (can be
-/// controlled by the developer) with a delay per retry of `d` (can be controlled by the developer),
-/// regardless if it succeeds at some time or fails entirely, return the result back
-///
-/// # Object Safety
-/// This trait is object safe to use, as seen in the source code of [`Task`] struct
-///
-/// # Trait Implementation(s)
-/// There are various implementations for [`TaskFrame`] present in the library, each
-/// doing their own part. Some noteworthy mentions include
-/// - [`RetriableTaskFrame`] Retries a task frame a specified number of times with a delay
-/// per retry based on a supplied [`RetryBackoffStrategy`] (more info on the docs of it)
-///
-/// - [`TimeoutTaskFrame`] Runs a task frame for a specified duration, if the countdown reaches
-/// zero, then it halts the task and returns a timeout error (more info on the docs of it)
-///
-/// - [`DependencyTaskFrame`] Before running a task frame, it checks if its dependencies are resolved,
-/// if they are then it runs, otherwise it errors out with dependencies unresolved
-///
-/// - [`FallbackTaskFrame`] Attempts to run a task frame, if it fails, then a fallback secondary task frame
-/// takes its place which the result of this fallback task frame is returned from the secondary (more
-/// info on the docs of it)
-///
-/// - [`NoOperationTaskFrame`] Effectively acts as a placeholder and does nothing useful, in
-/// some circumstances where task frames may be optional to supply (more info on the docs of it)
-///
-/// It is advised to check the submodules of the task module to see more of them in action
-///
-/// # See Also
-/// - [`TaskFrame::execute`]
-/// - [`RetriableTaskFrame`]
-/// - [`TimeoutTaskFrame`]
-/// - [`DependencyTaskFrame`]
-/// - [`FallbackTaskFrame`]
-/// - [`NoOperationTaskFrame`]
-/// - [`ConditionalTaskFrame`]
-/// - [`SelectTaskFrame`]
-/// - [`Task`]
-#[async_trait]
-pub trait TaskFrame: 'static + Send + Sync {
-    /// The execution logic of the [`TaskFrame`] and subsequentially [`Task`]
-    ///
-    /// # Argument(s)
-    /// This method accepts one argument, that being ``ctx`` which is the context object,
-    /// this context object is private and cannot be created by outside parties, but only in
-    /// [`Task`]. The context wraps common information for the [`TaskFrame`] to access and pass
-    /// on to other child [`TaskFrame`]s
-    ///
-    /// # Returns
-    /// A ``Result<(), TaskError>`` which on success returns ``Ok(())`` (i.e. No result) and on
-    /// failure it returns a ``Err(TaskError)`` indicating what went wrong on the [`TaskFrame`]
-    ///
-    /// # See Also
-    /// - [`Task`]
-    /// - [`TaskContext`]
-    /// - [`TaskFrame`]
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError>;
+impl<'a> Deref for TaskFrameContext<'a> {
+    type Target = RestrictTaskFrameContext<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 #[async_trait]
-impl<S> TaskFrame for S
-where
-    S: Deref + Send + Sync + 'static,
-    S::Target: TaskFrame,
-{
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
-        self.deref().execute(ctx).await
+pub trait TaskFrame: 'static + Send + Sync + Sized {
+    type Error: Error + Send + Sync;
+
+    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error>;
+}
+
+#[async_trait]
+pub trait DynTaskFrame<E: Error + Send + Sync>: 'static + Send + Sync {
+    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), E>;
+    fn erased(&self) -> &dyn ErasedTaskFrame;
+}
+
+#[async_trait]
+impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error> for T {
+    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), T::Error> {
+        self.execute(ctx).await
+    }
+
+    fn erased(&self) -> &dyn ErasedTaskFrame {
+        self
+    }
+}
+
+#[async_trait]
+pub trait ErasedTaskFrame: 'static + Send + Sync {
+    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), DynArcError>;
+}
+
+#[async_trait]
+impl<T: TaskFrame<Error: Into<T::Error>>> ErasedTaskFrame for T {
+    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), DynArcError> {
+        self.execute(ctx).await.map_err(|x| Arc::new(x) as DynArcError)
     }
 }
