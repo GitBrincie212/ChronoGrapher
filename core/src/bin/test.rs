@@ -1,16 +1,19 @@
 use async_trait::async_trait;
 use chronographer::prelude::*;
-use chronographer::task::TaskFrame;
+use chronographer::task::{TaskFrame, TaskFrameContext};
 use chronographer::utils::SharedHook;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
+use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
 
-struct MyTaskFrameA(pub Arc<MyTaskFrameB>, AtomicUsize);
+struct MyTaskFrameA(pub MyTaskFrameB, AtomicUsize);
 struct MyTaskFrameB;
 
 #[async_trait]
 impl TaskFrame for MyTaskFrameA {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
+    type Error = DynArcError;
+
+    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         self.1.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let hook = Arc::new(SharedHook(Arc::new(format!(
             "Hello World {}",
@@ -19,7 +22,7 @@ impl TaskFrame for MyTaskFrameA {
         ctx.attach_hook::<(), SharedHook<Arc<String>>>(hook.clone())
             .await;
         println!("Sharing data {:?}", hook.0.as_ref());
-        ctx.subdivide(self.0.clone()).await?;
+        ctx.subdivide(&self.0).await?;
         ctx.detach_hook::<(), SharedHook<Arc<String>>>().await;
         Ok(())
     }
@@ -27,7 +30,9 @@ impl TaskFrame for MyTaskFrameA {
 
 #[async_trait]
 impl TaskFrame for MyTaskFrameB {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
+    type Error = DynArcError;
+    
+    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         println!(
             "{:?}",
             ctx.get_hook::<(), SharedHook<Arc<String>>>()
@@ -45,13 +50,15 @@ impl TaskFrame for MyTaskFrameB {
 
 #[tokio::main]
 async fn main() {
+    let scheduler = Scheduler::<DefaultSchedulerConfig<DynArcError>>::default();
+    
     let mytask = Task::simple(
         TaskScheduleInterval::from_secs(1),
-        MyTaskFrameA(Arc::new(MyTaskFrameB), AtomicUsize::new(0)),
+        MyTaskFrameA(MyTaskFrameB, AtomicUsize::new(0)),
     );
 
-    let _ = CHRONOGRAPHER_SCHEDULER.schedule(&mytask).await;
-    CHRONOGRAPHER_SCHEDULER.start().await;
+    let _ = scheduler.schedule(&mytask).await;
+    scheduler.start().await;
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }

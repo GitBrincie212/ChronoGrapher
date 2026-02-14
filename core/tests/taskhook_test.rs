@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use chronographer::errors::ChronographerErrors;
+use chronographer::errors::StandardCoreErrorsCG;
 use chronographer::prelude::*;
-use chronographer::task::{TaskFrame, TaskHookContext, TaskScheduleImmediate};
+use chronographer::task::{TaskFrame, TaskFrameContext, TaskHookContext, TaskScheduleImmediate};
 
-type OnTaskStartPayload = <OnTaskStart as TaskHookEvent>::Payload;
-type OnTaskEndPayload = <OnTaskEnd as TaskHookEvent>::Payload;
+type OnTaskStartPayload<'a> = <OnTaskStart as TaskHookEvent>::Payload<'a>;
+type OnTaskEndPayload<'a> = <OnTaskEnd as TaskHookEvent>::Payload<'a>;
 
 struct OnStartCountingHook {
     count: Arc<AtomicUsize>,
@@ -18,7 +18,7 @@ impl TaskHook<OnTaskStart> for OnStartCountingHook {
     async fn on_event(
         &self,
         _ctx: &TaskHookContext,
-        _payload: &OnTaskStartPayload,
+        _payload: &OnTaskStartPayload<'_>,
     ) {
         self.count.fetch_add(1, Ordering::SeqCst);
     }
@@ -33,7 +33,7 @@ impl TaskHook<OnTaskEnd> for OnEndCountingHook {
     async fn on_event(
         &self,
         _ctx: &TaskHookContext,
-        _payload: &OnTaskEndPayload,
+        _payload: &OnTaskEndPayload<'_>,
     ) {
         self.count.fetch_add(1, Ordering::SeqCst);
     }
@@ -45,11 +45,13 @@ struct SimpleTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SimpleTaskFrame {
-    async fn execute(&self, _ctx: &TaskContext) -> Result<(), DynArcError> {
+    type Error = DynArcError;
+
+    async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         if self.should_succeed.load(Ordering::SeqCst) {
             Ok(())
         } else {
-            Err(Arc::new(ChronographerErrors::TaskDependenciesUnresolved))
+            Err(Arc::new(StandardCoreErrorsCG::TaskDependenciesUnresolved))
         }
     }
 }
@@ -85,7 +87,7 @@ async fn test_attach_and_trigger_hooks() {
     );
 
     let no_error: Option<DynArcError> = None;
-    task.emit_hook_event::<OnTaskEnd>(&no_error).await;
+    task.emit_hook_event::<OnTaskEnd>(&no_error.as_ref().map(|x| x.as_ref())).await;
     assert_eq!(
         on_end_count.load(Ordering::SeqCst),
         1,

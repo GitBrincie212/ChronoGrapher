@@ -65,19 +65,22 @@ async fn main() {
 */
 use async_trait::async_trait;
 use chronographer::prelude::*;
-use chronographer::task::TaskFrame;
+use chronographer::task::{TaskFrame, TaskFrameContext};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tokio::task::yield_now;
+use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
 
 struct MyTaskFrame;
 
 #[async_trait]
 impl TaskFrame for MyTaskFrame {
-    async fn execute(&self, _ctx: &TaskContext) -> Result<(), DynArcError> {
+    type Error = DynArcError;
+
+    async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         yield_now().await;
         COUNTER.fetch_add(1, Ordering::Relaxed);
         Ok(())
@@ -89,17 +92,19 @@ static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 #[tokio::main]
 #[allow(clippy::empty_loop)]
 async fn main() {
+    let scheduler = Scheduler::<DefaultSchedulerConfig<DynArcError>>::default();
+
     dbg!("LOADING TASKS");
     let mut millis: f64 = 0.9;
     for _ in 0..200_000 {
         millis *= 0.05;
         let task = Task::simple(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
 
-        let _ = CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
+        let _ = scheduler.schedule(&task).await;
     }
     dbg!("STARTING");
 
-    CHRONOGRAPHER_SCHEDULER.start().await;
+    scheduler.start().await;
     let mut last = COUNTER.load(Ordering::Relaxed);
     let mut total = 0usize;
     let start = Instant::now();
