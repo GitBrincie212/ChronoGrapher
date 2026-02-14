@@ -73,6 +73,7 @@ pub struct ConditionalFrame<T, T2> {
     error_on_false: bool,
 }
 
+#[allow(type_alias_bounds)]
 pub type NonFallbackCFCBuilder<T: TaskFrame> =
     ConditionalFrameConfigBuilder<T, NoOperationTaskFrame<T::Error>, ((NoOperationTaskFrame<T::Error>,), (), (), ())>;
 
