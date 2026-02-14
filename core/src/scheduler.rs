@@ -10,7 +10,7 @@ use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{Task, DynArcError, TaskFrame, TaskTrigger};
+use crate::task::{Task, TaskFrame, TaskTrigger};
 use crate::utils::TaskIdentifier;
 use std::sync::Arc;
 use tokio::join;
@@ -141,7 +141,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
     pub async fn schedule(
         &self,
         task: &Task<impl TaskFrame<Error = C::Error>, impl TaskTrigger>,
-    ) -> Result<C::TaskIdentifier, DynArcError> {
+    ) -> Result<C::TaskIdentifier, impl Error + Send + Sync> {
         let erased = task.as_erased();
         self.store.store(&self.clock, erased).await
     }
