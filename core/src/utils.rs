@@ -1,7 +1,6 @@
 use crate::prelude::NonObserverTaskHook;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::time::Duration;
 use uuid::Uuid;
 
 pub struct SharedHook<T: Send + Sync + 'static>(pub T);
@@ -20,10 +19,10 @@ macro_rules! define_event_group {
 
     ($(#[$($attrss:tt)*])* $name: ident, $payload: ty | $($events: ident),*) => {
         $(#[$($attrss)*])*
-        pub trait $name: TaskHookEvent<Payload = $payload> {}
+        pub trait $name<'a>: TaskHookEvent<Payload<'a> = $payload> {}
 
         $(
-            impl $name for $events {}
+            impl<'a> $name<'a> for $events {}
         )*
     };
 }
@@ -34,8 +33,9 @@ macro_rules! define_event {
         $(#[$($attrss)*])*
         #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
         pub struct $name;
-        impl<'a> TaskHookEvent for $name {
-            type Payload = $payload;
+
+        impl TaskHookEvent for $name {
+            type Payload<'a> = $payload where Self: 'a;
             const EVENT_ID: &'static str = concat!("chronographer_core#", stringify!($name));
         }
     };
@@ -50,19 +50,6 @@ macro_rules! create_shared {
         $ctx.detach_hook::<(), SharedHook<_>>();
     }};
 }
-
-pub trait Timestamp: Clone + Ord + Send + Sync + 'static {
-    fn now() -> Self;
-    fn duration_since(&self, earlier: Self) -> Option<Duration>;
-    fn year(&self) -> u32;
-    fn month(&self) -> u8;
-    fn day(&self) -> u8;
-    fn hour(&self) -> u8;
-    fn minute(&self) -> u8;
-    fn second(&self) -> u8;
-    fn millisecond(&self) -> u16;
-}
-
 pub trait TaskIdentifier:
     'static + Debug + Clone + Eq + PartialEq<Self> + Hash + Send + Sync
 {
