@@ -81,16 +81,18 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
+    type StoredTask = Arc<ErasedTask<C::Error>>;
+
     async fn init(&self) {}
 
-    async fn retrieve(&self) -> Option<(Arc<ErasedTask<C::Error>>, SystemTime, C::TaskIdentifier)> {
+    async fn retrieve(&self) -> Option<(Self::StoredTask, SystemTime, C::TaskIdentifier)> {
         let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
         let rev_item = early_lock.peek()?;
         let task = self.tasks.get(&rev_item.1)?;
         Some((task.value().clone(), rev_item.0, rev_item.1.clone()))
     }
 
-    async fn get(&self, idx: &C::TaskIdentifier) -> Option<Arc<ErasedTask<C::Error>>> {
+    async fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask> {
         self.tasks.get(idx).map(|x| x.value().clone())
     }
 
