@@ -1,66 +1,53 @@
+use std::error::Error;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use async_trait::async_trait;
 use typed_builder::TypedBuilder;
-use crate::errors::ChronographerErrors;
-use crate::prelude::TaskContext;
-use crate::task::{DynArcError, TaskFrame};
+use crate::errors::ThresholdTaskFrameError;
+use crate::task::{RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
 
 #[async_trait]
-pub trait ThresholdLogic: Send + Sync {
-    fn counts(&self, res: Option<DynArcError>, ctx: &TaskContext) -> bool;
+pub trait ThresholdLogic<T: Error + Send + Sync + 'static>: Send + Sync {
+    fn counts(&self, res: Option<&T>, ctx: &RestrictTaskFrameContext) -> bool;
 }
 
-pub struct ThresholdErrorsCountLogic;
+macro_rules! impl_error_count_logic {
+    ($name: ident, $code: expr) => {
+        pub struct $name;
+
+        #[async_trait]
+        impl<T: Error + Send + Sync + 'static> ThresholdLogic<T> for $name {
+            fn counts(&self, res: Option<&T>, ctx: &RestrictTaskFrameContext) -> bool {
+                ($code)(res, ctx)
+            }
+        }
+    };
+}
+
+impl_error_count_logic!(ThresholdErrorsCountLogic, |res: Option<&T>, _| res.is_some());
+impl_error_count_logic!(ThresholdSuccessesCountLogic, |res: Option<&T>, _| res.is_none());
+impl_error_count_logic!(ThresholdIdentityCountLogic, |_: Option<&T>, _| true);
 
 #[async_trait]
-impl ThresholdLogic for ThresholdErrorsCountLogic {
-    fn counts(&self, res: Option<DynArcError>, _ctx: &TaskContext) -> bool {
-        res.is_some()
-    }
+pub trait ThresholdReachBehaviour<T: Error + Send + Sync + 'static>: Send + Sync {
+    fn results(&self, ctx: &RestrictTaskFrameContext) -> Result<(), T>;
 }
 
-pub struct ThresholdSuccessesCountLogic;
+macro_rules! impl_threshold_reach_logic {
+    ($name: ident, $code: expr) => {
+        pub struct $name;
 
-#[async_trait]
-impl ThresholdLogic for ThresholdSuccessesCountLogic {
-    fn counts(&self, res: Option<DynArcError>, _ctx: &TaskContext) -> bool {
-        res.is_none()
-    }
+        #[async_trait]
+        impl<T: Error + Send + Sync + 'static> ThresholdReachBehaviour<T> for $name {
+            fn results(&self, ctx: &RestrictTaskFrameContext) -> Result<(), T> {
+                ($code)(ctx)
+            }
+        }
+    };
 }
 
-pub struct ThresholdIdentityCountLogic;
-
-#[async_trait]
-impl ThresholdLogic for ThresholdIdentityCountLogic {
-    fn counts(&self, _res: Option<DynArcError>, _ctx: &TaskContext) -> bool {
-        true
-    }
-}
-
-#[async_trait]
-pub trait ThresholdReachBehaviour: Send + Sync {
-    fn results(&self, ctx: &TaskContext) -> Result<(), DynArcError>;
-}
-
-pub struct ThresholdSuccessReachBehaviour;
-
-#[async_trait]
-impl ThresholdReachBehaviour for ThresholdSuccessReachBehaviour {
-    fn results(&self, _: &TaskContext) -> Result<(), DynArcError> {
-        Ok(())
-    }
-}
-
-pub struct ThresholdErrorReachBehaviour;
-
-#[async_trait]
-impl ThresholdReachBehaviour for ThresholdErrorReachBehaviour {
-    fn results(&self, _: &TaskContext) -> Result<(), DynArcError> {
-        Err(Arc::new(ChronographerErrors::ThresholdReachError))
-    }
-}
+impl_threshold_reach_logic!(ThresholdSuccessReachBehaviour, |_| Ok(()));
 
 #[derive(TypedBuilder)]
 #[builder(build_method(into = ThresholdTaskFrame<T>))]
@@ -68,17 +55,17 @@ pub struct ThresholdFrameConfig<T: TaskFrame> {
     frame: T,
 
     #[builder(default = Arc::new(ThresholdIdentityCountLogic))]
-    threshold_logic: Arc<dyn ThresholdLogic>,
+    threshold_logic: Arc<dyn ThresholdLogic<T::Error>>,
 
     #[builder(default = Arc::new(ThresholdSuccessReachBehaviour))]
-    threshold_reach_behaviour: Arc<dyn ThresholdReachBehaviour>,
+    threshold_reach_behaviour: Arc<dyn ThresholdReachBehaviour<T::Error>>,
     threshold: NonZeroUsize,
 }
 
 impl<T: TaskFrame> From<ThresholdFrameConfig<T>> for ThresholdTaskFrame<T> {
     fn from(config: ThresholdFrameConfig<T>) -> Self {
         Self {
-            frame: Arc::new(config.frame),
+            frame: config.frame,
             threshold_logic: config.threshold_logic,
             threshold_reach_behaviour: config.threshold_reach_behaviour,
             threshold: config.threshold,
@@ -88,9 +75,9 @@ impl<T: TaskFrame> From<ThresholdFrameConfig<T>> for ThresholdTaskFrame<T> {
 }
 
 pub struct ThresholdTaskFrame<T: TaskFrame> {
-    frame: Arc<T>,
-    threshold_logic: Arc<dyn ThresholdLogic>,
-    threshold_reach_behaviour: Arc<dyn ThresholdReachBehaviour>,
+    frame: T,
+    threshold_logic: Arc<dyn ThresholdLogic<T::Error>>,
+    threshold_reach_behaviour: Arc<dyn ThresholdReachBehaviour<T::Error>>,
     threshold: NonZeroUsize,
     count: AtomicUsize
 }
@@ -103,19 +90,26 @@ impl<T: TaskFrame> ThresholdTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
-    async fn execute(&self, ctx: &TaskContext) -> Result<(), DynArcError> {
+    type Error = ThresholdTaskFrameError<T::Error>;
+
+    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         let mut total = self.count.load(Ordering::Relaxed);
         if total == self.threshold.get() {
-            return self.threshold_reach_behaviour.results(ctx);
+            return self.threshold_reach_behaviour
+                .results(&ctx)
+                .map_err(ThresholdTaskFrameError::new);
         }
-        let res = ctx.subdivide(self.frame.clone()).await;
-        if self.threshold_logic.counts(res.clone().err(), ctx) {
+
+        let res = ctx.subdivide(&self.frame).await;
+        if self.threshold_logic.counts(res.as_ref().err(), &ctx) {
             self.count.fetch_add(1, Ordering::SeqCst);
             total += 1;
         }
+
         if total == self.threshold.get() && ctx.depth == 0 {
             // TODO: Use the handle from the scheduler to cancel the entire workflow
         }
-        res
+        
+        res.map_err(ThresholdTaskFrameError::new)
     }
 }
