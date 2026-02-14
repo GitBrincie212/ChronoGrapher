@@ -8,24 +8,18 @@ pub mod utils; // skipcq: RS-D1001
 
 pub mod prelude {
     // Core
-    pub use crate::scheduler::CHRONOGRAPHER_SCHEDULER;
-    pub use crate::task::{Task, TaskContext, DynArcError};
+    pub use crate::task::{Task, RestrictTaskFrameContext, DynArcError};
 
     // Common frames
     pub use crate::task::delayframe::DelayTaskFrame;
     pub use crate::task::dependencyframe::DependencyTaskFrame;
     pub use crate::task::dynamicframe::DynamicTaskFrame;
     pub use crate::task::fallbackframe::FallbackTaskFrame;
-    pub use crate::task::parallelframe::ParallelTaskFrame;
+    pub use crate::task::collectionframe::CollectionTaskFrame;
     pub use crate::task::retryframe::RetriableTaskFrame;
-    pub use crate::task::sequentialframe::SequentialTaskFrame;
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
 
     // Scheduling
-    pub use crate::task::scheduling_strats::{
-        CancelCurrentSchedulingPolicy, CancelPreviousSchedulingPolicy, ConcurrentSchedulingPolicy,
-        SequentialSchedulingPolicy,
-    };
     pub use crate::task::trigger::TaskScheduleInterval;
     pub use crate::task::trigger::schedule::calendar::TaskScheduleCalendar;
     pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
