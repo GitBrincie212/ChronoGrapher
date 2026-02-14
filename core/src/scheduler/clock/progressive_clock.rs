@@ -5,21 +5,6 @@ use crate::scheduler::clock::VirtualClock;
 use async_trait::async_trait;
 use std::time::SystemTime;
 
-/// [`ProgressiveClock`] is an implementation of [`SchedulerClock`] trait, it is the default option
-/// for scheduling, unlike [`VirtualClock`], it moves forward no matter what and cannot be advanced
-/// at any arbitrary point (due to its design)
-///
-/// # Constructor(s)
-/// One can simply use the default rust's struct initialization or via [`ProgressiveClock::default`]
-/// to construct the [`ProgressiveClock`]
-///
-/// # Trait Implementation(s)
-/// While [`ProgressiveClock`] implements the [`SchedulerClock`] trait, it also implements the
-/// [`Default`] trait, the [`Clone`] trait and the [`Copy`] trait
-///
-/// # See Also
-/// - [`VirtualClock`]
-/// - [`SchedulerClock`]
 #[derive(Default)]
 pub struct ProgressiveClock;
 
