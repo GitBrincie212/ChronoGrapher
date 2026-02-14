@@ -1,5 +1,6 @@
 pub mod default; // skipcq: RS-D1001
 
+use std::ops::Deref;
 pub use default::*;
 
 #[allow(unused_imports)]
@@ -7,7 +8,6 @@ use crate::scheduler::Scheduler;
 use crate::scheduler::SchedulerConfig;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
-use std::sync::Arc;
 
 pub struct EngineNotifier<C: SchedulerConfig> {
     id: C::TaskIdentifier,
@@ -37,5 +37,9 @@ impl<C: SchedulerConfig> EngineNotifier<C> {
 pub trait SchedulerTaskDispatcher<C: SchedulerConfig>: 'static + Send + Sync {
     async fn init(&self) {}
 
-    async fn dispatch(&self, task: Arc<ErasedTask<C::Error>>, rescheduler_notifier: EngineNotifier<C>);
+    async fn dispatch(
+        &self,
+        task: impl Deref<Target = ErasedTask<C::Error>> + Send + Sync + 'static,
+        notifier: EngineNotifier<C>
+    );
 }
