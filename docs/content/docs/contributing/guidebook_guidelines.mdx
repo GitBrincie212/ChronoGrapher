@@ -3,31 +3,33 @@ title: "Guidebook Guidelines"
 description: "Goals of the guidebook and best practices to do"
 ---
 
+import { File, Folder, Files } from 'fumadocs-ui/components/files';
+
 This page mentions how to write effective guidebook documentation for the ChronoGrapher project,
 this domain knowledge applies to the core, every SDK, every extension / integration... etc.
 
-Guidebook documentation should be the final part, once the feature stabilizes, documenting too early will lead
-to technical debt. As such ensure you will rarely make significant changes later down the line.
+Guidebook documentation should be the final part just like [API documentation](/contributing/api_docs_guidelines),
+once the feature stabilizes, this reduces technical debt and minimizes future rewrites.
 
-It should be mentioned, contributors are expected to have experience reading guidebook documentation from other projects and
-from ChronoGrapher while also partially writing their own.
+Contributors are expected to have experience reading guidebook documentation from other projects and from ChronoGrapher
+while also partially writing their own.
 
-The page doesn't go in-depth on how to describe things clearly as it is something gained through experience, it is advised
-to look at ChronoGrapher's guidebook docs and learn from there.
+This page focuses on structure and consistency. Clear writing is a skill developed over time, use existing ChronoGrapher
+chapters as reference.
 
 In summary ChronoGrapher's language is meant to be overly strict and explicit, it strives for simplicity while
-emphasizing narration and progressiveness, as the guidebook is the first source beginner devs preview.
+emphasizing narration and progressiveness, as the guidebook is the first point of contact for developers new to ChronoGrapher.
 
 # Goals Of Guidebook Documentation
 When writing Guidebook documentation for ChronoGrapher, regardless of environment, the main goals stay consistent and
 specifically are:
 - **Progressive Learning:** The guidebook is meant to introduce features gradually, from simple to complex ones. Even
-  when simple and complex features are interconnected, the guidebook focuses on the main feature (though it leave
+  when simple and complex features are interconnected, the guidebook focuses on the main feature (though it leaves
   some explanation for the complex one if necessary).
 - **Patterns, Concepts and Thinking Model:** Whereas API documentation is concerned with syntax. The guidebook teaches concepts, patterns
-  and thinking models regardless the programming language (though still depending on the user's programming language, there
+  and thinking models regardless of the programming language (though still depending on the user's programming language, there
   are examples to follow).
-- **Focused Learning** The guidebook is built for developers to learn effectively concepts. As such it uses visual components,
+- **Focused Learning** The guidebook is built for developers to learn concepts effectively. As such it uses visual components,
   breaks components to small chapters (around 1k words) and explains why and how things work the way they do, as well as when
   to actually use them.
 
@@ -41,13 +43,129 @@ excel in more requirements than it needs to (other parts carry such as API docum
   if there is a problem that is too specific. The guidebook simply won't cover it as to not increase cognitive load for
   no apparent reason.
 
+# Structure
+Generally [Tweaking The Website](/contributing/website) goes into detail on how the website works exactly, but in
+short ChronoGrapher uses [Fumadocs](https://www.fumadocs.dev) to maintain its documentation.
+
+The guidebook content resides in the ``content/docs`` folder, it organizes topics as subfolders where there are two relevant
+filetypes, ``.mdx`` and ``meta.json``, the former works as Markdown files for the most part.
+
+MDX files have the added benefit of using React components, these files **ARE** the guidebook documentation.
+While the latter (``meta.json`` files) are used for ordering files and organizing them in a collapsible.
+
+When it comes to working with MDX files, the structure is as follows:
+```mdx title="my_document.mdx"
+---
+title: My Title XYZ
+description: Lorem ipsum dollar - some dummy description
+---
+
+<...>
+```
+
+Where ``title`` is the title of the page, ``description`` is the description of the page, plus you can define an optional
+badge to mark the page as optional via ``optional: true`` inside the dash block.
+
+``<...>`` is your content, which the guidebook guideline's main focus is to structure rigorously. With the summary
+of how to tweak the website out, we can discuss the actual structure.
+
+Each chapter should be around 1k words in length and should follow this structure:
+
+## Summarizing The Precursor Chapter
+When starting to write a new chapter. It is best to always summarize the previous chapter, what it introduced, what it
+has done and how these two chapters are connected (not answering those questions directly).
+
+The summary should be around ~30 to ~80 words long, the idea is not to explain the previous chapter entirely, rather
+assume knowledge and briefly mention it to establish connection.
+
+Once done, this is where you explain your own topic in detail
+
+## Explaining Your Topic Effectively
+When explaining your topic, you should always:
+- **Explain The Topic In Simple Language:** Don't use advanced terminology unless absolutely necessary, even when you do
+  you should explain things in natural simple language and link definitions if the term is niche.
+- **Avoid Covering Advanced Concepts Early:** Just because something advanced is tied to your topic doesn't mean you should dump
+  the reader in information. Often it is better to omit it and notify the reader that it will be elaborated in the future.
+- **Assume Knowledge From Previous Chapters:** Don’t re-teach previous topics, but feel free to briefly remind the reader and link to the
+  earlier chapter. This is to avoid repetition, focus on your topic, use the knowledge gained from previous chapters to your advantage.
+- **Provide Working Code, Show Output and Explain:** You should always show **working <ProgrammingLanguage /> code**, then the
+  output (if it is the full code) and then explain how and why the code works in detail without repetition and verbosity.
+- **Use Visual Components Sparingly:** While powerful, never use one too often as to reduce noise. Each visual component is
+  meant to excel doing one thing right, the best explanations use them in harmony where one complements the other.
+- **Invite The Reader To Experiment:** Encourage the reader to experiment. This can be accomplished by "Try [X] and see what happens"
+  style message, then optionally explaining later what happened, try to assure and give a goal to the reader.
+
+Explaining a topic is an iterative design just like code, it requires patience, diligence and thought, always be ready to
+iterate by rewriting your documentation for the better.
+
+Use **Headers** to split subtopics, use sparingly **Highlights, Bolding, Underline or anything else** to emphasize some wording,
+use **Bullet Lists** to convey a sequence of steps or a list of stuff (optionally with an explanation).
+
+Use **Tables** to describe relationship between two things, use **Code Fences** when referring to code, use **Links / Hyperlinks**
+to link to other chapters or any outside source that best explains a part of your idea.
+
+Use sparingly **Callouts** for note things down, and generally these are the common components you will be interacting with,
+we will be exploring them more in depth later in this chapter.
+
+Take advantage on some components such as ``<ProgrammingLanguage />`` to refer to the chosen programming language,
+or ``<RenderProgrammingLanguageBased target_name={"..."}>`` to conditionally render content for a programming language.
+
+You should always ask the following questions when explaining your topic:
+- **"What is the audience im addressing, how best can I explain the topic to them?"**
+- **"Is it possible for a foreign developer to read this chapter in one sitting?"**
+- **"Do I cover the entire topic or some part of it, am I verbose or concise?"**
+- **"Does the topic deserve multiple chapters that break it apart or only one?"**
+- **"Do my previous chapters and its structure help with explaining the current topic?"**
+
+Note, the main audience in ChronoGrapher is usually **Mid-Senior Software Engineers**, **DevOps Engineers** and **Backend Developers**.
+As such, usually tailor the language to them.
+
+Take on the perspective of a foreign developer, re-read your chapter without bias (or tell someone else to do so and then
+ask them what they understood). If you (or them) didn't understand anything then you should redesign the explanation.
+
+The above questions help with identifying the issue, ultimately all this is up to experience in technical writing.
+
+## Summary And Teasing
+Once you have established and explained the topic, now it is the time to summarize it, what you went through, what is [X]
+and what is [Y], what do they do, why they are useful... etc.
+
+This is usually a good place to provide a diagram, as it reinforces the idea and lets the user visualize the topic. Another
+thing to do is to briefly tease the reader what comes next and what can they expect.
+
+Once the main summary has finished, provide a small ``TL;DR`` on the topic in 3 lines to mark the end. Congratulations,
+you have created one chapter in the guidebook. The TL;DR should be in the form ``> TL;DR. <...>``
+
+## Checklist
+A checklist to follow for identifying if the structure of the chapter is good enough is:
+- 30–80 word recap of previous chapter.
+- Explain the topic and incrementally the subtopics.
+- Explain why it exists.
+- Explain when to use it versus when not.
+- Provide at least one working example of it in action (if the chapter isn't theoretical).
+- Show terminal output of each example (followed subsequently) and then explain it.
+- Summarize some key points in the chapter
+- Tease the reader what comes next and what to expect
+- Provide a TL;DR section (no more than 3 lines)
+
 # Visual Components
-While powerful as pictures describe a thousand words and preferable in some cases due to their reduced cognitive load,
-they should be used sparingly as too much noise may distract.
+As mentioned, while they are powerful as pictures describe a thousand words and preferable in some cases due to their reduced
+cognitive load, they should be used sparingly as too much noise may distract.
+
+Their placement also matters, placing them early before the explanation acts as foreshadowing and a taste on what's to come,
+whereas placing them later reinforces the ideas from the explanation in a visually coherent way.
+
+Their type is also something to account for, as mentioned each type does one thing and only very well, using the incorrect
+visual component reinforces ambiguity and confusion amongst the readers and vice versa.
 
 ## Media
 Media is not as common of a sight in the documentation, except for **Diagrams** which are meant to show interaction
 between multiple components or represent visually the placement of these components.
+
+> <u>Purpose:</u> They encapsulate and visualize concepts which would take a lot of words to explain in the
+language of shapes, movement and color.
+
+Prefer using high-quality (and even custom ones) media over stock images / footage. Use colors, shapes and movement decisively
+and sparingly to describe relationships, ideas... etc. Any type of media should have a light/dark mode version of itself.
 
 Examples include but are not limited to:
 <ThemeBasedImage
@@ -60,6 +178,214 @@ Examples include but are not limited to:
     width={1200} height={1200}
     alt={"Diagram of Task's layout and communication between the Scheduler"}
 />
-Diagrams should be ``1200x1200`` pixels in resolution, the guidebook uses [Excalidraw](https://excalidraw.com) to draw
-these diagrams, any type of media (either animation or diagrams) should have a light/dark mode version of itself.
+Diagrams should have a ``1:1`` (square) ratio, the guidebook uses [Excalidraw](https://excalidraw.com) to draw
+these diagrams. For other media, this can be images, videos, GIFs and anything in-between.
 
+Using media is as simple as:
+```mdx title="my_document.mdx" lineNumbers
+<ThemeBasedImage
+    light={"/path/to/media-light.png"} dark={"/path/to/media-dark.png"}
+    width={RESOLUTION} height={RESOLUTION}
+    alt={"ALT TEXT FOR DESCRIBING THE MEDIA"}
+/>
+```
+
+## Code Blocks
+Code blocks are meant to host fully working code inside (no theoretical fluff) or display terminal output for
+visualizing the results, the terminal output comes after the code to complement it.
+
+> <u>Purpose:</u> Their nature can explain an idea simply by being viewed (though you still need to explain it), they
+present syntax (if it is a terminal output, the results), best used for examples.
+
+Depending on the size of the code, it is best to introduce it gradually via smaller code blocks towards the bigger code,
+or the inverse by introducing the big code then breaking it up to smaller code blocks.
+
+If you have already provided the code for something and deeper in the topic you tweak it, instead of rewriting the entire
+code, try referring to which code is tweaked, and show the changes only.
+
+For terminal output, it is best to show a representation of what the user will see in the terminal, you can use comments
+via ``# ...`` to indicate something and code block utilities (which we will discuss a bit soon).
+
+Using code blocks is as simply as:
+```mdx title="my_document.mdx" lineNumbers
+{/* Remove the backslashes (\) */}
+
+\```MY_LANGUAGE
+<MY_CODE>
+\```
+```
+
+Where ``MY_LANGUAGE`` is the programming language you want to use to highlight the code (can be omitted for just text),
+and ``<MY_CODE>`` is the code you want to place, the backslashes are used for escaping.
+
+There are extra code utilities as well such as:
+```mdx title="my_document.mdx" lineNumbers
+{/* For defining titles (like the above) */}
+\```MY_LANGUAGE title="MY_TITLE"
+<MY_CODE>
+\```
+
+{/* For displaying line numbers (like the above)*/}
+\```MY_LANGUAGE lineNumbers
+<MY_CODE>
+\```
+
+{/* For displaying line numbers via an offset */}
+\```MY_LANGUAGE lineNumbers=VALUE
+<MY_CODE>
+\```
+```
+
+There are additional ones for working with lines of code, do note they have to be comments (which requires a programming language)
+and they require to be copy-pasted per line you want to highlight.
+
+Here is an example with and without highlights:
+```rust title="with_highlights.rust" lineNumbers
+// [!code focus]
+println!("I'm focused, hover me");
+// [!code focus]
+
+// [!code ++]
+let a = 3.2;
+// [!code ++]
+
+// [!code --]
+let b = 3.2;
+// [!code --]
+
+// [!code highlight]
+do_something();
+// [!code highlight]
+// Cool comment here
+```
+And without highlighting:
+```rust title="with_highlights.rust" lineNumbers
+println!("I'm focused, hover me");
+
+let a = 3.2;
+
+let b = 3.2;
+
+do_something();
+// Cool comment here
+```
+
+The way highlighting is done is via the special comment ``// [!code <...>]``, in other programming languages which have
+a different syntax for comments such as python, the idea is similar via ``# [!code <...>]``.
+
+The ``<...>`` requires some special words in order to do the very thing you want. There is ``focus`` for focusing,
+``++`` for adding lines, ``--`` for subtracting lines and ``highlight`` for highlighting a code line.
+
+**To include an empty line in a highlighted section, place the comment on the line above it.**
+
+Use ``focus`` for focusing on a subsection of previous code (copy-pasted but not too big), use ``++`` for anything new
+added and vice versa for anything removed with ``--``. Finally use ``highlight`` to emphasize a line.
+
+Typically, fully working code has a filename, displays the number of lines and has syntax highlighting set to the
+respective programming language.
+
+For terminal output the requirements are different, as they require the title to be "terminal", the syntax highlighting
+to be ``zsh`` and displaying line number is optional.
+
+## Callouts
+These are React components from Fumadocs, they are meant to be used as important notes and have several appearances
+which can be configured, each serving a different purpose
+> <u>Purpose:</u> They list / note important things, they have severeal appearances they can present themselves as,
+each serving a different level of importance and its own purpose.
+
+Just like any typical React component they can be used like:
+```mdx title="my_document.mdx" lineNumbers
+<Callout type={".."} title={".."}>
+Lorem ipsum dollar description - dummy description
+</Callout>
+```
+Where ``type`` can be either the following (ordered from least to most importance):
+<Callout type={""} title={"Callouts (no type)"}>
+    Used to separate some text in a fancy block (sometimes for notes)
+</Callout>
+
+<Callout type={"success"} title={"Success Callouts (success)"}>
+    Used in seldom, though they serve the purpose of enforcing correctness.
+</Callout>
+<Callout type={"idea"} title={"Idea Callouts (idea)"}>
+    They list tips and tricks, optional enhancements and anything in-between.
+</Callout>
+<Callout type={"info"} title={"Info Callouts (info)"}>
+    They list facts for informative reasons, they should be used sparingly.
+</Callout>
+<Callout type={"warning"} title={"Warning Callouts (warning)"}>
+    They list one or multiple things to be careful about.
+</Callout>
+<Callout type={"error"} title={"Error Callouts (error)"}>
+    The list one or multiple dangerous things that should never be done
+</Callout>
+
+The ``title`` is the top bolded text and anything in the tag is the description of the ``Callout``.
+
+Use ``Callout`` wisely, only to highlight important information. As too many callouts become visual noise, if there
+are identical callouts, merge them in one.
+
+If you must note on something without the visual density ``Callout`` presents, one strategy is to do:
+```mdx title="my_document.mdx" lineNumbers
+**Note:** Something important to mention but not deserving of Callout
+```
+
+# File Trees
+Again, just like typical React components, though they aren't limited to one, but there are three at play. File trees
+may include folders with subfolders.
+> <u>Purpose:</u> They describe a directory tree, they list the files and directories in a visual way as opposed to just
+manually saying the paths and letting the reader peace together things.
+
+Their use can be demonstrated in:
+```mdx title="my_document.mdx" lineNumbers
+<Files>
+    <Folder name="dir1" defaultOpen>
+        <Folder name="dir2">
+            <File name="test.py" icon={
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none"><g fill="currentColor" clipPath="url(#SVGXv8lpc2Y)"><path d="M11.914 0C5.82 0 6.2 2.656 6.2 2.656l.007 2.752h5.814v.826H3.9S0 5.789 0 11.969s3.403 5.96 3.403 5.96h2.03v-2.867s-.109-3.42 3.35-3.42h5.766s3.24.052 3.24-3.148V3.202S18.28 0 11.913 0M8.708 1.85c.578 0 1.046.47 1.046 1.052c0 .581-.468 1.051-1.046 1.051s-1.046-.47-1.046-1.051c0-.582.467-1.052 1.046-1.052"/><path d="M12.087 24c6.092 0 5.712-2.656 5.712-2.656l-.007-2.752h-5.814v-.826h8.123s3.9.445 3.9-5.735s-3.404-5.96-3.404-5.96h-2.03v2.867s.109 3.42-3.35 3.42H9.452s-3.24-.052-3.24 3.148v5.292S5.72 24 12.087 24m3.206-1.85c-.579 0-1.046-.47-1.046-1.052c0-.581.467-1.051 1.046-1.051c.578 0 1.046.47 1.046 1.051c0 .582-.468 1.052-1.046 1.052"/></g><defs><clipPath id="SVGXv8lpc2Y"><path fill="#fff" d="M0 0h24v24H0z"/></clipPath></defs></g></svg>
+            }/>
+            <File name="test2.jar" icon={
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M10.82 8.427c-.76-1.085-1.046-1.872-1.108-2.445c-.059-.54.073-.97.335-1.383c.283-.447.708-.862 1.248-1.353c.505-.458 1.137-1.003 1.633-1.62L11.37.374c-.416.517-.928.947-1.418 1.391c-.534.485-1.149 1.062-1.593 1.764c-.466.735-.75 1.611-.635 2.67c.112 1.026.588 2.132 1.458 3.375zm1.25-3.03c.284-.684.861-1.37 1.78-2.156l1.3 1.518c-.831.713-1.129 1.153-1.235 1.407c-.104.25-.035.499.035.747c.084.296.223.79.214 1.322c-.012.706-.254 1.452-.832 2.32l-1.664-1.11c.422-.632.492-1.01.496-1.243c.005-.295-.072-.46-.197-.96c-.12-.478-.21-1.097.102-1.845M6.141 10c.47-.314 1.05-.474 1.592-.604L7.266 7.45c-.813.196-1.551.46-2.112.807C4.644 8.573 4 9.136 4 10c0 .726.486 1.306 1.065 1.686a2.5 2.5 0 0 0-.065.572c0 .98.418 1.807 1.143 2.42c-.107.3-.155.634-.14.968c-.777.151-1.536.373-2.17.664c-.432.198-.858.451-1.19.777c-.334.329-.643.804-.643 1.413c0 .427.189.772.374 1.01c.189.242.432.449.684.624c.506.351 1.184.669 1.959.936c1.558.538 3.669.93 5.983.93c3.327 0 5.663-.384 7.19-.782a13 13 0 0 0 1.704-.561c.21-.088.42-.181.616-.297c.01-.006-1.028-1.715-1.024-1.718c-.564.294-1.188.48-1.8.64c-1.349.352-3.513.718-6.686.718c-2.104 0-3.993-.358-5.33-.82c-.532-.184-1.088-.398-1.541-.74c.115-.09.29-.199.538-.312c.558-.256 1.323-.466 2.14-.591q.344.365.814.64c.965.562 2.292.823 3.879.823c1.31 0 2.258-.132 2.898-.274c.356-.078.714-.167 1.042-.328c.003-.002-.881-1.795-.881-1.795q-.291.105-.593.17c-.489.109-1.29.227-2.466.227c-1.413 0-2.336-.24-2.871-.551c-.426-.248-.589-.524-.622-.824c.868.253 1.895.375 3.056.375c1.463 0 2.518-.143 3.228-.297c.386-.083.775-.179 1.134-.346c.02-.01-.857-1.807-.857-1.807a4.4 4.4 0 0 1-.7.198c-.56.121-1.473.252-2.806.252c-1.603 0-2.67-.264-3.302-.623c-.471-.268-.678-.568-.74-.89c1.24.326 2.805.513 4.48.513c1.817 0 3.502-.22 4.783-.598l-.566-1.918c-1.054.311-2.54.516-4.217.516c-1.724 0-3.245-.216-4.302-.542c-.5-.153-.846-.316-1.056-.458m11.448.746c1.213-.11 1.66.188 1.804.342c.149.16.201.408.136.67c-.116.464-.443.914-.973 1.328c-.529.413-1.2.74-1.873.965l.632 1.897c.828-.276 1.718-.698 2.471-1.285c.75-.586 1.424-1.385 1.683-2.42c.185-.74.112-1.741-.614-2.52c-.73-.782-1.909-1.109-3.447-.969z"/></svg>
+            }/>
+        </Folder>
+        <File name="file1" icon={
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" fillRule="evenodd" d="M7.835 3.97A1 1 0 0 1 6.865 5c-.41.012-.722.077-.955.17a.87.87 0 0 0-.398.29c-.051.085-.116.263-.116.606V9.23c0 .928-.25 1.782-.84 2.459l-.01.012q-.136.15-.288.281q.159.141.3.306c.592.666.838 1.515.838 2.436v3.231c0 .34.07.514.124.598l.012.019c.062.1.152.183.323.244l.033.013c.23.092.547.158.976.17a1 1 0 0 1-.057 2c-.591-.017-1.147-.11-1.646-.307a2.57 2.57 0 0 1-1.324-1.059c-.322-.5-.441-1.084-.441-1.678v-3.23c0-.568-.147-.9-.337-1.112l-.023-.026c-.18-.214-.53-.438-1.212-.56A1 1 0 0 1 1 12.044v-.132a1 1 0 0 1 .821-.984c.665-.12 1.032-.338 1.233-.558c.198-.231.342-.578.342-1.14V6.067c0-.605.118-1.204.447-1.71l.02-.028a2.86 2.86 0 0 1 1.304-1.015c.5-.2 1.053-.295 1.639-.313a1 1 0 0 1 1.029.97m8.33 0a1 1 0 0 1 1.03-.97c.585.018 1.138.113 1.638.313a2.86 2.86 0 0 1 1.324 1.043c.33.506.447 1.105.447 1.71V9.23c0 .56.144.908.343 1.139c.2.22.567.437 1.232.558a1 1 0 0 1 .821.984v.132a1 1 0 0 1-.824.984c-.682.122-1.033.346-1.212.56l-.023.026c-.19.211-.337.544-.337 1.111v3.231c0 .594-.12 1.179-.44 1.678a2.57 2.57 0 0 1-1.325 1.06c-.499.196-1.055.289-1.646.306a1 1 0 1 1-.057-2c.429-.012.746-.078.976-.17l.029-.011l.004-.002a.58.58 0 0 0 .323-.244l.012-.02c.055-.083.124-.257.124-.597v-3.23c0-.922.246-1.771.839-2.437q.14-.165.3-.306a3 3 0 0 1-.288-.281l-.011-.012c-.59-.677-.84-1.53-.84-2.46V6.067c0-.343-.065-.521-.116-.607a.87.87 0 0 0-.398-.289c-.233-.093-.544-.158-.955-.17a1 1 0 0 1-.97-1.03M9 14a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1m3 0a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1m3 0a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1" clipRule="evenodd"/></svg>
+        } />
+        <File name="file2.pdf" icon={
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16"><path fill="currentColor" fillRule="evenodd" d="M.448 15.3c-1.12-1.36.071-2.98 1.29-3.67c.677-.381 1.52-.646 2.43-.896a16 16 0 0 1-.895 1.5a7 7 0 0 0-.781.371c-.642.362-1.5.995-.973 1.79c.513.774 1.34-.077 1.73-.526c.498-.508 1.06-1.31 1.56-2.19c.529-.93 1.01-1.98 1.47-3.09c.415-1 .784-2.03 1.06-2.99V5.6c.28-.96.469-1.85.539-2.6c.057-.623.03-1.54-.79-1.42s-.81 1.08-.615 1.83q.086.335.216.695q-.092.431-.223.91q-.11.396-.24.811a11 11 0 0 1-.833-2.16c-.35-1.35-.365-3.23 1.45-3.62s2.27 1.67 2.15 2.99c-.1 1.07-.397 2.38-.847 3.73c.288.477.602.955.935 1.42c.35.491.81.993 1.19 1.43c1.34-.1 2.66-.034 3.65.153c1.36.257 2.59 1.11 1.87 2.74c-.721 1.63-2.5 1.39-3.68.631a9.9 9.9 0 0 1-2.55-2.38h-.003a37 37 0 0 1-2.05-3.47c-.296.893-.73 2.09-1.1 2.89c.473-.11.97-.2 1.46-.275c.201.338.393.668.59.988q-.235.035-.49.078q-.923.157-1.81.376q-.224.43-.434.848c-.499.988-.959 1.9-1.53 2.55c-.913 1.04-2.62 1.89-3.74.53zm10.5-4.68c.599.612 1.16 1.08 1.71 1.44c.668.43 1.44.681 1.8-.07c.367-.753-.311-1.13-1.02-1.27c-.699-.133-1.53-.139-2.5-.104z" clipRule="evenodd"/></svg>
+        }/>
+    </Folder>
+    <File name="file1.txt" />
+    <File name="file2.rs" icon={
+        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="m23.835 11.703l-1.008-.623l-.028-.294l.866-.807a.348.348 0 0 0-.116-.578l-1.106-.414a9 9 0 0 0-.087-.285l.69-.96a.346.346 0 0 0-.226-.544l-1.166-.19a9 9 0 0 0-.14-.261l.49-1.076a.34.34 0 0 0-.028-.336a.35.35 0 0 0-.3-.154l-1.185.041a7 7 0 0 0-.188-.227l.273-1.153a.347.347 0 0 0-.417-.417l-1.153.273l-.228-.188l.041-1.184a.344.344 0 0 0-.49-.328l-1.076.49l-.262-.14l-.19-1.167a.348.348 0 0 0-.545-.226l-.96.69a9 9 0 0 0-.285-.086L14.597.453a.348.348 0 0 0-.578-.116l-.807.867a9 9 0 0 0-.294-.028L12.295.168a.346.346 0 0 0-.59 0l-.623 1.008l-.294.028L9.98.337a.346.346 0 0 0-.578.116l-.414 1.106l-.285.086l-.959-.69a.348.348 0 0 0-.545.226l-.19 1.167a9 9 0 0 0-.262.14l-1.076-.49a.346.346 0 0 0-.49.328l.041 1.184a8 8 0 0 0-.228.187l-1.153-.272a.347.347 0 0 0-.417.417l.271 1.153l-.186.227l-1.184-.042a.346.346 0 0 0-.328.49l.49 1.077a9 9 0 0 0-.14.262l-1.166.19a.348.348 0 0 0-.226.544l.69.958l-.087.286l-1.106.414a.348.348 0 0 0-.116.578l.866.807a9 9 0 0 0-.028.294l-1.008.623a.344.344 0 0 0 0 .59l1.008.623q.012.147.028.294l-.866.807a.346.346 0 0 0 .116.578l1.106.415q.042.144.087.285l-.69.959a.345.345 0 0 0 .227.544l1.166.19q.069.132.14.262l-.49 1.076a.346.346 0 0 0 .328.49l1.183-.041q.093.115.187.227l-.27 1.154a.346.346 0 0 0 .416.417l1.153-.272q.113.096.228.187l-.041 1.184a.344.344 0 0 0 .49.327l1.076-.49q.13.073.262.14l.19 1.167a.348.348 0 0 0 .545.227l.959-.69a9 9 0 0 0 .285.086l.414 1.107a.345.345 0 0 0 .578.115l.808-.865l.294.03l.623 1.006a.347.347 0 0 0 .59 0l.623-1.007q.148-.013.294-.03l.807.866a.348.348 0 0 0 .578-.115l.414-1.107a9 9 0 0 0 .285-.087l.959.69a.345.345 0 0 0 .545-.226l.19-1.166l.262-.14l1.076.49a.347.347 0 0 0 .49-.328l-.041-1.184a7 7 0 0 0 .227-.187l1.153.272a.347.347 0 0 0 .417-.416l-.272-1.155q.095-.112.187-.227l1.184.041a.344.344 0 0 0 .328-.49l-.49-1.076q.072-.13.141-.262l1.166-.19a.348.348 0 0 0 .226-.544l-.69-.959l.087-.285l1.106-.414a.346.346 0 0 0 .116-.579l-.866-.807q.016-.147.028-.294l1.008-.624a.344.344 0 0 0 0-.589zm-6.742 8.355a.714.714 0 0 1 .299-1.396a.714.714 0 1 1-.3 1.396zm-.342-2.314a.65.65 0 0 0-.771.5l-.358 1.669a8.7 8.7 0 0 1-3.619.78a8.7 8.7 0 0 1-3.695-.815L7.95 18.21a.65.65 0 0 0-.772-.5l-1.473.317a9 9 0 0 1-.761-.898h7.167c.081 0 .136-.014.136-.088v-2.536c0-.074-.054-.088-.136-.088h-2.096v-1.608h2.268c.206 0 1.106.059 1.393 1.209c.09.353.288 1.504.424 1.873c.134.413.683 1.238 1.268 1.238h3.572a1 1 0 0 0 .13-.013a9 9 0 0 1-.813.952zm-9.914 2.28a.714.714 0 1 1-.3-1.396a.714.714 0 0 1 .3 1.396M4.117 8.997a.714.714 0 1 1-1.303.58a.714.714 0 0 1 1.304-.58m-.834 1.981l1.534-.682a.65.65 0 0 0 .33-.858l-.316-.715h1.244v5.602H3.567a8.8 8.8 0 0 1-.284-3.348zm6.734-.543V8.784h2.96c.153 0 1.08.177 1.08.87c0 .574-.712.78-1.296.78zm10.757 1.486q0 .329-.024.651h-.9c-.09 0-.127.059-.127.148v.413c0 .973-.548 1.184-1.03 1.238c-.457.052-.964-.191-1.027-.472c-.27-1.518-.72-1.843-1.43-2.403c.882-.56 1.799-1.386 1.799-2.492c0-1.193-.82-1.945-1.377-2.315c-.783-.516-1.65-.62-1.883-.62H5.468a8.77 8.77 0 0 1 4.907-2.77l1.098 1.152a.65.65 0 0 0 .918.02l1.227-1.173a8.78 8.78 0 0 1 6.004 4.276l-.84 1.898a.65.65 0 0 0 .33.859l1.618.718q.042.43.042.872zm-9.3-9.6a.713.713 0 1 1 .984 1.032a.714.714 0 0 1-.984-1.031m8.339 6.71a.71.71 0 0 1 .939-.362a.714.714 0 1 1-.94.364z"/></svg>
+    }/>
+</Files>
+```
+Which when used, renders to:
+<Files>
+    <Folder name="dir1" defaultOpen>
+        <Folder name="dir2">
+            <File name="test.py" icon={
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><g fill="none"><g fill="currentColor" clipPath="url(#SVGXv8lpc2Y)"><path d="M11.914 0C5.82 0 6.2 2.656 6.2 2.656l.007 2.752h5.814v.826H3.9S0 5.789 0 11.969s3.403 5.96 3.403 5.96h2.03v-2.867s-.109-3.42 3.35-3.42h5.766s3.24.052 3.24-3.148V3.202S18.28 0 11.913 0M8.708 1.85c.578 0 1.046.47 1.046 1.052c0 .581-.468 1.051-1.046 1.051s-1.046-.47-1.046-1.051c0-.582.467-1.052 1.046-1.052"/><path d="M12.087 24c6.092 0 5.712-2.656 5.712-2.656l-.007-2.752h-5.814v-.826h8.123s3.9.445 3.9-5.735s-3.404-5.96-3.404-5.96h-2.03v2.867s.109 3.42-3.35 3.42H9.452s-3.24-.052-3.24 3.148v5.292S5.72 24 12.087 24m3.206-1.85c-.579 0-1.046-.47-1.046-1.052c0-.581.467-1.051 1.046-1.051c.578 0 1.046.47 1.046 1.051c0 .582-.468 1.052-1.046 1.052"/></g><defs><clipPath id="SVGXv8lpc2Y"><path fill="#fff" d="M0 0h24v24H0z"/></clipPath></defs></g></svg>
+            }/>
+            <File name="test2.jar" icon={
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="M10.82 8.427c-.76-1.085-1.046-1.872-1.108-2.445c-.059-.54.073-.97.335-1.383c.283-.447.708-.862 1.248-1.353c.505-.458 1.137-1.003 1.633-1.62L11.37.374c-.416.517-.928.947-1.418 1.391c-.534.485-1.149 1.062-1.593 1.764c-.466.735-.75 1.611-.635 2.67c.112 1.026.588 2.132 1.458 3.375zm1.25-3.03c.284-.684.861-1.37 1.78-2.156l1.3 1.518c-.831.713-1.129 1.153-1.235 1.407c-.104.25-.035.499.035.747c.084.296.223.79.214 1.322c-.012.706-.254 1.452-.832 2.32l-1.664-1.11c.422-.632.492-1.01.496-1.243c.005-.295-.072-.46-.197-.96c-.12-.478-.21-1.097.102-1.845M6.141 10c.47-.314 1.05-.474 1.592-.604L7.266 7.45c-.813.196-1.551.46-2.112.807C4.644 8.573 4 9.136 4 10c0 .726.486 1.306 1.065 1.686a2.5 2.5 0 0 0-.065.572c0 .98.418 1.807 1.143 2.42c-.107.3-.155.634-.14.968c-.777.151-1.536.373-2.17.664c-.432.198-.858.451-1.19.777c-.334.329-.643.804-.643 1.413c0 .427.189.772.374 1.01c.189.242.432.449.684.624c.506.351 1.184.669 1.959.936c1.558.538 3.669.93 5.983.93c3.327 0 5.663-.384 7.19-.782a13 13 0 0 0 1.704-.561c.21-.088.42-.181.616-.297c.01-.006-1.028-1.715-1.024-1.718c-.564.294-1.188.48-1.8.64c-1.349.352-3.513.718-6.686.718c-2.104 0-3.993-.358-5.33-.82c-.532-.184-1.088-.398-1.541-.74c.115-.09.29-.199.538-.312c.558-.256 1.323-.466 2.14-.591q.344.365.814.64c.965.562 2.292.823 3.879.823c1.31 0 2.258-.132 2.898-.274c.356-.078.714-.167 1.042-.328c.003-.002-.881-1.795-.881-1.795q-.291.105-.593.17c-.489.109-1.29.227-2.466.227c-1.413 0-2.336-.24-2.871-.551c-.426-.248-.589-.524-.622-.824c.868.253 1.895.375 3.056.375c1.463 0 2.518-.143 3.228-.297c.386-.083.775-.179 1.134-.346c.02-.01-.857-1.807-.857-1.807a4.4 4.4 0 0 1-.7.198c-.56.121-1.473.252-2.806.252c-1.603 0-2.67-.264-3.302-.623c-.471-.268-.678-.568-.74-.89c1.24.326 2.805.513 4.48.513c1.817 0 3.502-.22 4.783-.598l-.566-1.918c-1.054.311-2.54.516-4.217.516c-1.724 0-3.245-.216-4.302-.542c-.5-.153-.846-.316-1.056-.458m11.448.746c1.213-.11 1.66.188 1.804.342c.149.16.201.408.136.67c-.116.464-.443.914-.973 1.328c-.529.413-1.2.74-1.873.965l.632 1.897c.828-.276 1.718-.698 2.471-1.285c.75-.586 1.424-1.385 1.683-2.42c.185-.74.112-1.741-.614-2.52c-.73-.782-1.909-1.109-3.447-.969z"/></svg>
+            }/>
+        </Folder>
+        <File name="file1" icon={
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" fillRule="evenodd" d="M7.835 3.97A1 1 0 0 1 6.865 5c-.41.012-.722.077-.955.17a.87.87 0 0 0-.398.29c-.051.085-.116.263-.116.606V9.23c0 .928-.25 1.782-.84 2.459l-.01.012q-.136.15-.288.281q.159.141.3.306c.592.666.838 1.515.838 2.436v3.231c0 .34.07.514.124.598l.012.019c.062.1.152.183.323.244l.033.013c.23.092.547.158.976.17a1 1 0 0 1-.057 2c-.591-.017-1.147-.11-1.646-.307a2.57 2.57 0 0 1-1.324-1.059c-.322-.5-.441-1.084-.441-1.678v-3.23c0-.568-.147-.9-.337-1.112l-.023-.026c-.18-.214-.53-.438-1.212-.56A1 1 0 0 1 1 12.044v-.132a1 1 0 0 1 .821-.984c.665-.12 1.032-.338 1.233-.558c.198-.231.342-.578.342-1.14V6.067c0-.605.118-1.204.447-1.71l.02-.028a2.86 2.86 0 0 1 1.304-1.015c.5-.2 1.053-.295 1.639-.313a1 1 0 0 1 1.029.97m8.33 0a1 1 0 0 1 1.03-.97c.585.018 1.138.113 1.638.313a2.86 2.86 0 0 1 1.324 1.043c.33.506.447 1.105.447 1.71V9.23c0 .56.144.908.343 1.139c.2.22.567.437 1.232.558a1 1 0 0 1 .821.984v.132a1 1 0 0 1-.824.984c-.682.122-1.033.346-1.212.56l-.023.026c-.19.211-.337.544-.337 1.111v3.231c0 .594-.12 1.179-.44 1.678a2.57 2.57 0 0 1-1.325 1.06c-.499.196-1.055.289-1.646.306a1 1 0 1 1-.057-2c.429-.012.746-.078.976-.17l.029-.011l.004-.002a.58.58 0 0 0 .323-.244l.012-.02c.055-.083.124-.257.124-.597v-3.23c0-.922.246-1.771.839-2.437q.14-.165.3-.306a3 3 0 0 1-.288-.281l-.011-.012c-.59-.677-.84-1.53-.84-2.46V6.067c0-.343-.065-.521-.116-.607a.87.87 0 0 0-.398-.289c-.233-.093-.544-.158-.955-.17a1 1 0 0 1-.97-1.03M9 14a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1m3 0a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1m3 0a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1" clipRule="evenodd"/></svg>
+        } />
+        <File name="file2.pdf" icon={
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16"><path fill="currentColor" fillRule="evenodd" d="M.448 15.3c-1.12-1.36.071-2.98 1.29-3.67c.677-.381 1.52-.646 2.43-.896a16 16 0 0 1-.895 1.5a7 7 0 0 0-.781.371c-.642.362-1.5.995-.973 1.79c.513.774 1.34-.077 1.73-.526c.498-.508 1.06-1.31 1.56-2.19c.529-.93 1.01-1.98 1.47-3.09c.415-1 .784-2.03 1.06-2.99V5.6c.28-.96.469-1.85.539-2.6c.057-.623.03-1.54-.79-1.42s-.81 1.08-.615 1.83q.086.335.216.695q-.092.431-.223.91q-.11.396-.24.811a11 11 0 0 1-.833-2.16c-.35-1.35-.365-3.23 1.45-3.62s2.27 1.67 2.15 2.99c-.1 1.07-.397 2.38-.847 3.73c.288.477.602.955.935 1.42c.35.491.81.993 1.19 1.43c1.34-.1 2.66-.034 3.65.153c1.36.257 2.59 1.11 1.87 2.74c-.721 1.63-2.5 1.39-3.68.631a9.9 9.9 0 0 1-2.55-2.38h-.003a37 37 0 0 1-2.05-3.47c-.296.893-.73 2.09-1.1 2.89c.473-.11.97-.2 1.46-.275c.201.338.393.668.59.988q-.235.035-.49.078q-.923.157-1.81.376q-.224.43-.434.848c-.499.988-.959 1.9-1.53 2.55c-.913 1.04-2.62 1.89-3.74.53zm10.5-4.68c.599.612 1.16 1.08 1.71 1.44c.668.43 1.44.681 1.8-.07c.367-.753-.311-1.13-1.02-1.27c-.699-.133-1.53-.139-2.5-.104z" clipRule="evenodd"/></svg>
+        }/>
+    </Folder>
+    <File name="file1.txt" />
+    <File name="file2.rs" icon={
+        <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path fill="currentColor" d="m23.835 11.703l-1.008-.623l-.028-.294l.866-.807a.348.348 0 0 0-.116-.578l-1.106-.414a9 9 0 0 0-.087-.285l.69-.96a.346.346 0 0 0-.226-.544l-1.166-.19a9 9 0 0 0-.14-.261l.49-1.076a.34.34 0 0 0-.028-.336a.35.35 0 0 0-.3-.154l-1.185.041a7 7 0 0 0-.188-.227l.273-1.153a.347.347 0 0 0-.417-.417l-1.153.273l-.228-.188l.041-1.184a.344.344 0 0 0-.49-.328l-1.076.49l-.262-.14l-.19-1.167a.348.348 0 0 0-.545-.226l-.96.69a9 9 0 0 0-.285-.086L14.597.453a.348.348 0 0 0-.578-.116l-.807.867a9 9 0 0 0-.294-.028L12.295.168a.346.346 0 0 0-.59 0l-.623 1.008l-.294.028L9.98.337a.346.346 0 0 0-.578.116l-.414 1.106l-.285.086l-.959-.69a.348.348 0 0 0-.545.226l-.19 1.167a9 9 0 0 0-.262.14l-1.076-.49a.346.346 0 0 0-.49.328l.041 1.184a8 8 0 0 0-.228.187l-1.153-.272a.347.347 0 0 0-.417.417l.271 1.153l-.186.227l-1.184-.042a.346.346 0 0 0-.328.49l.49 1.077a9 9 0 0 0-.14.262l-1.166.19a.348.348 0 0 0-.226.544l.69.958l-.087.286l-1.106.414a.348.348 0 0 0-.116.578l.866.807a9 9 0 0 0-.028.294l-1.008.623a.344.344 0 0 0 0 .59l1.008.623q.012.147.028.294l-.866.807a.346.346 0 0 0 .116.578l1.106.415q.042.144.087.285l-.69.959a.345.345 0 0 0 .227.544l1.166.19q.069.132.14.262l-.49 1.076a.346.346 0 0 0 .328.49l1.183-.041q.093.115.187.227l-.27 1.154a.346.346 0 0 0 .416.417l1.153-.272q.113.096.228.187l-.041 1.184a.344.344 0 0 0 .49.327l1.076-.49q.13.073.262.14l.19 1.167a.348.348 0 0 0 .545.227l.959-.69a9 9 0 0 0 .285.086l.414 1.107a.345.345 0 0 0 .578.115l.808-.865l.294.03l.623 1.006a.347.347 0 0 0 .59 0l.623-1.007q.148-.013.294-.03l.807.866a.348.348 0 0 0 .578-.115l.414-1.107a9 9 0 0 0 .285-.087l.959.69a.345.345 0 0 0 .545-.226l.19-1.166l.262-.14l1.076.49a.347.347 0 0 0 .49-.328l-.041-1.184a7 7 0 0 0 .227-.187l1.153.272a.347.347 0 0 0 .417-.416l-.272-1.155q.095-.112.187-.227l1.184.041a.344.344 0 0 0 .328-.49l-.49-1.076q.072-.13.141-.262l1.166-.19a.348.348 0 0 0 .226-.544l-.69-.959l.087-.285l1.106-.414a.346.346 0 0 0 .116-.579l-.866-.807q.016-.147.028-.294l1.008-.624a.344.344 0 0 0 0-.589zm-6.742 8.355a.714.714 0 0 1 .299-1.396a.714.714 0 1 1-.3 1.396zm-.342-2.314a.65.65 0 0 0-.771.5l-.358 1.669a8.7 8.7 0 0 1-3.619.78a8.7 8.7 0 0 1-3.695-.815L7.95 18.21a.65.65 0 0 0-.772-.5l-1.473.317a9 9 0 0 1-.761-.898h7.167c.081 0 .136-.014.136-.088v-2.536c0-.074-.054-.088-.136-.088h-2.096v-1.608h2.268c.206 0 1.106.059 1.393 1.209c.09.353.288 1.504.424 1.873c.134.413.683 1.238 1.268 1.238h3.572a1 1 0 0 0 .13-.013a9 9 0 0 1-.813.952zm-9.914 2.28a.714.714 0 1 1-.3-1.396a.714.714 0 0 1 .3 1.396M4.117 8.997a.714.714 0 1 1-1.303.58a.714.714 0 0 1 1.304-.58m-.834 1.981l1.534-.682a.65.65 0 0 0 .33-.858l-.316-.715h1.244v5.602H3.567a8.8 8.8 0 0 1-.284-3.348zm6.734-.543V8.784h2.96c.153 0 1.08.177 1.08.87c0 .574-.712.78-1.296.78zm10.757 1.486q0 .329-.024.651h-.9c-.09 0-.127.059-.127.148v.413c0 .973-.548 1.184-1.03 1.238c-.457.052-.964-.191-1.027-.472c-.27-1.518-.72-1.843-1.43-2.403c.882-.56 1.799-1.386 1.799-2.492c0-1.193-.82-1.945-1.377-2.315c-.783-.516-1.65-.62-1.883-.62H5.468a8.77 8.77 0 0 1 4.907-2.77l1.098 1.152a.65.65 0 0 0 .918.02l1.227-1.173a8.78 8.78 0 0 1 6.004 4.276l-.84 1.898a.65.65 0 0 0 .33.859l1.618.718q.042.43.042.872zm-9.3-9.6a.713.713 0 1 1 .984 1.032a.714.714 0 0 1-.984-1.031m8.339 6.71a.71.71 0 0 1 .939-.362a.714.714 0 1 1-.94.364z"/></svg>
+    }/>
+</Files>
+You can specify ``defaultOpen`` on a folder to have it opened by default, you can specify the ``name`` on both Files and Folders
+alike, as well as provide an icon for Files via ``icon``.
+
+We recommend using icons from [iconify.design](https://icon-sets.iconify.design/) while also using consistent icons (look if ChronoGrapher
+has already used the icon you are looking for, and use that instead).
