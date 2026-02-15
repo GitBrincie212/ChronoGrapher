@@ -40,7 +40,7 @@ type EarlyMutexLock<'a, C> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>
 
 pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
-    tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask<C::Error>>>,
+    tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask<C::TaskError>>>,
     sender:
         tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
 }
@@ -81,7 +81,7 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
-    type StoredTask = Arc<ErasedTask<C::Error>>;
+    type StoredTask = Arc<ErasedTask<C::TaskError>>;
 
     async fn init(&self) {}
 
@@ -127,7 +127,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
     async fn store(
         &self,
         clock: &C::SchedulerClock,
-        task: ErasedTask<C::Error>,
+        task: ErasedTask<C::TaskError>,
     ) -> Result<C::TaskIdentifier, DynArcError> {
         let idx = C::TaskIdentifier::generate();
         let task = Arc::new(task);

@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 pub trait SchedulerConfig: Sized + 'static {
     type TaskIdentifier: TaskIdentifier;
-    type Error: Error + Send + Sync + 'static;
+    type TaskError: Error + Send + Sync + 'static;
     type SchedulerClock: SchedulerClock<Self>;
     type SchedulerTaskStore: SchedulerTaskStore<Self>;
     type SchedulerTaskDispatcher: SchedulerTaskDispatcher<Self>;
@@ -32,7 +32,7 @@ pub struct DefaultSchedulerConfig<E: Error + Send + Sync + 'static>(PhantomData<
 
 impl<E: Error + Send + Sync + 'static> SchedulerConfig for DefaultSchedulerConfig<E> {
     type TaskIdentifier = Uuid;
-    type Error = E;
+    type TaskError = E;
     type SchedulerClock = ProgressiveClock;
     type SchedulerTaskStore = EphemeralSchedulerTaskStore<Self>;
     type SchedulerTaskDispatcher = DefaultTaskDispatcher;
@@ -85,7 +85,7 @@ where
         SchedulerTaskDispatcher: Default,
         SchedulerEngine: Default,
         SchedulerClock: Default,
-        Error = E
+        TaskError= E
     >,
     E: Error + Send + Sync + 'static,
 {
@@ -140,7 +140,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
     pub async fn schedule(
         &self,
-        task: &Task<impl TaskFrame<Error = C::Error>, impl TaskTrigger>,
+        task: &Task<impl TaskFrame<Error = C::TaskError>, impl TaskTrigger>,
     ) -> Result<C::TaskIdentifier, impl Error + Send + Sync> {
         let erased = task.as_erased();
         self.store.store(&self.clock, erased).await

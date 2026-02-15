@@ -19,7 +19,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
         dispatcher: Arc<C::SchedulerTaskDispatcher>,
     ) {
         let (scheduler_send, mut scheduler_receive) =
-            tokio::sync::mpsc::channel::<(C::TaskIdentifier, Option<C::Error>)>(1024);
+            tokio::sync::mpsc::channel::<(C::TaskIdentifier, Option<C::TaskError>)>(20480);
         let notifier = tokio::sync::Notify::new();
         join!(
             async {
@@ -45,7 +45,11 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
             },
             async {
                 loop {
-                    if let Some((task, time, id)) = store.retrieve().await {
+                    if let Some((
+                        task,
+                        time,
+                        id
+                    )) = store.retrieve().await {
                         tokio::select! {
                             _ = clock.idle_to(time) => {
                                 store.pop().await;

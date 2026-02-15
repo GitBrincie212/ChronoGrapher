@@ -13,7 +13,7 @@ use std::time::SystemTime;
 
 #[async_trait]
 pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
-    type StoredTask: Deref<Target = ErasedTask<C::Error>> + Send + Sync + 'static;
+    type StoredTask: Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static;
 
     async fn init(&self) {}
 
@@ -34,7 +34,7 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     async fn store(
         &self,
         clock: &C::SchedulerClock,
-        task: ErasedTask<C::Error>,
+        task: ErasedTask<C::TaskError>,
     ) -> Result<C::TaskIdentifier, impl Error + Send + Sync>;
 
     async fn remove(&self, idx: &C::TaskIdentifier);

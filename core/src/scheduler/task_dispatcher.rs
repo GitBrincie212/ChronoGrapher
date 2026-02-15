@@ -11,13 +11,13 @@ use async_trait::async_trait;
 
 pub struct EngineNotifier<C: SchedulerConfig> {
     id: C::TaskIdentifier,
-    notify: tokio::sync::mpsc::Sender<(C::TaskIdentifier, Option<C::Error>)>,
+    notify: tokio::sync::mpsc::Sender<(C::TaskIdentifier, Option<C::TaskError>)>,
 }
 
 impl<C: SchedulerConfig> EngineNotifier<C> {
     pub fn new(
         id: C::TaskIdentifier,
-        notify: tokio::sync::mpsc::Sender<(C::TaskIdentifier, Option<C::Error>)>,
+        notify: tokio::sync::mpsc::Sender<(C::TaskIdentifier, Option<C::TaskError>)>,
     ) -> Self {
         Self {
             id,
@@ -25,7 +25,7 @@ impl<C: SchedulerConfig> EngineNotifier<C> {
         }
     }
 
-    pub async fn notify(self, result: Option<C::Error>) {
+    pub async fn notify(self, result: Option<C::TaskError>) {
         self.notify
             .send((self.id, result))
             .await
@@ -39,7 +39,7 @@ pub trait SchedulerTaskDispatcher<C: SchedulerConfig>: 'static + Send + Sync {
 
     async fn dispatch(
         &self,
-        task: impl Deref<Target = ErasedTask<C::Error>> + Send + Sync + 'static,
+        task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
         notifier: EngineNotifier<C>
     );
 }

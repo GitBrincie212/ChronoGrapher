@@ -14,7 +14,7 @@ pub struct DefaultTaskDispatcher;
 impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher {
     async fn dispatch(
         &self,
-        task: impl Deref<Target = ErasedTask<C::Error>> + Send + Sync + 'static,
+        task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
         notifier: EngineNotifier<C>
     ) {
         let res = task.run().await;
