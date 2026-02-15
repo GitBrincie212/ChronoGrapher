@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/toggle-language";
 import { getPageImage, source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
+import {Files, Folder, File} from "fumadocs-ui/components/files";
 
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
@@ -66,6 +67,9 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
                 <Pre>{props.children}</Pre>
               </CodeBlock>
             ),
+            Files: Files,
+            File: File,
+            Folder: Folder,
           })}
         />
         <div className="text-fd-muted-foreground opacity-50">
