@@ -59,7 +59,7 @@ impl<'a> TaskFrameContext<'a> {
     pub async fn erased_subdivide(
         &self,
         frame: &'a dyn ErasedTaskFrame,
-    ) -> Result<(), DynArcError> {
+    ) -> Result<(), Box<dyn TaskError>> {
         let child_ctx = self.subdivided_ctx(frame);
         frame.erased_execute(&child_ctx).await
     }
@@ -174,14 +174,14 @@ impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error> for T {
 
 #[async_trait]
 pub trait ErasedTaskFrame: 'static + Send + Sync {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), DynArcError>;
+    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>>;
 }
 
 #[async_trait]
 impl<T: TaskFrame<Error: Into<T::Error>>> ErasedTaskFrame for T {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), DynArcError> {
+    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>> {
         self.execute(ctx)
             .await
-            .map_err(|x| Arc::new(x) as DynArcError)
+            .map_err(|x| Box::new(x) as Box<dyn TaskError>)
     }
 }
