@@ -25,6 +25,19 @@ pub mod prelude {
     pub use crate::task::trigger::schedule::calendar::TaskScheduleCalendar;
     pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
 
+    // Schedulers
+    pub use crate::scheduler::DefaultSchedulerConfig;
+    pub use crate::scheduler::Scheduler;
+    pub use crate::scheduler::DefaultScheduler;
+    pub use crate::scheduler::SchedulerConfig;
+
+
+    #[cfg(feature = "anyhow")]
+    pub use crate::scheduler::DefaultAnyhowScheduler;
+
+    #[cfg(feature = "eyre")]
+    pub use crate::scheduler::DefaultEyreScheduler;
+
     // TaskHooks / TaskHookEvents
     pub use crate::task::hooks::{NonObserverTaskHook, TaskHook, events::*};
 
