@@ -18,19 +18,20 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
+use crate::errors::TaskError;
 
 pub trait SchedulerConfig: Sized + 'static {
     type TaskIdentifier: TaskIdentifier;
-    type TaskError: Error + Send + Sync + 'static;
+    type TaskError: TaskError;
     type SchedulerClock: SchedulerClock<Self>;
     type SchedulerTaskStore: SchedulerTaskStore<Self>;
     type SchedulerTaskDispatcher: SchedulerTaskDispatcher<Self>;
     type SchedulerEngine: SchedulerEngine<Self>;
 }
 
-pub struct DefaultSchedulerConfig<E: Error + Send + Sync + 'static>(PhantomData<E>);
+pub struct DefaultSchedulerConfig<E: TaskError>(PhantomData<E>);
 
-impl<E: Error + Send + Sync + 'static> SchedulerConfig for DefaultSchedulerConfig<E> {
+impl<E: TaskError> SchedulerConfig for DefaultSchedulerConfig<E> {
     type TaskIdentifier = Uuid;
     type TaskError = E;
     type SchedulerClock = ProgressiveClock;
@@ -87,7 +88,7 @@ where
         SchedulerClock: Default,
         TaskError= E
     >,
-    E: Error + Send + Sync + 'static,
+    E: TaskError,
 {
     fn default() -> Self {
         Self::builder()
@@ -141,7 +142,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
     pub async fn schedule(
         &self,
         task: &Task<impl TaskFrame<Error = C::TaskError>, impl TaskTrigger>,
-    ) -> Result<C::TaskIdentifier, impl Error + Send + Sync> {
+    ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
         let erased = task.as_erased();
         self.store.store(&self.clock, erased).await
     }

@@ -1,9 +1,8 @@
+use std::error::Error;
 use crate::errors::StandardCoreErrorsCG;
-use crate::task::DynArcError;
 use crate::task::schedule::TaskSchedule;
 use chrono::{DateTime, Utc};
 use std::fmt::Debug;
-use std::sync::Arc;
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -16,10 +15,12 @@ impl TaskScheduleCron {
 }
 
 impl TaskSchedule for TaskScheduleCron {
-    fn schedule(&self, time: SystemTime) -> Result<SystemTime, DynArcError> {
+    fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         let dt = DateTime::<Utc>::from(time);
         cron_parser::parse(&self.0, &dt)
-            .map_err(|e| Arc::new(StandardCoreErrorsCG::CronParserError(e.to_string())) as DynArcError)
+            .map_err(|e| {
+                Box::new(StandardCoreErrorsCG::CronParserError(e.to_string())) as Box<dyn Error + Send + Sync>
+            })
             .map(|x| SystemTime::from(x))
     }
 }

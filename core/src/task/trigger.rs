@@ -6,7 +6,7 @@ pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
 pub use crate::task::trigger::schedule::immediate::TaskScheduleImmediate;
 pub use crate::task::trigger::schedule::interval::TaskScheduleInterval;
 use std::any::Any;
-
+use std::error::Error;
 use crate::prelude::DynArcError;
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
@@ -43,5 +43,5 @@ impl TriggerNotifier {
 
 #[async_trait]
 pub trait TaskTrigger: 'static + Send + Sync {
-    async fn trigger(&self, now: SystemTime, notifier: TriggerNotifier) -> Result<(), DynArcError>;
+    async fn trigger(&self, now: SystemTime, notifier: TriggerNotifier) -> Result<(), Box<dyn Error + Send + Sync>>;
 }

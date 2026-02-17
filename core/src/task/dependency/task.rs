@@ -1,4 +1,3 @@
-use std::error::Error;
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
@@ -11,13 +10,14 @@ use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
+use crate::errors::TaskError;
 
 type IncompleteTaskDependencyConfig<T1, T2> =
     TaskDependencyConfigBuilder<T1, T2, ((&'static Task<T1, T2>,), (), ())>;
 
 #[async_trait]
 pub trait TaskResolvent: Send + Sync {
-    async fn should_count(&self, ctx: &TaskHookContext, result: &Option<&(dyn Error + Send + Sync)>) -> bool;
+    async fn should_count(&self, ctx: &TaskHookContext, result: &Option<&dyn TaskError>) -> bool;
 }
 
 macro_rules! implement_core_resolvent {
@@ -27,7 +27,7 @@ macro_rules! implement_core_resolvent {
 
         #[async_trait]
         impl TaskResolvent for $name {
-            async fn should_count(&self, ctx: &TaskHookContext, result: &Option<&(dyn Error + Send + Sync)>) -> bool {
+            async fn should_count(&self, ctx: &TaskHookContext, result: &Option<&dyn TaskError>) -> bool {
                 $code(ctx, result)
             }
         }
@@ -37,12 +37,12 @@ macro_rules! implement_core_resolvent {
 implement_core_resolvent!(
     TaskResolveSuccessOnly,
     "0b9473f5-9ce2-49d2-ba68-f4462d605e51",
-    (|_ctx: &TaskHookContext, result: &Option<&(dyn Error + Send + Sync)>| result.is_none())
+    (|_ctx: &TaskHookContext, result: &Option<&dyn TaskError>| result.is_none())
 );
 implement_core_resolvent!(
     TaskResolveFailureOnly,
     "d5a9db33-9b4e-407e-b2a3-f1487f10be1c",
-    (|_ctx: &TaskHookContext, result: &Option<&(dyn Error + Send + Sync)>| result.is_some())
+    (|_ctx: &TaskHookContext, result: &Option<&dyn TaskError>| result.is_some())
 );
 implement_core_resolvent!(
     TaskResolveIdentityOnly,

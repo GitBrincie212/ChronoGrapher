@@ -8,7 +8,6 @@ pub mod hooks; // skipcq: RS-D1001
 
 pub mod trigger; // skipcq: RS-D1001
 
-use std::error::Error;
 pub use frame_builder::*;
 pub use frames::*;
 pub use hooks::*;
@@ -20,6 +19,7 @@ use dashmap::DashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
+use crate::errors::TaskError;
 
 pub type ErasedTask<E> = Task<
     dyn DynTaskFrame<E>,
@@ -71,7 +71,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
     }
 }
 
-impl<E: Error + Send + Sync> ErasedTask<E> {
+impl<E: TaskError> ErasedTask<E> {
     pub async fn run(&self) -> Result<(), E> {
         let ctx = TaskFrameContext(RestrictTaskFrameContext::new(self));
         ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
@@ -79,7 +79,7 @@ impl<E: Error + Send + Sync> ErasedTask<E> {
         ctx.emit::<OnTaskEnd>(&result
             .as_ref()
             .err()
-            .map(|x| x as &(dyn Error + Send + Sync))
+            .map(|x| x as &dyn TaskError)
         ).await;
 
         result

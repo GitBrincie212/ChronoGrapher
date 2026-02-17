@@ -6,6 +6,7 @@ use crate::task::{RestrictTaskFrameContext, TaskFrame};
 use async_trait::async_trait;
 use std::sync::Arc;
 use crate::{define_event, define_event_group};
+use crate::errors::TaskError;
 use crate::task::{DynArcError, ErasedTaskFrame, TaskFrameContext};
 /* === SEQUENTIAL CODE ===
         for taskframe in self.tasks.iter() {
@@ -151,7 +152,7 @@ define_event!(
 );
 
 define_event!(
-    OnChildTaskFrameEnd, Option<&'a (dyn Error + Send + Sync)>
+    OnChildTaskFrameEnd, Option<&'a dyn TaskError>
 );
 
 define_event_group!(

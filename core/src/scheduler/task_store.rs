@@ -29,13 +29,13 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
         &self,
         clock: &C::SchedulerClock,
         idx: &C::TaskIdentifier,
-    ) -> Result<(), impl Error + Send + Sync>;
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     async fn store(
         &self,
         clock: &C::SchedulerClock,
         task: ErasedTask<C::TaskError>,
-    ) -> Result<C::TaskIdentifier, impl Error + Send + Sync>;
+    ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>>;
 
     async fn remove(&self, idx: &C::TaskIdentifier);
 

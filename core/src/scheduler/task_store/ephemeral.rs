@@ -9,6 +9,7 @@ use dashmap::DashMap;
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
+use std::error::Error;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::{Mutex, MutexGuard};
@@ -109,14 +110,14 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         &self,
         clock: &C::SchedulerClock,
         idx: &C::TaskIdentifier,
-    ) -> Result<(), DynArcError> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let task =
             self.tasks
                 .get(idx)
                 .ok_or(
-                    Arc::new(StandardCoreErrorsCG::TaskIdentifierNonExistent(format!(
+                    Box::new(StandardCoreErrorsCG::TaskIdentifierNonExistent(format!(
                         "{idx:?}"
-                    ))) as DynArcError,
+                    ))) as Box<dyn Error + Send + Sync>,
                 )?;
 
         let now = clock.now().await;
@@ -128,7 +129,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         &self,
         clock: &C::SchedulerClock,
         task: ErasedTask<C::TaskError>,
-    ) -> Result<C::TaskIdentifier, DynArcError> {
+    ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
         let idx = C::TaskIdentifier::generate();
         let task = Arc::new(task);
         self.tasks.insert(idx.clone(), task.clone());
@@ -136,7 +137,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         let notifier = TriggerNotifier::new::<C>(idx.clone(), self.sender.clone());
         task.trigger().trigger(now, notifier).await?;
 
-        Ok(idx)
+        Ok::<<C as SchedulerConfig>::TaskIdentifier, Box<dyn Error + Send + Sync>>(idx)
     }
 
     async fn remove(&self, idx: &C::TaskIdentifier) {

@@ -1,14 +1,13 @@
-use std::error::Error;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use async_trait::async_trait;
 use typed_builder::TypedBuilder;
-use crate::errors::ThresholdTaskFrameError;
+use crate::errors::{TaskError, ThresholdTaskFrameError};
 use crate::task::{RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
 
 #[async_trait]
-pub trait ThresholdLogic<T: Error + Send + Sync + 'static>: Send + Sync {
+pub trait ThresholdLogic<T: TaskError>: Send + Sync {
     fn counts(&self, res: Option<&T>, ctx: &RestrictTaskFrameContext) -> bool;
 }
 
@@ -17,7 +16,7 @@ macro_rules! impl_error_count_logic {
         pub struct $name;
 
         #[async_trait]
-        impl<T: Error + Send + Sync + 'static> ThresholdLogic<T> for $name {
+        impl<T: TaskError> ThresholdLogic<T> for $name {
             fn counts(&self, res: Option<&T>, ctx: &RestrictTaskFrameContext) -> bool {
                 ($code)(res, ctx)
             }
@@ -30,7 +29,7 @@ impl_error_count_logic!(ThresholdSuccessesCountLogic, |res: Option<&T>, _| res.i
 impl_error_count_logic!(ThresholdIdentityCountLogic, |_: Option<&T>, _| true);
 
 #[async_trait]
-pub trait ThresholdReachBehaviour<T: Error + Send + Sync + 'static>: Send + Sync {
+pub trait ThresholdReachBehaviour<T: TaskError>: Send + Sync {
     fn results(&self, ctx: &RestrictTaskFrameContext) -> Result<(), T>;
 }
 
@@ -39,7 +38,7 @@ macro_rules! impl_threshold_reach_logic {
         pub struct $name;
 
         #[async_trait]
-        impl<T: Error + Send + Sync + 'static> ThresholdReachBehaviour<T> for $name {
+        impl<T: TaskError> ThresholdReachBehaviour<T> for $name {
             fn results(&self, ctx: &RestrictTaskFrameContext) -> Result<(), T> {
                 ($code)(ctx)
             }

@@ -1,4 +1,4 @@
-use crate::prelude::DynArcError;
+use std::error::Error;
 use crate::task::{TaskTrigger, TriggerNotifier};
 use async_trait::async_trait;
 use std::time::SystemTime;
@@ -12,13 +12,13 @@ pub mod immediate; // skipcq: RS-D1001
 pub mod interval; // skipcq: RS-D1001
 
 pub trait TaskSchedule: 'static + Send + Sync {
-    fn schedule(&self, now: SystemTime) -> Result<SystemTime, DynArcError>;
+    fn schedule(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>>;
 }
 
 #[async_trait]
 impl<T: TaskSchedule> TaskTrigger for T {
-    async fn trigger(&self, now: SystemTime, notifier: TriggerNotifier) -> Result<(), DynArcError> {
-        let date = self.schedule(now).map_err(DynArcError::from)?;
+    async fn trigger(&self, now: SystemTime, notifier: TriggerNotifier) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let date = self.schedule(now)?;
         notifier.notify(Ok(date)).await;
         Ok(())
     }

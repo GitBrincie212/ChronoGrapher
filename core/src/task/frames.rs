@@ -31,11 +31,11 @@ pub use timeoutframe::*;
 use crate::prelude::NonObserverTaskHook;
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookContext, TaskHookEvent};
 use async_trait::async_trait;
-use std::error::Error;
 use std::ops::Deref;
 use std::sync::Arc;
+use crate::errors::TaskError;
 
-pub type DynArcError = Arc<dyn Error + Send + Sync>;
+pub type DynArcError = Arc<dyn TaskError>;
 
 #[derive(Clone)]
 pub struct RestrictTaskFrameContext<'a> {
@@ -78,7 +78,7 @@ impl<'a> TaskFrameContext<'a> {
 }
 
 impl<'a> RestrictTaskFrameContext<'a> {
-    pub(crate) fn new(task: &'a ErasedTask<impl Error + Send + Sync>) -> Self {
+    pub(crate) fn new(task: &'a ErasedTask<impl TaskError>) -> Self {
         Self {
             hooks_container: task.hooks.clone(),
             depth: 0,
@@ -143,13 +143,13 @@ impl<'a> Deref for TaskFrameContext<'a> {
 
 #[async_trait]
 pub trait TaskFrame: 'static + Send + Sync + Sized {
-    type Error: Error + Send + Sync;
+    type Error: TaskError;
 
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error>;
 }
 
 #[async_trait]
-pub trait DynTaskFrame<E: Error + Send + Sync>: 'static + Send + Sync {
+pub trait DynTaskFrame<E: TaskError>: 'static + Send + Sync {
     async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), E>;
     fn erased(&self) -> &dyn ErasedTaskFrame;
 }

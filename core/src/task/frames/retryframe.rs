@@ -2,21 +2,20 @@ use crate::task::{TaskFrame, TaskHookEvent, TaskFrameContext};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::clone::Clone;
-use std::error::Error;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 use typed_builder::TypedBuilder;
-use crate::errors::RetriableTaskFrameError;
+use crate::errors::{TaskError, RetriableTaskFrameError};
 
 #[async_trait]
-pub trait RetryErrorFilter<T: Error + Send + Sync + 'static>: Send + Sync + 'static {
+pub trait RetryErrorFilter<T: TaskError>: Send + Sync + 'static {
     async fn execute(&self, error: Option<&T>) -> bool;
 }
 
 #[async_trait]
-impl<T: Error + Send + Sync + 'static> RetryErrorFilter<T> for () {
+impl<T: TaskError> RetryErrorFilter<T> for () {
     async fn execute(&self, _error: Option<&T>) -> bool {
         true
     }
@@ -100,7 +99,7 @@ define_event!(
 );
 
 define_event!(
-    OnRetryAttemptEnd, (u32, Option<&'a (dyn Error + Send + Sync)>)
+    OnRetryAttemptEnd, (u32, Option<&'a dyn TaskError>)
 );
 
 define_event_group!(
@@ -192,7 +191,7 @@ impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
             let erased_err = error
                 .as_ref()
                 .err()
-                .map(|x| x as &(dyn Error + Send + Sync));
+                .map(|x| x as &dyn TaskError);
 
             ctx.emit::<OnRetryAttemptEnd>(&(
                 retry, erased_err

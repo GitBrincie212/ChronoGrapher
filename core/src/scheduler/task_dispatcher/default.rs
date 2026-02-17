@@ -17,7 +17,7 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher {
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
         notifier: EngineNotifier<C>
     ) {
-        let res = task.run().await;
+        let res: Result<(), C::TaskError> = task.deref().run().await;
         notifier.notify(res.err()).await;
     }
 }

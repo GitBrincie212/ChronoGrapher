@@ -1,12 +1,11 @@
-use std::error::Error;
 use crate::task::{TaskFrameContext, TaskHookEvent};
 use crate::task::TaskFrame;
 use async_trait::async_trait;
 use crate::define_event;
-use crate::errors::FallbackTaskFrameError;
+use crate::errors::{TaskError, FallbackTaskFrameError};
 
 define_event!(
-    OnFallbackEvent, &'a (dyn Error + Send + Sync)
+    OnFallbackEvent, &'a dyn TaskError
 );
 
 pub struct FallbackTaskFrame<T, T2>(T, T2);
@@ -24,11 +23,11 @@ impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         match ctx.subdivide(&self.0).await {
             Err(err) => {
-                ctx.emit::<OnFallbackEvent>(&(&err as &(dyn Error + Send + Sync))).await;
+                ctx.emit::<OnFallbackEvent>(&(&err as &dyn TaskError)).await;
                 ctx.subdivide(&self.1).await
                     .map_err(FallbackTaskFrameError::new)
             }
-            
+
             Ok(()) => Ok(()),
         }
     }

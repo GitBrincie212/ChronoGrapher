@@ -4,10 +4,10 @@ use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::any::{Any, TypeId};
-use std::error::Error;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use crate::errors::TaskError;
 
 pub mod events {
     pub use crate::task::OnTaskEnd;
@@ -98,7 +98,7 @@ define_event!(
 );
 
 define_event!(
-    OnTaskEnd, Option<&'a (dyn Error + Send + Sync)>
+    OnTaskEnd, Option<&'a dyn TaskError>
 );
 
 define_event_group!(
