@@ -98,7 +98,7 @@ async fn main() {
     let mut millis: f64 = 0.9;
     for _ in 0..200_000 {
         millis *= 0.05;
-        let task = Task::simple(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
+        let task = Task::new(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
 
         let _ = scheduler.schedule(&task).await;
     }

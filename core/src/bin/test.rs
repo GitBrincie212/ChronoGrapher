@@ -52,7 +52,7 @@ impl TaskFrame for MyTaskFrameB {
 async fn main() {
     let scheduler = Scheduler::<DefaultSchedulerConfig<DynArcError>>::default();
     
-    let mytask = Task::simple(
+    let mytask = Task::new(
         TaskScheduleInterval::from_secs(1),
         MyTaskFrameA(MyTaskFrameB, AtomicUsize::new(0)),
     );

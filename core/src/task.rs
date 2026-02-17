@@ -18,7 +18,6 @@ use crate::scheduler::Scheduler;
 use dashmap::DashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use typed_builder::TypedBuilder;
 use crate::errors::TaskError;
 
 pub type ErasedTask<E> = Task<
@@ -26,48 +25,29 @@ pub type ErasedTask<E> = Task<
     dyn TaskTrigger,
 >;
 
-#[derive(TypedBuilder)]
-#[builder(build_method(into = Task<T1, T2>))]
-pub struct TaskConfig<T1: TaskFrame, T2: TaskTrigger> {
-    frame: T1,
-    schedule: T2,
-}
-
-impl<T1: TaskFrame, T2: TaskTrigger> From<TaskConfig<T1, T2>>
-    for Task<T1, T2>
-{
-    fn from(config: TaskConfig<T1, T2>) -> Self {
-        Task {
-            frame: Arc::new(config.frame),
-            trigger: Arc::new(config.schedule),
-            hooks: Arc::new(TaskHookContainer(DashMap::default())),
-        }
-    }
-}
-
 pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static> {
     frame: Arc<T1>,
     trigger: Arc<T2>,
     hooks: Arc<TaskHookContainer>,
 }
 
-impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
-    pub fn simple(schedule: T2, frame: T1) -> Self {
+impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2> {
+    fn default() -> Self {
         Self {
-            frame: Arc::new(frame),
-            trigger: Arc::new(schedule),
+            frame: Arc::new(T1::default()),
+            trigger: Arc::new(T2::default()),
             hooks: Arc::new(TaskHookContainer(DashMap::default())),
         }
     }
 }
 
 impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
-    pub fn frame(&self) -> &T1 {
-        &self.frame
-    }
-
-    pub fn trigger(&self) -> &T2 {
-        &self.trigger
+    pub fn new(schedule: T2, frame: T1) -> Self {
+        Self {
+            frame: Arc::new(frame),
+            trigger: Arc::new(schedule),
+            hooks: Arc::new(TaskHookContainer(DashMap::default())),
+        }
     }
 }
 
@@ -95,10 +75,6 @@ impl<E: TaskError> ErasedTask<E> {
 }
 
 impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
-    pub fn builder() -> TaskConfigBuilder<T1, T2> {
-        TaskConfig::builder()
-    }
-
     pub fn as_erased(&self) -> ErasedTask<T1::Error> {
         ErasedTask {
             frame: self.frame.clone(),
@@ -139,5 +115,13 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         };
 
         self.hooks.detach::<E, T>(&ctx).await;
+    }
+
+    pub fn frame(&self) -> &T1 {
+        &self.frame
+    }
+
+    pub fn trigger(&self) -> &T2 {
+        &self.trigger
     }
 }
