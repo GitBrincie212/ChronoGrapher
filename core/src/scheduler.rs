@@ -20,6 +20,9 @@ use typed_builder::TypedBuilder;
 use uuid::Uuid;
 use crate::errors::TaskError;
 
+#[cfg(feature = "anyhow")]
+pub type DefaultAnyhowScheduler = Scheduler<DefaultSchedulerConfig<anyhow::Error>>;
+
 pub trait SchedulerConfig: Sized + 'static {
     type TaskIdentifier: TaskIdentifier;
     type TaskError: TaskError;
@@ -40,7 +43,6 @@ impl<E: TaskError> SchedulerConfig for DefaultSchedulerConfig<E> {
     type SchedulerEngine = DefaultSchedulerEngine;
 }
 
-#[allow(unused_variables)]
 #[derive(TypedBuilder)]
 #[builder(build_method(into = Scheduler<T>))]
 pub struct SchedulerInitConfig<T: SchedulerConfig> {
