@@ -1,4 +1,3 @@
-use std::io::ErrorKind;
 use async_trait::async_trait;
 use chronographer::prelude::*;
 use chronographer::task::TaskHookContext;
@@ -36,7 +35,7 @@ async fn main() {
     let exec_frame = DynamicTaskFrame::new(|_ctx| async {
         println!("Trying primary task...");
         //sleep(Duration::from_secs_f64(1.234)).await;
-        Err(Arc::new(std::io::Error::new(ErrorKind::Other, "uh oh")) as DynArcError)
+        Err(Arc::new(std::io::Error::other("uh oh")) as DynArcError)
     });
 
     //let timeout_frame = DelayTaskFrame::new(exec_frame, Duration::from_secs(3));

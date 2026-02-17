@@ -21,6 +21,6 @@ impl TaskSchedule for TaskScheduleCron {
             .map_err(|e| {
                 Box::new(StandardCoreErrorsCG::CronParserError(e.to_string())) as Box<dyn Error + Send + Sync>
             })
-            .map(|x| SystemTime::from(x))
+            .map(SystemTime::from)
     }
 }

@@ -95,13 +95,13 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
         let mut total = self.count.load(Ordering::Relaxed);
         if total == self.threshold.get() {
             return self.threshold_reach_behaviour
-                .results(&ctx)
+                .results(&ctx.0)
                 .await
                 .map_err(ThresholdTaskFrameError::new);
         }
 
         let res = ctx.subdivide(&self.frame).await;
-        if self.threshold_logic.counts(res.as_ref().err(), &ctx).await {
+        if self.threshold_logic.counts(res.as_ref().err(), &ctx.0).await {
             self.count.fetch_add(1, Ordering::SeqCst);
             total += 1;
         }

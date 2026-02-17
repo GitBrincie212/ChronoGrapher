@@ -14,7 +14,7 @@ impl<E: TaskError> Default for NoOperationTaskFrame<E> {
 
 impl<E: TaskError> Clone for NoOperationTaskFrame<E> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 

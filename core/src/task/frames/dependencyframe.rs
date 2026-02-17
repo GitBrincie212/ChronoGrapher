@@ -110,11 +110,11 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             return self.dependent_behaviour
                 .execute()
                 .await
-                .map_err(|x| DependencyTaskFrameError::DependenciesInvalidated(x));
+                .map_err(DependencyTaskFrameError::DependenciesInvalidated);
         }
 
         ctx.subdivide(&self.frame)
             .await
-            .map_err(|x| DependencyTaskFrameError::Inner(x))
+            .map_err(DependencyTaskFrameError::Inner)
     }
 }

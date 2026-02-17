@@ -32,7 +32,7 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
             tokio::time::timeout(self.max_duration, ctx.subdivide(&self.frame)).await;
 
         if let Ok(inner) = result {
-            return inner.map_err(|x| TimeoutTaskFrameError::Inner(x));
+            return inner.map_err(TimeoutTaskFrameError::Inner);
         }
 
         ctx.emit::<OnTimeout>(&self.max_duration).await;

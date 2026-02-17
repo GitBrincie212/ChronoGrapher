@@ -99,7 +99,7 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
         if result {
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
             return ctx.subdivide(&self.frame).await
-                .map_err(|x| ConditionalTaskFrameError::PrimaryFailed(x));
+                .map_err(ConditionalTaskFrameError::PrimaryFailed);
         }
 
         ctx.emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
@@ -108,6 +108,6 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
             return Err(ConditionalTaskFrameError::TaskConditionFail);
         }
 
-        result.map_err(|x| ConditionalTaskFrameError::SecondaryFailed(x))
+        result.map_err(ConditionalTaskFrameError::SecondaryFailed)
     }
 }

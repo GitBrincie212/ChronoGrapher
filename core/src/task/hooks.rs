@@ -194,7 +194,7 @@ impl<'a> ErasedPayload<'a> {
         Self(payload)
     }
 
-    pub unsafe fn cast<T: Sized + Send + Sync + 'a>(&self) -> &'a T {
+    unsafe fn cast<T: Sized + Send + Sync + 'a>(&self) -> &'a T {
         unsafe { &*(self.0 as *const (dyn Send + Sync) as *const T) }
     }
 }
@@ -256,7 +256,7 @@ impl TaskHookContainer {
         if let Some(entry) = self.0.get(E::EVENT_ID) {
             for hook in entry.value().0.iter() {
                 hook.value()
-                    .on_emit(&ctx, ErasedPayload::new(payload))
+                    .on_emit(ctx, ErasedPayload::new(payload))
                     .await;
             }
         }
