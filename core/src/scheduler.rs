@@ -20,8 +20,13 @@ use typed_builder::TypedBuilder;
 use uuid::Uuid;
 use crate::errors::TaskError;
 
+pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
+
 #[cfg(feature = "anyhow")]
-pub type DefaultAnyhowScheduler = Scheduler<DefaultSchedulerConfig<anyhow::Error>>;
+pub type DefaultAnyhowScheduler = DefaultScheduler<anyhow::Error>;
+
+#[cfg(feature = "eyre")]
+pub type DefaultEyreScheduler = DefaultScheduler<eyre::Error>;
 
 pub trait SchedulerConfig: Sized + 'static {
     type TaskIdentifier: TaskIdentifier;
