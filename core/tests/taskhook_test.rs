@@ -74,7 +74,7 @@ async fn test_attach_and_trigger_hooks() {
         should_succeed: should_succeed.clone(),
     };
 
-    let task = Task::simple(TaskScheduleImmediate, frame);
+    let task = Task::new(TaskScheduleImmediate, frame);
 
     task.attach_hook::<OnTaskStart>(hook_start).await;
     task.attach_hook::<OnTaskEnd>(hook_end).await;
@@ -106,7 +106,7 @@ async fn test_detach_hooks() {
     let should_succeed = Arc::new(AtomicBool::new(true));
     let frame = SimpleTaskFrame { should_succeed };
 
-    let task = Task::simple(TaskScheduleImmediate, frame);
+    let task = Task::new(TaskScheduleImmediate, frame);
 
     task.attach_hook::<OnTaskStart>(hook.clone()).await;
 
@@ -139,7 +139,7 @@ async fn test_get_hook() {
     let should_succeed = Arc::new(AtomicBool::new(true));
     let frame = SimpleTaskFrame { should_succeed };
 
-    let task = Task::simple(TaskScheduleImmediate, frame);
+    let task = Task::new(TaskScheduleImmediate, frame);
 
     assert!(
         task.get_hook::<OnTaskStart, OnStartCountingHook>()
