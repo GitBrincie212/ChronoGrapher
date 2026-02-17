@@ -8,7 +8,7 @@ use crate::task::{RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
 
 #[async_trait]
 pub trait ThresholdLogic<T: TaskError>: Send + Sync {
-    fn counts(&self, res: Option<&T>, ctx: &RestrictTaskFrameContext) -> bool;
+    async fn counts(&self, res: Option<&T>, ctx: &RestrictTaskFrameContext) -> bool;
 }
 
 macro_rules! impl_error_count_logic {
@@ -17,7 +17,7 @@ macro_rules! impl_error_count_logic {
 
         #[async_trait]
         impl<T: TaskError> ThresholdLogic<T> for $name {
-            fn counts(&self, res: Option<&T>, ctx: &RestrictTaskFrameContext) -> bool {
+            async fn counts(&self, res: Option<&T>, ctx: &RestrictTaskFrameContext) -> bool {
                 ($code)(res, ctx)
             }
         }
@@ -30,7 +30,7 @@ impl_error_count_logic!(ThresholdIdentityCountLogic, |_: Option<&T>, _| true);
 
 #[async_trait]
 pub trait ThresholdReachBehaviour<T: TaskError>: Send + Sync {
-    fn results(&self, ctx: &RestrictTaskFrameContext) -> Result<(), T>;
+    async fn results(&self, ctx: &RestrictTaskFrameContext) -> Result<(), T>;
 }
 
 macro_rules! impl_threshold_reach_logic {
@@ -39,7 +39,7 @@ macro_rules! impl_threshold_reach_logic {
 
         #[async_trait]
         impl<T: TaskError> ThresholdReachBehaviour<T> for $name {
-            fn results(&self, ctx: &RestrictTaskFrameContext) -> Result<(), T> {
+            async fn results(&self, ctx: &RestrictTaskFrameContext) -> Result<(), T> {
                 ($code)(ctx)
             }
         }
@@ -96,11 +96,12 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
         if total == self.threshold.get() {
             return self.threshold_reach_behaviour
                 .results(&ctx)
+                .await
                 .map_err(ThresholdTaskFrameError::new);
         }
 
         let res = ctx.subdivide(&self.frame).await;
-        if self.threshold_logic.counts(res.as_ref().err(), &ctx) {
+        if self.threshold_logic.counts(res.as_ref().err(), &ctx).await {
             self.count.fetch_add(1, Ordering::SeqCst);
             total += 1;
         }
