@@ -1,26 +1,14 @@
 use crate::errors::TaskError;
 use crate::prelude::TaskHookEvent;
-use crate::task::{DynArcError, ErasedTaskFrame, TaskFrameContext};
+use crate::task::{ErasedTaskFrame, TaskFrameContext};
 #[allow(unused_imports)]
 use crate::task::{RestrictTaskFrameContext, TaskFrame};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::Deref;
 use std::sync::Arc;
-/* === SEQUENTIAL CODE ===
-       for taskframe in self.tasks.iter() {
-           ctx.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
-           let result = ctx.subdivide(taskframe.clone()).await.err();
-           ctx.emit::<OnChildTaskFrameEnd>(&result.clone()).await;
-           match self.policy.should_quit(result).await {
-               ConsensusGTFE::SkipResult => {}
-               ConsensusGTFE::ReturnSuccess => break,
-               ConsensusGTFE::ReturnError(err) => return Err(err),
-           }
-       }
-       Ok(())
-*/
 
 /* === SELECTOR CODE ===
    #[async_trait]
@@ -74,7 +62,13 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct CollectionTaskError {
     index: usize,
-    error: Box<dyn Error + Send + Sync>,
+    error: Box<dyn TaskError>,
+}
+
+impl CollectionTaskError {
+    pub fn new(index: usize, error: Box<dyn TaskError>) -> Self {
+        Self { index, error }
+    }
 }
 
 impl Display for CollectionTaskError {
@@ -86,18 +80,28 @@ impl Display for CollectionTaskError {
     }
 }
 
-impl Error for CollectionTaskError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        self.error.source()
-    }
-}
-
 #[async_trait]
 pub trait CollectionExecStrategy: Send + Sync + Sized + 'static {
     async fn execute(
         &self,
         handle: CollectionTaskFrameHandle<'_, Self>,
     ) -> Result<(), <CollectionTaskFrame<Self> as TaskFrame>::Error>;
+}
+
+#[derive(Default, Copy, Clone)]
+pub struct SequentialExecStrategy;
+
+#[async_trait]
+impl CollectionExecStrategy for SequentialExecStrategy {
+    async fn execute(
+        &self, handle: CollectionTaskFrameHandle<'_, Self>
+    ) -> Result<(), <CollectionTaskFrame<Self> as TaskFrame>::Error> {
+        for idx in 0..handle.length() {
+            handle.run(idx).await
+                .map_err(|x| CollectionTaskError::new(idx, x))?;
+        }
+        Ok(())
+    }
 }
 
 pub enum ConsensusGTFE<T: Error + Send + Sync + 'static> {
@@ -168,14 +172,42 @@ pub struct CollectionTaskFrameHandle<'a, T: CollectionExecStrategy> {
 }
 
 impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
-    pub async fn run(&self, idx: usize) -> Option<DynArcError> {
+    pub async fn run(&self, idx: usize) -> Result<(), Box<dyn TaskError>> {
         let taskframe = self.collection.taskframes[idx].as_ref();
         self.ctx.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
-        let result = self.ctx.erased_subdivide(taskframe).await.err();
-        self.ctx
-            .emit::<OnChildTaskFrameEnd>(&result.as_ref().map(|x| x.as_ref()))
-            .await;
-        result
+        let result = self.ctx.erased_subdivide(taskframe).await;
+        match result {
+            Ok(()) => {
+                self.ctx
+                    .emit::<OnChildTaskFrameEnd>(&None)
+                    .await;
+                Ok(())
+            }
+
+            Err(err) => {
+                self.ctx
+                    .emit::<OnChildTaskFrameEnd>(&Some(err.as_ref()))
+                    .await;
+
+                Err(err)
+            },
+        }
+    }
+
+    pub fn get(&self, idx: usize) -> Option<&dyn ErasedTaskFrame> {
+        self.collection.taskframes.get(idx).map(Arc::as_ref)
+    }
+
+    pub fn length(&self) -> usize {
+        self.collection.taskframes.len()
+    }
+}
+
+impl<'a, T: CollectionExecStrategy> Deref for CollectionTaskFrameHandle<'a, T> {
+    type Target = RestrictTaskFrameContext<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.ctx.0
     }
 }
 
