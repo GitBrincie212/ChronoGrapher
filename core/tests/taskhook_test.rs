@@ -15,11 +15,7 @@ struct OnStartCountingHook {
 
 #[async_trait]
 impl TaskHook<OnTaskStart> for OnStartCountingHook {
-    async fn on_event(
-        &self,
-        _ctx: &TaskHookContext,
-        _payload: &OnTaskStartPayload<'_>,
-    ) {
+    async fn on_event(&self, _ctx: &TaskHookContext, _payload: &OnTaskStartPayload<'_>) {
         self.count.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -30,11 +26,7 @@ struct OnEndCountingHook {
 
 #[async_trait]
 impl TaskHook<OnTaskEnd> for OnEndCountingHook {
-    async fn on_event(
-        &self,
-        _ctx: &TaskHookContext,
-        _payload: &OnTaskEndPayload<'_>,
-    ) {
+    async fn on_event(&self, _ctx: &TaskHookContext, _payload: &OnTaskEndPayload<'_>) {
         self.count.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -87,7 +79,8 @@ async fn test_attach_and_trigger_hooks() {
     );
 
     let no_error: Option<DynArcError> = None;
-    task.emit_hook_event::<OnTaskEnd>(&no_error.as_ref().map(|x| x.as_ref())).await;
+    task.emit_hook_event::<OnTaskEnd>(&no_error.as_ref().map(|x| x.as_ref()))
+        .await;
     assert_eq!(
         on_end_count.load(Ordering::SeqCst),
         1,

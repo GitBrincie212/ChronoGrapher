@@ -1,7 +1,7 @@
 pub mod default; // skipcq: RS-D1001
 
-use std::ops::Deref;
 pub use default::*;
+use std::ops::Deref;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
@@ -19,10 +19,7 @@ impl<C: SchedulerConfig> EngineNotifier<C> {
         id: C::TaskIdentifier,
         notify: tokio::sync::mpsc::Sender<(C::TaskIdentifier, Option<C::TaskError>)>,
     ) -> Self {
-        Self {
-            id,
-            notify,
-        }
+        Self { id, notify }
     }
 
     pub async fn notify(self, result: Option<C::TaskError>) {
@@ -40,6 +37,6 @@ pub trait SchedulerTaskDispatcher<C: SchedulerConfig>: 'static + Send + Sync {
     async fn dispatch(
         &self,
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
-        notifier: EngineNotifier<C>
+        notifier: EngineNotifier<C>,
     );
 }

@@ -1,6 +1,6 @@
+use crate::errors::TaskError;
 use crate::task::{TaskFrame, TaskFrameContext};
 use async_trait::async_trait;
-use crate::errors::TaskError;
 
 pub struct DynamicTaskFrame<T>(T);
 
@@ -8,7 +8,7 @@ impl<T, F, E> DynamicTaskFrame<T>
 where
     T: (Fn(&TaskFrameContext) -> F) + Send + Sync + 'static,
     F: Future<Output = Result<(), E>> + Send + 'static,
-    E: TaskError
+    E: TaskError,
 {
     pub fn new(func: T) -> Self {
         Self(func)
@@ -20,7 +20,7 @@ impl<T, F, E> TaskFrame for DynamicTaskFrame<T>
 where
     T: (Fn(&TaskFrameContext) -> F) + Send + Sync + 'static,
     F: Future<Output = Result<(), E>> + Send + 'static,
-    E: TaskError
+    E: TaskError,
 {
     type Error = E;
 

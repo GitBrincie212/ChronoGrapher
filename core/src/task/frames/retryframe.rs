@@ -1,4 +1,5 @@
-use crate::task::{TaskFrame, TaskHookEvent, TaskFrameContext};
+use crate::errors::{RetriableTaskFrameError, TaskError};
+use crate::task::{TaskFrame, TaskFrameContext, TaskHookEvent};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::clone::Clone;
@@ -7,7 +8,6 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 use typed_builder::TypedBuilder;
-use crate::errors::{TaskError, RetriableTaskFrameError};
 
 #[async_trait]
 pub trait RetryErrorFilter<T: TaskError>: Send + Sync + 'static {
@@ -66,7 +66,7 @@ impl LinearBackoffStrategy {
     pub fn new(factor: Duration) -> Self {
         Self(factor, Duration::from_secs_f64(f64::INFINITY))
     }
-    
+
     pub fn new_with(factor: Duration, max_duration: Duration) -> Self {
         Self(factor, max_duration)
     }
@@ -94,18 +94,11 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
     }
 }
 
-define_event!(
-    OnRetryAttemptStart, u32
-);
+define_event!(OnRetryAttemptStart, u32);
 
-define_event!(
-    OnRetryAttemptEnd, (u32, Option<&'a dyn TaskError>)
-);
+define_event!(OnRetryAttemptEnd, (u32, Option<&'a dyn TaskError>));
 
-define_event_group!(
-    RetryAttemptEvents,
-    OnRetryAttemptStart, OnRetryAttemptEnd
-);
+define_event_group!(RetryAttemptEvents, OnRetryAttemptStart, OnRetryAttemptEnd);
 
 #[derive(TypedBuilder)]
 #[builder(
@@ -114,24 +107,23 @@ define_event_group!(
         pub fn constant(&mut self, duration: Duration){
             self.backoff = Box::new(ConstantBackoffStrategy::new(duration));
         }
-    
+
         pub fn exponential(&mut self, factor: f64){
             self.backoff = Box::new(ExponentialBackoffStrategy::new(factor));
         }
-        
-        
+
         pub fn linear(&mut self, factor: Duration){
             self.backoff = Box::new(LinearBackoffStrategy::new(factor));
         }
-    
+
         pub fn bounded_exponential(&mut self, factor: f64, max: Duration){
             self.backoff = Box::new(ExponentialBackoffStrategy::new_with(factor, max));
         }
-        
+
         pub fn bounded_linear(&mut self, factor: Duration, max: Duration){
             self.backoff = Box::new(LinearBackoffStrategy::new_with(factor, max));
         }
-    
+
         pub fn backoff(&mut self, backoff: impl RetryBackoffStrategy){
             self.backoff = Box::new(backoff) as Box<dyn RetryBackoffStrategy>;
         }
@@ -188,14 +180,9 @@ impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
             ctx.emit::<OnRetryAttemptStart>(&retry).await;
 
             error = self.frame.execute(&subdivided).await;
-            let erased_err = error
-                .as_ref()
-                .err()
-                .map(|x| x as &dyn TaskError);
+            let erased_err = error.as_ref().err().map(|x| x as &dyn TaskError);
 
-            ctx.emit::<OnRetryAttemptEnd>(&(
-                retry, erased_err
-            )).await;
+            ctx.emit::<OnRetryAttemptEnd>(&(retry, erased_err)).await;
 
             if error.is_ok() || !self.when.execute(error.as_ref().err()).await {
                 return Ok(());

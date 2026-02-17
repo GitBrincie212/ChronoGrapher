@@ -1,13 +1,13 @@
 pub mod ephemeral;
 // skipcq: RS-D1001
 
+pub use ephemeral::*;
 use std::error::Error;
 use std::ops::Deref;
-pub use ephemeral::*;
 
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
-use crate::task::{ErasedTask, DynArcError};
+use crate::task::{DynArcError, ErasedTask};
 use async_trait::async_trait;
 use std::time::SystemTime;
 

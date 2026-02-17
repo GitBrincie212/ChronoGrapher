@@ -1,13 +1,13 @@
+use crate::errors::ConditionalTaskFrameError;
 #[allow(unused_imports)]
 use crate::task::FallbackTaskFrame;
-use crate::task::{RestrictTaskFrameContext, TaskFrameContext, TaskHookEvent};
-use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::TaskFrame;
+use crate::task::noopframe::NoOperationTaskFrame;
+use crate::task::{RestrictTaskFrameContext, TaskFrameContext, TaskHookEvent};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use crate::errors::ConditionalTaskFrameError;
 
 #[async_trait]
 pub trait ConditionalFramePredicate: Send + Sync {
@@ -41,21 +41,17 @@ pub struct ConditionalFrameConfig<T: TaskFrame, T2: TaskFrame> {
     error_on_false: bool,
 }
 
-define_event!(
-    OnTruthyValueEvent, ()
-);
+define_event!(OnTruthyValueEvent, ());
 
-define_event!(
-    OnFalseyValueEvent, ()
-);
+define_event!(OnFalseyValueEvent, ());
 
 define_event_group!(
-    ConditionalPredicateEvents, () |
-    OnTruthyValueEvent, OnFalseyValueEvent
+    ConditionalPredicateEvents,
+    () | OnTruthyValueEvent,
+    OnFalseyValueEvent
 );
 
-impl<T: TaskFrame, T2: TaskFrame> From<ConditionalFrameConfig<T, T2>> for ConditionalFrame<T, T2>
-{
+impl<T: TaskFrame, T2: TaskFrame> From<ConditionalFrameConfig<T, T2>> for ConditionalFrame<T, T2> {
     fn from(config: ConditionalFrameConfig<T, T2>) -> Self {
         ConditionalFrame {
             frame: config.frame,
@@ -74,8 +70,11 @@ pub struct ConditionalFrame<T, T2> {
 }
 
 #[allow(type_alias_bounds)]
-pub type NonFallbackCFCBuilder<T: TaskFrame> =
-    ConditionalFrameConfigBuilder<T, NoOperationTaskFrame<T::Error>, ((NoOperationTaskFrame<T::Error>,), (), (), ())>;
+pub type NonFallbackCFCBuilder<T: TaskFrame> = ConditionalFrameConfigBuilder<
+    T,
+    NoOperationTaskFrame<T::Error>,
+    ((NoOperationTaskFrame<T::Error>,), (), (), ()),
+>;
 
 impl<T: TaskFrame> ConditionalFrame<T, NoOperationTaskFrame<T::Error>> {
     pub fn builder() -> NonFallbackCFCBuilder<T> {
@@ -98,7 +97,9 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
 
         if result {
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
-            return ctx.subdivide(&self.frame).await
+            return ctx
+                .subdivide(&self.frame)
+                .await
                 .map_err(ConditionalTaskFrameError::PrimaryFailed);
         }
 

@@ -1,6 +1,6 @@
 use std::any::Any;
-use std::ops::Deref;
 use std::fmt::{Debug, Display, Formatter};
+use std::ops::Deref;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -16,38 +16,48 @@ impl<T: Debug + Display + Send + Sync + Any> TaskError for T {
 
 #[derive(Error, Debug)]
 pub enum ConditionalTaskFrameError<T1: TaskError, T2: TaskError> {
-    #[error("ConditionalTaskFrame has failed, with the error originating from primary TaskFrame's failure:\n\t{0}")]
+    #[error(
+        "ConditionalTaskFrame has failed, with the error originating from primary TaskFrame's failure:\n\t{0}"
+    )]
     PrimaryFailed(T1),
 
-    #[error("ConditionalTaskFrame has failed, with the error originating from secondary TaskFrame's failure:\n\t{0}")]
+    #[error(
+        "ConditionalTaskFrame has failed, with the error originating from secondary TaskFrame's failure:\n\t{0}"
+    )]
     SecondaryFailed(T2),
 
     #[error("ConditionalTaskFrame has returned false with `error_on_false` enabled")]
-    TaskConditionFail
+    TaskConditionFail,
 }
 
 #[derive(Error, Debug)]
 pub enum TimeoutTaskFrameError<T: TaskError> {
-    #[error("TimeoutTaskFrame has failed, with the error originating from primary TaskFrame's failure:\n\t{0}")]
+    #[error(
+        "TimeoutTaskFrame has failed, with the error originating from primary TaskFrame's failure:\n\t{0}"
+    )]
     Inner(T),
 
     #[error("TimeoutTaskFrame has timeout with max duration '{0:?}'")]
-    Timeout(Duration)
+    Timeout(Duration),
 }
 
 #[derive(Error, Debug)]
 pub enum DependencyTaskFrameError<T: TaskError> {
-    #[error("DependencyTaskFrame has failed, with the error originating from inner TaskFrame's failure:\n\t{0}")]
+    #[error(
+        "DependencyTaskFrame has failed, with the error originating from inner TaskFrame's failure:\n\t{0}"
+    )]
     Inner(T),
 
-    #[error("DependencyTaskFrame has failed with the error originating from the \"DependentFailBehavior\":\n\t'{0}'")]
-    DependenciesInvalidated(Box<dyn TaskError>)
+    #[error(
+        "DependencyTaskFrame has failed with the error originating from the \"DependentFailBehavior\":\n\t'{0}'"
+    )]
+    DependenciesInvalidated(Box<dyn TaskError>),
 }
 
 macro_rules! newtype_error {
     ($name: ident) => {
         #[derive(Debug)]
-        pub struct $name<T: TaskError> (T);
+        pub struct $name<T: TaskError>(T);
         impl<T: TaskError> $name<T> {
             pub fn new(error: T) -> Self {
                 Self(error)

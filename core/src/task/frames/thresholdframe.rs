@@ -1,10 +1,10 @@
+use crate::errors::{TaskError, ThresholdTaskFrameError};
+use crate::task::{RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
+use async_trait::async_trait;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use async_trait::async_trait;
 use typed_builder::TypedBuilder;
-use crate::errors::{TaskError, ThresholdTaskFrameError};
-use crate::task::{RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
 
 #[async_trait]
 pub trait ThresholdLogic<T: TaskError>: Send + Sync {
@@ -24,8 +24,10 @@ macro_rules! impl_error_count_logic {
     };
 }
 
-impl_error_count_logic!(ThresholdErrorsCountLogic, |res: Option<&T>, _| res.is_some());
-impl_error_count_logic!(ThresholdSuccessesCountLogic, |res: Option<&T>, _| res.is_none());
+impl_error_count_logic!(ThresholdErrorsCountLogic, |res: Option<&T>, _| res
+    .is_some());
+impl_error_count_logic!(ThresholdSuccessesCountLogic, |res: Option<&T>, _| res
+    .is_none());
 impl_error_count_logic!(ThresholdIdentityCountLogic, |_: Option<&T>, _| true);
 
 #[async_trait]
@@ -68,7 +70,7 @@ impl<T: TaskFrame> From<ThresholdFrameConfig<T>> for ThresholdTaskFrame<T> {
             threshold_logic: config.threshold_logic,
             threshold_reach_behaviour: config.threshold_reach_behaviour,
             threshold: config.threshold,
-            count: AtomicUsize::new(0)
+            count: AtomicUsize::new(0),
         }
     }
 }
@@ -78,7 +80,7 @@ pub struct ThresholdTaskFrame<T: TaskFrame> {
     threshold_logic: Arc<dyn ThresholdLogic<T::Error>>,
     threshold_reach_behaviour: Arc<dyn ThresholdReachBehaviour<T::Error>>,
     threshold: NonZeroUsize,
-    count: AtomicUsize
+    count: AtomicUsize,
 }
 
 impl<T: TaskFrame> ThresholdTaskFrame<T> {
@@ -94,14 +96,19 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         let mut total = self.count.load(Ordering::Relaxed);
         if total == self.threshold.get() {
-            return self.threshold_reach_behaviour
+            return self
+                .threshold_reach_behaviour
                 .results(&ctx.0)
                 .await
                 .map_err(ThresholdTaskFrameError::new);
         }
 
         let res = ctx.subdivide(&self.frame).await;
-        if self.threshold_logic.counts(res.as_ref().err(), &ctx.0).await {
+        if self
+            .threshold_logic
+            .counts(res.as_ref().err(), &ctx.0)
+            .await
+        {
             self.count.fetch_add(1, Ordering::SeqCst);
             total += 1;
         }
@@ -109,7 +116,7 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
         if total == self.threshold.get() && ctx.depth == 0 {
             // TODO: Use the handle from the scheduler to cancel the entire workflow
         }
-        
+
         res.map_err(ThresholdTaskFrameError::new)
     }
 }

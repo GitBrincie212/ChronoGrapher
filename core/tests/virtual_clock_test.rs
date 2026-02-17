@@ -1,7 +1,7 @@
+use chronographer::prelude::DynArcError;
 use chronographer::scheduler::DefaultSchedulerConfig;
 use chronographer::scheduler::clock::{AdvanceableSchedulerClock, SchedulerClock, VirtualClock};
 use std::time::{Duration, UNIX_EPOCH};
-use chronographer::prelude::DynArcError;
 
 // A small value to avoid floating precision errors
 pub const EPSILON: Duration = Duration::from_millis(1);
@@ -47,7 +47,8 @@ async fn test_custom_time() {
 async fn test_advance() {
     let clock = VirtualClock::from_epoch();
     let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
-    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
+    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> =
+        &clock;
     advanceable_clock.advance(Duration::from_secs(1)).await;
     assert_eq!(
         scheduler_clock.now().await,
@@ -63,7 +64,8 @@ async fn test_advance() {
 #[tokio::test]
 async fn test_advance_to() {
     let clock = VirtualClock::from_epoch();
-    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
+    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> =
+        &clock;
     let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
     let target = UNIX_EPOCH + Duration::from_secs(19);
     advanceable_clock.advance_to(target).await;
@@ -78,7 +80,8 @@ async fn test_idle_to_simple_no_arc() {
     let clock = VirtualClock::from_epoch();
     let target = UNIX_EPOCH + Duration::from_secs(5);
     let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
-    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
+    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> =
+        &clock;
     advanceable_clock.advance(Duration::from_secs(5)).await;
     scheduler_clock.idle_to(target).await;
     let now = scheduler_clock.now().await;

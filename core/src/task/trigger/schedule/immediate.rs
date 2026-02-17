@@ -1,7 +1,7 @@
-use std::error::Error;
 #[allow(unused_imports)]
 use crate::task::Task;
 use crate::task::schedule::TaskSchedule;
+use std::error::Error;
 use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, Default)]

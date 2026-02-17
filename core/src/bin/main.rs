@@ -65,6 +65,7 @@ async fn main() {
 */
 use async_trait::async_trait;
 use chronographer::prelude::*;
+use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
 use chronographer::task::{TaskFrame, TaskFrameContext};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -72,7 +73,6 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tokio::task::yield_now;
-use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
 
 struct MyTaskFrame;
 

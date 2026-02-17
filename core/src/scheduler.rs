@@ -3,8 +3,7 @@ pub mod engine; // skipcq: RS-D1001
 pub mod task_dispatcher; // skipcq: RS-D1001
 pub mod task_store; // skipcq: RS-D1001
 
-use std::error::Error;
-use std::marker::PhantomData;
+use crate::errors::TaskError;
 use crate::scheduler::clock::*;
 use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
@@ -12,13 +11,14 @@ use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{Task, TaskFrame, TaskTrigger};
 use crate::utils::TaskIdentifier;
+use std::error::Error;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::join;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
-use crate::errors::TaskError;
 
 pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
 
@@ -74,8 +74,8 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
 
 pub enum SchedulerHandleInstructions<C: SchedulerConfig> {
     Reschedule(C::TaskIdentifier), // Forces the Task to reschedule (instances may still run)
-    Halt(C::TaskIdentifier), // Cancels the Task's current execution, if any
-    Block(C::TaskIdentifier), // Blocks the Task from rescheduling
+    Halt(C::TaskIdentifier),       // Cancels the Task's current execution, if any
+    Block(C::TaskIdentifier),      // Blocks the Task from rescheduling
 }
 
 pub struct Scheduler<C: SchedulerConfig> {
@@ -89,12 +89,12 @@ pub struct Scheduler<C: SchedulerConfig> {
 impl<C, E> Default for Scheduler<C>
 where
     C: SchedulerConfig<
-        SchedulerTaskStore: Default,
-        SchedulerTaskDispatcher: Default,
-        SchedulerEngine: Default,
-        SchedulerClock: Default,
-        TaskError= E
-    >,
+            SchedulerTaskStore: Default,
+            SchedulerTaskDispatcher: Default,
+            SchedulerEngine: Default,
+            SchedulerClock: Default,
+            TaskError = E,
+        >,
     E: TaskError,
 {
     fn default() -> Self {

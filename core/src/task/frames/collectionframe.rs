@@ -1,88 +1,88 @@
+use crate::errors::TaskError;
 use crate::prelude::TaskHookEvent;
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use crate::task::{DynArcError, ErasedTaskFrame, TaskFrameContext};
 #[allow(unused_imports)]
 use crate::task::{RestrictTaskFrameContext, TaskFrame};
-use async_trait::async_trait;
-use std::sync::Arc;
 use crate::{define_event, define_event_group};
-use crate::errors::TaskError;
-use crate::task::{DynArcError, ErasedTaskFrame, TaskFrameContext};
+use async_trait::async_trait;
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
+use std::sync::Arc;
 /* === SEQUENTIAL CODE ===
-        for taskframe in self.tasks.iter() {
-            ctx.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
-            let result = ctx.subdivide(taskframe.clone()).await.err();
-            ctx.emit::<OnChildTaskFrameEnd>(&result.clone()).await;
-            match self.policy.should_quit(result).await {
-                ConsensusGTFE::SkipResult => {}
-                ConsensusGTFE::ReturnSuccess => break,
-                ConsensusGTFE::ReturnError(err) => return Err(err),
-            }
-        }
-        Ok(())
- */
+       for taskframe in self.tasks.iter() {
+           ctx.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
+           let result = ctx.subdivide(taskframe.clone()).await.err();
+           ctx.emit::<OnChildTaskFrameEnd>(&result.clone()).await;
+           match self.policy.should_quit(result).await {
+               ConsensusGTFE::SkipResult => {}
+               ConsensusGTFE::ReturnSuccess => break,
+               ConsensusGTFE::ReturnError(err) => return Err(err),
+           }
+       }
+       Ok(())
+*/
 
 /* === SELECTOR CODE ===
-    #[async_trait]
-    pub trait SelectFrameAccessor: Send + Sync {
-        async fn select(&self, ctx: &TaskFrameContext) -> usize;
-    }
+   #[async_trait]
+   pub trait SelectFrameAccessor: Send + Sync {
+       async fn select(&self, ctx: &TaskFrameContext) -> usize;
+   }
 
-    let idx = self.accessor.select(ctx).await;
-    if let Some(frame) = self.frames.get(idx) {
-        ctx.emit::<OnTaskFrameSelection>(&(idx, frame.clone()))
-            .await;
-        return ctx.subdivide(frame.clone()).await;
-    }
+   let idx = self.accessor.select(ctx).await;
+   if let Some(frame) = self.frames.get(idx) {
+       ctx.emit::<OnTaskFrameSelection>(&(idx, frame.clone()))
+           .await;
+       return ctx.subdivide(frame.clone()).await;
+   }
 
-    Err(Arc::new(StandardCoreErrorsCG::TaskIndexOutOfBounds(
-        idx,
-        "SelectTaskFrame".to_owned(),
-        self.frames.len(),
-    )))
- */
+   Err(Arc::new(StandardCoreErrorsCG::TaskIndexOutOfBounds(
+       idx,
+       "SelectTaskFrame".to_owned(),
+       self.frames.len(),
+   )))
+*/
 
 /* === PARALLEL CODE ===
-        let mut js = tokio::task::JoinSet::new();
+       let mut js = tokio::task::JoinSet::new();
 
-        for frame in self.tasks.iter() {
-            let frame_clone = frame.clone();
-            let ctx_clone = ctx.clone();
-            js.spawn(async move {
-                ctx_clone.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
-                let result = ctx_clone.subdivide(frame_clone.clone()).await;
-                ctx_clone
-                    .emit::<OnChildTaskFrameEnd>(&result.clone().err())
-                    .await; // skipcq: RS-E1015
-                result
-            });
-        }
+       for frame in self.tasks.iter() {
+           let frame_clone = frame.clone();
+           let ctx_clone = ctx.clone();
+           js.spawn(async move {
+               ctx_clone.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
+               let result = ctx_clone.subdivide(frame_clone.clone()).await;
+               ctx_clone
+                   .emit::<OnChildTaskFrameEnd>(&result.clone().err())
+                   .await; // skipcq: RS-E1015
+               result
+           });
+       }
 
-        while let Some(result) = js.join_next().await {
-            let Ok(k) = result else { continue };
+       while let Some(result) = js.join_next().await {
+           let Ok(k) = result else { continue };
 
-            match self.policy.should_quit(k.err()).await {
-                ConsensusGTFE::SkipResult => continue,
-                ConsensusGTFE::ReturnSuccess => break,
-                ConsensusGTFE::ReturnError(err) => return Err(err),
-            }
-        }
+           match self.policy.should_quit(k.err()).await {
+               ConsensusGTFE::SkipResult => continue,
+               ConsensusGTFE::ReturnSuccess => break,
+               ConsensusGTFE::ReturnError(err) => return Err(err),
+           }
+       }
 
-        Ok(())
- */
+       Ok(())
+*/
 
 #[derive(Debug)]
 pub struct CollectionTaskError {
     index: usize,
-    error: Box<dyn Error + Send + Sync>
+    error: Box<dyn Error + Send + Sync>,
 }
-
 
 impl Display for CollectionTaskError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(
-            &format!("{} inside CollectionTaskFrame at index {}", &self.error, self.index)
-        )
+        f.write_str(&format!(
+            "{} inside CollectionTaskFrame at index {}",
+            &self.error, self.index
+        ))
     }
 }
 
@@ -96,7 +96,7 @@ impl Error for CollectionTaskError {
 pub trait CollectionExecStrategy: Send + Sync + Sized + 'static {
     async fn execute(
         &self,
-        handle: CollectionTaskFrameHandle<'_, Self>
+        handle: CollectionTaskFrameHandle<'_, Self>,
     ) -> Result<(), <CollectionTaskFrame<Self> as TaskFrame>::Error>;
 }
 
@@ -147,19 +147,15 @@ impl<T: Error + Send + Sync + 'static> CollectionExecPolicy<T> for GroupedTaskFr
     }
 }
 
-define_event!(
-    OnChildTaskFrameStart, ()
-);
+define_event!(OnChildTaskFrameStart, ());
 
-define_event!(
-    OnChildTaskFrameEnd, Option<&'a dyn TaskError>
-);
+define_event!(OnChildTaskFrameEnd, Option<&'a dyn TaskError>);
 
 define_event_group!(
     ChildTaskFrameEvents,
-    OnChildTaskFrameStart, OnChildTaskFrameEnd
+    OnChildTaskFrameStart,
+    OnChildTaskFrameEnd
 );
-
 
 pub struct CollectionTaskFrame<T: CollectionExecStrategy> {
     taskframes: Vec<Arc<dyn ErasedTaskFrame>>,
@@ -168,7 +164,7 @@ pub struct CollectionTaskFrame<T: CollectionExecStrategy> {
 
 pub struct CollectionTaskFrameHandle<'a, T: CollectionExecStrategy> {
     collection: &'a CollectionTaskFrame<T>,
-    ctx: &'a TaskFrameContext<'a>
+    ctx: &'a TaskFrameContext<'a>,
 }
 
 impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
@@ -176,7 +172,9 @@ impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
         let taskframe = self.collection.taskframes[idx].as_ref();
         self.ctx.emit::<OnChildTaskFrameStart>(&()).await; // skipcq: RS-E1015
         let result = self.ctx.erased_subdivide(taskframe).await.err();
-        self.ctx.emit::<OnChildTaskFrameEnd>(&result.as_ref().map(|x| x.as_ref())).await;
+        self.ctx
+            .emit::<OnChildTaskFrameEnd>(&result.as_ref().map(|x| x.as_ref()))
+            .await;
         result
     }
 }
@@ -188,9 +186,9 @@ impl<T: CollectionExecStrategy> TaskFrame for CollectionTaskFrame<T> {
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         let handle = CollectionTaskFrameHandle {
             collection: self,
-            ctx
+            ctx,
         };
-        
+
         self.strategy.execute(handle).await
     }
 }

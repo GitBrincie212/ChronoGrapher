@@ -1,16 +1,16 @@
+use crate::errors::TaskError;
+use crate::task::Task;
 use crate::task::dependency::{
     FrameDependency, ResolvableFrameDependency, UnresolvableFrameDependency,
 };
 use crate::task::{
     Debug, OnTaskEnd, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent, TaskTrigger,
 };
-use crate::task::Task;
 use async_trait::async_trait;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use typed_builder::TypedBuilder;
-use crate::errors::TaskError;
 
 type IncompleteTaskDependencyConfig<T1, T2> =
     TaskDependencyConfigBuilder<T1, T2, ((&'static Task<T1, T2>,), (), ())>;
@@ -27,7 +27,11 @@ macro_rules! implement_core_resolvent {
 
         #[async_trait]
         impl TaskResolvent for $name {
-            async fn should_count(&self, ctx: &TaskHookContext, result: &Option<&dyn TaskError>) -> bool {
+            async fn should_count(
+                &self,
+                ctx: &TaskHookContext,
+                result: &Option<&dyn TaskError>,
+            ) -> bool {
                 $code(ctx, result)
             }
         }
@@ -78,10 +82,7 @@ impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
         ctx: &TaskHookContext,
         payload: &<OnTaskEnd as TaskHookEvent>::Payload<'_>,
     ) {
-        let should_increment = self
-            .resolve_behavior
-            .should_count(ctx, payload)
-            .await;
+        let should_increment = self.resolve_behavior.should_count(ctx, payload).await;
 
         if should_increment {
             return;

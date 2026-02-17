@@ -1,9 +1,9 @@
 use crate::define_event;
 use crate::errors::{DependencyTaskFrameError, StandardCoreErrorsCG, TaskError};
-use crate::task::{Debug, TaskFrameContext};
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
 use crate::task::{Arc, TaskFrame};
+use crate::task::{Debug, TaskFrameContext};
 use async_trait::async_trait;
 use typed_builder::TypedBuilder;
 
@@ -56,9 +56,7 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
     }
 }
 
-define_event!(
-    OnDependencyValidation, (Arc<dyn FrameDependency>, bool)
-);
+define_event!(OnDependencyValidation, (Arc<dyn FrameDependency>, bool));
 
 pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,
@@ -81,9 +79,7 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
 
         for dep in &self.dependencies {
             let dep = dep.clone();
-            js.spawn(async move {
-                (dep.is_resolved().await, dep)
-            });
+            js.spawn(async move { (dep.is_resolved().await, dep) });
         }
 
         let mut is_resolved = true;
@@ -107,7 +103,8 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
         }
 
         if !is_resolved {
-            return self.dependent_behaviour
+            return self
+                .dependent_behaviour
                 .execute()
                 .await
                 .map_err(DependencyTaskFrameError::DependenciesInvalidated);

@@ -13,17 +13,14 @@ pub use frames::*;
 pub use hooks::*;
 pub use trigger::*;
 
+use crate::errors::TaskError;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 use dashmap::DashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use crate::errors::TaskError;
 
-pub type ErasedTask<E> = Task<
-    dyn DynTaskFrame<E>,
-    dyn TaskTrigger,
->;
+pub type ErasedTask<E> = Task<dyn DynTaskFrame<E>, dyn TaskTrigger>;
 
 pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static> {
     frame: Arc<T1>,
@@ -56,11 +53,8 @@ impl<E: TaskError> ErasedTask<E> {
         let ctx = TaskFrameContext(RestrictTaskFrameContext::new(self));
         ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
         let result: Result<(), E> = self.frame.erased_execute(&ctx).await;
-        ctx.emit::<OnTaskEnd>(&result
-            .as_ref()
-            .err()
-            .map(|x| x as &dyn TaskError)
-        ).await;
+        ctx.emit::<OnTaskEnd>(&result.as_ref().err().map(|x| x as &dyn TaskError))
+            .await;
 
         result
     }

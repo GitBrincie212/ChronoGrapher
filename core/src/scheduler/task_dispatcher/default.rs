@@ -1,8 +1,8 @@
-use std::ops::Deref;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_dispatcher::{EngineNotifier, SchedulerTaskDispatcher};
 use crate::task::ErasedTask;
 use async_trait::async_trait;
+use std::ops::Deref;
 
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
@@ -15,7 +15,7 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher {
     async fn dispatch(
         &self,
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
-        notifier: EngineNotifier<C>
+        notifier: EngineNotifier<C>,
     ) {
         let res: Result<(), C::TaskError> = task.deref().run().await;
         notifier.notify(res.err()).await;

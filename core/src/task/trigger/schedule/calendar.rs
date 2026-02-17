@@ -1,6 +1,6 @@
-use std::error::Error;
 use crate::task::schedule::TaskSchedule;
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike, Utc};
+use std::error::Error;
 use std::fmt::Debug;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::time::SystemTime;
@@ -246,33 +246,19 @@ impl<Year, Month, Day, Hour, Minute, Second, Millisecond>
     }
 }
 
-calendar_builder_method!(
-    year, Year
-);
+calendar_builder_method!(year, Year);
 
-calendar_builder_method!(
-    month, Month
-);
+calendar_builder_method!(month, Month);
 
-calendar_builder_method!(
-    day, Day
-);
+calendar_builder_method!(day, Day);
 
-calendar_builder_method!(
-    hour, Hour
-);
+calendar_builder_method!(hour, Hour);
 
-calendar_builder_method!(
-    minute, Minute
-);
+calendar_builder_method!(minute, Minute);
 
-calendar_builder_method!(
-    second, Second
-);
+calendar_builder_method!(second, Second);
 
-calendar_builder_method!(
-    millisecond, Millisecond
-);
+calendar_builder_method!(millisecond, Millisecond);
 
 #[inline(always)]
 fn last_day_of_month(year: i32, month: u32) -> u32 {

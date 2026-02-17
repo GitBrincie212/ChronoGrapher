@@ -8,15 +8,15 @@ pub mod utils; // skipcq: RS-D1001
 
 pub mod prelude {
     // Core
-    pub use crate::task::{Task, RestrictTaskFrameContext, DynArcError};
     pub use crate::errors::TaskError;
+    pub use crate::task::{DynArcError, RestrictTaskFrameContext, Task};
 
     // Common frames
+    pub use crate::task::collectionframe::CollectionTaskFrame;
     pub use crate::task::delayframe::DelayTaskFrame;
     pub use crate::task::dependencyframe::DependencyTaskFrame;
     pub use crate::task::dynamicframe::DynamicTaskFrame;
     pub use crate::task::fallbackframe::FallbackTaskFrame;
-    pub use crate::task::collectionframe::CollectionTaskFrame;
     pub use crate::task::retryframe::RetriableTaskFrame;
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
 
@@ -26,11 +26,10 @@ pub mod prelude {
     pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
 
     // Schedulers
+    pub use crate::scheduler::DefaultScheduler;
     pub use crate::scheduler::DefaultSchedulerConfig;
     pub use crate::scheduler::Scheduler;
-    pub use crate::scheduler::DefaultScheduler;
     pub use crate::scheduler::SchedulerConfig;
-
 
     #[cfg(feature = "anyhow")]
     pub use crate::scheduler::DefaultAnyhowScheduler;

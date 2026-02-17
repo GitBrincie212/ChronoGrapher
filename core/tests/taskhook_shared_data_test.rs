@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chronographer::prelude::*;
-use chronographer::task::{TaskFrame, TaskFrameContext};
 use chronographer::task::TaskScheduleImmediate;
+use chronographer::task::{TaskFrame, TaskFrameContext};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -355,7 +355,7 @@ async fn test_shared_scoped_to_task_context() {
                 worker_id: 3,
                 result: self.result.clone(),
             };
-            
+
             let worker2 = WorkerTask {
                 worker_id: 4,
                 result: self.result.clone(),

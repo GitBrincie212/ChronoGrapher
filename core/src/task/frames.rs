@@ -18,22 +18,22 @@ pub mod dynamicframe; // skipcq: RS-D1001
 
 pub mod thresholdframe; // skipcq: RS-D1001
 
+pub use collectionframe::*;
 pub use conditionframe::*;
 pub use delayframe::*;
 pub use dependencyframe::*;
 pub use fallbackframe::*;
 pub use noopframe::*;
-pub use collectionframe::*;
 pub use retryframe::*;
 pub use thresholdframe::*;
 pub use timeoutframe::*;
 
+use crate::errors::TaskError;
 use crate::prelude::NonObserverTaskHook;
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookContext, TaskHookEvent};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
-use crate::errors::TaskError;
 
 pub type DynArcError = Arc<dyn TaskError>;
 
@@ -41,16 +41,14 @@ pub type DynArcError = Arc<dyn TaskError>;
 pub struct RestrictTaskFrameContext<'a> {
     pub(crate) hooks_container: Arc<TaskHookContainer>,
     pub(crate) depth: u64,
-    pub(crate) frame: &'a dyn ErasedTaskFrame
+    pub(crate) frame: &'a dyn ErasedTaskFrame,
 }
 
 #[derive(Clone)]
 pub struct TaskFrameContext<'a>(pub(crate) RestrictTaskFrameContext<'a>);
 
 impl<'a> TaskFrameContext<'a> {
-    pub(crate) fn subdivided_ctx(
-        &self, frame: &'a dyn ErasedTaskFrame,
-    ) -> Self {
+    pub(crate) fn subdivided_ctx(&self, frame: &'a dyn ErasedTaskFrame) -> Self {
         Self(RestrictTaskFrameContext {
             hooks_container: self.0.hooks_container.clone(),
             frame,
@@ -59,15 +57,14 @@ impl<'a> TaskFrameContext<'a> {
     }
 
     pub async fn erased_subdivide(
-        &self, frame: &'a dyn ErasedTaskFrame
+        &self,
+        frame: &'a dyn ErasedTaskFrame,
     ) -> Result<(), DynArcError> {
         let child_ctx = self.subdivided_ctx(frame);
         frame.erased_execute(&child_ctx).await
     }
 
-    pub async fn subdivide<T: TaskFrame>(
-        &self, frame: &'a T
-    ) -> Result<(), T::Error> {
+    pub async fn subdivide<T: TaskFrame>(&self, frame: &'a T) -> Result<(), T::Error> {
         let child_ctx = self.subdivided_ctx(frame);
         frame.execute(&child_ctx).await
     }
@@ -82,7 +79,7 @@ impl<'a> RestrictTaskFrameContext<'a> {
         Self {
             hooks_container: task.hooks.clone(),
             depth: 0,
-            frame: task.frame.as_ref().erased()
+            frame: task.frame.as_ref().erased(),
         }
     }
 
@@ -91,21 +88,31 @@ impl<'a> RestrictTaskFrameContext<'a> {
     }
 
     pub async fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
-        self.hooks_container.emit::<EV>(&TaskHookContext::new(
-            self.frame, self.depth, self.hooks_container.clone()
-        ), payload).await;
+        self.hooks_container
+            .emit::<EV>(
+                &TaskHookContext::new(self.frame, self.depth, self.hooks_container.clone()),
+                payload,
+            )
+            .await;
     }
 
     pub async fn attach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self, hook: Arc<TH>) {
-        self.hooks_container.attach::<EV, TH>(&TaskHookContext::new(
-            self.frame, self.depth, self.hooks_container.clone()
-        ), hook).await;
+        self.hooks_container
+            .attach::<EV, TH>(
+                &TaskHookContext::new(self.frame, self.depth, self.hooks_container.clone()),
+                hook,
+            )
+            .await;
     }
 
     pub async fn detach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) {
-        self.hooks_container.detach::<EV, TH>(&TaskHookContext::new(
-            self.frame, self.depth, self.hooks_container.clone()
-        )).await;
+        self.hooks_container
+            .detach::<EV, TH>(&TaskHookContext::new(
+                self.frame,
+                self.depth,
+                self.hooks_container.clone(),
+            ))
+            .await;
     }
 
     pub fn get_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) -> Option<Arc<TH>> {
@@ -173,6 +180,8 @@ pub trait ErasedTaskFrame: 'static + Send + Sync {
 #[async_trait]
 impl<T: TaskFrame<Error: Into<T::Error>>> ErasedTaskFrame for T {
     async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), DynArcError> {
-        self.execute(ctx).await.map_err(|x| Arc::new(x) as DynArcError)
+        self.execute(ctx)
+            .await
+            .map_err(|x| Arc::new(x) as DynArcError)
     }
 }

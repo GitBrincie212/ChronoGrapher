@@ -45,11 +45,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
             },
             async {
                 loop {
-                    if let Some((
-                        task,
-                        time,
-                        id
-                    )) = store.retrieve().await {
+                    if let Some((task, time, id)) = store.retrieve().await {
                         tokio::select! {
                             _ = clock.idle_to(time) => {
                                 store.pop().await;

@@ -1,7 +1,10 @@
 use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{ConditionalFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame, NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame};
+use crate::task::{
+    ConditionalFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame,
+    NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
+};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;

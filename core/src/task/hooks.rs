@@ -1,3 +1,4 @@
+use crate::errors::TaskError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
 use crate::{define_event, define_event_group};
@@ -7,7 +8,6 @@ use std::any::{Any, TypeId};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use crate::errors::TaskError;
 
 pub mod events {
     pub use crate::task::OnTaskEnd;
@@ -35,14 +35,19 @@ pub mod events {
 } // skipcq: RS-D1001
 
 pub trait TaskHookEvent: Send + Sync + Default + 'static {
-    type Payload<'a>: Send + Sync where Self: 'a;
+    type Payload<'a>: Send + Sync
+    where
+        Self: 'a;
     const EVENT_ID: &'static str;
 }
 
 pub enum NonEmittable {}
 
 impl TaskHookEvent for () {
-    type Payload<'a> = NonEmittable where Self: 'a;
+    type Payload<'a>
+        = NonEmittable
+    where
+        Self: 'a;
     const EVENT_ID: &'static str = "";
 }
 
@@ -93,18 +98,11 @@ impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
     }
 }
 
-define_event!(
-    OnTaskStart, ()
-);
+define_event!(OnTaskStart, ());
 
-define_event!(
-    OnTaskEnd, Option<&'a dyn TaskError>
-);
+define_event!(OnTaskEnd, Option<&'a dyn TaskError>);
 
-define_event_group!(
-    TaskLifecycleEvents,
-    OnTaskStart, OnTaskEnd
-);
+define_event_group!(TaskLifecycleEvents, OnTaskStart, OnTaskEnd);
 
 macro_rules! define_hook_event {
     ($(#[$($attrs:tt)*])* $name: ident) => {
@@ -125,17 +123,14 @@ macro_rules! define_hook_event {
     };
 }
 
-define_hook_event!(
-    OnHookAttach
-);
+define_hook_event!(OnHookAttach);
 
-define_hook_event!(
-    OnHookDetach
-);
+define_hook_event!(OnHookDetach);
 
 pub trait TaskHookLifecycleEvents<E: TaskHookEvent>:
     TaskHookEvent<Payload<'static> = Arc<dyn TaskHook<E>>>
-{}
+{
+}
 
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookAttach<E> {}
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
@@ -147,25 +142,26 @@ pub(crate) struct TaskHookEventCategory(pub DashMap<TypeId, Arc<dyn ErasedTaskHo
 pub struct TaskHookContext<'a> {
     pub(crate) depth: u64,
     pub(crate) hooks_container: Arc<TaskHookContainer>,
-    pub(crate) frame: &'a dyn ErasedTaskFrame
+    pub(crate) frame: &'a dyn ErasedTaskFrame,
 }
 
 impl<'a> TaskHookContext<'a> {
     pub(crate) fn new(
         frame: &'a dyn ErasedTaskFrame,
-        depth: u64, hooks_container: Arc<TaskHookContainer>
+        depth: u64,
+        hooks_container: Arc<TaskHookContainer>,
     ) -> Self {
         Self {
             depth,
             hooks_container,
-            frame
+            frame,
         }
     }
 
     pub fn depth(&self) -> u64 {
         self.depth
     }
-    
+
     pub fn frame(&self) -> &dyn ErasedTaskFrame {
         self.frame
     }
@@ -202,7 +198,11 @@ impl<'a> ErasedPayload<'a> {
 pub struct TaskHookContainer(pub(crate) DashMap<&'static str, TaskHookEventCategory>);
 
 impl TaskHookContainer {
-    pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskHookContext<'_>, hook: Arc<T>) {
+    pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(
+        &self,
+        ctx: &TaskHookContext<'_>,
+        hook: Arc<T>,
+    ) {
         let hook_id = TypeId::of::<T>();
         let erased_hook: Arc<dyn ErasedTaskHook> =
             Arc::new(ErasedTaskHookWrapper::<E>::new(hook.clone()));
@@ -252,12 +252,14 @@ impl TaskHookContainer {
             .await;
     }
 
-    pub async fn emit<E: TaskHookEvent>(&self, ctx: &TaskHookContext<'_>, payload: &E::Payload<'_>) {
+    pub async fn emit<E: TaskHookEvent>(
+        &self,
+        ctx: &TaskHookContext<'_>,
+        payload: &E::Payload<'_>,
+    ) {
         if let Some(entry) = self.0.get(E::EVENT_ID) {
             for hook in entry.value().0.iter() {
-                hook.value()
-                    .on_emit(ctx, ErasedPayload::new(payload))
-                    .await;
+                hook.value().on_emit(ctx, ErasedPayload::new(payload)).await;
             }
         }
     }

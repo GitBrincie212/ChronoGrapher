@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
+use crate::errors::TaskError;
 use crate::task::{TaskFrame, TaskFrameContext};
 use async_trait::async_trait;
-use crate::errors::TaskError;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct NoOperationTaskFrame<E>(PhantomData<E>);

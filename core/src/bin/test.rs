@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use chronographer::prelude::*;
+use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
 use chronographer::task::{TaskFrame, TaskFrameContext};
 use chronographer::utils::SharedHook;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
-use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
 
 struct MyTaskFrameA(pub MyTaskFrameB, AtomicUsize);
 struct MyTaskFrameB;
@@ -31,7 +31,7 @@ impl TaskFrame for MyTaskFrameA {
 #[async_trait]
 impl TaskFrame for MyTaskFrameB {
     type Error = DynArcError;
-    
+
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         println!(
             "{:?}",
@@ -51,7 +51,7 @@ impl TaskFrame for MyTaskFrameB {
 #[tokio::main]
 async fn main() {
     let scheduler = Scheduler::<DefaultSchedulerConfig<DynArcError>>::default();
-    
+
     let mytask = Task::new(
         TaskScheduleInterval::from_secs(1),
         MyTaskFrameA(MyTaskFrameB, AtomicUsize::new(0)),
