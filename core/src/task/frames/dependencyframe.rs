@@ -1,6 +1,5 @@
-use std::error::Error;
 use crate::define_event;
-use crate::errors::{DependencyTaskFrameError, StandardCoreErrorsCG};
+use crate::errors::{DependencyTaskFrameError, StandardCoreErrorsCG, TaskError};
 use crate::task::{Debug, TaskFrameContext};
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
@@ -10,7 +9,7 @@ use typed_builder::TypedBuilder;
 
 #[async_trait]
 pub trait DependentFailBehavior: Send + Sync {
-    async fn execute(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>>;
+    async fn execute(&self) -> Result<(), Box<dyn TaskError>>;
 }
 
 #[derive(Default, Clone, Copy)]
@@ -18,7 +17,7 @@ pub struct DependentFailureOnFail;
 
 #[async_trait]
 impl DependentFailBehavior for DependentFailureOnFail {
-    async fn execute(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+    async fn execute(&self) -> Result<(), Box<dyn TaskError>> {
         Err(Box::new(StandardCoreErrorsCG::TaskDependenciesUnresolved))
     }
 }
@@ -28,7 +27,7 @@ pub struct DependentSuccessOnFail;
 
 #[async_trait]
 impl DependentFailBehavior for DependentSuccessOnFail {
-    async fn execute(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+    async fn execute(&self) -> Result<(), Box<dyn TaskError>> {
         Ok(())
     }
 }
@@ -108,10 +107,14 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
         }
 
         if !is_resolved {
-            todo!()
-            // return self.dependent_behaviour.execute().await.map_err(DependencyTaskFrameError::new);
+            return self.dependent_behaviour
+                .execute()
+                .await
+                .map_err(|x| DependencyTaskFrameError::DependenciesInvalidated(x));
         }
 
-        ctx.subdivide(&self.frame).await.map_err(DependencyTaskFrameError::new)
+        ctx.subdivide(&self.frame)
+            .await
+            .map_err(|x| DependencyTaskFrameError::Inner(x))
     }
 }

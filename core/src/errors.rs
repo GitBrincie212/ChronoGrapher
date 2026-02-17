@@ -35,6 +35,15 @@ pub enum TimeoutTaskFrameError<T: TaskError> {
     Timeout(Duration)
 }
 
+#[derive(Error, Debug)]
+pub enum DependencyTaskFrameError<T: TaskError> {
+    #[error("DependencyTaskFrame has failed, with the error originating from inner TaskFrame's failure:\n\t{0}")]
+    Inner(T),
+
+    #[error("DependencyTaskFrame has failed with the error originating from the \"DependentFailBehavior\":\n\t'{0}'")]
+    DependenciesInvalidated(Box<dyn TaskError>)
+}
+
 macro_rules! newtype_error {
     ($name: ident) => {
         #[derive(Debug)]
@@ -65,7 +74,6 @@ newtype_error!(DelayTaskFrameError);
 newtype_error!(FallbackTaskFrameError);
 newtype_error!(RetriableTaskFrameError);
 newtype_error!(ThresholdTaskFrameError);
-newtype_error!(DependencyTaskFrameError);
 
 #[derive(Error, Debug)]
 pub enum StandardCoreErrorsCG {
