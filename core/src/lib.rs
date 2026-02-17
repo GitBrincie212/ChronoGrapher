@@ -9,6 +9,7 @@ pub mod utils; // skipcq: RS-D1001
 pub mod prelude {
     // Core
     pub use crate::task::{Task, RestrictTaskFrameContext, DynArcError};
+    pub use crate::errors::TaskError;
 
     // Common frames
     pub use crate::task::delayframe::DelayTaskFrame;

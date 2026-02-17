@@ -1,11 +1,21 @@
+use std::any::Any;
 use std::ops::Deref;
-use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::time::Duration;
 use thiserror::Error;
 
+pub trait TaskError: Debug + Display + Send + Sync + 'static {
+    fn as_any(&self) -> &(dyn Any + Send + Sync);
+}
+
+impl<T: Debug + Display + Send + Sync + Any> TaskError for T {
+    fn as_any(&self) -> &(dyn Any + Send + Sync) {
+        self
+    }
+}
+
 #[derive(Error, Debug)]
-pub enum ConditionalTaskFrameError<T1: Error + Send + Sync + 'static, T2: Error + Send + Sync + 'static> {
+pub enum ConditionalTaskFrameError<T1: TaskError, T2: TaskError> {
     #[error("ConditionalTaskFrame has failed, with the error originating from primary TaskFrame's failure:\n\t{0}")]
     PrimaryFailed(T1),
 
@@ -17,7 +27,7 @@ pub enum ConditionalTaskFrameError<T1: Error + Send + Sync + 'static, T2: Error 
 }
 
 #[derive(Error, Debug)]
-pub enum TimeoutTaskFrameError<T: Error + Send + Sync + 'static> {
+pub enum TimeoutTaskFrameError<T: TaskError> {
     #[error("TimeoutTaskFrame has failed, with the error originating from primary TaskFrame's failure:\n\t{0}")]
     Inner(T),
 
@@ -28,26 +38,20 @@ pub enum TimeoutTaskFrameError<T: Error + Send + Sync + 'static> {
 macro_rules! newtype_error {
     ($name: ident) => {
         #[derive(Debug)]
-        pub struct $name<T: Error + Send + Sync + 'static> (T);
-        impl<T: Error + Send + Sync + 'static> $name<T> {
+        pub struct $name<T: TaskError> (T);
+        impl<T: TaskError> $name<T> {
             pub fn new(error: T) -> Self {
                 Self(error)
             }
         }
 
-        impl<T: Error + Send + Sync + 'static> Display for $name<T> {
+        impl<T: TaskError> Display for $name<T> {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
                 Display::fmt(&self.0, f)
             }
         }
 
-        impl<T: Error + Send + Sync + 'static> Error for $name<T> {
-            fn source(&self) -> Option<&(dyn Error + 'static)> {
-                self.0.source()
-            }
-        }
-
-        impl<T: Error + Send + Sync + 'static> Deref for $name<T> {
+        impl<T: TaskError> Deref for $name<T> {
             type Target = T;
 
             fn deref(&self) -> &Self::Target {
