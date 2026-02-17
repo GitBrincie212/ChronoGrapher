@@ -25,6 +25,10 @@ cron-parser = "0.11.0"
 uuid = { version = "1.18.1", features = ["v4"] }
 fastrand = "2.3.0"
 dashmap = { version = "7.0.0-rc2" }
+anyhow = { version = "1.0.101" , optional = true }
+
+[features]
+anyhow = ["dep:anyhow"]
 
 [[bin]]
 name = "chronographer"
