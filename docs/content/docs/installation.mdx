@@ -43,7 +43,7 @@ Navigate to the ``src/main.rs`` file, then rewrite it with the code:
 use chronographer::prelude::*;
 
 #[task(schedule = interval(2s))]
-async fn MyTask(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn MyTask(ctx: &TaskContext) -> Result<(), anyhow::Error> {
     println!("Hello ChronoGrapher!");
     Ok(())
 }
@@ -96,7 +96,7 @@ In our example we can clearly identify the execution logic is the code inside th
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 #[task(schedule = interval(2s))]
-async fn MyTask(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn MyTask(ctx: &TaskContext) -> Result<(), anyhow::Error> {
     // [!code focus]
     println!("Hello ChronoGrapher!");
     // [!code focus]
@@ -107,7 +107,7 @@ We can also identify where the scheduling logic is via (the interval = 1.5s more
 ```rust title="src/main.rs" lineNumbers
 // [!code focus]
 #[task(schedule = interval(2s))]
-async fn MyTask(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn MyTask(ctx: &TaskContext) -> Result<(), anyhow::Error> {
     println!("Hello ChronoGrapher!");
     Ok(())
 }
