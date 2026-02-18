@@ -66,6 +66,14 @@ impl<E: TaskError> ErasedTask<E> {
     pub fn trigger(&self) -> &dyn TaskTrigger {
         self.trigger.as_ref()
     }
+
+    pub fn set_frame(&mut self, new_frame: impl TaskFrame<Error = E>) {
+        self.frame = Arc::new(new_frame) as Arc<dyn DynTaskFrame<E>>
+    }
+
+    pub fn set_trigger(&mut self, new_trigger: impl TaskTrigger) {
+        self.trigger = Arc::new(new_trigger) as Arc<dyn TaskTrigger>
+    }
 }
 
 impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
