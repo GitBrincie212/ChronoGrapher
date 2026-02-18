@@ -2,46 +2,49 @@
 <img src="./assets/Chronographer Banner.png" alt="Chronographer Banner" />
 
 <img align="center" src="assets/Chronographer Divider.png" />
-<h1 align="center">One Job Scheduler To Rule Them All</h1>
+<h1 align="center">One Unified Workflow Orchestrator, Unlimited Power</h1>
 
-ChronoGrapher is a **Job Scheduler And Workflow Orchestration Platform** that brings unified scheduling to your entire stack.
+ChronoGrapher is the **Job Scheduler And Workflow Orchestration Platform** that brings unified scheduling to your entire stack.
 
-1. **Unified Multi-Language API:** Coordinate workflows across Python, TypeScript/JavaScript, Rust, and Java with a single, 
-beautiful API, no more glue code needed.
+1. **Unified Multi-Language API:** Coordinate workflows across Python, TypeScript/JavaScript, Rust, and Java with a
+  single and beautiful API tailor-made for each programming language, no more awkward glue code needed.
 
 2. **Unopinionated by Design:** ChronoGrapher provides core scheduling without forcing features. Major capabilities 
-offered as optional extensions.
+  offered as optional extensions such as **Cloud Infrastructure Support**, **Distributed Systems**, **Markers API** which build on top of the core.
 
-3. **Hyper-Extensible Architecture:** Built for customization with numerous integrations and extension points.
+3. **Hyper-Extensible Architecture:** The best in market when it comes to extensibility, as demonstrated with its
+  extensions / integrations, its core is exceptionally powerful with its design philosophy being 
+  "Minimalism over Bloat, Emergent over Predefined and Simplicity over Complexity".
 
-4. **Scale Effortlessly:** Rust-powered engine scales from a single machine to distributed clusters seamlessly.
+4. **Scale Effortlessly:** Rust-powered engine scales from a single machine to cloud infrastructure and finally to 
+  distributed clusters seamlessly, ChronoGrapher scales with your ever-growing ambitions.
 
-5. **Crash-Resistant Durability:** Never lose task progress again, state persistence ensures continuity through failures.
+5. **Adaptive Crash-Resistant Durability:** Never lose task progress and state, with its revolutionary persistence 
+  model. Guaranteeing high durability and low overhead in performance, developers should never worry about failures.
 
 **Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust 
 (other languages look similar):
 ```rust
 use chronographer::prelude::*;
 
-#[tokio::main]
-async fn main() {
-  let task = Task::define(
-    TaskScheduleInterval::from_secs(4),
-    dynamic_taskframe!({
-      println!("Hello World");
-    })
-  );
+#[task(schedule = interval(4s))]
+async fn HelloWorldTask(ctx: &TaskContext) -> Result<(), Box<dyn TaskError>> {
+  println!("Hello World");
+  Ok(())
+}
 
-  CHRONOGRAPHER_SCHEDULER.schedule(&task).await;
-  CHRONOGRAPHER_SCHEDULER.start().await;
-  loop {} // (Optional) keeps alive the program
+
+#[chronographer::main]
+async fn main(scheduler: DefaultScheduler<Box<dyn TaskError>>) {
+  let task = HelloWorldTask::instance();
+  scheduler.schedule(&task).await;
 }
 ```
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Solving Modern Scheduling Challenges</h1>
-Today's applications are inherently polyglot, yet scheduling solutions remain language-bound,
-ChronoGrapher rethinks scheduling for modern distributed systems and general use. 
+Today's applications are inherently ambitious, polyglot and complex. Yet workflow orchestration for the most part
+remains language-bound, constraint and sometimes with inconsistent developer experience.
 
 A typical modern stack leverages multiple programming languages. Each requiring its own scheduling ecosystem:
 
@@ -49,13 +52,16 @@ A typical modern stack leverages multiple programming languages. Each requiring 
 - **TypeScript/JavaScript** Agenda, Bree, BullMQ, Bottleneck
 - **Rust:** cron_tab, tokio_task_scheduler, tokio-cron
 - **Java:** Quartz, Spring Scheduler
-- **Misc:** Temporal, CRON
+- **Misc:** Temporal, Cadence, CRON 
 
 **The Current Challenge:**
-Most solutions face fundamental limitations:
-- **Language Isolation:** Bound to single ecosystems, requiring complex glue code for cross-language workflows
-- **Scalability Issues:** Difficult to extend beyond initial design parameters without significant re-engineering
-- **Inconsistent Developer Experience:** Varying documentation quality, opinionated patterns, and steep learning curves across tools
+Most solutions face one or more fundamental limitations:
+- **Language Isolation:** Bound to single ecosystems, either leading to the use of different solutions for every programming 
+  language with their own APIs to learn, their own tradeoffs... etc. Or alternatively requiring complex and awkward glue-code.
+- **Scalability Issues:**  Difficult to scale and extend beyond what the solution was initially intended for, without 
+  requiring significant re-engineering or weird hacky solutions to common problems. Both approaches are a maintenance nightmare to developers.
+- **Inconsistent Developer Experience:** Inconsistent poorly-maintained documentation quality and at worst outright outdated, 
+  opinionated patterns with different systems doing the same thing, and an overall steep learning curve across tools. 
 
 **The ChronoGrapher Approach:**
 We believe developers deserve better than fragmented scheduling experiences. While no solution is perfect, 
@@ -63,34 +69,27 @@ ChronoGrapher's polyglot architecture, performance-first design, and extensibili
 breakthroughs in scheduler design, eliminating the need to master multiple disjointed systems.
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Core Capabilities / Key Features</h1>
-There are many features that make up ChronoGrapher (some are accessed via first-party extensions). 
-We will focus on a few key features defined in the core such as:
 
-### Composable Task Architecture
+There are many features that make up ChronoGrapher (some are accessed via first-party extensions). Extension-provided
+features are opt-in and never enforced, we will focus on a few key features defined in the core such as:
+
+### Composable Workflow Architecture
 
 ChronoGrapher's power comes from its modular task system. Build complex workflows by composing simple, reusable components:
 
 ```rust
-let payment_process = TaskFrameBuilder::builder(handle_payment)
-    .with_timeout(Duration::from_secs(30)) // It cannot exceed 30 seconds
-    .with_fallback(handle_payment_failure) // If it does or fails, execute this
-    .with_instant_retry(NonZeroU32::new(3).unwrap()) // If all fail, retry 3 times
-    .with_dependencies(vec![
-        LogicalDependency::or(
-          system_notif_dependency,
-          cleanup_notif_dependency
-        ),
-        data_extraction_task_dependency,
-        validation_task_dependency,
-        // ...
-    ]) // Run the workflow only if dependencies are resolved
-    .build();
-
-let payment_task = Task::builder()
-    .frame(payment_process)
-    .schedule(TaskScheduleInterval::from_secs(3))
-    .schedule_strategy(CancelCurrentSchedulingPolicy)
-    .build();
+#[task(schedule = interval(4s))]
+#[workflow(
+    dependency(
+        HealthCheckTask && (DatabaseCheckTask || SystemUpdateTask)
+    ),  // Run workflow only if dependencies are resolved
+    retry(3, delay = 1s), // If everything fails retry with a delay up to 3 times
+    fallback(HandlePaymentFailure), // If it does or fails, execute this
+    timeout(30s), // Cannot exceed more than 30 seconds
+)]
+async fn HandleCleanupTask(ctx: &TaskContext) -> Result<(), Box<dyn TaskError>> {
+  // <...>
+}
 ```
 
 Some of the available task frame types are:
@@ -99,14 +98,13 @@ Some of the available task frame types are:
 - **⏱️ TimeoutFrame:** Enforce execution time limits on a TaskFrame (otherwise a timeout error is thrown if exceeded)
 - **🚫 FallbackFrame:** If the primary TaskFrame fails, switch to a secondary TaskFrame
 - **🎯 ConditionalFrame:** Conditional execution of a TaskFrame via an outside predicate
-- **📋 SequentialFrame:** Executes multiple TaskFrames sequentially
-- **⚡ ParallelFrame:** Executes multiple TaskFrames in parallel
+- **📋 ThresholdTaskFrame:** Similar to ``TimeoutFrame`` but for enforcing a threshold for run count.
 - **🔗 DependencyFrame:** Executes a TaskFrame if its dependencies are resolved (can depend on other Tasks)
 - **💤 DelayFrame:** Delays the execution of a TaskFrame
 
 ### Powerful Hook-Based System
-Monitor tasks at a deep level by reacting to relevant events emitted:
-
+Fine-grain reactivity for Tasks at a deep level, or append your own stateful containers, or even mix both! Unlimited freedom
+as ``TaskHooks`` are the backbone of extensibility in ChronoGrapher:
 ```rust
 /*
  A basic example for "integration" with Prometheus, it involves us implementing the
@@ -117,15 +115,12 @@ struct PrometheusMetricsHook;
 /*
     In case you don't care which event the TaskHook is being used and the code is the same:
     
-    impl<E: TaskHookEvent> TaskHook<E> for PrometheusMetricsHook {
-        ...
-    }
+    impl<E: TaskHookEvent> TaskHook<E> for PrometheusMetricsHook {...}
     
     However, if you need to subscribe to an event category without boilerplate. TaskHookEvent Groups (THEGs) 
     allow this, for our example, it executes the same function for OnTaskStart and OnTaskEnd:
-    impl<E: TaskLifecycleEvents> TaskHook<E> for PrometheusMetricsHook {
-        ...
-    }
+    
+    impl<E: TaskLifecycleEvents> TaskHook<E> for PrometheusMetricsHook {...}
 */
 
 impl TaskHook<OnTaskStart> for PrometheusMetricsHook {
@@ -173,40 +168,39 @@ TaskHook Events Include:
 
 ...
 
-TaskHooks can also communicate with each other via defining their own set of events. While their primary focus
-is observability, they can also act as <u>State Containers</u> or even <u>Marker Containers</u>
+Various patterns can be achieved such as TaskHooks communicating with each other via their own set of events 
+(Hook-To-Hook Communication), registering internal TaskHooks from TaskFrames or elsewhere or running conditional code
+based on the presence of a TaskHook.
 
 ### Millisecond Calendar-Based Schedules
-Finite control over how a Task executes via the ``TaskSchedule`` trait. Build your own schedules or use pre-existing
-ones such as ``TaskScheduleCalendar`` to **satisfy your time critical needs:**
+Fine-grain control over when a Task executes via ``TaskTrigger`` or more commonly ``TaskSchedule``. Build your own complex
+schedules or use pre-existing ones such as ``TaskScheduleCalendar`` to satisfy your time critical needs:
 
 ```rust
-let schedule = TaskScheduleCalendar::builder()
-    .millisecond(Arc::new(TaskCalendarFieldExact::new(0))) // At millisecond 0
-    .second(Arc::new(TaskCalendarFieldInterval::new(30)))  // Every 30 seconds
-    .minute(Arc::new(TaskCalendarFieldExact::new(0)))      // At minute 0
-    .hour(Arc::new(TaskCalendarFieldRange::new(9..=17)))   // Business hours only
-    .build();
-
-// Note: Currently TaskCalendarFieldRange does not exist, however, it will be added in the future
+#[task(schedule = calendar({
+    year: interval(1), // Can be omitted as well
+    month: 1, // Same as using january or exact(1)
+    day: 1..=10, // The first 10 days
+    hour: +3, // Every 3 hours, same as interval(3)
+    minute: jitter(+2, 2), // Jitter with a factor of 2
+    second: bounded(0, +10, 20), // Bounded interval
+    millisecond: identity // Can be omitted as well
+}))]
+async fn CalendarBasedTask(ctx: &TaskContext) -> Result<(), Box<dyn TaskError>> {
+  // <...>
+}
 ```
 
 ### Creating Custom Schedulers
 The composition-based architecture of ChronoGrapher also applies to Schedulers!
 ```rust
-struct MyCoolScheduler(Scheduler);
-
-impl MyCoolScheduler {
-  pub fn new(clock: impl SchedulerClock) -> Self {
-    MyCoolScheduler(
-      Scheduler::builder()
-              .store(...)
-              .clock(clock)
-              .dispatcher(...)
-              .build()
-    )
-  }
-}
+#[derive(Scheduler(
+    clock!, // Required during construction
+    dispatcher = MySchedulerTaskDispatcher,
+    engine = MySchedulerEngine,
+    store = MySchedulerTaskStore
+))]
+struct MyCoolScheduler<C: SchedulerConfig>(Scheduler<C>);
 
 // Testing the scheduler with a virtual clock
 #[cfg(test)]
@@ -215,20 +209,21 @@ mod tests {
     
     #[tokio::test]
     async fn test_scheduled_task() {
-        let virtual_clock = Arc::new(VirtualClock::new());
-        let test_scheduler = MyCoolScheduler::new(virtual_clock.clone());
+        let test_scheduler = MyCoolScheduler::<MyCoolSchedulerConfig>::new(
+          VirtualClock::default()
+        );
         
         // Fast-forward time to test scheduling
         virtual_clock.advance(Duration::from_hours(24)).await;
         
-        // ...
+        // <...>
     }
 }
 ```
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Getting Started</h1>
-One can install the package via **(CURRENTLY NOT AVAILABLE NOW)**:
+One can install the package via <b>(CURRENTLY NOT AVAILABLE NOW)</b>:
 
 ```bash
 cargo add chronographer # Rust
