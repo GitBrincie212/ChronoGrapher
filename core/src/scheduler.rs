@@ -76,6 +76,7 @@ pub enum SchedulerHandleInstructions<C: SchedulerConfig> {
     Reschedule(C::TaskIdentifier), // Forces the Task to reschedule (instances may still run)
     Halt(C::TaskIdentifier),       // Cancels the Task's current execution, if any
     Block(C::TaskIdentifier),      // Blocks the Task from rescheduling
+    Execute(C::TaskIdentifier)     // Spawns a new instance of the Task to run
 }
 
 pub struct Scheduler<C: SchedulerConfig> {
