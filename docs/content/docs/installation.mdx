@@ -30,26 +30,29 @@ or by simply running the command:
 cargo add chronographer
 ```
 
-We recommend installing [anyhow](https://docs.rs/anyhow/latest/) or [thiserror](https://docs.rs/thiserror/latest/) alongside,
-this allows for better error handling, simply run ``cargo add anyhow`` or ``cargo add thiserror`` to install the respective
-crate.
+We recommend installing [thiserror](https://docs.rs/thiserror/latest/), this allows for better error handling,
+simply run ``cargo add thiserror`` to install the crate in your project.
 
-For simple use cases, we will be using ``anyhow``, however these concepts should transfer over for Rust users using
-the ``thiserror`` or any other crate or utility for error handling.
+Throughout the guidebook, we will be using ``thiserror``, however these concepts should transfer over for Rust users using
+their own error approach or any other crate or utility for error handling.
 
 # The "Hello ChronoGrapher" Script
 Navigate to the ``src/main.rs`` file, then rewrite it with the code:
 ```rust title="src/main.rs" lineNumbers
 use chronographer::prelude::*;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum MyErrors {} // For now empty, we will fill it later
 
 #[task(schedule = interval(2s))]
-async fn MyTask(ctx: &TaskContext) -> Result<(), anyhow::Error> {
+async fn MyTask(ctx: &TaskContext) -> Result<(), MyErrors> {
     println!("Hello ChronoGrapher!");
     Ok(())
 }
 
 #[chronographer::main]
-async fn main(scheduler: DefaultAnyhowScheduler) {
+async fn main(scheduler: DefaultScheduler<MyErrors>) {
     let task_inst = MyTask::instance();
     let _ = scheduler.schedule(task_inst).await;
 }
@@ -57,8 +60,8 @@ async fn main(scheduler: DefaultAnyhowScheduler) {
 Now you can run the code via:
 ```zsh title="terminal"
 cargo run
-# 1.5s after the run -> "Hello ChronoGrapher!"
-# 3.0s after the run -> "Hello ChronoGrapher!"
+# 2s after the run -> "Hello ChronoGrapher!"
+# 4s after the run -> "Hello ChronoGrapher!"
 # ...
 ```
 </RenderProgrammingLanguageBased>
@@ -76,14 +79,14 @@ in the future we will dive into ``Schedulers`` as well.
     The scheduler argument can have any kind of name and any ``Scheduler`` type. Though there are additional constraints on
     what ``Scheduler`` type is allowed which we will discuss later.
 
-    However, more importantly, note ``DefaultAnyhowScheduler`` is a type alias to a ``Scheduler`` with configurations
-    for working with ``anyhow``.
+    However, more importantly, note ``DefaultScheduler`` is a type alias to a ``Scheduler`` with default configurationsm
+    it accepts a generic for the type of task errors allowed.
 </Callout>
 </RenderProgrammingLanguageBased>
 <br />
 # What Are Tasks?
 Tasks contain the <Highlight color={"success"}>Execution Logic</Highlight> and <Highlight color={"neutral"}>Scheduling Logic</Highlight>,
-the former is **the code we want to run**, which can be database operations, API requests, mantainence and other computation.
+the former is **the code we want to run**, which can be database operations, API requests, maintenance and other computation.
 
 While the latter **dictates at what date should the Task run**, more specifically given a current time,
 we want to find the future time. Both cannot interfere with the other.
@@ -96,7 +99,7 @@ In our example we can clearly identify the execution logic is the code inside th
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 #[task(schedule = interval(2s))]
-async fn MyTask(ctx: &TaskContext) -> Result<(), anyhow::Error> {
+async fn MyTask(ctx: &TaskContext) -> Result<(), MyErrors> {
     // [!code focus]
     println!("Hello ChronoGrapher!");
     // [!code focus]
@@ -107,7 +110,7 @@ We can also identify where the scheduling logic is via (the interval = 1.5s more
 ```rust title="src/main.rs" lineNumbers
 // [!code focus]
 #[task(schedule = interval(2s))]
-async fn MyTask(ctx: &TaskContext) -> Result<(), anyhow::Error> {
+async fn MyTask(ctx: &TaskContext) -> Result<(), MyErrors> {
     println!("Hello ChronoGrapher!");
     Ok(())
 }
@@ -127,7 +130,7 @@ A Task itself is useless, we have to also **Schedule** it.
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 #[chronographer::main]
-async fn main(scheduler: DefaultAnyhowScheduler) {
+async fn main(scheduler: DefaultScheduler<MyErrors>) {
     // [!code highlight]
     let task_inst = MyTask::instance();
     // [!code highlight]
