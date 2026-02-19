@@ -1,0 +1,291 @@
+---
+title: Advanced Retries
+description: Learn more patterns and abilities in-depth about retries and fallbacks
+---
+
+In the previous chapter, we saw new workflow primitives, more specifically ``timeout`` and ``delay``. For this chapter,
+however, we will take a step back to retries, fallbacks and discuss advanced patterns and usages.
+
+We will remove temporarily the other workflow primitives to learn more effectively what advanced utilities ``retry`` has
+to offer.
+
+# Retry Backoff Strategies
+So far we have been discussing *two\** out of the three parameters that retry offers. The asterisk on the two
+is on purpose, we have discussed semi the second feature, for simplicity we haven't given it enough justice.
+
+However, now is the time to talk about them, by starting to reframe the second parameter, being delays per retry.
+Currently, we briefly looked over them and saw they have a constant duration per retry.
+
+In reality, we have been using an alias (syntax sugar) to cover the complexity, the duration can depend on the number of
+retries, the system in question that makes it possible are **Backoff Strategies**.
+
+In layman's terms, a backoff strategy is a function accepting the retry number (the input), with this along with
+internal state it computes and spits out a duration (the delay).
+
+The syntactic sugar of ``delay = 2s`` or in positional ``2s``, translates more roughly to ``backoff = constant(2s)``
+or in positional ``constant(2s)``. This in of itself was a backoff strategy, the most basic of all.
+
+Which is the reason we used the syntactic sugar, as its easier to write out the duration unit than writing always
+a constant surrounded with parenthesis and then the duration unit.
+
+## Linear Backoff Strategy
+Now with ``constant`` out of the picture, we can discuss more of the dynamic backoff strategies such as ``linear``.
+Reverting back our example from before (without timeouts, fallbacks and delays), we can improve it slightly via:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+#[workflow(
+    retry(3, linear(1s, 500ms, 2s))
+    //  OPTIONAL ARGUMENT      ^^^^
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // <...>
+}
+```
+</RenderProgrammingLanguageBased>
+The difference from before is how now every time a retry happens, the delay in-between is incremented by 500ms (starting
+from 2 seconds). Try to remove the ``2s`` and increase ``500ms`` or the ``1s`` to something higher, notice how it grows
+indefinitely?
+
+This is because ``2s`` is an optional argument for the bound, the maximum ceiling the delay per retry can reach.
+
+## Exponential Backoff Strategy
+Using ``linear`` is useful for basic setups where delays shouldn't be constant, however, while ``linear`` is a better step
+towards non-constant delay, for API requests however, it's more idiomatic to use ``exponential``.
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+#[workflow(
+    retry(3, exponential(2, 5s))
+    //  OPTIONAL ARGUMENT   ^^
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+```
+</RenderProgrammingLanguageBased>
+In our example, duration is calculated via ``n = 2^x`` where ``n`` is the delay we get back and ``x`` are the number
+of retries. Try changing the base from 2 to 3 and notice how much quicker it grows.
+
+Perhaps remove ``5s`` entirely. Notice how its completely uncapped?
+
+## Jittered Backoff Strategy
+All of our backoff strategies act deterministically, with ``jitter`` however, we can add noise on top as demonstrated below:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+#[workflow(
+    retry(3, jitter(full, exponential(2, 5s)))
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+```
+</RenderProgrammingLanguageBased>
+
+While the delay grows exponentially, each delay is randomized differently starting from zero up to the delay of exponential.
+This is called **Full Jitter**, there are other versions such as **Equal Jitter** and **Decorrelated Jitter**.
+
+The problem with **Full Jitter** is how in some occasions the randomization process may pick low delays such as ``100ms``
+or lower. To fix this, we can modify our example to use **Equal Jitter** like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+#[workflow(
+    retry(3, jitter(equal, exponential(2, 5s)))
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+```
+</RenderProgrammingLanguageBased>
+It works similarly to our previous example with full jitter, however now it randomizes uniformly between half of the
+initial delay and the initial full delay.
+
+If we want better randomization for our delays, we can turn to **Decorrelated Jitter** via so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+#[workflow(
+    retry(3, jitter(decorrelated(20s), exponential(2, 5s)))
+    // OPTIONAL ARGUMENT        ^^^^^
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+    ```
+</RenderProgrammingLanguageBased>
+The backoff strategies stores the previous delay, then randomizes uniformly from our base delay to our previous delay
+times three, then it picks the minimum between the cap (in our case ``20s``) and the result.
+
+For example if our previous delay was ``8s`` and now its ``16s``, then our new-ish delay will be around ``16s..~24s``, with
+the cap, the result is ``16s..~20s``.
+
+---
+
+Generally when it comes to choosing which backoff strategy to use, in most cases where delay is constant the ``constant``
+backoff strategy is most preferred, ``linear`` for friendlier increasing-delays than ``exponential``.
+
+``exponential`` for ever-increasing exponentiation delays and ``jitter`` used with another backoff strategy for
+randomness in delays to prevent predictability (useful for API requests like ours).
+
+# Retry Error Filtering
+This is the last parameter ``retry`` has to offer. Before we explain it, let's return to the [Fallback Chapter](/workflows/fallbacks)
+and reflect upon an issue we had:
+
+> The status code ``403`` usually indicates an issue with the permissions you have, so retrying it is often redundant...
+
+By retrying our API requests even if ``403`` is present, we effectively waste our time (and to slight extent
+the API backend's resources), which is where the ``when`` parameter comes in handy.
+
+## Blacklists
+
+``when`` allows us to decide if an error should be retried or if the retry process should stop and then propagate the error
+up in the workflow, effectively this is what **Error Filtering** means.
+
+To see this in action, lets modify our example like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+#[workflow(
+    retry(3, when = ![MyErrors::ForbiddenAccessError])
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+```
+</RenderProgrammingLanguageBased>
+
+Running the above code yields us something close to:
+```zsh title="terminal"
+# 1st run of Task
+(Attempt: 0/3) Website responded with 200
+
+# 2nd run of Task
+(Attempt: 0/3) Website responded with 429
+(Attempt: 1/3) Website responded with 500
+(Attempt: 2/3) Website responded with 200
+
+# 3rd run of Task
+(Attempt: 0/3) Website responded with 403
+
+# [!code --]
+# ERROR LEAKED THROUGH, CAUSING:
+# [!code --]
+Scheduler engine received an error for Task with identifier (...):
+# [!code --]
+    Server error regarding web page
+
+# <...>
+```
+
+There are three ways to write an error filter for ``retry``, the first is the above which is a **Blacklist** and is achieved
+via ``![...]`` syntax where anything inside it are the error(s).
+
+The way it works is when ``retry`` detects ``MyErrors::ForbiddenAccessError``, then it automatically stops and propagates
+the error while for any other kind of error, it continues.
+
+## Whitelists
+
+The other approach is a **Whitelist**, and is achieved by just using ``[...]`` syntax where anything inside it are the error(s).
+This is the inverse idea where any other error not present in the whitelist get propagated.
+
+The above example can be written with a whitelist as:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+#[workflow(
+    retry(3, when = [
+        MyErrors::ServerError,
+        MyErrors::RequestFailed(..),
+        MyErrors::TooManyRequests,
+        MyErrors::OtherHttpStatus(..)
+    ])
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+```
+</RenderProgrammingLanguageBased>
+Try to remove ``MyErrors::ServerError`` and notice what happens in the output.
+
+The choice between a **Blacklist** and a **Whitelist** is up to debate as both have their disadvantages. Using blacklists
+reduces typing on most cases but if any other error is introduced, then it needs updating.
+
+On the other hand a whitelist is more resilient but requires typing the errors allowed to be retried. We suggest reading
+[Zero Trust's Blog](https://instasafe.com/blog/whitelisting-vs-blacklisting-whats-the-difference/) on this topic, as the concepts do transfer over to ChronoGrapher.
+
+## Structural Error Matching
+
+With blacklist vs whitelist differences out of the way, you may have picked in the whitelist example the dotted syntax,
+specifically ``MyErrors::RequestFailed(..),`` and ``MyErrors::OtherHttpStatus(..)``.
+
+This is where retry error filters can get powerful, as they allow **Structural Error Matching**, they work the same in
+spirit to Rust's match syntax (or matches macro), just without the blocks.
+
+Let's modify our whitelist example to demonstrate this, first modify ``MyErrors::OtherHttpStatus`` to accept a ``u16`` and
+not a StatusCode (this is a temporary modification). Like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[derive(Error, Debug)]
+pub enum MyErrors {
+    // <...>
+
+    #[error("Error with different HTTP status code of \"{0}\"")]
+    OtherHttpStatus(u16)
+}
+```
+</RenderProgrammingLanguageBased>
+
+Afterward, try changing ``MyErrors::OtherHttpStatus(..)`` to ``MyErrors::OtherHttpStatus(300)``, while not noticeable in the output,
+if an error ``MyErrors::OtherHttpStatus`` is thrown then only errors with ``300`` are allowed to be retried.
+
+We can explicitly allow other errors with different status codes such as ``MyErrors::OtherHttpStatus(300 | 305 | 325)``,
+we can even pattern match in a range of status code like so ``MyErrors::OtherHttpStatus(0..200)``.
+
+The same structural matching can be used in blacklists. All in all, anything the ``match`` statement and the ``matches`` macro
+allow, it possible to do so via error filters.
+
+## Custom Error Filtering
+
+The final approach is situational and mostly an escape hatch for flexibility, and that is providing your own custom filter
+via ``custom(...)``, the type can be a closure or a trait implementation of ``RetryErrorFilter<T>``.
+
+Whatever the case, it is a function that accepts a closure inside with the argument of an ``Option<&T>`` where T is our error and
+returns a boolean, indicating whenever or not the error is allowed.
+
+Modifying our example, we can write the same whitelist as:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(2s))]
+#[workflow(
+    retry(3, when = custom(|err| {
+        match err {
+            MyErrors::ServerError => true,
+            MyErrors::RequestFailed(..) => true,
+            MyErrors::TooManyRequests => true,
+            MyErrors::OtherHttpStatus(..) => true,
+            _ => false
+        }
+    })
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+```
+</RenderProgrammingLanguageBased>
+
+Backoff strategies and error filters can be combined, try introducing a backoff strategy back and notice the full picture
+of how everything works.
+
+---
+
+All in all, use basic retries for simple use cases where dynamic delays or "clever" retry error filtering are not needed,
+and use advanced retries for anything more complex.
+
+In the next chapter we will return to ``fallback`` and discuss its advanced side, such as **Multi-Fallbacks** and how
+**Error Handling** works in ChronoGrapher.
+
+> TL;DR. Advanced retries have backoff strategies for dynamic delays such as ``linear``, ``exponential`` and ``jitter``,
+they also include error filtering via the ``when`` parameter. Use basic retries for anything simple and advanced for
+complex use cases that involve the above.
