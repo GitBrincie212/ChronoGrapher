@@ -1,6 +1,6 @@
 ---
 title: Fallback Patterns & Usage
-description: Learn when and how to use fallbacks, the nuisances of workflow ordering and common patterns
+description: Learn when and how to use fallbacks, the nuances of workflow ordering and common patterns
 ---
 
 In the previous chapter, we were introduced to ChronoGrapher's workflow model by discussing some of the basics
@@ -10,27 +10,38 @@ However, coming back to our current script and modifying it slightly to introduc
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 use chronographer::prelude::*;
-use reqwest::{Error, StatusCode};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum MyErrors {
+    // <...>
+
+    // [!code ++]
+    #[error("Forbidden access regarding our web page")]
+    // [!code ++]
+    ForbiddenAccessError,
+
+    // <...>
+}
 
 #[task(interval(2s))]
 #[workflow(retry(3, 2s))]
-async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
-    let res = reqwest::get("https://httpbin.org/status/200,429,500,403")
-        .await
-        .map_err(|e| Arc::new(format!("Request failed: {e}")))?;
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // [!code highlight]
+    let res = reqwest::get("https://httpbin.org/status/200,429,500,403").await?;
 
-    // For demonstration purposes
-    println!("Website responded with {}", res.status());
+    // <...>
 
     // In real code, you would describe in more detail the errors
     match res.status() {
-        200 => Ok(()),
-        429 => Err(Arc::new("Too many requests present in our web page")),
-        500 => Err(Arc::new("Server error regarding web page")),
-        403 => Err(Arc::new("Forbidden access")) // Cannot be resolved with retries
-        _ => Err(Arc::new(format!("HTTP {} error", res.status()))),
+        // [!code ++]
+        403 => Err(MyErrors::ForbiddenAccessError), // Cannot be resolved with retries
+
+        // <...>
     }
 }
+
+// <...>
 ```
 </RenderProgrammingLanguageBased>
 You may notice how when we added the 403 status code, it presents us with a new problem, the fact this kind of error
@@ -42,46 +53,84 @@ To fix this issue, we can use **Fallbacks**. They allow us to execute a backup `
 in our case we can wire one like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-// [!code ++]
-use rand::prelude::*;
-
-// [!code highlight]
-// Make sure to include the rand crate with the thread_rng feature enabled for this demo
+// <...>
 
 // [!code ++]
 #[taskframe]
 // [!code ++]
-async fn myfallback(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn MyFallbackTaskFrame(ctx: &TaskContext) -> Result<(), MyErrors> {
     // [!code ++]
-    // Real code is more complex than this demo
-    // [!code ++]
-    println!("Simulating fallback logic, attempting to fix this issue");
-    // [!code ++]
+    if let Some(error) = ctx.get_shared::<SharedFallbackError<MyErrors>>().await {
+        // [!code ++]
+        // In real-world scenarios you handle these errors more gracefully
+        // [!code ++]
+        return match error.0 {
+            // [!code ++]
+            // We can safely ignore, as its just too many requests and not an actual error
+            // [!code ++]
+            MyErrors::TooManyRequests => Ok(()),
+            // [!code ++]
 
-    // [!code ++]
-    let mut rng = rand::thread_rng();
-    // [!code ++]
+            // [!code ++]
+            // Server errors are an error worth addressing
+            // [!code ++]
+            MyErrors::ServerError => {
+                // [!code ++]
+                println!("Handling Server-Related Error Via Fallback");
+                // [!code ++]
+                // <...Handling Process...>
+                // [!code ++]
+                Ok(())
+            // [!code ++]
+            },
+            // [!code ++]
 
+            // [!code ++]
+            MyErrors::ForbiddenAccessError => {
+                // [!code ++]
+                println!("Handling Forbidden Access Error Via Fallback");
+                // [!code ++]
+                // <...Different Handling Process...>
+                // [!code ++]
+                Ok(())
+            // [!code ++]
+            },
+            // [!code ++]
+
+            // [!code ++]
+            // An error which we can't handle, leak it through
+            // [!code ++]
+            err => {
+                // [!code ++]
+                println!("Cannot Handle This Error Via Fallback");
+                // [!code ++]
+                Err(err)
+            // [!code ++]
+            }
+        // [!code ++]
+        };
     // [!code ++]
-    // Fallbacks can fail too, and SHOULD leak through their errors\
+    }
     // [!code ++]
-    rng.gen() <= 0.8
+    Ok(())
 // [!code ++]
 }
 
 #[task(interval(2s))]
 #[workflow(
-    retry(3, 2s),
     // [!code ++]
-    fallback(myfallback),
+    fallback(MyFallbackTaskFrame),
+    retry(3, 2s)
 )]
-async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
-    // ...
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // <...>
 }
 ```
 </RenderProgrammingLanguageBased>
+When a fallback is executed. ChronoGrapher stores the error that ``APIRequestTask`` threw, this way the fallback can
+access it via ``get_shared``, this method is a part of a bigger API which is explained in later chapters.
 
-Now when our code runs, we may see:
+Now when our code runs, in a realistic environment we may see:
 ```zsh title="terminal"
 # 1st run of Task (after 2 total seconds)
 (Attempt: 0/3) Website responded with 403
@@ -89,46 +138,64 @@ Now when our code runs, we may see:
 (Attempt: 2/3) Website responded with 403 # AFTER 2 SECONDS
 (Attempt: 3/3) Website responded with 403 # AFTER 2 SECONDS
 
-Simulating fallback logic, attempting to fix this issue
+Handling Forbidden Access Error Via Fallback
 
 # <...>
 ```
+Try to lower the number of retries to see it in effect.
 
-> It should be noted, fallbacks are <Highlight color={"error"}>NOT RANDOM</Highlight>, their failure depends on
-what error they are handling, for demonstration purposes we kept it simple.
+> It should be noted: In real systems, fallbacks usually perform more graceful handling
+(logging or compensating actions). Here we keep it simple.
 
-> Additionally, 403 status code is forbidden access and thus cannot be retrying it is redundant. A pro tip is
-to use the ``when`` parameter on retries which is covered in a later chapter.
+<Callout type={"idea"} title={"Clever Retrying"}>
+    The status code ``403`` usually indicates an issue with the permissions you have, so retrying it is often redundant.
+    A pro tip is to use the ``when`` parameter on retries which is covered in a later chapter.
+</Callout>
 
-Since our fallback is a ``TaskFrame``. We can also lay on top its own workflow definition, though this is best
+Since our fallback is a ``TaskFrame``, we can also lay on top its own workflow definition, though this is best
 spared for advanced patterns in the next following chapters.
 
 Try to move the fallback below the retry like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
 #[workflow(
-    fallback(myfallback),
-    retry(3, 2s)
+    retry(3, 2s),
+    fallback(MyFallbackTaskFrame)
 )]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // <...>
+}
 ```
 </RenderProgrammingLanguageBased>
 You may notice something interesting, the output of the workflow is completely different, all by re-ordering
-two primitives:
+two primitives.
+
+Try adding a new error variant for the status code ``300``, but do not handle it in the fallback. By doing this,
+you may notice how significantly the output changes:
 ```zsh title="terminal"
 # 1st run of Task (after 2 total seconds)
 (Attempt: 0/3) Website responded with 500
-Simulating fallback logic, attempting to fix this issue
+Handling Server-Related Error Via Fallback
 
 # 2nd run of Task (after 4 total seconds)
 (Attempt: 0/3) Website responded with 403
-Simulating fallback logic, attempting to fix this issue
-(Attempt: 1/3) Website responded with 403
-Simulating fallback logic, attempting to fix this issue
-(Attempt: 2/3) Website responded with 403
-Simulating fallback logic, attempting to fix this issue
+Handling Forbidden Access Error Via Fallback
 
-# 2nd run of Task (after 6 total seconds)
+# 3rd run of Task (after 6 total seconds)
 (Attempt: 0/3) Website responded with 200
+
+# 4th run of Task (after 8 total seconds)
+(Attempt: 0/3) Website responded with 300
+Cannot Handle This Error Via Fallback
+
+(Attempt: 1/3) Website responded with 300
+Cannot Handle This Error Via Fallback
+
+(Attempt: 2/3) Website responded with 300
+Cannot Handle This Error Via Fallback
+
+(Attempt: 3/3) Website responded with 300
+Cannot Handle This Error Via Fallback
 
 # <...>
 ```
@@ -144,10 +211,13 @@ The original workflow's execution semantics are described as:
 The modified workflow's execution semantics differ by:
 > fallback → retry: Run fallback on error, retry the entire thing if the fallback and primary logic fail
 
+Generally, a rule of thumb to keep in mind is anything on top, encapsulates everything below it. To put it more bluntly,
+the top workflow primitive executes first whereas the bottom one executes last.
+
 ---
 
-So when should you use fallbacks? Generally, you should use them when a workflow part may error out and it contains errors
-which are recoverable, which allows you to split the error handling logic from business logic.
+So when should you use fallbacks? Generally, you should use them commonly for handling recoverable errors gracefully from
+workflow parts, this allows you to split the error handling logic from business logic.
 
 When it comes to the patterns, the "retries with outer fallback" should be used when there are non-transient errors,
 the "retries with inner fallback" should be used for errors that are immediately resolvable.
