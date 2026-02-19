@@ -9,36 +9,64 @@ as well as ChronoGrapher approach the problem, we haven't discussed however, how
 One of the common workflow primitives to encounter are **Retries**, they wrap one and only ``TaskFrame`` with the goal of
 constantly retrying as the ``TaskFrame`` fails, til it succeeds or the number of retries have been exhausted.
 
-Let's suppose we have the following task:
+Let's return to our previous Task like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 use chronographer::prelude::*;
-use reqwest::{Error, StatusCode};
+use thiserror::Error;
 
-[!code highlight]
-// Install the "reqwest" and "anyhow" crates (the former for API requests and the latter for error handling)
+// [!code highlight]
+// Install the "reqwest" crate
+
+#[derive(Error, Debug)]
+pub enum MyErrors {
+    #[error("Request failed via {0}")]
+    RequestFailed(#[from] reqwest::Error),
+
+    #[error("Too many requests present in our web page")]
+    TooManyRequests,
+
+    #[error("Server error regarding our web page")]
+    ServerError,
+
+    #[error("Error with different HTTP status code of \"{0}\"")]
+    OtherHttpStatus(reqwest::StatusCode)
+}
 
 #[task(interval(2s))]
-async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
-    let res = reqwest::get("https://httpbin.org/status/200,429,500")
-        .await
-        .map_err(|e| Arc::new(format!("Request failed: {e}")))?;
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    let res = reqwest::get("https://httpbin.org/status/200,429,500").await?;
 
     // For demonstration purposes
     println!("Website responded with {}", res.status());
 
-    // In real code, you would describe in more detail the errors
+    // In real code, you would provide more rich errors
     match res.status() {
         200 => Ok(()),
-        429 => Err(Arc::new("Too many requests present in our web page")),
-        500 => Err(Arc::new("Server error regarding web page")),
-        _ => Err(Arc::new(format!("HTTP {} error", res.status()))),
+        429 => Err(MyErrors::TooManyRequests),
+        500 => Err(MyErrors::ServerError),
+        _ => Err(MyErrors::OtherHttpStatus(res.status())),
     }
+}
+
+#[chronographer::main]
+async fn main(scheduler: DefaultScheduler<MyErrors>) {
+    let task_inst = APIRequestTask::instance();
+    let _ = scheduler.schedule(task_inst).await;
 }
 ```
 </RenderProgrammingLanguageBased>
-In our example, we send an HTTP request to some service. Then this service can return success or an error (for
-demonstration purposes, we have 2 errors to care about).
+We have filled the ``MyErrors`` enum with our own errors which we expect, as well as making a Task that does an API
+request to some service (in our case ``httpbin`` for demonstrative purposes).
+
+While in typical API requests we expect more status codes which we have to handle gracefully, in our case we expect only
+three, those being ``200`` for success, ``429`` for too many requests and ``500`` for a server error.
+
+In real systems these failures aren’t truly random. They usually depend on load, rate limits, outages, or network
+issues, but from the client side they may appear so.
+
+Keep in mind this code is here for demonstrative purposes, the idea is to get a grasp on how approximately things are
+handled in the real-world when it comes to using ChronoGrapher.
 
 Running the above code yields us something similar to:
 ```zsh title="terminal"
@@ -58,29 +86,29 @@ Scheduler engine received an error for Task with identifier (...):
 # <...>
 ```
 
-You may notice how the error is leaking through, causing the Scheduler to shut down our Task.
+You may notice how the error is leaking through. With the DefaultScheduler, an error causes the task to be terminated, i.e.
+Removed and never scheduled again.
 
-However, by requesting, we may encounter rare errors such as (but not limited to):
+However, by requesting, we may encounter errors such as (but not limited to):
 - 500: Server error in the website
 - 429: Too many requests
 
-These types of errors may appear unpredictably, later down the line when retrying, they may succeed successfully, hence,
-It isn't in our control to fully handle them.
-
+These types of errors aren't part of our control, they may be temporary such as ``429`` and then later disappear.
 To fix this we can add retries, which re-attempt requests once we hit an error:
+
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
 #[task(interval(2s))]
 // [!code ++]
 #[workflow(retry(3))]
-async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
 </RenderProgrammingLanguageBased>
 
-The code retries the request for 3 total times, before either it succeeds or always hit an error, try tweaking
-the number of retries and see how it changes.
+The code retries the request up to 3 times, meaning 4 total attempts including the initial one. Before either
+it succeeds or always hit an error, try tweaking the number of retries and see how it changes.
 
 Re-running our code, we may notice a difference:
 ```zsh title="terminal"
@@ -93,31 +121,32 @@ Re-running our code, we may notice a difference:
 (Attempt: 2/3) Website responded with 200
 
 # 3rd run of Task (after ~6 total seconds)
-(Attempt 0/3) Website responded with 500
-(Attempt 1/3) Website responded with 429
-(Attempt 2/3) Website responded with 500
-(Attempt 3/3) Website responded with 500
+(Attempt: 0/3) Website responded with 500
+(Attempt: 1/3) Website responded with 429
+(Attempt: 2/3) Website responded with 500
+(Attempt: 3/3) Website responded with 500
 
 # [!code --]
 # ERROR LEAKED THROUGH, CAUSING:
 # [!code --]
 Scheduler engine received an error for Task with identifier (...):
 # [!code --]
-    Server error regarding web page
+    Server error regarding our web page
 
 # <...>
 ```
 **Note:** The attempts (i.e. ``(Attempt X/3)``) are for visual purposes, they show which attempt we are on. The 0th
-attempt is when our code runs normally, above zero is when retries occur.
+attempt is when our code runs normally, above zero is when retries occur. It should be noted that 0/3 is the initial
+attempt and the rest are from the retry attempt.
 
-Notice the multiple debugs for each run? This means our Task is being retried, though in our case its dumb and immediately
-retries. To fix this, we can declare a delay per retry like so:
+Notice the multiple debugs for each run? This means our Task is being retried, though in our case, we configured retries to
+happen immediately. To fix this, we can declare a delay per retry like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
 #[task(interval(2s))]
 // [!code ++]
 #[workflow(retry(3, 2s))]
-async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -137,7 +166,7 @@ In our case however, 2 seconds is just enough time to follow with another reques
 Now running our code again, we notice:
 ```zsh title="terminal"
 # 1st run of Task (after 2 total seconds)
-(Attempt: 0/3) Website responded with 200 #0th retry
+(Attempt: 0/3) Website responded with 200 # Initial Attempt
 
 # 2nd run of Task (after ~4 total seconds)
 (Attempt: 0/3) Website responded with 429
@@ -155,7 +184,7 @@ Now running our code again, we notice:
 # [!code --]
 Scheduler engine received an error for Task with identifier (...):
 # [!code --]
-    Server error regarding web page
+    Server error regarding our web page
 
 # <...>
 ```
@@ -176,8 +205,8 @@ You can even mix them up. <Highlight color={"error"}>HOWEVER</Highlight>, named 
 </RenderProgrammingLanguageBased>
 </Callout>
 
-Generally retries should be used when tasks may randomly fail (without being able to control). We have touched on
-API requests as a practical example, but so can retries be used in database queries.
+Generally retries should be used when tasks may fail due to external conditions. We have touched on
+API requests as a practical example, but retries can also be used in database queries and in other tasks.
 
 Retries are one of the many workflow primitives which ChronoGrapher has in store. In the next chapter we will be analyzing
 fallbacks, and how to combine them.
