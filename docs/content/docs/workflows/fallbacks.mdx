@@ -149,7 +149,7 @@ Try to lower the number of retries to see it in effect.
 
 <Callout type={"idea"} title={"Clever Retrying"}>
     The status code ``403`` usually indicates an issue with the permissions you have, so retrying it is often redundant.
-    A pro tip is to use the ``when`` parameter on retries which is covered in a later chapter.
+    A pro tip is to use the ``when`` parameter on retries which is covered in [Advanced Retries](/workflows/advanced_retries#retry-error-filtering).
 </Callout>
 
 Since our fallback is a ``TaskFrame``, we can also lay on top its own workflow definition, though this is best
