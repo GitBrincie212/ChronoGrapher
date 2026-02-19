@@ -94,10 +94,6 @@ This has to do with ChronoGrapher-specific components and systems. These include
 - ``# Is Emittable`` Explains if the events of this THEG are emittable, if not then why isn't it. **(RECOMMENDED)**
 - ``# Supported Events`` Lists the events which are supported by this THEG (the implementors). **(RECOMMENDED)**
 
-**SchedulingStrategy Sections**
-- ``# Policy Semantics`` Describes the semantics of the strategy / policy, how rescheduling and overlapping tasks are handled. **(REQUIRED)**
-- ``# Supported TaskHook(s)`` Describes what kind of TaskHooks are supported which change the behavior of the ScheduleStrategy in some way. **(RECOMMENDED)**
-
 **TaskTrigger Sections (NOT TaskSchedules)**
 - ``# Waiting Semantics`` Informs the user what kind of thing (computation, outside event... etc.) does the TaskTrigger wait for. **(REQUIRED)**
 - ``# Triggering Errors`` Describes the various errors which may appear during triggering, this is when the trigger is called. **(REQUIRED)**
