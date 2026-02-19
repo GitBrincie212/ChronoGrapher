@@ -1,0 +1,134 @@
+---
+title: Advanced Fallbacks & Richer Error Handling
+description: "Learn how to better handle errors in complex workflows"
+---
+
+In the previous chapter, we have discussed advanced usage regarding ``retry`` such as Backoff Strategies and Error Filtering.
+While in the topic of errors, we must mention the fact we ran into a couple of issues with our fallback.
+
+When it comes to error handling, we will be mainly discussing typical error handling, there is also the term
+**Post-Error Handling** but this touches on observability / monitoring and hence not a topic for now.
+
+Before discussing however error handling in detail and our issue, let's first discuss how ChronoGrapher's error
+model works in detail to get a better understanding for how best to utilize.
+
+# Error Model
+Remember the "Russian Stacking Doll" analogy we made in [Handling Failure](/workflows), where each workflow primitive
+has one responsibility to do and can stack with multiple different ones to form a workflow?
+
+The same concept transfers to errors, when an error occurs (either from execution logic or a workflow primitive),
+it bubbles up to the parent ``TaskFrame`` / workflow primitive.
+
+If the primitive cannot handle it, then it wraps it with its own error variant (that can be as simple as a new type or
+a more complex enum), and then bubbles up again. Repeats the process til it reaches the top.
+
+This makes it possible for any intermediately workflow primitive to not only get the error but also be able to analyze it
+and conclude the workflow structure and how it behaved when this error presented itself.
+
+This is more useful when it comes to creating custom ``TaskFrames`` which wrap other ``TaskFrames`` but such advanced
+concept is kept for a later chapter outside this workflow series.
+
+To better demonstrate this as a diagram:
+<ThemeBasedImage
+    light={"/diagram-light-4.svg"} dark={"/diagram-dark-4.svg"}
+    width={1200} height={1200}
+    alt={"Tree diagram featuring the error propagation model"}
+/>
+
+We can see how the execution logic returns ``MyError`` then the timeout primitive wraps it in an enum returning
+``TimeoutTaskFrame<MyError>``, afterward the ``fallback`` wraps it in ``FallbackTaskFrame<...>`` (assuming the fallback failed).
+
+Then finally the ``retry`` wraps it in its own ``RetriableTaskFrameError<...>``. While at first it seems convoluted, now
+the ``FallbackHandle`` can infer the workflow structure.
+
+# The Issue And Its Solutions
+Adding anything below which wraps our ``timeout`` will result in the error types describing said structure. This is both
+an advantage and the issue at hand:
+> What if we change the workflow definitions? Wouldn't it mean ``FallbackHandle`` has to handle things differently?
+
+Which is exactly the problem. There are two approaches to solving this problem, either update the definition
+like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust lineNumbers=8
+if let Some(error) = ctx.get_shared::<SharedFallbackError<MyErrors>>().await {
+    // <...>
+}
+```
+
+Which would require us changing the match statement to account for a timeout error as well. Or alternatively,
+it is possible to fully erase the error as demonstrated below:
+
+```rust lineNumbers=8
+if let Some(error) = ctx.get_shared::<SharedFallbackError<Box<dyn TaskError>>().await {
+    // <...>
+}
+```
+However, this would require either down casting to a concrete type in order to handle the error gracefully,
+this is best left for later chapters to elaborate upon.
+</RenderProgrammingLanguageBased>
+
+In the next chapter we will take a look back to ``retry`` and ``fallback``, explaining additional advanced properties
+and patterns we have purposefully left out in the previous chapters.
+
+# Advanced Fallbacks
+Currently, with simple fallbacks (where we declared only one fallback), everything is restricted to one ``TaskFrame``.
+However, life shouldn't be hard, as such **Multi-Fallbacks** come in the full picture.
+
+Consider this example:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[derive(Debug)]
+struct ServerError;
+
+#[derive(Debug)]
+struct ResourceNotFound404;
+
+#[derive(Debug)]
+struct ResourceNotFound;
+
+#[taskframe]
+async fn my_task_fallback(ctx: &TaskContext) -> Result<(), TaskError> {
+    if let Some(err) = ctx.get_shared::<TaskError>() {
+        match err {
+            other => Err(other)
+        }
+    }
+    panic!("my_task_fallback isn't used as a fallback");
+}
+
+#[task(interval(6s))]
+#[workflow(
+    fallback(my_task_fallback)
+)]
+async fn my_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+With simple fallbacks, the fallback has to manage every different error that comes from our business logic (and workflow,
+though for simplicity not included).
+
+While one can make a monolithic function that tries to manage all errors, depending on the action performed by the business logic,
+different ways are required to handle the "same looking error".
+
+This is where the **Multi-Fallbacks** idea comes in play, instead of one, we can split the monolithic fallback to multiple
+smaller, single-purpose and reusable fallbacks.
+
+To achieve this let's rewrite our example like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[taskframe]
+async fn my_task_error1_fallback(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+
+#[task(interval(6s))]
+#[workflow(
+    fallback(my_task_fallback)
+)]
+async fn my_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
