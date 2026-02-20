@@ -44,8 +44,10 @@ impl<E: TaskError> ErasedTask<E> {
         let ctx = TaskFrameContext(RestrictTaskFrameContext::new(self));
         ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
         let result: Result<(), E> = self.frame.erased_execute(&ctx).await;
-        ctx.emit::<OnTaskEnd>(&result.as_ref().err().map(|x| x as &dyn TaskError))
-            .await;
+        ctx.emit::<OnTaskEnd>(&result.as_ref()
+            .map_err(|x| x as &dyn TaskError)
+            .err()
+        ).await;
 
         result
     }
