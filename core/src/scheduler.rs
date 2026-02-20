@@ -5,11 +5,11 @@ pub mod task_store; // skipcq: RS-D1001
 
 use crate::errors::TaskError;
 use crate::scheduler::clock::*;
-use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
+use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine, SchedulerHandlePayload};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{Task, TaskFrame, TaskTrigger};
+use crate::task::{ErasedTask, Task, TaskFrame, TaskTrigger};
 use crate::utils::TaskIdentifier;
 use std::error::Error;
 use std::marker::PhantomData;
@@ -19,6 +19,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
+use crate::scheduler::engine::default::SchedulerHandle;
 
 pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
 
@@ -68,6 +69,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             clock: Arc::new(config.clock),
             process: Mutex::new(None),
             engine: Arc::new(config.engine),
+            instruction_channel: Mutex::new(None)
         }
     }
 }
@@ -78,6 +80,7 @@ pub struct Scheduler<C: SchedulerConfig> {
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
     process: Mutex<Option<JoinHandle<()>>>,
+    instruction_channel: Mutex<Option<tokio::sync::mpsc::Sender<SchedulerHandlePayload>>>
 }
 
 impl<C> Default for Scheduler<C>
@@ -100,6 +103,19 @@ where
     }
 }
 
+pub(crate) async fn append_scheduler_handler<C: SchedulerConfig>(
+    task: &ErasedTask<C::TaskError>,
+    id: C::TaskIdentifier,
+    channel: &tokio::sync::mpsc::Sender<SchedulerHandlePayload>
+) {
+    let handle = SchedulerHandle {
+        id: Arc::new(id),
+        channel: channel.clone()
+    };
+
+    task.attach_hook::<()>(Arc::new(handle)).await;
+}
+
 impl<C: SchedulerConfig> Scheduler<C> {
     pub fn builder() -> SchedulerInitConfigBuilder<C> {
         SchedulerInitConfig::builder()
@@ -111,21 +127,35 @@ impl<C: SchedulerConfig> Scheduler<C> {
             return;
         }
         drop(process_lock);
-        join!(
-            self.clock.init(),
-            self.store.init(),
-            self.dispatcher.init(),
-            self.engine.init()
-        );
+
         let engine_clone = self.engine.clone();
         let clock_clone = self.clock.clone();
         let store_clone = self.store.clone();
         let dispatcher_clone = self.dispatcher.clone();
-        *self.process.lock().await = Some(tokio::spawn(async move {
-            engine_clone
-                .main(clock_clone, store_clone, dispatcher_clone)
-                .await;
-        }))
+
+        let channel = join!(
+            self.clock.init(),
+            self.store.init(),
+            self.dispatcher.init(),
+            self.engine.init(),
+            self.engine.create_instruction_channel(
+                &clock_clone, &store_clone, &dispatcher_clone
+            )
+        ).4;
+
+        for (id, task) in self.store.iter() {
+            append_scheduler_handler::<C>(&task, id, &channel).await;
+        }
+
+        *self.instruction_channel.lock().await = Some(channel);
+
+        *self.process.lock().await = Some(
+            tokio::spawn(async move {
+                engine_clone
+                    .main(clock_clone, store_clone, dispatcher_clone)
+                    .await;
+            })
+        )
     }
 
     pub async fn abort(&self) {
@@ -145,6 +175,9 @@ impl<C: SchedulerConfig> Scheduler<C> {
     ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
         let erased = task.as_erased();
         let id = C::TaskIdentifier::generate();
+        if let Some(channel) = &*self.instruction_channel.lock().await {
+            append_scheduler_handler::<C>(&erased, id.clone(), &channel).await;
+        }
         self.store.store(&self.clock, id, erased).await
     }
 
@@ -152,8 +185,8 @@ impl<C: SchedulerConfig> Scheduler<C> {
         self.store.remove(idx).await;
     }
 
-    pub async fn exists(&self, idx: &C::TaskIdentifier) -> bool {
-        self.store.exists(idx).await
+    pub fn exists(&self, idx: &C::TaskIdentifier) -> bool {
+        self.store.exists(idx)
     }
 
     pub async fn has_started(&self) -> bool {
