@@ -1,57 +1,56 @@
 use crate::task::dependency::FrameDependency;
 use async_trait::async_trait;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub enum LogicalDependency {
     AND {
-        dep1: Arc<dyn FrameDependency>,
-        dep2: Arc<dyn FrameDependency>,
-        is_enabled: Arc<AtomicBool>,
+        dep1: Box<dyn FrameDependency>,
+        dep2: Box<dyn FrameDependency>,
+        is_enabled: AtomicBool,
     },
 
     OR {
-        dep1: Arc<dyn FrameDependency>,
-        dep2: Arc<dyn FrameDependency>,
-        is_enabled: Arc<AtomicBool>,
+        dep1: Box<dyn FrameDependency>,
+        dep2: Box<dyn FrameDependency>,
+        is_enabled: AtomicBool,
     },
 
     XOR {
-        dep1: Arc<dyn FrameDependency>,
-        dep2: Arc<dyn FrameDependency>,
-        is_enabled: Arc<AtomicBool>,
+        dep1: Box<dyn FrameDependency>,
+        dep2: Box<dyn FrameDependency>,
+        is_enabled: AtomicBool,
     },
 
-    NOT(Arc<dyn FrameDependency>, Arc<AtomicBool>),
+    NOT(Box<dyn FrameDependency>, AtomicBool),
 }
 
 impl LogicalDependency {
     pub fn and(dep1: impl FrameDependency, dep2: impl FrameDependency) -> Self {
         LogicalDependency::AND {
-            dep1: Arc::new(dep1),
-            dep2: Arc::new(dep2),
-            is_enabled: Arc::new(AtomicBool::new(true)),
+            dep1: Box::new(dep1),
+            dep2: Box::new(dep2),
+            is_enabled: AtomicBool::new(true),
         }
     }
 
     pub fn or(dep1: impl FrameDependency, dep2: impl FrameDependency) -> Self {
         LogicalDependency::OR {
-            dep1: Arc::new(dep1),
-            dep2: Arc::new(dep2),
-            is_enabled: Arc::new(AtomicBool::new(true)),
+            dep1: Box::new(dep1),
+            dep2: Box::new(dep2),
+            is_enabled: AtomicBool::new(true),
         }
     }
 
     pub fn xor(dep1: impl FrameDependency, dep2: impl FrameDependency) -> Self {
         LogicalDependency::XOR {
-            dep1: Arc::new(dep1),
-            dep2: Arc::new(dep2),
-            is_enabled: Arc::new(AtomicBool::new(true)),
+            dep1: Box::new(dep1),
+            dep2: Box::new(dep2),
+            is_enabled: AtomicBool::new(true),
         }
     }
 
     pub fn not(dep: impl FrameDependency) -> Self {
-        LogicalDependency::NOT(Arc::new(dep), Arc::new(AtomicBool::new(false)))
+        LogicalDependency::NOT(Box::new(dep), AtomicBool::new(false))
     }
 }
 
