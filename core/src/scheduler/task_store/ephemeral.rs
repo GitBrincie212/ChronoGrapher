@@ -95,7 +95,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         }
     }
 
-    async fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask> {
+    fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask> {
         self.tasks.get(idx).map(|x| x.value().clone())
     }
 
@@ -104,7 +104,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         early_lock.pop();
     }
 
-    async fn exists(&self, idx: &C::TaskIdentifier) -> bool {
+    fn exists(&self, idx: &C::TaskIdentifier) -> bool {
         self.tasks.contains_key(idx)
     }
 
@@ -114,7 +114,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         idx: &C::TaskIdentifier,
     ) -> RescheduleError {
         if let Some(task) = self.tasks.get(idx) {
-            let now = clock.now().await;
+            let now = clock.now();
             let notifier = TriggerNotifier::new::<C>(idx.clone(), self.sender.clone());
             return match task.trigger().trigger(now, notifier).await {
                 Ok(()) => {
@@ -135,7 +135,7 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
     ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
         let task = Arc::new(task);
         self.tasks.insert(id.clone(), task.clone());
-        let now = clock.now().await;
+        let now = clock.now();
         let notifier = TriggerNotifier::new::<C>(id.clone(), self.sender.clone());
         task.trigger().trigger(now, notifier).await?;
         self.notifier.notify_waiters();
@@ -150,5 +150,12 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
     async fn clear(&self) {
         self.earliest_sorted.lock().await.clear();
         self.tasks.clear();
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (C::TaskIdentifier, Self::StoredTask)> {
+        self.tasks.iter().map(|x| (
+            x.key().clone(),
+            x.value().clone()
+        ))
     }
 }
