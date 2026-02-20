@@ -1,4 +1,4 @@
-use crate::errors::{TaskError, ThresholdTaskFrameError};
+use crate::errors::TaskError;
 use crate::task::{RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
 use async_trait::async_trait;
 use std::num::NonZeroUsize;
@@ -91,7 +91,7 @@ impl<T: TaskFrame> ThresholdTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
-    type Error = ThresholdTaskFrameError<T::Error>;
+    type Error = T::Error;
 
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         let mut total = self.count.load(Ordering::Relaxed);
@@ -100,7 +100,6 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
                 .threshold_reach_behaviour
                 .results(&ctx.0)
                 .await
-                .map_err(ThresholdTaskFrameError::new);
         }
 
         let res = ctx.subdivide(&self.frame).await;
@@ -117,6 +116,6 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
             // TODO: Use the handle from the scheduler to cancel the entire workflow
         }
 
-        res.map_err(ThresholdTaskFrameError::new)
+        res
     }
 }

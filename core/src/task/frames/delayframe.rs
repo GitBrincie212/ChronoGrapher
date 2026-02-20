@@ -1,4 +1,3 @@
-use crate::errors::DelayTaskFrameError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
 use crate::{define_event, define_event_group};
@@ -25,7 +24,7 @@ impl<T: TaskFrame> DelayTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
-    type Error = DelayTaskFrameError<T::Error>;
+    type Error = T::Error;
 
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         ctx.emit::<OnDelayStart>(&self.delay).await;
@@ -35,8 +34,6 @@ impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
 
         ctx.emit::<OnDelayEnd>(&self.delay).await;
 
-        ctx.subdivide(&self.frame)
-            .await
-            .map_err(DelayTaskFrameError::new)
+        ctx.subdivide(&self.frame).await
     }
 }

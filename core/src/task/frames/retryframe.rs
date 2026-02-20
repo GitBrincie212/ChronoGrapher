@@ -1,4 +1,4 @@
-use crate::errors::{RetriableTaskFrameError, TaskError};
+use crate::errors::TaskError;
 use crate::task::{TaskFrame, TaskFrameContext, TaskHookEvent};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
@@ -171,7 +171,7 @@ impl<T: TaskFrame> RetriableTaskFrame<T> {
 
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
-    type Error = RetriableTaskFrameError<T::Error>;
+    type Error = T::Error;
 
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         let mut error: Result<(), T::Error> = Ok(());
@@ -196,6 +196,6 @@ impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
             tokio::time::sleep(delay).await;
         }
 
-        error.map_err(RetriableTaskFrameError::new)
+        error
     }
 }

@@ -54,37 +54,6 @@ pub enum DependencyTaskFrameError<T: TaskError> {
     DependenciesInvalidated(Box<dyn TaskError>),
 }
 
-macro_rules! newtype_error {
-    ($name: ident) => {
-        #[derive(Debug)]
-        pub struct $name<T: TaskError>(T);
-        impl<T: TaskError> $name<T> {
-            pub fn new(error: T) -> Self {
-                Self(error)
-            }
-        }
-
-        impl<T: TaskError> Display for $name<T> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-                Display::fmt(&self.0, f)
-            }
-        }
-
-        impl<T: TaskError> Deref for $name<T> {
-            type Target = T;
-
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
-    };
-}
-
-newtype_error!(DelayTaskFrameError);
-newtype_error!(FallbackTaskFrameError);
-newtype_error!(RetriableTaskFrameError);
-newtype_error!(ThresholdTaskFrameError);
-
 #[derive(Error, Debug)]
 pub enum StandardCoreErrorsCG {
     #[error(
@@ -106,9 +75,6 @@ pub enum StandardCoreErrorsCG {
     #[error("Timedelta supplied is out of range")]
     IntervalTimedeltaOutOfRange,
 
-    #[error("Supplied TaskIdentifier `{0}` is non-existent in the current SchedulerTaskStore")]
-    TaskIdentifierNonExistent(String),
-
-    #[error("ThresholdTaskFrame's threshold has been surpassed")]
-    ThresholdReachError,
+    #[error("The current SchedulerEngine does not support scheduler instructions")]
+    SchedulerInstructionsUnsupported
 }
