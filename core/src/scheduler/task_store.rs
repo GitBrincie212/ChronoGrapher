@@ -5,7 +5,6 @@ use std::any::Any;
 pub use ephemeral::*;
 use std::error::Error;
 use std::ops::Deref;
-
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::task::ErasedTask;
@@ -28,11 +27,11 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
 
     async fn retrieve(&self) -> (Self::StoredTask, SystemTime, C::TaskIdentifier);
 
-    async fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask>;
+    fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask>;
 
     async fn pop(&self);
 
-    async fn exists(&self, idx: &C::TaskIdentifier) -> bool;
+    fn exists(&self, idx: &C::TaskIdentifier) -> bool;
 
     async fn reschedule(
         &self,
@@ -50,4 +49,6 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     async fn remove(&self, idx: &C::TaskIdentifier);
 
     async fn clear(&self);
+
+    fn iter(&self) -> impl Iterator<Item = (C::TaskIdentifier, Self::StoredTask)>;
 }
