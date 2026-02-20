@@ -1,6 +1,5 @@
 use std::any::Any;
-use std::fmt::{Debug, Display, Formatter};
-use std::ops::Deref;
+use std::fmt::{Debug, Display};
 use std::time::Duration;
 use thiserror::Error;
 
