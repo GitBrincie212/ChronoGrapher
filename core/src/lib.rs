@@ -9,7 +9,7 @@ pub mod utils; // skipcq: RS-D1001
 pub mod prelude {
     // Core
     pub use crate::errors::TaskError;
-    pub use crate::task::{DynArcError, RestrictTaskFrameContext, Task};
+    pub use crate::task::{RestrictTaskFrameContext, Task};
 
     // Common frames
     pub use crate::task::collectionframe::CollectionTaskFrame;
