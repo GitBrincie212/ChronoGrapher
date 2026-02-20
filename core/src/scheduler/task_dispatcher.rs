@@ -14,6 +14,15 @@ pub struct EngineNotifier<C: SchedulerConfig> {
     notify: tokio::sync::mpsc::Sender<(C::TaskIdentifier, Option<C::TaskError>)>,
 }
 
+impl<C: SchedulerConfig> Clone for EngineNotifier<C> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            notify: self.notify.clone(),
+        }
+    }
+}
+
 impl<C: SchedulerConfig> EngineNotifier<C> {
     pub fn new(
         id: C::TaskIdentifier,
@@ -22,9 +31,9 @@ impl<C: SchedulerConfig> EngineNotifier<C> {
         Self { id, notify }
     }
 
-    pub async fn notify(self, result: Option<C::TaskError>) {
+    pub async fn notify(&self, result: Option<C::TaskError>) {
         self.notify
-            .send((self.id, result))
+            .send((self.id.clone(), result))
             .await
             .expect("Failed to send notification via SchedulerTaskDispatcher, could not receive from the SchedulerEngine");
     }
