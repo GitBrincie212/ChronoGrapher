@@ -78,7 +78,7 @@ struct MyTaskFrame;
 
 #[async_trait]
 impl TaskFrame for MyTaskFrame {
-    type Error = DynArcError;
+    type Error = Box<dyn TaskError>;
 
     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         yield_now().await;
@@ -92,7 +92,7 @@ static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 #[tokio::main]
 #[allow(clippy::empty_loop)]
 async fn main() {
-    let scheduler = Scheduler::<DefaultSchedulerConfig<DynArcError>>::default();
+    let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
     dbg!("LOADING TASKS");
     let mut millis: f64 = 0.9;

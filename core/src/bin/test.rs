@@ -11,7 +11,7 @@ struct MyTaskFrameB;
 
 #[async_trait]
 impl TaskFrame for MyTaskFrameA {
-    type Error = DynArcError;
+    type Error = Box<dyn TaskError>;
 
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         self.1.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -30,7 +30,7 @@ impl TaskFrame for MyTaskFrameA {
 
 #[async_trait]
 impl TaskFrame for MyTaskFrameB {
-    type Error = DynArcError;
+    type Error = Box<dyn TaskError>;
 
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         println!(
@@ -50,7 +50,7 @@ impl TaskFrame for MyTaskFrameB {
 
 #[tokio::main]
 async fn main() {
-    let scheduler = Scheduler::<DefaultSchedulerConfig<DynArcError>>::default();
+    let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
     let mytask = Task::new(
         TaskScheduleInterval::from_secs(1),

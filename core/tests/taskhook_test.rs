@@ -37,13 +37,13 @@ struct SimpleTaskFrame {
 
 #[async_trait]
 impl TaskFrame for SimpleTaskFrame {
-    type Error = DynArcError;
+    type Error = Box<dyn TaskError>;
 
     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         if self.should_succeed.load(Ordering::SeqCst) {
             Ok(())
         } else {
-            Err(Arc::new(StandardCoreErrorsCG::TaskDependenciesUnresolved))
+            Err(Box::new(StandardCoreErrorsCG::TaskDependenciesUnresolved))
         }
     }
 }
@@ -78,7 +78,7 @@ async fn test_attach_and_trigger_hooks() {
         "OnTaskStart hook should fire once"
     );
 
-    let no_error: Option<DynArcError> = None;
+    let no_error: Option<Box<dyn TaskError>> = None;
     task.emit_hook_event::<OnTaskEnd>(&no_error.as_ref().map(|x| x.as_ref()))
         .await;
     assert_eq!(

@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use chronographer::prelude::*;
 use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
 use chronographer::task::TaskHookContext;
-use std::sync::Arc;
 
 pub struct MyCoolTaskHook;
 
@@ -30,12 +29,12 @@ impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
 
 #[tokio::main]
 async fn main() {
-    let scheduler = Scheduler::<DefaultSchedulerConfig<DynArcError>>::default();
+    let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
     let exec_frame = DynamicTaskFrame::new(|_ctx| async {
         println!("Trying primary task...");
         //sleep(Duration::from_secs_f64(1.234)).await;
-        Err(Arc::new(std::io::Error::other("uh oh")) as DynArcError)
+        Err(Box::new(std::io::Error::other("uh oh")) as Box<dyn TaskError>)
     });
 
     //let timeout_frame = DelayTaskFrame::new(exec_frame, Duration::from_secs(3));

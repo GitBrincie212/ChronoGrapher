@@ -1,4 +1,4 @@
-use chronographer::prelude::DynArcError;
+use chronographer::prelude::{TaskError};
 use chronographer::scheduler::DefaultSchedulerConfig;
 use chronographer::scheduler::clock::{AdvanceableSchedulerClock, SchedulerClock, VirtualClock};
 use std::time::{Duration, UNIX_EPOCH};
@@ -31,7 +31,7 @@ macro_rules! assert_approx {
 #[tokio::test]
 async fn test_initial_epoch() {
     let clock = VirtualClock::from_epoch();
-    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
+    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
     assert_approx!(scheduler_clock.now().await, UNIX_EPOCH, EPSILON);
 }
 
@@ -39,15 +39,15 @@ async fn test_initial_epoch() {
 async fn test_custom_time() {
     let time0 = UNIX_EPOCH + Duration::from_secs(45);
     let clock = VirtualClock::new(time0);
-    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
+    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
     assert_approx!(scheduler_clock.now().await, time0, EPSILON);
 }
 
 #[tokio::test]
 async fn test_advance() {
     let clock = VirtualClock::from_epoch();
-    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
-    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> =
+    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
+    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> =
         &clock;
     advanceable_clock.advance(Duration::from_secs(1)).await;
     assert_eq!(
@@ -64,9 +64,9 @@ async fn test_advance() {
 #[tokio::test]
 async fn test_advance_to() {
     let clock = VirtualClock::from_epoch();
-    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> =
+    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> =
         &clock;
-    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
+    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
     let target = UNIX_EPOCH + Duration::from_secs(19);
     advanceable_clock.advance_to(target).await;
     assert_approx!(scheduler_clock.now().await, target, EPSILON);
@@ -79,8 +79,8 @@ async fn test_advance_to() {
 async fn test_idle_to_simple_no_arc() {
     let clock = VirtualClock::from_epoch();
     let target = UNIX_EPOCH + Duration::from_secs(5);
-    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<DynArcError>> = &clock;
-    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<DynArcError>> =
+    let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
+    let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> =
         &clock;
     advanceable_clock.advance(Duration::from_secs(5)).await;
     scheduler_clock.idle_to(target).await;
