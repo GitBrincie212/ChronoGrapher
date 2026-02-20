@@ -2,7 +2,6 @@ use crate::errors::TaskError;
 use crate::task::{RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
 use async_trait::async_trait;
 use std::num::NonZeroUsize;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use typed_builder::TypedBuilder;
 
@@ -55,11 +54,11 @@ impl_threshold_reach_logic!(ThresholdSuccessReachBehaviour, |_| Ok(()));
 pub struct ThresholdFrameConfig<T: TaskFrame> {
     frame: T,
 
-    #[builder(default = Arc::new(ThresholdIdentityCountLogic))]
-    threshold_logic: Arc<dyn ThresholdLogic<T::Error>>,
+    #[builder(default = Box::new(ThresholdIdentityCountLogic))]
+    threshold_logic: Box<dyn ThresholdLogic<T::Error>>,
 
-    #[builder(default = Arc::new(ThresholdSuccessReachBehaviour))]
-    threshold_reach_behaviour: Arc<dyn ThresholdReachBehaviour<T::Error>>,
+    #[builder(default = Box::new(ThresholdSuccessReachBehaviour))]
+    threshold_reach_behaviour: Box<dyn ThresholdReachBehaviour<T::Error>>,
     threshold: NonZeroUsize,
 }
 
@@ -77,8 +76,8 @@ impl<T: TaskFrame> From<ThresholdFrameConfig<T>> for ThresholdTaskFrame<T> {
 
 pub struct ThresholdTaskFrame<T: TaskFrame> {
     frame: T,
-    threshold_logic: Arc<dyn ThresholdLogic<T::Error>>,
-    threshold_reach_behaviour: Arc<dyn ThresholdReachBehaviour<T::Error>>,
+    threshold_logic: Box<dyn ThresholdLogic<T::Error>>,
+    threshold_reach_behaviour: Box<dyn ThresholdReachBehaviour<T::Error>>,
     threshold: NonZeroUsize,
     count: AtomicUsize,
 }
