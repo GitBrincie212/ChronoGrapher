@@ -14,7 +14,7 @@ use std::time::{Duration, SystemTime};
 pub trait SchedulerClock<C: SchedulerConfig>: 'static + Send + Sync {
     async fn init(&self) {}
 
-    async fn now(&self) -> SystemTime;
+    fn now(&self) -> SystemTime;
 
     async fn idle_to(&self, to: SystemTime);
 }
@@ -26,8 +26,8 @@ where
     T::Target: SchedulerClock<C>,
     C: SchedulerConfig,
 {
-    async fn now(&self) -> SystemTime {
-        self.deref().now().await
+    fn now(&self) -> SystemTime {
+        self.deref().now()
     }
 
     async fn idle_to(&self, to: SystemTime) {
@@ -37,9 +37,9 @@ where
 
 #[async_trait]
 pub trait AdvanceableSchedulerClock<C: SchedulerConfig>: SchedulerClock<C> {
-    async fn advance(&self, duration: Duration);
+    fn advance(&self, duration: Duration);
 
-    async fn advance_to(&self, to: SystemTime);
+    fn advance_to(&self, to: SystemTime);
 }
 
 #[async_trait]
@@ -49,11 +49,11 @@ where
     T::Target: AdvanceableSchedulerClock<C>,
     C: SchedulerConfig,
 {
-    async fn advance(&self, duration: Duration) {
-        self.deref().advance(duration).await
+    fn advance(&self, duration: Duration) {
+        self.deref().advance(duration)
     }
 
-    async fn advance_to(&self, to: SystemTime) {
-        self.deref().advance_to(to).await
+    fn advance_to(&self, to: SystemTime) {
+        self.deref().advance_to(to)
     }
 }

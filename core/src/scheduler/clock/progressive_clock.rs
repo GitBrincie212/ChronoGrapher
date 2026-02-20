@@ -18,7 +18,7 @@ impl Copy for ProgressiveClock {}
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerClock<C> for ProgressiveClock {
-    async fn now(&self) -> SystemTime {
+    fn now(&self) -> SystemTime {
         SystemTime::now()
     }
 

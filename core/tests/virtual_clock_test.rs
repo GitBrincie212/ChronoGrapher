@@ -32,7 +32,7 @@ macro_rules! assert_approx {
 async fn test_initial_epoch() {
     let clock = VirtualClock::from_epoch();
     let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
-    assert_approx!(scheduler_clock.now().await, UNIX_EPOCH, EPSILON);
+    assert_approx!(scheduler_clock.now(), UNIX_EPOCH, EPSILON);
 }
 
 #[tokio::test]
@@ -40,7 +40,7 @@ async fn test_custom_time() {
     let time0 = UNIX_EPOCH + Duration::from_secs(45);
     let clock = VirtualClock::new(time0);
     let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
-    assert_approx!(scheduler_clock.now().await, time0, EPSILON);
+    assert_approx!(scheduler_clock.now(), time0, EPSILON);
 }
 
 #[tokio::test]
@@ -49,14 +49,14 @@ async fn test_advance() {
     let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
     let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> =
         &clock;
-    advanceable_clock.advance(Duration::from_secs(1)).await;
+    advanceable_clock.advance(Duration::from_secs(1));
     assert_eq!(
-        scheduler_clock.now().await,
+        scheduler_clock.now(),
         UNIX_EPOCH + Duration::from_secs(1)
     );
-    advanceable_clock.advance(Duration::from_secs(100)).await;
+    advanceable_clock.advance(Duration::from_secs(100));
     assert_eq!(
-        scheduler_clock.now().await,
+        scheduler_clock.now(),
         UNIX_EPOCH + Duration::from_secs(101)
     );
 }
@@ -68,11 +68,11 @@ async fn test_advance_to() {
         &clock;
     let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
     let target = UNIX_EPOCH + Duration::from_secs(19);
-    advanceable_clock.advance_to(target).await;
-    assert_approx!(scheduler_clock.now().await, target, EPSILON);
+    advanceable_clock.advance_to(target);
+    assert_approx!(scheduler_clock.now(), target, EPSILON);
     let target = UNIX_EPOCH + Duration::from_secs(235);
-    advanceable_clock.advance_to(target).await;
-    assert_approx!(scheduler_clock.now().await, target, EPSILON);
+    advanceable_clock.advance_to(target);
+    assert_approx!(scheduler_clock.now(), target, EPSILON);
 }
 
 #[tokio::test]
@@ -82,8 +82,8 @@ async fn test_idle_to_simple_no_arc() {
     let scheduler_clock: &dyn SchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> = &clock;
     let advanceable_clock: &dyn AdvanceableSchedulerClock<DefaultSchedulerConfig<Box<dyn TaskError>>> =
         &clock;
-    advanceable_clock.advance(Duration::from_secs(5)).await;
+    advanceable_clock.advance(Duration::from_secs(5));
     scheduler_clock.idle_to(target).await;
-    let now = scheduler_clock.now().await;
+    let now = scheduler_clock.now();
     assert_approx!(now, target, EPSILON);
 }

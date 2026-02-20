@@ -42,13 +42,13 @@ impl VirtualClock {
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerClock<C> for VirtualClock {
-    async fn now(&self) -> SystemTime {
+    fn now(&self) -> SystemTime {
         let now = self.current_time.load(Ordering::Relaxed);
         UNIX_EPOCH + Duration::from_millis(now)
     }
 
     async fn idle_to(&self, to: SystemTime) {
-        while <VirtualClock as SchedulerClock<C>>::now(self).await < to {
+        while <VirtualClock as SchedulerClock<C>>::now(self) < to {
             self.notify.notified().await;
         }
     }
@@ -56,12 +56,12 @@ impl<C: SchedulerConfig> SchedulerClock<C> for VirtualClock {
 
 #[async_trait]
 impl<C: SchedulerConfig> AdvanceableSchedulerClock<C> for VirtualClock {
-    async fn advance(&self, duration: Duration) {
-        let now = <VirtualClock as SchedulerClock<C>>::now(self).await;
-        <VirtualClock as AdvanceableSchedulerClock<C>>::advance_to(self, now + duration).await
+    fn advance(&self, duration: Duration) {
+        let now = <VirtualClock as SchedulerClock<C>>::now(self);
+        <VirtualClock as AdvanceableSchedulerClock<C>>::advance_to(self, now + duration)
     }
 
-    async fn advance_to(&self, to: SystemTime) {
+    fn advance_to(&self, to: SystemTime) {
         let to_millis = to
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
