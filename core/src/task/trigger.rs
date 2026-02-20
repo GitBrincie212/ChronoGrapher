@@ -1,6 +1,5 @@
 pub mod schedule; // skipcq: RS-D1001
 
-use crate::prelude::DynArcError;
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::task::Task;
@@ -13,20 +12,17 @@ use async_trait::async_trait;
 use std::any::Any;
 use std::error::Error;
 use std::time::SystemTime;
+use crate::scheduler::task_store::SchedulePayload;
 
 pub struct TriggerNotifier {
     id: Box<dyn Any + Send + Sync>,
-    notify:
-        tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
+    notify: tokio::sync::mpsc::Sender<SchedulePayload>,
 }
 
 impl TriggerNotifier {
     pub fn new<C: SchedulerConfig>(
         id: <C as SchedulerConfig>::TaskIdentifier,
-        notify: tokio::sync::mpsc::Sender<(
-            Box<dyn Any + Send + Sync>,
-            Result<SystemTime, DynArcError>,
-        )>,
+        notify: tokio::sync::mpsc::Sender<SchedulePayload>,
     ) -> Self {
         Self {
             id: Box::new(id),
@@ -34,7 +30,7 @@ impl TriggerNotifier {
         }
     }
 
-    pub async fn notify(self, time: Result<SystemTime, DynArcError>) {
+    pub async fn notify(self, time: Result<SystemTime, Box<dyn Error + Send + Sync>>) {
         self.notify
             .send((self.id, time))
             .await

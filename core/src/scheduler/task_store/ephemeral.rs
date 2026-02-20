@@ -1,12 +1,9 @@
-use crate::errors::StandardCoreErrorsCG;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
-use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{DynArcError, ErasedTask, TriggerNotifier};
-use crate::utils::TaskIdentifier;
+use crate::scheduler::task_store::{RescheduleError, SchedulePayload, SchedulerTaskStore};
+use crate::task::{ErasedTask, TriggerNotifier};
 use async_trait::async_trait;
 use dashmap::DashMap;
-use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::error::Error;
@@ -42,16 +39,14 @@ type EarlyMutexLock<'a, C> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>
 pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask<C::TaskError>>>,
-    sender:
-        tokio::sync::mpsc::Sender<(Box<dyn Any + Send + Sync>, Result<SystemTime, DynArcError>)>,
+    sender: tokio::sync::mpsc::Sender<SchedulePayload>,
+    notifier: tokio::sync::Notify
 }
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     fn default() -> Self {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<(
-            Box<dyn Any + Send + Sync>,
-            Result<SystemTime, DynArcError>,
-        )>(1024);
+        let (tx, mut rx) =
+            tokio::sync::mpsc::channel::<SchedulePayload>(1024);
 
         let earliest_sorted = Arc::new(Mutex::new(BinaryHeap::new()));
         let earliest_sorted_clone = earliest_sorted.clone();
@@ -76,6 +71,7 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
             earliest_sorted,
             tasks: DashMap::new(),
             sender: tx,
+            notifier: tokio::sync::Notify::default()
         }
     }
 }
@@ -86,11 +82,17 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
 
     async fn init(&self) {}
 
-    async fn retrieve(&self) -> Option<(Self::StoredTask, SystemTime, C::TaskIdentifier)> {
-        let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
-        let rev_item = early_lock.peek()?;
-        let task = self.tasks.get(&rev_item.1)?;
-        Some((task.value().clone(), rev_item.0, rev_item.1.clone()))
+    async fn retrieve(&self) -> (Self::StoredTask, SystemTime, C::TaskIdentifier) {
+        loop {
+            let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
+            if let Some(rev_item) = early_lock.peek()
+                && let Some(task) = self.tasks.get(&rev_item.1)
+            {
+                return (task.value().clone(), rev_item.0, rev_item.1.clone());
+            }
+            drop(early_lock);
+            self.notifier.notified().await;
+        }
     }
 
     async fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask> {
@@ -110,34 +112,35 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         &self,
         clock: &C::SchedulerClock,
         idx: &C::TaskIdentifier,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let task =
-            self.tasks
-                .get(idx)
-                .ok_or(
-                    Box::new(StandardCoreErrorsCG::TaskIdentifierNonExistent(format!(
-                        "{idx:?}"
-                    ))) as Box<dyn Error + Send + Sync>,
-                )?;
-
-        let now = clock.now().await;
-        let notifier = TriggerNotifier::new::<C>(idx.clone(), self.sender.clone());
-        task.trigger().trigger(now, notifier).await
+    ) -> RescheduleError {
+        if let Some(task) = self.tasks.get(idx) {
+            let now = clock.now().await;
+            let notifier = TriggerNotifier::new::<C>(idx.clone(), self.sender.clone());
+            return match task.trigger().trigger(now, notifier).await {
+                Ok(()) => {
+                    self.notifier.notify_waiters();
+                    RescheduleError::Success
+                },
+                Err(err) => RescheduleError::TriggerError(err)
+            }
+        }
+        RescheduleError::UnknownTask
     }
 
     async fn store(
         &self,
         clock: &C::SchedulerClock,
+        id: C::TaskIdentifier,
         task: ErasedTask<C::TaskError>,
     ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
-        let idx = C::TaskIdentifier::generate();
         let task = Arc::new(task);
-        self.tasks.insert(idx.clone(), task.clone());
+        self.tasks.insert(id.clone(), task.clone());
         let now = clock.now().await;
-        let notifier = TriggerNotifier::new::<C>(idx.clone(), self.sender.clone());
+        let notifier = TriggerNotifier::new::<C>(id.clone(), self.sender.clone());
         task.trigger().trigger(now, notifier).await?;
+        self.notifier.notify_waiters();
 
-        Ok::<<C as SchedulerConfig>::TaskIdentifier, Box<dyn Error + Send + Sync>>(idx)
+        Ok::<<C as SchedulerConfig>::TaskIdentifier, Box<dyn Error + Send + Sync>>(id)
     }
 
     async fn remove(&self, idx: &C::TaskIdentifier) {
