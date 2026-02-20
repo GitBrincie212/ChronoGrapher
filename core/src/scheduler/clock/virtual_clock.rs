@@ -8,6 +8,7 @@ use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::scheduler::clock::ProgressiveClock;
 
+#[derive(Default)]
 pub struct VirtualClock {
     current_time: AtomicU64,
     notify: Notify,
