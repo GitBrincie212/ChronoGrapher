@@ -38,15 +38,6 @@ impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2
     }
 }
 
-impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
-    pub fn new(schedule: T2, frame: T1) -> Self {
-        Self {
-            frame: Arc::new(frame),
-            trigger: Arc::new(schedule),
-            hooks: Arc::new(TaskHookContainer(DashMap::default())),
-        }
-    }
-}
 
 impl<E: TaskError> ErasedTask<E> {
     pub async fn run(&self) -> Result<(), E> {
@@ -74,9 +65,51 @@ impl<E: TaskError> ErasedTask<E> {
     pub fn set_trigger(&mut self, new_trigger: impl TaskTrigger) {
         self.trigger = Arc::new(new_trigger) as Arc<dyn TaskTrigger>
     }
+
+    pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
+        let ctx = TaskHookContext {
+            hooks_container: self.hooks.clone(),
+            depth: 0,
+            frame: self.frame.erased()
+        };
+
+        self.hooks.attach(&ctx, hook).await;
+    }
+
+    pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
+        self.hooks.get::<EV, T>()
+    }
+
+    pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
+        let ctx = TaskHookContext {
+            hooks_container: self.hooks.clone(),
+            depth: 0,
+            frame: self.frame.erased()
+        };
+
+        self.hooks.emit::<EV>(&ctx, payload).await;
+    }
+
+    pub async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) {
+        let ctx = TaskHookContext {
+            hooks_container: self.hooks.clone(),
+            depth: 0,
+            frame: self.frame.erased()
+        };
+
+        self.hooks.detach::<EV, T>(&ctx).await;
+    }
 }
 
 impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
+    pub fn new(schedule: T2, frame: T1) -> Self {
+        Self {
+            frame: Arc::new(frame),
+            trigger: Arc::new(schedule),
+            hooks: Arc::new(TaskHookContainer(DashMap::default())),
+        }
+    }
+
     pub fn as_erased(&self) -> ErasedTask<T1::Error> {
         ErasedTask {
             frame: self.frame.clone(),
@@ -85,45 +118,45 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         }
     }
 
-    pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
-        let ctx = TaskHookContext {
-            hooks_container: self.hooks.clone(),
-            depth: 0,
-            frame: self.frame.as_ref(),
-        };
-
-        self.hooks.attach(&ctx, hook).await;
-    }
-
-    pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
-        self.hooks.get::<E, T>()
-    }
-
-    pub async fn emit_hook_event<E: TaskHookEvent>(&self, payload: &E::Payload<'_>) {
-        let ctx = TaskHookContext {
-            hooks_container: self.hooks.clone(),
-            depth: 0,
-            frame: self.frame.as_ref(),
-        };
-
-        self.hooks.emit::<E>(&ctx, payload).await;
-    }
-
-    pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
-        let ctx = TaskHookContext {
-            hooks_container: self.hooks.clone(),
-            depth: 0,
-            frame: self.frame.as_ref(),
-        };
-
-        self.hooks.detach::<E, T>(&ctx).await;
-    }
-
     pub fn frame(&self) -> &T1 {
         &self.frame
     }
 
     pub fn trigger(&self) -> &T2 {
         &self.trigger
+    }
+
+    pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
+        let ctx = TaskHookContext {
+            hooks_container: self.hooks.clone(),
+            depth: 0,
+            frame: self.frame.as_ref()
+        };
+
+        self.hooks.attach(&ctx, hook).await;
+    }
+
+    pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
+        self.hooks.get::<EV, T>()
+    }
+
+    pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
+        let ctx = TaskHookContext {
+            hooks_container: self.hooks.clone(),
+            depth: 0,
+            frame: self.frame.as_ref()
+        };
+
+        self.hooks.emit::<EV>(&ctx, payload).await;
+    }
+
+    pub async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) {
+        let ctx = TaskHookContext {
+            hooks_container: self.hooks.clone(),
+            depth: 0,
+            frame: self.frame.as_ref()
+        };
+
+        self.hooks.detach::<EV, T>(&ctx).await;
     }
 }
