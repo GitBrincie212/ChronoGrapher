@@ -1,4 +1,4 @@
-use chronographer::prelude::{TaskError};
+use chronographer::prelude::TaskError;
 use chronographer::scheduler::DefaultSchedulerConfig;
 use chronographer::scheduler::clock::{AdvanceableSchedulerClock, SchedulerClock, VirtualClock};
 use std::time::{Duration, UNIX_EPOCH};
