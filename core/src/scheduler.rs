@@ -72,13 +72,6 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
     }
 }
 
-pub enum SchedulerHandleInstructions<C: SchedulerConfig> {
-    Reschedule(C::TaskIdentifier), // Forces the Task to reschedule (instances may still run)
-    Halt(C::TaskIdentifier),       // Cancels the Task's current execution, if any
-    Block(C::TaskIdentifier),      // Blocks the Task from rescheduling
-    Execute(C::TaskIdentifier)     // Spawns a new instance of the Task to run
-}
-
 pub struct Scheduler<C: SchedulerConfig> {
     clock: Arc<C::SchedulerClock>,
     store: Arc<C::SchedulerTaskStore>,
@@ -87,16 +80,15 @@ pub struct Scheduler<C: SchedulerConfig> {
     process: Mutex<Option<JoinHandle<()>>>,
 }
 
-impl<C, E> Default for Scheduler<C>
+impl<C> Default for Scheduler<C>
 where
     C: SchedulerConfig<
-            SchedulerTaskStore: Default,
-            SchedulerTaskDispatcher: Default,
-            SchedulerEngine: Default,
-            SchedulerClock: Default,
-            TaskError = E,
-        >,
-    E: TaskError,
+        SchedulerTaskStore: Default,
+        SchedulerTaskDispatcher: Default,
+        SchedulerEngine: Default,
+        SchedulerClock: Default,
+        TaskError: TaskError,
+    >,
 {
     fn default() -> Self {
         Self::builder()
@@ -149,10 +141,11 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
     pub async fn schedule(
         &self,
-        task: &Task<impl TaskFrame<Error = C::TaskError>, impl TaskTrigger>,
+        task: &Task<impl TaskFrame<Error=C::TaskError>, impl TaskTrigger>,
     ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
         let erased = task.as_erased();
-        self.store.store(&self.clock, erased).await
+        let id = C::TaskIdentifier::generate();
+        self.store.store(&self.clock, id, erased).await
     }
 
     pub async fn cancel(&self, idx: &C::TaskIdentifier) {
