@@ -5,7 +5,6 @@ use async_trait::async_trait;
 use std::clone::Clone;
 use std::fmt::Debug;
 use std::num::NonZeroU32;
-use std::sync::Arc;
 use std::time::Duration;
 use typed_builder::TypedBuilder;
 
@@ -138,11 +137,11 @@ pub struct RetriableTaskFrameConfig<T: TaskFrame> {
 
     #[builder(
         setter(transform = |val: impl RetryErrorFilter<T::Error>|
-            Arc::new(val) as Arc<dyn RetryErrorFilter<T::Error>>
+            Box::new(val) as Box<dyn RetryErrorFilter<T::Error>>
         ),
-        default = Arc::new(())
+        default = Box::new(())
     )]
-    when: Arc<dyn RetryErrorFilter<T::Error>>,
+    when: Box<dyn RetryErrorFilter<T::Error>>,
 }
 
 impl<T: TaskFrame> From<RetriableTaskFrameConfig<T>> for RetriableTaskFrame<T> {
@@ -160,7 +159,7 @@ pub struct RetriableTaskFrame<T: TaskFrame> {
     frame: T,
     retries: NonZeroU32,
     backoff_strat: Box<dyn RetryBackoffStrategy>,
-    when: Arc<dyn RetryErrorFilter<T::Error>>,
+    when: Box<dyn RetryErrorFilter<T::Error>>,
 }
 
 impl<T: TaskFrame> RetriableTaskFrame<T> {
