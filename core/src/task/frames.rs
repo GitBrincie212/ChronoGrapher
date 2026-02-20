@@ -28,14 +28,13 @@ pub use retryframe::*;
 pub use thresholdframe::*;
 pub use timeoutframe::*;
 
-use crate::errors::TaskError;
+use crate::errors::{StandardCoreErrorsCG, TaskError};
 use crate::prelude::NonObserverTaskHook;
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookContext, TaskHookEvent};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
-
-pub type DynArcError = Arc<dyn TaskError>;
+use crate::scheduler::engine::default::{SchedulerHandle, SchedulerHandleInstructions};
 
 #[derive(Clone)]
 pub struct RestrictTaskFrameContext<'a> {
@@ -46,6 +45,18 @@ pub struct RestrictTaskFrameContext<'a> {
 
 #[derive(Clone)]
 pub struct TaskFrameContext<'a>(pub(crate) RestrictTaskFrameContext<'a>);
+
+macro_rules! instruct_method {
+    ($name: ident, $variant: ident) => {
+        pub async fn $name(&self) -> Result<(), StandardCoreErrorsCG> {
+            if let Some(hook) = self.get_hook::<(), SchedulerHandle>() {
+                hook.instruct(SchedulerHandleInstructions::$variant).await;
+                return Ok(())
+            }
+            Err(StandardCoreErrorsCG::SchedulerInstructionsUnsupported)
+        }
+    };
+}
 
 impl<'a> TaskFrameContext<'a> {
     pub(crate) fn subdivided_ctx(&self, frame: &'a dyn ErasedTaskFrame) -> Self {
@@ -68,6 +79,11 @@ impl<'a> TaskFrameContext<'a> {
         let child_ctx = self.subdivided_ctx(frame);
         frame.execute(&child_ctx).await
     }
+
+    instruct_method!(instruct_reschedule, Reschedule);
+    instruct_method!(instruct_block, Block);
+    instruct_method!(instruct_halt, Halt);
+    instruct_method!(instruct_execute, Execute);
 
     pub fn as_restricted(&self) -> &RestrictTaskFrameContext<'a> {
         &self.0
