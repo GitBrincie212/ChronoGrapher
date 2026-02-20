@@ -6,7 +6,6 @@ use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{RestrictTaskFrameContext, TaskFrameContext, TaskHookEvent};
 use crate::{define_event, define_event_group};
 use async_trait::async_trait;
-use std::sync::Arc;
 use typed_builder::TypedBuilder;
 
 #[async_trait]
@@ -33,9 +32,9 @@ pub struct ConditionalFrameConfig<T: TaskFrame, T2: TaskFrame> {
     frame: T,
 
     #[builder(setter(transform = |s: impl ConditionalFramePredicate + 'static| {
-        Arc::new(s) as Arc<dyn ConditionalFramePredicate>
+        Box::new(s) as Box<dyn ConditionalFramePredicate>
     }))]
-    predicate: Arc<dyn ConditionalFramePredicate>,
+    predicate: Box<dyn ConditionalFramePredicate>,
 
     #[builder(default = false)]
     error_on_false: bool,
@@ -65,7 +64,7 @@ impl<T: TaskFrame, T2: TaskFrame> From<ConditionalFrameConfig<T, T2>> for Condit
 pub struct ConditionalFrame<T, T2> {
     frame: T,
     fallback: T2,
-    predicate: Arc<dyn ConditionalFramePredicate>,
+    predicate: Box<dyn ConditionalFramePredicate>,
     error_on_false: bool,
 }
 
