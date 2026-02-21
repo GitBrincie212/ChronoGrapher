@@ -47,24 +47,35 @@ an advantage and the issue at hand:
 > What if we change the workflow definitions? Wouldn't it mean ``FallbackHandle`` has to handle things differently?
 
 Which is exactly the problem. There are two approaches to solving this problem, either update the definition
-like so:
+as demonstrated below:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust lineNumbers=8
-if let Some(error) = ctx.get_shared::<SharedFallbackError<MyErrors>>().await {
-    // <...>
+type TargetFallbackError = RetriableTaskFrameError<FallbackTaskFrameError<TimeoutTaskFrameError<MyError>>>>;
+
+// [!code ++]
+#[taskframe]
+// [!code ++]
+async fn MyFallbackTaskFrame(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // [!code highlight]
+    if let Some(error) = ctx.get_shared::<SharedFallbackError<TargetFallbackError>>>().await {
+        // In real-world scenarios you handle these errors more gracefully
+        return **match error.0 {
+            // ...Handling The TimeoutTaskFrameError<MyError> Gracefully (both timeouts and MyError)...
+        };
+    }
+    Ok(())
+// [!code ++]
 }
 ```
 
-Which would require us changing the match statement to account for a timeout error as well. Or alternatively,
-it is possible to fully erase the error as demonstrated below:
-
+While this approach provides structured error matching, the problem is it requires a static workflow configuration and updating
+multiple points throughout our program. Alternatively one can do the following:
 ```rust lineNumbers=8
 if let Some(error) = ctx.get_shared::<SharedFallbackError<Box<dyn TaskError>>().await {
-    // <...>
+    // ...Handling downcasts and peeling off new type errors...
 }
 ```
-However, this would require either down casting to a concrete type in order to handle the error gracefully,
-this is best left for later chapters to elaborate upon.
+
 </RenderProgrammingLanguageBased>
 
 In the next chapter we will take a look back to ``retry`` and ``fallback``, explaining additional advanced properties
