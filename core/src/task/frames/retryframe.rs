@@ -179,9 +179,7 @@ impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
             ctx.emit::<OnRetryAttemptStart>(&retry).await;
 
             error = self.frame.execute(&subdivided).await;
-            let erased_err = error.as_ref()
-                .map_err(|x| x as &dyn TaskError)
-                .err();
+            let erased_err = error.as_ref().map_err(|x| x as &dyn TaskError).err();
 
             ctx.emit::<OnRetryAttemptEnd>(&(retry, erased_err)).await;
 

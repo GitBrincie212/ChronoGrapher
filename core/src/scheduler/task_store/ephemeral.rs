@@ -40,13 +40,12 @@ pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask<C::TaskError>>>,
     sender: tokio::sync::mpsc::Sender<SchedulePayload>,
-    notifier: tokio::sync::Notify
+    notifier: tokio::sync::Notify,
 }
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     fn default() -> Self {
-        let (tx, mut rx) =
-            tokio::sync::mpsc::channel::<SchedulePayload>(1024);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<SchedulePayload>(1024);
 
         let earliest_sorted = Arc::new(Mutex::new(BinaryHeap::new()));
         let earliest_sorted_clone = earliest_sorted.clone();
@@ -71,7 +70,7 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
             earliest_sorted,
             tasks: DashMap::new(),
             sender: tx,
-            notifier: tokio::sync::Notify::default()
+            notifier: tokio::sync::Notify::default(),
         }
     }
 }
@@ -120,9 +119,9 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
                 Ok(()) => {
                     self.notifier.notify_waiters();
                     RescheduleError::Success
-                },
-                Err(err) => RescheduleError::TriggerError(err)
-            }
+                }
+                Err(err) => RescheduleError::TriggerError(err),
+            };
         }
         RescheduleError::UnknownTask
     }
@@ -153,9 +152,8 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
     }
 
     fn iter(&self) -> impl Iterator<Item = (C::TaskIdentifier, Self::StoredTask)> {
-        self.tasks.iter().map(|x| (
-            x.key().clone(),
-            x.value().clone()
-        ))
+        self.tasks
+            .iter()
+            .map(|x| (x.key().clone(), x.value().clone()))
     }
 }

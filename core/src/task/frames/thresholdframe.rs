@@ -95,10 +95,7 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
         let mut total = self.count.load(Ordering::Relaxed);
         if total == self.threshold.get() {
-            return self
-                .threshold_reach_behaviour
-                .results(&ctx.0)
-                .await
+            return self.threshold_reach_behaviour.results(&ctx.0).await;
         }
 
         let res = ctx.subdivide(&self.frame).await;

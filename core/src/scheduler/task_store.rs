@@ -1,22 +1,25 @@
 pub mod ephemeral;
 // skipcq: RS-D1001
 
-use std::any::Any;
-pub use ephemeral::*;
-use std::error::Error;
-use std::ops::Deref;
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::task::ErasedTask;
 use async_trait::async_trait;
+pub use ephemeral::*;
+use std::any::Any;
+use std::error::Error;
+use std::ops::Deref;
 use std::time::SystemTime;
 
-pub type SchedulePayload = (Box<dyn Any + Send + Sync>, Result<SystemTime, Box<dyn Error + Send + Sync>>);
+pub type SchedulePayload = (
+    Box<dyn Any + Send + Sync>,
+    Result<SystemTime, Box<dyn Error + Send + Sync>>,
+);
 
 pub enum RescheduleError {
     Success,
     TriggerError(Box<dyn Error + Send + Sync>),
-    UnknownTask
+    UnknownTask,
 }
 
 #[async_trait]

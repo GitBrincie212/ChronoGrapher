@@ -3,15 +3,17 @@ pub mod engine; // skipcq: RS-D1001
 pub mod task_dispatcher; // skipcq: RS-D1001
 pub mod task_store; // skipcq: RS-D1001
 
-use std::any::Any;
 use crate::errors::TaskError;
+use crate::prelude::TaskHook;
 use crate::scheduler::clock::*;
+use crate::scheduler::engine::default::SchedulerHandleInstructions;
 use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine, SchedulerHandlePayload};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ErasedTask, Task, TaskFrame, TaskTrigger};
 use crate::utils::TaskIdentifier;
+use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -20,8 +22,6 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
-use crate::prelude::TaskHook;
-use crate::scheduler::engine::default::SchedulerHandleInstructions;
 
 pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
 
@@ -71,7 +71,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             clock: Arc::new(config.clock),
             process: Mutex::new(None),
             engine: Arc::new(config.engine),
-            instruction_channel: Mutex::new(None)
+            instruction_channel: Mutex::new(None),
         }
     }
 }
@@ -82,18 +82,18 @@ pub struct Scheduler<C: SchedulerConfig> {
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
     process: Mutex<Option<JoinHandle<()>>>,
-    instruction_channel: Mutex<Option<tokio::sync::mpsc::Sender<SchedulerHandlePayload>>>
+    instruction_channel: Mutex<Option<tokio::sync::mpsc::Sender<SchedulerHandlePayload>>>,
 }
 
 impl<C> Default for Scheduler<C>
 where
     C: SchedulerConfig<
-        SchedulerTaskStore: Default,
-        SchedulerTaskDispatcher: Default,
-        SchedulerEngine: Default,
-        SchedulerClock: Default,
-        TaskError: TaskError,
-    >,
+            SchedulerTaskStore: Default,
+            SchedulerTaskDispatcher: Default,
+            SchedulerEngine: Default,
+            SchedulerClock: Default,
+            TaskError: TaskError,
+        >,
 {
     fn default() -> Self {
         Self::builder()
@@ -107,12 +107,15 @@ where
 
 pub(crate) struct SchedulerHandle {
     pub(crate) id: Arc<dyn Any + Send + Sync>,
-    pub(crate) channel: tokio::sync::mpsc::Sender<SchedulerHandlePayload>
+    pub(crate) channel: tokio::sync::mpsc::Sender<SchedulerHandlePayload>,
 }
 
 impl SchedulerHandle {
     pub(crate) async fn instruct(&self, instruction: SchedulerHandleInstructions) {
-        self.channel.send((self.id.clone(), instruction)).await.expect("Cannot instruct");
+        self.channel
+            .send((self.id.clone(), instruction))
+            .await
+            .expect("Cannot instruct");
     }
 }
 
@@ -121,11 +124,11 @@ impl TaskHook<()> for SchedulerHandle {}
 pub(crate) async fn append_scheduler_handler<C: SchedulerConfig>(
     task: &ErasedTask<C::TaskError>,
     id: C::TaskIdentifier,
-    channel: &tokio::sync::mpsc::Sender<SchedulerHandlePayload>
+    channel: &tokio::sync::mpsc::Sender<SchedulerHandlePayload>,
 ) {
     let handle = SchedulerHandle {
         id: Arc::new(id),
-        channel: channel.clone()
+        channel: channel.clone(),
     };
 
     task.attach_hook::<()>(Arc::new(handle)).await;
@@ -153,10 +156,10 @@ impl<C: SchedulerConfig> Scheduler<C> {
             self.store.init(),
             self.dispatcher.init(),
             self.engine.init(),
-            self.engine.create_instruction_channel(
-                &clock_clone, &store_clone, &dispatcher_clone
-            )
-        ).4;
+            self.engine
+                .create_instruction_channel(&clock_clone, &store_clone, &dispatcher_clone)
+        )
+        .4;
 
         for (id, task) in self.store.iter() {
             append_scheduler_handler::<C>(&task, id, &channel).await;
@@ -164,13 +167,11 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
         *self.instruction_channel.lock().await = Some(channel);
 
-        *self.process.lock().await = Some(
-            tokio::spawn(async move {
-                engine_clone
-                    .main(clock_clone, store_clone, dispatcher_clone)
-                    .await;
-            })
-        )
+        *self.process.lock().await = Some(tokio::spawn(async move {
+            engine_clone
+                .main(clock_clone, store_clone, dispatcher_clone)
+                .await;
+        }))
     }
 
     pub async fn abort(&self) {
@@ -186,7 +187,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
     pub async fn schedule(
         &self,
-        task: &Task<impl TaskFrame<Error=C::TaskError>, impl TaskTrigger>,
+        task: &Task<impl TaskFrame<Error = C::TaskError>, impl TaskTrigger>,
     ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
         let erased = task.as_erased();
         let id = C::TaskIdentifier::generate();

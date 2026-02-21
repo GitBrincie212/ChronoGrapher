@@ -1,12 +1,12 @@
 pub mod default;
 
-use std::any::Any;
 pub use default::DefaultSchedulerEngine;
+use std::any::Any;
 
 use crate::scheduler::SchedulerConfig;
+use crate::scheduler::engine::default::SchedulerHandleInstructions;
 use async_trait::async_trait;
 use std::sync::Arc;
-use crate::scheduler::engine::default::SchedulerHandleInstructions;
 
 pub type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 

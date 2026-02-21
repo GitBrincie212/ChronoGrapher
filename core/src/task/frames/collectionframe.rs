@@ -94,10 +94,13 @@ pub struct SequentialExecStrategy;
 #[async_trait]
 impl CollectionExecStrategy for SequentialExecStrategy {
     async fn execute(
-        &self, handle: CollectionTaskFrameHandle<'_, Self>
+        &self,
+        handle: CollectionTaskFrameHandle<'_, Self>,
     ) -> Result<(), <CollectionTaskFrame<Self> as TaskFrame>::Error> {
         for idx in 0..handle.length() {
-            handle.run(idx).await
+            handle
+                .run(idx)
+                .await
                 .map_err(|x| CollectionTaskError::new(idx, x))?;
         }
         Ok(())
@@ -178,9 +181,7 @@ impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
         let result = self.ctx.erased_subdivide(taskframe).await;
         match result {
             Ok(()) => {
-                self.ctx
-                    .emit::<OnChildTaskFrameEnd>(&None)
-                    .await;
+                self.ctx.emit::<OnChildTaskFrameEnd>(&None).await;
                 Ok(())
             }
 
@@ -190,7 +191,7 @@ impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
                     .await;
 
                 Err(err)
-            },
+            }
         }
     }
 

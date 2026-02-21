@@ -38,16 +38,13 @@ impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2
     }
 }
 
-
 impl<E: TaskError> ErasedTask<E> {
     pub async fn run(&self) -> Result<(), E> {
         let ctx = TaskFrameContext(RestrictTaskFrameContext::new(self));
         ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
         let result: Result<(), E> = self.frame.erased_execute(&ctx).await;
-        ctx.emit::<OnTaskEnd>(&result.as_ref()
-            .map_err(|x| x as &dyn TaskError)
-            .err()
-        ).await;
+        ctx.emit::<OnTaskEnd>(&result.as_ref().map_err(|x| x as &dyn TaskError).err())
+            .await;
 
         result
     }
@@ -72,7 +69,7 @@ impl<E: TaskError> ErasedTask<E> {
         let ctx = TaskHookContext {
             hooks_container: self.hooks.clone(),
             depth: 0,
-            frame: self.frame.erased()
+            frame: self.frame.erased(),
         };
 
         self.hooks.attach(&ctx, hook).await;
@@ -86,7 +83,7 @@ impl<E: TaskError> ErasedTask<E> {
         let ctx = TaskHookContext {
             hooks_container: self.hooks.clone(),
             depth: 0,
-            frame: self.frame.erased()
+            frame: self.frame.erased(),
         };
 
         self.hooks.emit::<EV>(&ctx, payload).await;
@@ -96,7 +93,7 @@ impl<E: TaskError> ErasedTask<E> {
         let ctx = TaskHookContext {
             hooks_container: self.hooks.clone(),
             depth: 0,
-            frame: self.frame.erased()
+            frame: self.frame.erased(),
         };
 
         self.hooks.detach::<EV, T>(&ctx).await;
@@ -132,7 +129,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         let ctx = TaskHookContext {
             hooks_container: self.hooks.clone(),
             depth: 0,
-            frame: self.frame.as_ref()
+            frame: self.frame.as_ref(),
         };
 
         self.hooks.attach(&ctx, hook).await;
@@ -146,7 +143,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         let ctx = TaskHookContext {
             hooks_container: self.hooks.clone(),
             depth: 0,
-            frame: self.frame.as_ref()
+            frame: self.frame.as_ref(),
         };
 
         self.hooks.emit::<EV>(&ctx, payload).await;
@@ -156,7 +153,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         let ctx = TaskHookContext {
             hooks_container: self.hooks.clone(),
             depth: 0,
-            frame: self.frame.as_ref()
+            frame: self.frame.as_ref(),
         };
 
         self.hooks.detach::<EV, T>(&ctx).await;

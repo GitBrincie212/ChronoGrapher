@@ -75,5 +75,5 @@ pub enum StandardCoreErrorsCG {
     IntervalTimedeltaOutOfRange,
 
     #[error("The current SchedulerEngine does not support scheduler instructions")]
-    SchedulerInstructionsUnsupported
+    SchedulerInstructionsUnsupported,
 }

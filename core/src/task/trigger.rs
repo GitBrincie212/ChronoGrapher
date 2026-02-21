@@ -1,6 +1,7 @@
 pub mod schedule; // skipcq: RS-D1001
 
 use crate::scheduler::SchedulerConfig;
+use crate::scheduler::task_store::SchedulePayload;
 #[allow(unused_imports)]
 use crate::task::Task;
 pub use crate::task::trigger::schedule::calendar::TaskCalendarField;
@@ -12,7 +13,6 @@ use async_trait::async_trait;
 use std::any::Any;
 use std::error::Error;
 use std::time::SystemTime;
-use crate::scheduler::task_store::SchedulePayload;
 
 pub struct TriggerNotifier {
     id: Box<dyn Any + Send + Sync>,

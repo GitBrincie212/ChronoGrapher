@@ -30,7 +30,7 @@ impl<C: SchedulerConfig> EngineNotifier<C> {
     ) -> Self {
         Self { id, notify }
     }
-    
+
     pub fn new_id(&mut self, id: C::TaskIdentifier) {
         self.id = id
     }

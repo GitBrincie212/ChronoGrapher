@@ -30,12 +30,12 @@ pub use timeoutframe::*;
 
 use crate::errors::{StandardCoreErrorsCG, TaskError};
 use crate::prelude::NonObserverTaskHook;
+use crate::scheduler::SchedulerHandle;
+use crate::scheduler::engine::default::SchedulerHandleInstructions;
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookContext, TaskHookEvent};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
-use crate::scheduler::engine::default::SchedulerHandleInstructions;
-use crate::scheduler::SchedulerHandle;
 
 #[derive(Clone)]
 pub struct RestrictTaskFrameContext<'a> {
@@ -52,7 +52,7 @@ macro_rules! instruct_method {
         pub async fn $name(&self) -> Result<(), StandardCoreErrorsCG> {
             if let Some(hook) = self.get_hook::<(), SchedulerHandle>() {
                 hook.instruct(SchedulerHandleInstructions::$variant).await;
-                return Ok(())
+                return Ok(());
             }
             Err(StandardCoreErrorsCG::SchedulerInstructionsUnsupported)
         }

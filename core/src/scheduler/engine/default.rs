@@ -1,22 +1,22 @@
-use std::any::type_name;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::{SchedulerEngine, SchedulerHandlePayload};
 use crate::scheduler::task_dispatcher::{EngineNotifier, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::{RescheduleError, SchedulerTaskStore};
 use async_trait::async_trait;
-use std::sync::Arc;
 use dashmap::DashSet;
+use std::any::type_name;
+use std::sync::Arc;
 use tokio::join;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct DefaultSchedulerEngine;
 
 pub enum SchedulerHandleInstructions {
-    Reschedule,   // Forces the Task to reschedule (instances may still run)
-    Halt,         // Cancels the Task's current execution, if any
-    Block,        // Blocks the Task from rescheduling
-    Execute       // Spawns a new instance of the Task to run
+    Reschedule, // Forces the Task to reschedule (instances may still run)
+    Halt,       // Cancels the Task's current execution, if any
+    Block,      // Blocks the Task from rescheduling
+    Execute,    // Spawns a new instance of the Task to run
 }
 
 #[async_trait]
@@ -50,7 +50,9 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                                 match store.reschedule(&clock, &id).await {
                                     RescheduleError::Success => {}
                                     RescheduleError::TriggerError(_) => {
-                                        eprintln!("Failed to reschedule Task with the identifier {id:?}")
+                                        eprintln!(
+                                            "Failed to reschedule Task with the identifier {id:?}"
+                                        )
                                     }
                                     RescheduleError::UnknownTask => {}
                                 }
@@ -67,7 +69,6 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                     }
                 }
             },
-
             // ============================
             // Engine Loop
             // ============================
@@ -112,45 +113,39 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
         let store = store.clone();
         let _dispatcher = dispatcher.clone();
 
-        tokio::spawn(
-            async move {
-                while let Some((id, instruction)) = instruct_receive.recv().await {
-                    let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(||
-                        panic!(
-                            "Cannot downcast to TaskIdentifier of type {:?}",
-                            type_name::<C::TaskIdentifier>()
-                        )
-                    );
+        tokio::spawn(async move {
+            while let Some((id, instruction)) = instruct_receive.recv().await {
+                let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(|| {
+                    panic!(
+                        "Cannot downcast to TaskIdentifier of type {:?}",
+                        type_name::<C::TaskIdentifier>()
+                    )
+                });
 
-                    match instruction {
-                        SchedulerHandleInstructions::Reschedule => {
-                            match store.reschedule(clock.as_ref(), id).await {
-                                RescheduleError::Success => {}
-                                RescheduleError::TriggerError(err) => {
-                                    eprintln!(
-                                        "Failed reschedule via instruction the task(identifier being \
+                match instruction {
+                    SchedulerHandleInstructions::Reschedule => {
+                        match store.reschedule(clock.as_ref(), id).await {
+                            RescheduleError::Success => {}
+                            RescheduleError::TriggerError(err) => {
+                                eprintln!(
+                                    "Failed reschedule via instruction the task(identifier being \
                                         \"{id:?}\") with error:\n\t{err:?}"
-                                    )
-                                }
-                                RescheduleError::UnknownTask => {}
+                                )
                             }
-                        }
-
-                        SchedulerHandleInstructions::Halt => {
-
-                        }
-
-                        SchedulerHandleInstructions::Block => {
-                            store.remove(id).await;
-                        }
-
-                        SchedulerHandleInstructions::Execute => {
-
+                            RescheduleError::UnknownTask => {}
                         }
                     }
+
+                    SchedulerHandleInstructions::Halt => {}
+
+                    SchedulerHandleInstructions::Block => {
+                        store.remove(id).await;
+                    }
+
+                    SchedulerHandleInstructions::Execute => {}
                 }
-            },
-        );
+            }
+        });
 
         instruct_send
     }
