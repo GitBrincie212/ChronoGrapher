@@ -13,7 +13,7 @@ use tokio_schedule::{every, Job};
 
 static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 async fn main() {
     dbg!("LOADING TASKS");
     let mut millis: f64 = 0.9;
@@ -63,6 +63,7 @@ async fn main() {
     }
 }
 */
+
 use async_trait::async_trait;
 use chronographer::prelude::*;
 use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
@@ -89,12 +90,13 @@ impl TaskFrame for MyTaskFrame {
 
 static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 #[allow(clippy::empty_loop)]
 async fn main() {
+    let t = tokio::time::Instant::now();
     let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
-    dbg!("LOADING TASKS");
+    println!("LOADING TASKS");
     let mut millis: f64 = 0.9;
     for _ in 0..200_000 {
         millis *= 0.05;
@@ -102,7 +104,7 @@ async fn main() {
 
         let _ = scheduler.schedule(&task).await;
     }
-    dbg!("STARTING");
+    println!("STARTING {}", t.elapsed().as_secs_f64());
 
     scheduler.start().await;
     let mut last = COUNTER.load(Ordering::Relaxed);
