@@ -3,6 +3,7 @@ pub mod engine; // skipcq: RS-D1001
 pub mod task_dispatcher; // skipcq: RS-D1001
 pub mod task_store; // skipcq: RS-D1001
 
+use std::any::Any;
 use crate::errors::TaskError;
 use crate::scheduler::clock::*;
 use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine, SchedulerHandlePayload};
@@ -19,7 +20,8 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
-use crate::scheduler::engine::default::SchedulerHandle;
+use crate::prelude::TaskHook;
+use crate::scheduler::engine::default::SchedulerHandleInstructions;
 
 pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
 
@@ -102,6 +104,19 @@ where
             .build()
     }
 }
+
+pub(crate) struct SchedulerHandle {
+    pub(crate) id: Arc<dyn Any + Send + Sync>,
+    pub(crate) channel: tokio::sync::mpsc::Sender<SchedulerHandlePayload>
+}
+
+impl SchedulerHandle {
+    pub(crate) async fn instruct(&self, instruction: SchedulerHandleInstructions) {
+        self.channel.send((self.id.clone(), instruction)).await.expect("Cannot instruct");
+    }
+}
+
+impl TaskHook<()> for SchedulerHandle {}
 
 pub(crate) async fn append_scheduler_handler<C: SchedulerConfig>(
     task: &ErasedTask<C::TaskError>,

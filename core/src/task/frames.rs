@@ -34,7 +34,8 @@ use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookContext, Task
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
-use crate::scheduler::engine::default::{SchedulerHandle, SchedulerHandleInstructions};
+use crate::scheduler::engine::default::SchedulerHandleInstructions;
+use crate::scheduler::SchedulerHandle;
 
 #[derive(Clone)]
 pub struct RestrictTaskFrameContext<'a> {

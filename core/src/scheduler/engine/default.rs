@@ -1,4 +1,4 @@
-use std::any::{type_name, Any};
+use std::any::type_name;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::{SchedulerEngine, SchedulerHandlePayload};
@@ -8,7 +8,6 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use dashmap::DashSet;
 use tokio::join;
-use crate::prelude::TaskHook;
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct DefaultSchedulerEngine;
@@ -19,19 +18,6 @@ pub enum SchedulerHandleInstructions {
     Block,        // Blocks the Task from rescheduling
     Execute       // Spawns a new instance of the Task to run
 }
-
-pub(crate) struct SchedulerHandle {
-    pub(crate) id: Arc<dyn Any + Send + Sync>,
-    pub(crate) channel: tokio::sync::mpsc::Sender<SchedulerHandlePayload>
-}
-
-impl SchedulerHandle {
-    pub(crate) async fn instruct(&self, instruction: SchedulerHandleInstructions) {
-        self.channel.send((self.id.clone(), instruction)).await.expect("Cannot instruct");
-    }
-}
-
-impl TaskHook<()> for SchedulerHandle {}
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
