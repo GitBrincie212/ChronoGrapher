@@ -30,6 +30,10 @@ impl<C: SchedulerConfig> EngineNotifier<C> {
     ) -> Self {
         Self { id, notify }
     }
+    
+    pub fn new_id(&mut self, id: C::TaskIdentifier) {
+        self.id = id
+    }
 
     pub async fn notify(&self, result: Option<C::TaskError>) {
         self.notify
@@ -46,6 +50,6 @@ pub trait SchedulerTaskDispatcher<C: SchedulerConfig>: 'static + Send + Sync {
     async fn dispatch(
         &self,
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
-        notifier: EngineNotifier<C>,
+        notifier: &EngineNotifier<C>,
     );
 }

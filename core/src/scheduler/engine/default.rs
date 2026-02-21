@@ -78,13 +78,16 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                         _ = clock.idle_to(time) => {
                             store.pop().await;
                             if !store.exists(&id) { continue; }
+
                             let sender = EngineNotifier::new(
                                 id.clone(),
                                 scheduler_send.clone(),
                             );
 
                             let dispatcher = dispatcher.clone();
-                            tokio::spawn(async move {dispatcher.dispatch(task, sender).await;});
+                            tokio::spawn(async move {
+                                dispatcher.dispatch(task, &sender).await;
+                            });
                         }
 
                         _ = notifier.notified() => {
