@@ -191,7 +191,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
         let erased = task.as_erased();
         let id = C::TaskIdentifier::generate();
         if let Some(channel) = &*self.instruction_channel.lock().await {
-            append_scheduler_handler::<C>(&erased, id.clone(), &channel).await;
+            append_scheduler_handler::<C>(&erased, id.clone(), channel).await;
         }
         self.store.store(&self.clock, id, erased).await
     }

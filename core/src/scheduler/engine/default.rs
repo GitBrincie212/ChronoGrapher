@@ -115,8 +115,8 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
         tokio::spawn(
             async move {
                 while let Some((id, instruction)) = instruct_receive.recv().await {
-                    let id = id.downcast_ref::<C::TaskIdentifier>().expect(
-                        &format!(
+                    let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(||
+                        panic!(
                             "Cannot downcast to TaskIdentifier of type {:?}",
                             type_name::<C::TaskIdentifier>()
                         )
@@ -128,10 +128,8 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                                 RescheduleError::Success => {}
                                 RescheduleError::TriggerError(err) => {
                                     eprintln!(
-                                        "{}",
-                                        format!(
-                                            "Failed reschedule via instruction the task(identifier \
-                                                    being \"{id:?}\") with error:\n\t{err:?}")
+                                        "Failed reschedule via instruction the task(identifier being \
+                                        \"{id:?}\") with error:\n\t{err:?}"
                                     )
                                 }
                                 RescheduleError::UnknownTask => {}
