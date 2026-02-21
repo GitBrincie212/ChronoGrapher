@@ -113,7 +113,27 @@ If we want better randomization for our delays, we can turn to **Decorrelated Ji
 async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
-    ```
+```
+
+Its possible to refer to the type as well like so:
+```rust title="src/main.rs" lineNumbers=4
+struct MyBackoffStrategy;
+
+impl RetryBackoffStrategy for MyBackoffStrategy {
+    fn compute(&self, retry: u32) -> Duration {
+        // <...>
+    }
+}
+
+#[task(interval(2s))]
+#[workflow(
+    retry(3, custom(MyBackoffStrategy)))
+)]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+```
+
 </RenderProgrammingLanguageBased>
 The backoff strategies stores the previous delay, then randomizes uniformly from our base delay to our previous delay
 times three, then it picks the minimum between the cap (in our case ``20s``) and the result.
@@ -269,6 +289,32 @@ Modifying our example, we can write the same whitelist as:
         }
     })
 )]
+async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+    // ...Same code as before... //
+}
+```
+
+We can also refer to the type by rewriting our example like so
+```rust title="src/main.rs" lineNumbers=4
+use async_trait::async_trait;
+
+struct MyErrorFilter;
+
+#[async_trait]
+impl RetryErrorFilter<MyErrors> {
+    async fn execute(&self, error: Option<&T>) -> bool {
+        match err {
+            MyErrors::ServerError => true,
+            MyErrors::RequestFailed(..) => true,
+            MyErrors::TooManyRequests => true,
+            MyErrors::OtherHttpStatus(..) => true,
+            _ => false
+        }
+    }
+}
+
+#[task(interval(2s))]
+#[workflow(retry(3, when = custom(MyErrorFilter))]
 async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
