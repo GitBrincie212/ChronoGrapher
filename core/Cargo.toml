@@ -5,10 +5,10 @@ edition = "2024"
 license-file = "../LICENSE"
 homepage = "https://github.com/GitBrincie212/ChronoGrapher"
 authors = ["McBrincie212"]
-description = "The core library (acts as a foundation) for the ChronoGrapher scheduling platform"
+description = "The core library (acts as a foundation) for the ChronoGrapher scheduling / workflow orchestration platform"
 readme = "README.md"
 repository = "https://github.com/GitBrincie212/ChronoGrapher"
-keywords = ["ChronoGrapher", "scheduler", "scheduling", "workflow", "schedule"]
+keywords = ["ChronoGrapher", "scheduler", "scheduling", "workflow", "orchestration"]
 categories = ["embedded", "asynchronous"]
 
 [lib]
