@@ -97,9 +97,9 @@ async fn main() {
     let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
     println!("LOADING TASKS");
-    let mut millis: f64 = 0.9;
-    for _ in 0..200_000 {
-        millis *= 0.05;
+    let mut millis: f64 = 0.999;
+    for _ in 0..250_000 {
+        millis *= 0.025;
         let task = Task::new(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
 
         let _ = scheduler.schedule(&task).await;
