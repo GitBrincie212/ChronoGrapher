@@ -21,7 +21,6 @@ impl<C: SchedulerConfig> PartialEq<Self> for InternalScheduledItem<C> {
     }
 }
 
-#[allow(clippy::non_canonical_partial_ord_impl)]
 impl<C: SchedulerConfig> PartialOrd<Self> for InternalScheduledItem<C> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         other.0.partial_cmp(&self.0)
@@ -40,7 +39,7 @@ pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
     earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
     tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask<C::TaskError>>>,
     sender: tokio::sync::mpsc::Sender<SchedulePayload>,
-    notifier: tokio::sync::Notify,
+    notifier: tokio::sync::Notify
 }
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
@@ -53,9 +52,11 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
             while let Some((id, time)) = rx.recv().await {
                 let id = id.downcast_ref::<C::TaskIdentifier>()
                     .expect("Different type was used on TriggerNotifier, which was meant as for an identifier");
-                let mut lock = earliest_sorted_clone.lock().await;
                 match time {
-                    Ok(time) => lock.push(InternalScheduledItem(time, id.clone())),
+                    Ok(time) => {
+                        let mut lock = earliest_sorted_clone.lock().await;
+                        lock.push(InternalScheduledItem(time, id.clone()))
+                    },
                     Err(err) => {
                         eprintln!(
                             "TaskTrigger corresponding to the id {:?} failed to compute a future time with the error {:?}",
@@ -110,11 +111,11 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
     async fn reschedule(
         &self,
         clock: &C::SchedulerClock,
-        idx: &C::TaskIdentifier,
+        id: &C::TaskIdentifier,
     ) -> RescheduleError {
-        if let Some(task) = self.tasks.get(idx) {
+        if let Some(task) = self.tasks.get(id) {
             let now = clock.now();
-            let notifier = TriggerNotifier::new::<C>(idx.clone(), self.sender.clone());
+            let notifier = TriggerNotifier::new::<C>(id.clone(), self.sender.clone());
             return match task.trigger().trigger(now, notifier).await {
                 Ok(()) => {
                     self.notifier.notify_waiters();
@@ -132,11 +133,10 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
         id: C::TaskIdentifier,
         task: ErasedTask<C::TaskError>,
     ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
-        let task = Arc::new(task);
-        self.tasks.insert(id.clone(), task.clone());
         let now = clock.now();
         let notifier = TriggerNotifier::new::<C>(id.clone(), self.sender.clone());
         task.trigger().trigger(now, notifier).await?;
+        self.tasks.insert(id.clone(), Arc::new(task));
         self.notifier.notify_waiters();
 
         Ok::<<C as SchedulerConfig>::TaskIdentifier, Box<dyn Error + Send + Sync>>(id)
