@@ -71,6 +71,7 @@ pub enum StandardCoreErrorsCG {
     #[error("{0}")]
     CronParserError(String),
 
+    #[cfg(feature = "chrono")]
     #[error("Timedelta supplied is out of range")]
     IntervalTimedeltaOutOfRange,
 

@@ -1,8 +1,6 @@
-use crate::errors::StandardCoreErrorsCG;
 #[allow(unused_imports)]
 use crate::task::Task;
 use crate::task::schedule::TaskSchedule;
-use chrono::TimeDelta;
 use std::error::Error;
 use std::fmt::Debug;
 use std::ops::Add;
@@ -12,9 +10,10 @@ use std::time::{Duration, SystemTime};
 pub struct TaskScheduleInterval(pub(crate) Duration);
 
 impl TaskScheduleInterval {
-    pub fn timedelta(interval: TimeDelta) -> Result<Self, StandardCoreErrorsCG> {
+    #[cfg(feature = "chrono")]
+    pub fn timedelta(interval: chrono::TimeDelta) -> Result<Self, crate::errors::StandardCoreErrorsCG> {
         Ok(Self(interval.to_std().map_err(|_| {
-            StandardCoreErrorsCG::IntervalTimedeltaOutOfRange
+            crate::errors::StandardCoreErrorsCG::IntervalTimedeltaOutOfRange
         })?))
     }
 
