@@ -13,6 +13,13 @@ pub mod prelude {
 
     // Common frames
     pub use crate::task::collectionframe::CollectionTaskFrame;
+    pub use crate::task::collectionframe::GroupedTaskFramesQuitOnFailure;
+    pub use crate::task::collectionframe::GroupedTaskFramesQuitOnSuccess;
+    pub use crate::task::collectionframe::GroupedTaskFramesSilent;
+    pub use crate::task::collectionframe::ParallelExecStrategy;
+    pub use crate::task::collectionframe::SelectFrameAccessor;
+    pub use crate::task::collectionframe::SelectionExecStrategy;
+    pub use crate::task::collectionframe::SequentialExecStrategy;
     pub use crate::task::delayframe::DelayTaskFrame;
     pub use crate::task::dependencyframe::DependencyTaskFrame;
     pub use crate::task::dynamicframe::DynamicTaskFrame;
