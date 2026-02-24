@@ -72,6 +72,23 @@ The structure of API documentation will be discussed later, the list of the spec
 This has to do with ChronoGrapher-specific components and systems. These include but are not limited to ``TaskFrames``,
 ``TaskTriggers``, ``SchedulerEngine``, ``SchedulerTaskStore``, ``PersistenceBackend``... etc. Sections include:
 
+### **Prelude Section**
+The ``Prelude`` module re-exports the most common components from the core library. With the help of the prelude, developers can use the ChronoGrapher library with reduced import boilerplate, just by a single `use` statement.
+> The prelude includes core task and scheduler types, common task frames, schedule types (interval/calendar/cron), hooks/events, and retry/dependency helpers.
+
+We will explain **schedule types**, **task frames** and other modules more in depth in the following API Guidelines.
+<Callout type={"info"} title={"Side Note"}>
+  For best development experience, developers should start with basics of the ChronoGrapher using the Prelude. 
+</Callout>
+In the current state of the ChronoGrapher Core, we have several components out of the box when you first add the cargo package. It contains top-level modules like ``Scheduler``, ``Utils``, ``Task``, and most importantly ``Prelude``. To use the prelude exports, add:
+```rust
+use chronographer_core::prelude::*;
+```
+It is also worth mentioning ``Prelude`` package exports ``DefaultEyreScheduler`` and ``DefaultAnyhowScheduler``. Since we as maintainers of ChronoGrapher aim for both **Ergonomics** as well as **Unopinionated by Design**, we provide implementation for ergonomics of ``anyhow::Error`` and rich customizable error type of ``eyre::Error``.
+- `DefaultAnyhowScheduler` *(requires the ``anyhow`` feature)*: uses `anyhow::Error` as the scheduler’s task error type. This is a good default for applications/CLIs where you want ergonomic error propagation (`?`) across heterogeneous task code.
+- `DefaultEyreScheduler` *(requires the `eyre` feature)*: uses `eyre::Error` / `eyre::Report` as the task error type. This is useful when you want richer, customizable error reports (often paired with `color-eyre` in CLI tooling).
+
+
 **TaskFrame Sections**
 - ``# Events`` Describes the events which the ``TaskFrame`` fires, when they are fired and what payload they have. **(REQUIRED)**
 - ``# Decorating / Wrapping Behaivior`` Documents how ``TaskFrames`` behave when wrapping inner ``TaskFrame(s)``. **(REQUIRED)**
