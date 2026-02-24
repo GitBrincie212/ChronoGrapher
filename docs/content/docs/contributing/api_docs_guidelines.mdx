@@ -85,8 +85,8 @@ In the current state of the ChronoGrapher Core, we have several components out o
 use chronographer_core::prelude::*;
 ```
 It is also worth mentioning ``Prelude`` package exports ``DefaultEyreScheduler`` and ``DefaultAnyhowScheduler``. Since we as maintainers of ChronoGrapher aim for both **Ergonomics** as well as **Unopinionated by Design**, we provide implementation for ergonomics of ``anyhow::Error`` and rich customizable error type of ``eyre::Error``.
-- `DefaultAnyhowScheduler` *(requires the ``anyhow`` feature)*: uses `anyhow::Error` as the scheduler’s task error type. This is a good default for applications/CLIs where you want ergonomic error propagation (`?`) across heterogeneous task code.
-- `DefaultEyreScheduler` *(requires the `eyre` feature)*: uses `eyre::Error` / `eyre::Report` as the task error type. This is useful when you want richer, customizable error reports (often paired with `color-eyre` in CLI tooling).
+- ``DefaultAnyhowScheduler`` *(requires the [anyhow](https://docs.rs/anyhow/latest/anyhow/) feature)*: uses `anyhow::Error` as the scheduler’s task error type. This is a good default for applications/CLIs where you want ergonomic error propagation (`?`) across heterogeneous task code.
+- ``DefaultEyreScheduler`` *(requires the [eyre](https://docs.rs/eyre/latest/eyre/) feature)*: uses `eyre::Error` / `eyre::Report` as the task error type. This is useful when you want richer, customizable error reports (often paired with `color-eyre` in CLI tooling).
 
 
 **TaskFrame Sections**
