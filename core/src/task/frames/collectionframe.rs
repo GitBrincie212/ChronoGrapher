@@ -39,7 +39,59 @@ impl Display for CollectionTaskError {
 }
 
 impl Error for CollectionTaskError {}
-
+/// # CollectionExecStrategy
+///
+/// Defines how a `CollectionTaskFrame` executes its taskframes, controlling
+/// order, selection, concurrency, and early termination while preserving the
+/// `TaskFrame` contract.
+///
+/// Operates via a `CollectionTaskFrameHandle`, providing access to the taskframe
+/// collection, lifecycle hooks, indexed execution, and context-based subdivision.
+///
+/// Implementations decide which frames to run, how to schedule them
+/// (sequential, parallel, or custom), and how child `TaskError`s map to
+/// `CollectionTaskError`, optionally using an execution policy.
+///
+/// Being `Sized + 'static` allows embedding in `CollectionTaskFrame` for
+/// static dispatch.
+///
+/// Architecturally separates:
+/// - Storage: `CollectionTaskFrame`
+/// - Orchestration: `CollectionExecStrategy`
+/// - Termination: `CollectionExecPolicy`
+/// - Execution context: `CollectionTaskFrameHandle`
+///
+/// # Exports
+/// - `CollectionExecStrategy`
+/// - `CollectionExecPolicy`
+/// - `ConsensusGTFE`
+/// - `SequentialExecStrategy`
+/// - `ParallelExecStrategy`
+/// - `SelectionExecStrategy`
+/// - `SelectFrameAccessor`
+/// - `CollectionTaskFrame`
+/// - `CollectionTaskFrameHandle`
+/// - `CollectionTaskError`
+/// - `GroupedTaskFramesQuitOnSuccess`
+/// - `GroupedTaskFramesQuitOnFailure`
+/// - `GroupedTaskFramesSilent`
+/// - `OnChildTaskFrameStart`
+/// - `OnChildTaskFrameEnd`
+/// - `ChildTaskFrameEvents`
+///
+/// # Method(s)
+/// ## execute
+/// Executes the collection using the provided handle, mapping errors to
+/// `CollectionTaskError` and enforcing the strategy’s execution semantics.
+///
+/// # Semantics
+/// Acts as a behavioral controller over a `CollectionTaskFrame`. May execute
+/// zero, some, or all frames, in any order, including concurrently.
+///
+/// # Trait Implementation(s)
+/// - `SequentialExecStrategy<P>`
+/// - `ParallelExecStrategy<P>`
+/// - `SelectionExecStrategy<S>`
 #[async_trait]
 pub trait CollectionExecStrategy: Send + Sync + Sized + 'static {
     async fn execute(
