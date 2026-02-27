@@ -9,7 +9,47 @@ use std::future::Future;
 use std::ops::Deref;
 use std::sync::Arc;
 
+/// An error wrapper used by [`CollectionTaskFrame`] to associate a child
+/// [`TaskError`] with the index of the taskframe that produced it.
 ///
+/// [`CollectionTaskError`] preserves the original error while adding
+/// collection-level context, allowing execution strategies (such as
+/// [`SequentialExecStrategy`], [`ParallelExecStrategy`], or
+/// [`SelectionExecStrategy`]) to reason about failures in terms of both
+/// *what* failed and *where* it failed inside the collection.
+///
+/// This type is the canonical error for [`CollectionTaskFrame`] and is
+/// returned by all [`CollectionExecStrategy`] implementations after mapping
+/// child taskframe failures into an indexed form.
+///
+/// # Semantics
+/// [`CollectionTaskError`] represents a failure that originates from a specific
+/// child [`TaskFrame`] inside a [`CollectionTaskFrame`]. It occurs whenever a
+/// collection execution strategy (e.g. sequential, parallel, or selection)
+/// executes a child frame that returns an error.
+///
+/// Instead of discarding positional context, the system wraps the original
+/// `Box<dyn TaskError>` together with the child index that produced it. This
+/// allows:
+/// - Execution strategies to propagate structured, index-aware failures
+/// - [`CollectionExecPolicy`] implementations to make termination decisions
+///   based on which frame failed
+/// - Diagnostics, logging, and hooks to attribute errors to the exact frame
+///
+/// The struct does **not** transform or reinterpret the inner error; it only
+/// provides contextual metadata (the index) while preserving the original
+/// error object for inspection and propagation.
+///
+/// It contains:
+/// - The zero-based index of the failing taskframe within the collection
+/// - The original boxed [`TaskError`] emitted by that taskframe
+///
+/// # Required Method(s)
+/// - `new(index, error)` – Creates a new [`CollectionTaskError`] from a failing
+///   child index and its corresponding boxed [`TaskError`].
+///
+// TODO:
+// - add Constructor(s), Accessing/Modifying Field(s), Trait Implementation(s), Generic(s), Example(s), See Also
 #[derive(Debug)]
 pub struct CollectionTaskError {
     index: usize,
