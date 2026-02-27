@@ -123,16 +123,16 @@ impl Error for CollectionTaskError {}
 ///
 /// # See Also
 /// Core Architecture:
-/// - [CollectionTaskFrame]
-/// - [CollectionTaskFrameHandle]
-/// - [TaskFrame]
-/// - [CollectionExecPolicy]
-/// - [ConsensusGTFE]
+/// - [`CollectionTaskFrame`]
+/// - [`CollectionTaskFrameHandle`]
+/// - [`TaskFrame`]
+/// - [`CollectionExecPolicy`]
+/// - [`ConsensusGTFE`]
 ///
 /// Built-in Strategies:
-/// - [SequentialExecStrategy]
-/// - [ParallelExecStrategy]
-/// - [SelectionExecStrategy]
+/// - [`SequentialExecStrategy`]
+/// - [`ParallelExecStrategy`]
+/// - [`SelectionExecStrategy`]
 #[async_trait]
 pub trait CollectionExecStrategy: Send + Sync + Sized + 'static {
     async fn execute(
