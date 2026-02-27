@@ -39,59 +39,100 @@ impl Display for CollectionTaskError {
 }
 
 impl Error for CollectionTaskError {}
-/// # CollectionExecStrategy
-///
-/// Defines how a `CollectionTaskFrame` executes its taskframes, controlling
+/// Defines how a [`CollectionTaskFrame`] executes its taskframes, controlling
 /// order, selection, concurrency, and early termination while preserving the
-/// `TaskFrame` contract.
+/// [`TaskFrame`] contract.
 ///
-/// Operates via a `CollectionTaskFrameHandle`, providing access to the taskframe
+/// Operates via a [`CollectionTaskFrameHandle`], providing access to the taskframe
 /// collection, lifecycle hooks, indexed execution, and context-based subdivision.
 ///
 /// Implementations decide which frames to run, how to schedule them
 /// (sequential, parallel, or custom), and how child `TaskError`s map to
 /// `CollectionTaskError`, optionally using an execution policy.
 ///
-/// Being `Sized + 'static` allows embedding in `CollectionTaskFrame` for
+/// Being `Sized + 'static` allows embedding in [`CollectionTaskFrame`] for
 /// static dispatch.
 ///
 /// Architecturally separates:
-/// - Storage: `CollectionTaskFrame`
-/// - Orchestration: `CollectionExecStrategy`
-/// - Termination: `CollectionExecPolicy`
-/// - Execution context: `CollectionTaskFrameHandle`
-///
-/// # Exports
-/// - `CollectionExecStrategy`
-/// - `CollectionExecPolicy`
-/// - `ConsensusGTFE`
-/// - `SequentialExecStrategy`
-/// - `ParallelExecStrategy`
-/// - `SelectionExecStrategy`
-/// - `SelectFrameAccessor`
-/// - `CollectionTaskFrame`
-/// - `CollectionTaskFrameHandle`
-/// - `CollectionTaskError`
-/// - `GroupedTaskFramesQuitOnSuccess`
-/// - `GroupedTaskFramesQuitOnFailure`
-/// - `GroupedTaskFramesSilent`
-/// - `OnChildTaskFrameStart`
-/// - `OnChildTaskFrameEnd`
-/// - `ChildTaskFrameEvents`
-///
-/// # Method(s)
-/// ## execute
-/// Executes the collection using the provided handle, mapping errors to
-/// `CollectionTaskError` and enforcing the strategy’s execution semantics.
+/// - Storage: [`CollectionTaskFrame`]
+/// - Orchestration: [`CollectionExecStrategy`]
+/// - Termination: [`CollectionExecPolicy`]
+/// - Execution context: [`CollectionTaskFrameHandle`]
 ///
 /// # Semantics
-/// Acts as a behavioral controller over a `CollectionTaskFrame`. May execute
+/// Acts as a behavioral controller over a [`CollectionTaskFrame`]. May execute
 /// zero, some, or all frames, in any order, including concurrently.
 ///
-/// # Trait Implementation(s)
-/// - `SequentialExecStrategy<P>`
-/// - `ParallelExecStrategy<P>`
-/// - `SelectionExecStrategy<S>`
+/// # Required Method(s)
+/// ## execute
+/// The `execute` method **must** be implemented by any `CollectionExecStrategy`.
+/// It defines how the strategy executes the taskframes in a [`CollectionTaskFrame`].
+///
+/// ### Arguments
+/// - `handle: CollectionTaskFrameHandle<'_, Self>` – provides access to the
+///   taskframe collection, the execution context, lifecycle hooks, and
+///   safe indexed execution.
+///
+/// # Object Safety / Dynamic Dispatching
+/// [`CollectionExecStrategy`] is **not object-safe** and cannot be used as a
+/// trait object (e.g., `Box<dyn CollectionExecStrategy>`).
+///
+/// Reasons:
+/// 1. The trait requires `Self: Sized`.
+/// 2. The `execute` method takes `CollectionTaskFrameHandle<'_, Self>`, which
+///    references `Self` in its arguments.
+/// 3. The return type uses `<CollectionTaskFrame<Self> as TaskFrame>::Error`,
+///    which also depends on `Self`.
+///
+/// As a result, this trait must always be used with **static dispatch** via
+/// generic parameters.
+///
+/// # Implementations
+/// - [`SequentialExecStrategy`] – Executes taskframes sequentially in index order.
+/// - [`ParallelExecStrategy`] – Executes taskframes concurrently using `tokio::task::JoinSet`.
+/// - [`SelectionExecStrategy`] – Executes a single taskframe selected at runtime.
+///
+/// # Example(s)
+///
+/// ### 1. Sequential execution (default failure policy)
+/// ```rust
+/// use std::sync::Arc;
+///
+/// let frame = CollectionTaskFrame::sequential(vec![
+///     Arc::new(task_a),
+///     Arc::new(task_b),
+///     Arc::new(task_c),
+/// ]);
+/// ```
+/// This runs taskframes in order and stops on the first failure.
+///
+/// ### 2. Parallel execution with custom policy
+/// ```rust
+/// use std::sync::Arc;
+///
+/// let frame = CollectionTaskFrame::parallel(
+///     vec![
+///         Arc::new(task_a),
+///         Arc::new(task_b),
+///         Arc::new(task_c),
+///     ],
+///     GroupedTaskFramesQuitOnSuccess,
+/// );
+///```
+/// This runs all taskframes concurrently and terminates once one succeeds.
+///
+/// # See Also
+/// Core Architecture:
+/// - [CollectionTaskFrame]
+/// - [CollectionTaskFrameHandle]
+/// - [TaskFrame]
+/// - [CollectionExecPolicy]
+/// - [ConsensusGTFE]
+///
+/// Built-in Strategies:
+/// - [SequentialExecStrategy]
+/// - [ParallelExecStrategy]
+/// - [SelectionExecStrategy]
 #[async_trait]
 pub trait CollectionExecStrategy: Send + Sync + Sized + 'static {
     async fn execute(
