@@ -104,6 +104,15 @@ macro_rules! define_event {
 /// // They produce different hashes (since they are unique)
 /// assert_ne!(calculate_hash(&task_id1), calculate_hash(&task_id2));
 /// ```
+/// In the example, ``TaskId`` is our identifier format (with a couple of traits implemented on top),
+/// for demonstration purposes we used ``Uuid`` but as mentioned, any form of data can be used.
+///
+/// We implement the ``TaskIdentifier`` trait with its ``generate`` method, then we simply generate two
+/// instances with that method, more specifically ``task_id1`` and ``task_id2``.
+///
+/// We compare the two and see they aren't equal (since they are unique), we take the hash of the two
+/// and also see they are non-equal (again confirms the fact they are different).
+///
 /// # See Also
 /// - [`Uuid`] - The default implementation, generating random v4 UUIDs.
 /// - [SchedulerConfig](crate::scheduler::SchedulerConfig) - One of configuration parameters over lots of others.
