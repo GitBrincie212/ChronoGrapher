@@ -9,24 +9,28 @@ use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// [`TaskFrameBuilder`] is a composable builder for constructing [`TaskFrame`] workflows. It wraps a given [`TaskFrame`] and provides builder-style methods which add on top of this taskframe behavioral wrappers (such as retry, timeout, fallback, condition, dependency, etc.). Each method modifies the TaskFrame and returns the builder to allow for chaining.
+/// [`TaskFrameBuilder`] is a composable builder for constructing [`TaskFrame`] workflows, it wraps
+/// a given [`TaskFrame`] and provides builder-style methods.
+///
+/// These methods add on top of the taskframe behavioral wrappers (such as retry, timeout, fallback,
+/// condition, dependency, etc...), each method modifies the TaskFrame and returns the builder to
+/// allow for continuous chaining.
 ///
 /// The wrapping order matters: methods called **later** produce the **outermost** layer. For example:
 ///
-/// For example `TaskFrameBuilder::new(my_frame).with_retry(...).with_timeout(...)` where "my_frame" is
+/// For example ``TaskFrameBuilder::new(my_frame).with_retry(...).with_timeout(...)`` where "my_frame" is
 /// your [`TaskFrame`] (lets call its type "MyFrame") produces as a type:
 ///
-/// > `TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>`
+/// > ``TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>``
 ///
 /// Because "with_retry" wraps "MyFrame" first, then "with_timeout" wraps the result. In contrast, using
 /// `TaskFrameBuilder::new(my_frame).with_timeout(...).with_retry(...)` produces:
 ///
 /// > `RetriableTaskFrame<TimeoutTaskFrame<MyFrame>>`
 ///
-/// Here, "with_timeout" wraps "MyFrame" first, and "with_retry" becomes the outer layer. Think of it like function composition where `outer(inner(MyFrame))`. The last call is always the outermost wrapper.
-///
-/// `T: TaskFrame` - The inner frame type held by the builder at start. with every chaining call encoding the full nesting structure at the type level. for example
-///  after calling ".with_retry(...)", the builder becomes `TaskFrameBuilder<RetriableTaskFrame<T>>`.
+/// Here, "with_timeout" wraps "MyFrame" first, and "with_retry" becomes the outer layer. Think of
+/// it like function composition where `outer(inner(MyFrame))`. The last call is always the outermost
+/// wrapper.
 ///
 /// # Method(s)
 /// - [`with_instant_retry`](TaskFrameBuilder::with_instant_retry) - Wraps with [`RetriableTaskFrame`] using zero-delay retries.
@@ -46,7 +50,7 @@ use std::time::Duration;
 ///
 /// # Accessing/Modifying Field(s)
 /// The inner frame is not directly accessible. The only way to extract the composed frame is via
-/// the [`build`](TaskFrameBuilder::build) method, which consumes the builder and returns the inner `T`.
+/// the [`build`](TaskFrameBuilder::build) method, which consumes the builder and returns the inner [`TaskFrame`].
 ///
 /// # Trait Implementation(s)
 /// [`TaskFrameBuilder`] does not implement any additional traits beyond the auto-derived ones. It is
@@ -54,34 +58,62 @@ use std::time::Duration;
 ///
 /// # Example(s)
 /// ```
+/// use std::any::TypeId;
 /// use std::num::NonZeroU32;
 /// use std::time::Duration;
 /// use chronographer::task::TaskFrameBuilder;
+/// # use chronographer::task::{TaskFrame, TaskFrameContext, FallbackTaskFrame, TimeoutTaskFrame, RetriableTaskFrame};
+/// # use async_trait::async_trait;
+/// # use std::any::Any;
+///
+/// # struct MyFrame;
+/// #
+/// # #[async_trait]
+/// # impl TaskFrame for MyFrame {
+/// #     type Error = String;
+/// #
+/// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+/// #         Ok(())
+/// #     }
+/// # }
+/// #
+/// # struct BackupFrame;
+/// #
+/// # #[async_trait]
+/// # impl TaskFrame for BackupFrame {
+/// #     type Error = String;
+/// #
+/// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+/// #         Ok(())
+/// #     }
+/// # }
 ///
 /// // `MyFrame` and `BackupFrame` are two types that implement `TaskFrame`.
 ///
 /// const DELAY_PER_RETRY: Duration = Duration::from_secs(1);
+/// # type ExpectedWorkflow = FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>, BackupFrame>;
 ///
 /// let composed = TaskFrameBuilder::new(MyFrame)
 ///     .with_retry(NonZeroU32::new(3).unwrap(), DELAY_PER_RETRY) // Failure? Retry 3 times with 1s delay
 ///     .with_timeout(Duration::from_secs(30)) // Exceeded 30 seconds, terminate and error out with timeout?
 ///     .with_fallback(BackupFrame) // Received a timeout or another error? Run "BackupFrame"
 ///     .build();
+///
+/// # assert_eq!(composed.type_id(), TypeId::of::<ExpectedWorkflow>(), "Unexpected workflow type produced")
 /// ```
 /// With the workflow created, `composed` is now the type:
 /// > ``FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>, BackupFrame>``
 ///
 /// all from this builder, without the complexity of manually creating this type
 ///
-///
 /// # See Also
-/// - [`TaskFrame`] — The core trait that defines execution logic.
-/// - [`RetriableTaskFrame`] — The retry wrapper frame.
-/// - [`TimeoutTaskFrame`] — The timeout wrapper frame.
-/// - [`FallbackTaskFrame`] — The fallback wrapper frame.
-/// - [`ConditionalFrame`] — The conditional execution wrapper frame.
-/// - [`DependencyTaskFrame`] — The dependency-gated wrapper frame.
-/// - [`Task`](crate::task::Task) — The top-level struct combining a frame with a trigger.
+/// - [`TaskFrame`] - The core trait that defines execution logic.
+/// - [`RetriableTaskFrame`] - The retry wrapper frame.
+/// - [`TimeoutTaskFrame`] - The timeout wrapper frame.
+/// - [`FallbackTaskFrame`] - The fallback wrapper frame.
+/// - [`ConditionalFrame`] - The conditional execution wrapper frame.
+/// - [`DependencyTaskFrame`] - The dependency-gated wrapper frame.
+/// - [`Task`](crate::task::Task) - The top-level struct combining a frame with a trigger.
 
 pub struct TaskFrameBuilder<T: TaskFrame>(T);
 
