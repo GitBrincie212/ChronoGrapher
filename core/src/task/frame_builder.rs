@@ -90,16 +90,20 @@ use std::time::Duration;
 ///
 /// // `MyFrame` and `BackupFrame` are two types that implement `TaskFrame`.
 ///
+/// type WorkflowType = FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>, BackupFrame>;
 /// const DELAY_PER_RETRY: Duration = Duration::from_secs(1);
-/// # type ExpectedWorkflow = FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>, BackupFrame>;
+/// # type WorkflowPermut1 = FallbackTaskFrame<RetriableTaskFrame<TimeoutTaskFrame<MyFrame>>, BackupFrame>;
+/// # type WorkflowPermut2 = TimeoutTaskFrame<FallbackTaskFrame<RetriableTaskFrame<MyFrame>, BackupFrame>>;
 ///
-/// let composed = TaskFrameBuilder::new(MyFrame)
+/// let composed: WorkflowType = TaskFrameBuilder::new(MyFrame)
 ///     .with_retry(NonZeroU32::new(3).unwrap(), DELAY_PER_RETRY) // Failure? Retry 3 times with 1s delay
 ///     .with_timeout(Duration::from_secs(30)) // Exceeded 30 seconds, terminate and error out with timeout?
 ///     .with_fallback(BackupFrame) // Received a timeout or another error? Run "BackupFrame"
 ///     .build();
 ///
-/// # assert_eq!(composed.type_id(), TypeId::of::<ExpectedWorkflow>(), "Unexpected workflow type produced")
+/// assert_eq!(composed.type_id(), TypeId::of::<WorkflowType>());
+/// # assert_ne!(composed.type_id(), TypeId::of::<WorkflowPermut1>(), "Unexpected matching workflow types");
+/// # assert_ne!(composed.type_id(), TypeId::of::<WorkflowPermut2>(), "Unexpected matching workflow types");
 /// ```
 /// With the workflow created, `composed` is now the type:
 /// > ``FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>, BackupFrame>``
@@ -114,7 +118,6 @@ use std::time::Duration;
 /// - [`ConditionalFrame`] - The conditional execution wrapper frame.
 /// - [`DependencyTaskFrame`] - The dependency-gated wrapper frame.
 /// - [`Task`](crate::task::Task) - The top-level struct combining a frame with a trigger.
-
 pub struct TaskFrameBuilder<T: TaskFrame>(T);
 
 impl<T: TaskFrame> TaskFrameBuilder<T> {
