@@ -65,20 +65,20 @@ pub mod errors; // skipcq: RS-D1001
 /// - **[`DefaultScheduler`](crate::scheduler::DefaultScheduler)** / **[`DefaultSchedulerConfig`](crate::scheduler::DefaultSchedulerConfig)** - Default implementation;
 ///   generic over the error type `E: [`TaskError`](crate::errors::TaskError)`.
 /// - **Feature-gated schedulers**:
-///   - [`DefaultAnyhowScheduler`](crate::scheduler::DefaultAnyhowScheduler) (`anyhow` feature)
-///   - [`DefaultEyreScheduler`](crate::scheduler::DefaultEyreScheduler) (`eyre` feature)
+///   - [`DefaultAnyhowScheduler`] (`anyhow` feature)
+///   - [`DefaultEyreScheduler`] (`eyre` feature)
 ///
 /// Main operations: [`start`](crate::scheduler::Scheduler::start), [`schedule`](crate::scheduler::Scheduler::schedule),
 /// [`cancel`](crate::scheduler::Scheduler::cancel), [`clear`](crate::scheduler::Scheduler::clear), [`abort`](crate::scheduler::Scheduler::abort).
 ///
 /// # Features:
 ///
-/// - `anyhow` - [`DefaultAnyhowScheduler`](crate::scheduler::DefaultAnyhowScheduler)
-/// - `eyre` - [`DefaultEyreScheduler`](crate::scheduler::DefaultEyreScheduler)
+/// - `anyhow` - [`DefaultAnyhowScheduler`]
+/// - `eyre` - [`DefaultEyreScheduler`]
 ///
 /// # Usage:
-/// Build a scheduler with default config, start it, then schedule tasks. Use the [`prelude`](crate::chronographer::prelude) or
-/// [`DefaultScheduler`](crate::chronographer::scheduler::DefaultScheduler) and [`DefaultSchedulerConfig`](crate::chronographer::scheduler::DefaultSchedulerConfig) for the default implementation.
+/// Build a scheduler with default config, start it, then schedule tasks. Use the [`prelude`] or
+/// [`DefaultScheduler`] and [`DefaultSchedulerConfig`] for the default implementation.
 ///
 /// # Example:
 /// ```rust
@@ -96,21 +96,21 @@ pub mod scheduler; // skipcq: RS-D1001
 ///
 /// This module defines the main types used to represent runnable work and when it runs:
 ///
-/// - **[`Task`](crate::task::Task)** — The main type that pairs a [`TaskFrame`](crate::task::TaskFrame) with a [`TaskTrigger`](crate::task::TaskTrigger);
+/// - **[`Task`]** — The main type that pairs a [`TaskFrame`] with a [`TaskTrigger`];
 ///   use [`Task::new`](crate::task::Task::new) or `Default::default()` to construct, and [`Task::as_erased`](crate::task::Task::as_erased) to get an [`ErasedTask`](crate::task::ErasedTask) for the scheduler.
-/// - **[`ErasedTask`](crate::task::ErasedTask)** — Type-erased task used by the scheduler and anywhere you need a single task type regardless of frame/trigger; one of the central types in the crate. Obtained via [`Task::as_erased`](crate::task::Task::as_erased).
-/// - **[`RestrictTaskFrameContext`](crate::task::RestrictTaskFrameContext)** — Context passed into task frames during execution.
-/// - **Hooks** — Observers that react to task and frame events (e.g. [`OnTaskStart`](crate::task::hooks::events::OnTaskStart), [`OnTaskEnd`](crate::task::hooks::events::OnTaskEnd), retry, timeout). Implement [`TaskHook`](crate::task::hooks::TaskHook)`<E>` for an event type `E`: [TaskHookEvent](crate::task::hooks::TaskHookEvent) and attach via [`Task::attach_hook`](crate::task::Task::attach_hook). [`TaskHookEvent`](crate::task::hooks::TaskHookEvent) defines the event and payload; [`TaskHookContext`](crate::task::hooks::TaskHookContext) is passed to handlers; [`TaskHookContainer`](crate::task::hooks::TaskHookContainer) holds hooks on each task.
+/// - **[`ErasedTask`]** — Type-erased task used by the scheduler and anywhere you need a single task type regardless of frame/trigger; one of the central types in the crate. Obtained via [`Task::as_erased`].
+/// - **[`RestrictTaskFrameContext`]** — Context passed into task frames during execution.
+/// - **Hooks** — Observers that react to task and frame events (e.g. [`OnTaskStart`], [`OnTaskEnd`], retry, timeout). Implement [`TaskHook`]<`E`> for an event type `E`: [TaskHookEvent] and attach via [`Task::attach_hook`]. [`TaskHookEvent`] defines the event and payload; [`TaskHookContext`] is passed to handlers; [`TaskHookContainer`] holds hooks on each task.
 ///
-/// The module also re-exports frame and trigger types from its submodules (e.g. [`TaskFrame`](crate::task::TaskFrame), [`TaskTrigger`](crate::task::TaskTrigger), [`TaskFrameBuilder`](crate::task::TaskFrameBuilder), and the concrete frame and schedule types).
+/// The module also re-exports frame and trigger types from its submodules (e.g. [`TaskFrame`], [`TaskTrigger`], [`TaskFrameBuilder`], and the concrete frame and schedule types).
 ///
 /// # Usage
 ///
-/// Build a [`Task`](crate::task::Task) with [`Task::new`](crate::task::Task::new)(trigger, frame), call [`as_erased`](crate::task::Task::as_erased) to get an [`ErasedTask`](crate::task::ErasedTask), then pass that to [`Scheduler::schedule`](crate::chronographer::scheduler::Scheduler::schedule) or run it with [`ErasedTask::run`](crate::task::ErasedTask::run).
+/// Build a [`Task`] with [`Task::new`](trigger, frame), call [`as_erased`] to get an [`ErasedTask`], then pass that to [`Scheduler::schedule`] or run it with [`ErasedTask::run`].
 pub mod task; // skipcq: RS-D1001
 
-/// The `utils` module provides utility types and functions for the core library.
-/// It mainly defines the [`TaskIdentifier`](crate::utils::TaskIdentifier) trait and the [`DefaultTaskID`](crate::utils::DefaultTaskID) type.
+/// The [`utils`] module provides utility types and functions for the core library.
+/// It mainly defines the [`TaskIdentifier`](crate::utils::TaskIdentifier) trait.
 ///
 /// # Usage
 ///
