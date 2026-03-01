@@ -35,12 +35,12 @@ uuid = ["dep:uuid"]
 
 [[bin]]
 name = "chronographer"
-path = "src/bin/main.rs"
+path = "bin/main.rs"
 
 [[bin]]
 name = "test"
-path = "src/bin/test.rs"
+path = "bin/test.rs"
 
 [[bin]]
 name = "test2"
-path = "src/bin/test2.rs"
+path = "bin/test2.rs"
