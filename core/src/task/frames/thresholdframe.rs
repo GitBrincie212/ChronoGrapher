@@ -109,7 +109,7 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
         }
 
         if total == self.threshold.get() && ctx.depth == 0 {
-            // TODO: Use the handle from the scheduler to cancel the entire workflow
+            ctx.instruct_block().await;
         }
 
         res
