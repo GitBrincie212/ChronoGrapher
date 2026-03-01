@@ -12,7 +12,7 @@ use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDisp
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ErasedTask, Task, TaskFrame, TaskTrigger};
-use crate::utils::TaskIdentifier;
+use crate::utils::{DefaultTaskID, TaskIdentifier};
 use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
@@ -21,7 +21,6 @@ use tokio::join;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
-use uuid::Uuid;
 
 pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
 
@@ -43,7 +42,7 @@ pub trait SchedulerConfig: Sized + 'static {
 pub struct DefaultSchedulerConfig<E: TaskError>(PhantomData<E>);
 
 impl<E: TaskError> SchedulerConfig for DefaultSchedulerConfig<E> {
-    type TaskIdentifier = Uuid;
+    type TaskIdentifier = DefaultTaskID;
     type TaskError = E;
     type SchedulerClock = ProgressiveClock;
     type SchedulerTaskStore = EphemeralSchedulerTaskStore<Self>;
