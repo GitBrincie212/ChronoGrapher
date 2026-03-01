@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 use std::hash::Hash;
-use uuid::Uuid;
 
 #[macro_export]
 macro_rules! define_event_group {
@@ -125,8 +124,22 @@ pub trait TaskIdentifier:
     fn generate() -> Self;
 }
 
+#[cfg(feature = "uuid")]
 impl TaskIdentifier for Uuid {
     fn generate() -> Self {
         Uuid::new_v4()
     }
 }
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct DefaultTaskID(u128);
+
+impl TaskIdentifier for DefaultTaskID {
+    fn generate() -> Self {
+        DefaultTaskID(
+            fastrand::u128(0..=u128::MAX) & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF | 0x40008000000000000000,
+        )
+    }
+}
+
+
