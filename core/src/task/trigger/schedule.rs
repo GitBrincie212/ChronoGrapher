@@ -11,6 +11,9 @@ pub mod immediate; // skipcq: RS-D1001
 
 pub mod interval; // skipcq: RS-D1001
 
+mod cron_parser; // skipcq: RS-D1001
+mod cron_lexer; // skipcq: RS-D1001
+
 pub trait TaskSchedule: 'static + Send + Sync {
     fn schedule(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>>;
 }
