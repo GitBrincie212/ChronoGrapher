@@ -91,7 +91,7 @@ mod cron_lexer; // skipcq: RS-D1001
 /// - [`TaskScheduleImmediate`] - For scheduling Tasks to immediately execute.
 /// - [`TaskScheduleInterval`] - For scheduling Tasks per interval basis.
 /// - [`TaskScheduleCron`] - For scheduling Tasks via a CRON expression (Quartz-style).
-/// - [`TaskScheduleCalendar`] For scheduling Tasks via a human-readable configurable calendar object.
+/// - [`TaskScheduleCalendar`] - For scheduling Tasks via a human-readable configurable calendar object.
 /// - [`TaskTrigger`] - The main system used for notifying the "Scheduler Side" for scheduling a Task.
 /// - [`TriggerNotifier`] - A channel used by the trigger to notify the "Scheduler Side" when the calculated time is ready.
 /// - [`Tasks`](crate::task::Task) - The main container which the schedule is hosted on.

@@ -51,26 +51,26 @@ impl TriggerNotifier {
 }
 
 /// [`TaskTrigger`] is the main mechanism in which [`Tasks`](Task) schedule a future time (based on
-/// a current one) to run, this time is handed to the "[`Scheduler`](crate::scheduler::Scheduler) Land"
+/// a current one) to run, this time is handed to the "[`Scheduler`](crate::scheduler::Scheduler) Side"
 /// for it to organize.
 ///
 /// [`TaskTrigger`] may immediately hand out the future time (in this case, best use [`TaskSchedule`](schedule::TaskSchedule)
-/// or notify at any other time the "Scheduler Land" about its future time to schedule to.
+/// or notify at any other time the "Scheduler Side" about its future time to schedule to.
 ///
 /// # Semantics
-/// There are 2 arguments, the first is the "now" argument which utilizes [`SystemTime`] provided by Rust,
+/// There are 2 arguments, the first is the "now" argument which utilizes [`SystemTime`] provided by Rust.
 ///
 /// > **Important Note:** The value for the "now" argument is not the same as using [`SystemTime::now`],
 /// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used
 ///
 /// The second argument is a [`TriggerNotifier`] which is the main channel in which the [`TaskTrigger`]
-/// sends its results back to "Scheduler Land".
+/// sends its results back to "Scheduler Side".
 ///
 /// There are two cases where [`TaskTrigger`] may error out **Errors During Initialization** are caused
 /// when calling the [`TaskTrigger::trigger`] method.
 ///
 /// Reasons in which a [`TaskTrigger`] may error out can be due to restricted access to the network (or a service),
-/// I/O issues (for monitering files) and anything else in-between.
+/// I/O issues (for monitoring files) and anything else in-between.
 ///
 /// Then there are **Errors During Computation**, these happen at a later stage, and they involve sending
 /// the results via [`TriggerNotifier`], specifically an error.
@@ -78,7 +78,7 @@ impl TriggerNotifier {
 /// An example which can cause this is an improper API response. When implementing, users are required
 /// to use the [async_trait](async_trait) macro on top of their implementation.
 ///
-/// Then for notifying the "Scheduler Land" about the results, they do it via [`TriggerNotifier::notify`]
+/// Then for notifying the "Scheduler Side" about the results, they do it via [`TriggerNotifier::notify`]
 /// method and supply the new future time. For more context look below in the example.
 ///
 /// # Required Subtrait(s)
@@ -90,12 +90,11 @@ impl TriggerNotifier {
 /// which utilize [`TaskSchedule`](schedule::TaskSchedule).
 ///
 /// # Object Safety / Dynamic Dispatching
-/// [`TaskSchedule`](schedule::TaskSchedule) **IS** object safe / dynamic dispatchable without any restrictions.
+/// [`TaskTrigger`] **IS** object safe / dynamic dispatchable without any restrictions.
 ///
 ///
 /// # Blanket Implementation(s)
-/// Any [`TaskSchedule`](schedule::TaskSchedule) automatically implements the more generalized [`TaskTrigger`]
-/// system for anything that requires alerting the "Scheduler Side" about time.
+/// Any [`TaskSchedule`](schedule::TaskSchedule) automatically implements [`TaskTrigger`].
 ///
 /// It wraps the sync nature of [`TaskSchedule`](schedule::TaskSchedule) to the async world of [`TaskTrigger`], managing the
 /// trigger notifier and executing the [`TaskSchedule`](schedule::TaskSchedule).
@@ -117,7 +116,7 @@ impl TriggerNotifier {
 ///         now: SystemTime,
 ///         notifier: TriggerNotifier,
 ///     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-///         // The idea is not to block the trigger since our
+///         // Offloads our logic to not block initialization
 ///         notifier.notify_with(move || async move {
 ///             sleep(Duration::from_secs(2)).await;
 ///             Ok(now + Duration::from_secs(5))
@@ -126,8 +125,6 @@ impl TriggerNotifier {
 ///         Ok(())
 ///     }
 /// }
-///
-/// # let trigger_instance: &dyn TaskTrigger = DeferredEveryFiveSeconds;
 /// ```
 ///
 /// # See Also
@@ -135,7 +132,7 @@ impl TriggerNotifier {
 /// - [`TaskScheduleImmediate`] - For scheduling Tasks to immediately execute.
 /// - [`TaskScheduleInterval`] - For scheduling Tasks per interval basis.
 /// - [`TaskScheduleCron`] - For scheduling Tasks via a CRON expression (Quartz-style).
-/// - [`TaskScheduleCalendar`] For scheduling Tasks via a human-readable configurable calendar object.
+/// - [`TaskScheduleCalendar`] - For scheduling Tasks via a human-readable configurable calendar object.
 /// - [`Tasks`](Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
