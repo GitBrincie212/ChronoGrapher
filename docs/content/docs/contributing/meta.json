@@ -2,9 +2,8 @@
   "title": "Contributing",
   "pages": [
     "index",
+    "ai_use_guidelines",
     "api_docs_guidelines",
-    "website",
-    "guidebook_guidelines",
-    "ai_use_guidelines"
+    "guidebook_guidelines"
   ]
 }
