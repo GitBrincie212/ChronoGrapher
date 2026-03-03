@@ -3,6 +3,11 @@ use async_trait::async_trait;
 use std::error::Error;
 use std::time::SystemTime;
 
+pub use calendar::{TaskCalendarField, TaskScheduleCalendar};
+pub use cron::{TaskScheduleCron, CronField};
+pub use immediate::TaskScheduleImmediate;
+pub use interval::TaskScheduleInterval;
+
 pub mod calendar; // skipcq: RS-D1001
 
 pub mod cron; // skipcq: RS-D1001
@@ -45,15 +50,15 @@ mod cron_lexer; // skipcq: RS-D1001
 /// On its own [`TaskSchedule`] does not require any significant traits, it does however need ``'static``
 /// lifetime and ``Send + Sync`` auto traits.
 ///
+/// # Implementation(s)
+/// There are various implementations of [`TaskSchedule`] present in ChronoGrapher, such as:
+/// - [`TaskScheduleImmediate`] - For scheduling [`Tasks`](crate::task::Task) to immediately execute.
+/// - [`TaskScheduleInterval`] - For scheduling Tasks per interval basis.
+/// - [`TaskScheduleCron`] - For scheduling Tasks via a CRON expression (Quartz-style).
+/// - [`TaskScheduleCalendar`] For scheduling Tasks via a human-readable configurable calendar object.
+///
 /// # Object Safety / Dynamic Dispatching
 /// [`TaskSchedule`] **IS** object safe / dynamic dispatchable without any restrictions.
-///
-/// # Blanket Implementation(s)
-/// As discussed above, any [`TaskSchedule`] automatically implements the more generalized [`TaskTrigger`]
-/// system for anything that requires alerting the "Scheduler Side" about time.
-///
-/// It wraps the sync nature of [`TaskSchedule`] to the async world of [`TaskTrigger`], managing the
-/// trigger notifier and executing the [`TaskSchedule`].
 ///
 /// # Example(s)
 /// ```
@@ -83,8 +88,13 @@ mod cron_lexer; // skipcq: RS-D1001
 /// ```
 ///
 /// # See Also
+/// - [`TaskScheduleImmediate`] - For scheduling Tasks to immediately execute.
+/// - [`TaskScheduleInterval`] - For scheduling Tasks per interval basis.
+/// - [`TaskScheduleCron`] - For scheduling Tasks via a CRON expression (Quartz-style).
+/// - [`TaskScheduleCalendar`] For scheduling Tasks via a human-readable configurable calendar object.
 /// - [`TaskTrigger`] - The main system used for notifying the "Scheduler Side" for scheduling a Task.
 /// - [`TriggerNotifier`] - A channel used by the trigger to notify the "Scheduler Side" when the calculated time is ready.
+/// - [`Tasks`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
 pub trait TaskSchedule: 'static + Send + Sync {
