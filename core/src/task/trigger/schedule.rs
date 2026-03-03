@@ -55,6 +55,33 @@ mod cron_lexer; // skipcq: RS-D1001
 /// It wraps the sync nature of [`TaskSchedule`] to the async world of [`TaskTrigger`], managing the
 /// trigger notifier and executing the [`TaskSchedule`].
 ///
+/// # Example(s)
+/// ```
+/// use std::time::{SystemTime, Duration};
+/// use std::error::Error;
+/// use chronographer::task::schedule::TaskSchedule;
+///
+/// use chronographer::task::TaskTrigger;
+///
+/// struct EveryFiveSeconds;
+///
+/// impl TaskSchedule for EveryFiveSeconds {
+///     fn schedule(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+///         Ok(now + Duration::from_secs(5))
+///     }
+/// }
+///
+/// # fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+/// let instance = EveryFiveSeconds;
+/// let new_time = instance.schedule(SystemTime::UNIX_EPOCH)?;
+/// assert_eq!(new_time, SystemTime::UNIX_EPOCH + Duration::from_secs(5));
+///
+/// // Can be turned to a TaskTrigger
+/// let trigger_instance: &dyn TaskTrigger = &instance;
+/// # Ok(())
+/// # }
+/// ```
+///
 /// # See Also
 /// - [`TaskTrigger`] - The main system used for notifying the "Scheduler Side" for scheduling a Task.
 /// - [`TriggerNotifier`] - A channel used by the trigger to notify the "Scheduler Side" when the calculated time is ready.
