@@ -9,8 +9,38 @@ use std::any::type_name;
 use std::sync::Arc;
 use tokio::join;
 
-#[derive(Default, Debug, Clone, Copy)]
-pub struct DefaultSchedulerEngine;
+type EngineSender<C> = tokio::sync::mpsc::Sender<(
+    <C as SchedulerConfig>::TaskIdentifier,
+    Option<<C as SchedulerConfig>::TaskError>
+)>;
+
+pub struct DefaultSchedulerEngine<C: SchedulerConfig> {
+    channel: Arc<Option<EngineSender<C>>>,
+}
+
+impl<C: SchedulerConfig> Default for DefaultSchedulerEngine<C> {
+    fn default() -> Self {
+        Self {
+            channel: Arc::new(None),
+        }
+    }
+}
+
+fn spawn_task<C: SchedulerConfig>(
+    id: C::TaskIdentifier, scheduler_send: EngineSender<C>,
+    dispatcher: &Arc<C::SchedulerTaskDispatcher>,
+    task: <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::StoredTask
+) {
+    let sender = EngineNotifier::new(
+        id,
+        scheduler_send,
+    );
+
+    let dispatcher = dispatcher.clone();
+    tokio::spawn(async move {
+        dispatcher.dispatch(task, &sender).await;
+    });
+}
 
 pub enum SchedulerHandleInstructions {
     Reschedule, // Forces the Task to reschedule (instances may still run)
@@ -20,7 +50,7 @@ pub enum SchedulerHandleInstructions {
 }
 
 #[async_trait]
-impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
+impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
     async fn main(
         &self,
         clock: Arc<C::SchedulerClock>,
@@ -80,15 +110,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                             store.pop().await;
                             if !store.exists(&id) { continue; }
 
-                            let sender = EngineNotifier::new(
-                                id.clone(),
-                                scheduler_send.clone(),
-                            );
-
-                            let dispatcher = dispatcher.clone();
-                            tokio::spawn(async move {
-                                dispatcher.dispatch(task, &sender).await;
-                            });
+                            spawn_task::<C>(id, scheduler_send.clone(), &dispatcher, task);
                         }
 
                         _ = notifier.notified() => {
@@ -111,7 +133,8 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
 
         let clock = clock.clone();
         let store = store.clone();
-        let _dispatcher = dispatcher.clone();
+        let dispatcher = dispatcher.clone();
+        let engine_sender_channel = self.channel.clone();
 
         tokio::spawn(async move {
             while let Some((id, instruction)) = instruct_receive.recv().await {
@@ -136,13 +159,22 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine {
                         }
                     }
 
-                    SchedulerHandleInstructions::Halt => {}
+                    SchedulerHandleInstructions::Halt => {
+                        dispatcher.cancel(id).await;
+                    }
 
                     SchedulerHandleInstructions::Block => {
                         store.remove(id).await;
                     }
 
-                    SchedulerHandleInstructions::Execute => {}
+                    SchedulerHandleInstructions::Execute => {
+                        if let Some(task) = store.get(id) {
+                            engine_sender_channel.as_ref().as_ref().map(|sender| {
+                                spawn_task::<C>(id.clone(), sender.clone(), &dispatcher, task);
+                            });
+                            continue;
+                        }
+                    }
                 }
             }
         });

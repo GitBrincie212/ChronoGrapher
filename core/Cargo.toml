@@ -20,26 +20,27 @@ async-trait = "0.1.89"
 thiserror = "2.0.16"
 typed-builder = "0.23.0"
 tokio = { version = "1.47.1", features = ["time", "rt-multi-thread", "macros", "sync"] }
-uuid = { version = "1.18.1", features = ["v4"] }
 fastrand = "2.3.0"
 dashmap = { version = "7.0.0-rc2" }
+chrono = { version = "0.4.41", features = ["now"] }
 anyhow = { version = "1.0.101" , features = ["std"], optional = true }
 eyre = {version = "0.6.12", optional = true}
-chrono = { version = "0.4.41", features = ["now"] }
+uuid = { version = "1.18.1", features = ["v4"], optional = true }
 
 [features]
 anyhow = ["dep:anyhow"]
 eyre = ["dep:eyre"]
+uuid = ["dep:uuid"]
 # chrono = ["dep:chrono"]
 
 [[bin]]
 name = "chronographer"
-path = "src/bin/main.rs"
+path = "bin/main.rs"
 
 [[bin]]
 name = "test"
-path = "src/bin/test.rs"
+path = "bin/test.rs"
 
 [[bin]]
 name = "test2"
-path = "src/bin/test2.rs"
+path = "bin/test2.rs"

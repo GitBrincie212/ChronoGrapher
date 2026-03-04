@@ -10,10 +10,6 @@ use async_trait::async_trait;
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use typed_builder::TypedBuilder;
-
-type IncompleteTaskDependencyConfig<T1, T2> =
-    TaskDependencyConfigBuilder<T1, T2, ((&'static Task<T1, T2>,), (), ())>;
 
 #[async_trait]
 pub trait TaskResolvent: Send + Sync {
@@ -54,19 +50,47 @@ implement_core_resolvent!(
     (|_, _| true)
 );
 
-#[derive(TypedBuilder)]
-#[builder(build_method(into = TaskDependency))]
-pub struct TaskDependencyConfig<T1: TaskFrame, T2: TaskTrigger> {
+pub struct TaskDependencyBuilder<T1: TaskFrame, T2: TaskTrigger> {
     task: &'static Task<T1, T2>,
-
-    #[builder(default = NonZeroU64::new(1).unwrap())]
     minimum_runs: NonZeroU64,
-
-    #[builder(
-        default = Arc::new(TaskResolveSuccessOnly),
-        setter(transform = |ts: impl TaskResolvent + 'static| Arc::new(ts) as Arc<dyn TaskResolvent>)
-    )]
     resolve_behavior: Arc<dyn TaskResolvent>,
+}
+
+impl<T1: TaskFrame, T2: TaskTrigger> TaskDependencyBuilder<T1, T2> {
+    fn new(task: &'static Task<T1, T2>) -> Self {
+        Self {
+            task,
+            minimum_runs: NonZeroU64::new(1).unwrap(),
+            resolve_behavior: Arc::new(TaskResolveSuccessOnly),
+        }
+    }
+
+    pub fn minimum_runs(mut self, value: NonZeroU64) -> Self {
+        self.minimum_runs = value;
+        self
+    }
+
+    pub fn resolve_behavior(mut self, value: impl TaskResolvent + 'static) -> Self {
+        self.resolve_behavior = Arc::new(value);
+        self
+    }
+    
+    pub async fn build(self) -> TaskDependency {
+        let tracker = Arc::new(TaskDependencyTracker {
+            run_count: Arc::new(AtomicU64::default()),
+            minimum_runs: self.minimum_runs,
+            resolve_behavior: self.resolve_behavior,
+        });
+
+        let cloned_tracker = tracker.clone();
+
+        self.task.attach_hook::<OnTaskEnd>(cloned_tracker).await;
+
+        TaskDependency {
+            task_dependency_tracker: tracker.clone(),
+            is_enabled: Arc::new(AtomicBool::new(true)),
+        }
+    }
 }
 
 struct TaskDependencyTracker {
@@ -92,41 +116,22 @@ impl TaskHook<OnTaskEnd> for TaskDependencyTracker {
     }
 }
 
-impl<T1, T2> From<TaskDependencyConfig<T1, T2>> for TaskDependency
-where
-    T1: TaskFrame,
-    T2: TaskTrigger,
-{
-    fn from(config: TaskDependencyConfig<T1, T2>) -> Self {
-        let tracker = Arc::new(TaskDependencyTracker {
-            run_count: Arc::new(AtomicU64::default()),
-            minimum_runs: config.minimum_runs,
-            resolve_behavior: config.resolve_behavior,
-        });
-
-        let cloned_tracker = tracker.clone();
-
-        tokio::spawn(async move {
-            config.task.attach_hook::<OnTaskEnd>(cloned_tracker).await;
-        });
-
-        Self {
-            task_dependency_tracker: tracker.clone(),
-            is_enabled: Arc::new(AtomicBool::new(true)),
-        }
-    }
-}
-
 pub struct TaskDependency {
     task_dependency_tracker: Arc<TaskDependencyTracker>,
     is_enabled: Arc<AtomicBool>,
 }
 
 impl TaskDependency {
+    pub async fn new<T1: TaskFrame, T2: TaskTrigger>(
+        task: &'static Task<T1, T2>,
+    ) -> Self {
+        TaskDependencyBuilder::<T1, T2>::new(task).build().await
+    }
+    
     pub fn builder<T1: TaskFrame, T2: TaskTrigger>(
         task: &'static Task<T1, T2>,
-    ) -> IncompleteTaskDependencyConfig<T1, T2> {
-        TaskDependencyConfig::<T1, T2>::builder().task(task)
+    ) -> TaskDependencyBuilder<T1, T2> {
+        TaskDependencyBuilder::<T1, T2>::new(task)
     }
 }
 

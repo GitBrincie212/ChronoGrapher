@@ -28,7 +28,7 @@ pub use retryframe::*;
 pub use thresholdframe::*;
 pub use timeoutframe::*;
 
-use crate::errors::{StandardCoreErrorsCG, TaskError};
+use crate::errors::TaskError;
 use crate::prelude::NonObserverTaskHook;
 use crate::scheduler::SchedulerHandle;
 use crate::scheduler::engine::default::SchedulerHandleInstructions;
@@ -49,12 +49,9 @@ pub struct TaskFrameContext<'a>(pub(crate) RestrictTaskFrameContext<'a>);
 
 macro_rules! instruct_method {
     ($name: ident, $variant: ident) => {
-        pub async fn $name(&self) -> Result<(), StandardCoreErrorsCG> {
-            if let Some(hook) = self.get_hook::<(), SchedulerHandle>() {
-                hook.instruct(SchedulerHandleInstructions::$variant).await;
-                return Ok(());
-            }
-            Err(StandardCoreErrorsCG::SchedulerInstructionsUnsupported)
+        pub async fn $name(&self) {
+            let hook = self.get_hook::<(), SchedulerHandle>().expect("(Definitely Bug) Unexpectedly the SchedulerHandle isn't present");
+            hook.instruct(SchedulerHandleInstructions::$variant).await;
         }
     };
 }

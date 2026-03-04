@@ -34,7 +34,7 @@ async fn test_task_dependency() {
 
     let task = Box::leak(Box::new(Task::new(TaskScheduleImmediate, frame)));
 
-    let dep: TaskDependency = TaskDependency::builder(task).build();
+    let dep: TaskDependency = TaskDependency::new(task).await;
 
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
@@ -89,7 +89,8 @@ async fn test_task_dependency_failure_only() {
     let dep: TaskDependency = TaskDependency::builder(task)
         .resolve_behavior(TaskResolveFailureOnly)
         .minimum_runs(NonZeroU64::new(1).unwrap())
-        .build();
+        .build()
+        .await;
 
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 

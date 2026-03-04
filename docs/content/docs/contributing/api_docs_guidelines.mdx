@@ -6,6 +6,16 @@ description: "Strict, rigorous guidelines and practices for API documentation"
 This page mentions how to write effective API documentation for the ChronoGrapher project,
 this domain knowledge applies to the core, every SDK, every extension / integration... etc.
 
+When referring to API docs, it has to do with ``docstrings``. For example in <ProgrammingLanguage />:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="my_file.rs" lineNumbers
+/// This is what docstrings are in Rust, right now we are documenting a function
+fn abc(a: &str, b: i32, c: &[u8]) -> bool {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
 API documentation should be the final part, once the feature stabilizes, documenting too early will lead
 to technical debt. As such ensure you will rarely make significant changes later down the line.
 
@@ -62,7 +72,7 @@ for documentation. Each section is rated out of 5 based on the importance and ho
     that doesn't do much, may benefit from omitting some of the clauses, do not overuse headers where unnecessary.
 
     Dictating if something is trivial requires experience, its best to view API docs examples from ChronoGrapher and
-    see where and which headers are omitted, while also discussing it with the mantainer (McBrincie212).
+    see where and which headers are omitted, while also discussing it with the maintainer (McBrincie212).
 </Callout>
 
 The structure of API documentation will be discussed later, the list of the special API docs headers can be found below:
@@ -74,7 +84,7 @@ This has to do with ChronoGrapher-specific components and systems. These include
 
 **TaskFrame Sections**
 - ``# Events`` Describes the events which the ``TaskFrame`` fires, when they are fired and what payload they have. **(REQUIRED)**
-- ``# Decorating / Wrapping Behaivior`` Documents how ``TaskFrames`` behave when wrapping inner ``TaskFrame(s)``. **(REQUIRED)**
+- ``# Decorating / Wrapping Behavior`` Documents how ``TaskFrames`` behave when wrapping inner ``TaskFrame(s)``. **(REQUIRED)**
 - ``# Execution Error(s)`` Document what kind of errors may appear whilst the TaskFrame is executing, under what conditions. **(REQUIRED)**
 - ``# Supported TaskHook(s)`` Describes what kind of TaskHooks are supported which change the behavior of the TaskFrame in some way, if any. **(RECOMMENDED)**
 
@@ -143,7 +153,7 @@ This has to do with ChronoGrapher-specific components and systems. These include
 **PersistenceBackend Sections**
 - ``# Storage Format`` Describes the data format used for persistence (JSON, binary, database... etc.). **(REQUIRED)**
 - ``# Recovery Semantics`` Explains how state is recovered after crashes/restarts. **(RECOMMENDED)**
-- ``# Checkpoint Behaivior`` Describes how checkpoints are stored during TaskFrame execution. **(RECOMMENDED)**
+- ``# Checkpoint Behavior`` Describes how checkpoints are stored during TaskFrame execution. **(RECOMMENDED)**
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ## Rust-Specific Headers
@@ -157,8 +167,8 @@ about the module, its goals... etc. For headers:
 
 **Struct Sections**
 For errors, in the semantics header, one should describe how it behaves, when it occurs and what information does it contain.
-- ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters). **(REQUIRED)**
 - ``# Semantics`` Lists how the struct is meant to be used and what it does. **(REQUIRED)**
+- ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters). **(REQUIRED)**
 - ``# Constructor(s)`` Lists the various constructors you can use (including builders, normal rust initialization and via the Default trait). **(REQUIRED)**
 - ``# Accessing/Modifying Field(s)`` Lists the fields which you can access and/or modify (via setters/getters or via just normal Rust fields). **(REQUIRED)**
 - ``# Trait Implementation(s)`` Lists the various implementations the struct implements (not including blanket implementations). **(REQUIRED)**
@@ -166,19 +176,19 @@ For errors, in the semantics header, one should describe how it behaves, when it
 
 **Enum Sections**
 For errors, in the semantics header, one should describe how each variant behaves, when it occurs and what information does each variant contain.
+- ``# Semantics`` Lists how the enum is meant, what each variant is best suited to and what it does. **(REQUIRED)**
 - ``# Variant(s)`` Lists and briefly describes the variants of this enum. **(REQUIRED)**
 - ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters). **(REQUIRED)**
-- ``# Semantics`` Lists how the enum is meant, what each variant is best suited to and what it does. **(REQUIRED)**
 - ``# Constructor(s)`` Lists the various constructors you can use (including builders, normal rust initialization and via the Default trait) for each variant. **(REQUIRED)**
 - ``# Accessing/Modifying Field(s)`` Lists the fields which you can access and/or modify (via setters/getters or via just normal Rust fields). **(REQUIRED)**
 - ``# Trait Implementation(s)`` Lists the various implementations the enum implements (not including blanket implementations). **(REQUIRED)**
 - ``# Generic(s)`` Describes the generics which the enum may have (don't include it if there aren't any). **(RECOMMENDED)**
 
 **Trait Sections**
+- ``# Semantics`` Lists how the trait is meant to be implemented, used and what it does. **(REQUIRED)**
 - ``# Required Method(s)`` Lists the various required methods and what they are meant to do, if any. **(REQUIRED)**
 - ``# Required Subtrait(s)`` Lists the various subtraits required for this trait to be implemented, if any. **(REQUIRED)**
 - ``# Supertrait(s)`` Lists the various supertraits which require this trait and extend on top of, if any. **(REQUIRED)**
-- ``# Semantics`` Lists how the trait is meant to be implemented, used and what it does. **(REQUIRED)**
 - ``# Implementation(s)`` Lists the various implementations of this trait and briefly describes them (not blanket implementations), if any. **(REQUIRED)**
 - ``# Object Safety / Dynamic Dispatching`` Describes if the trait is object safe / dynamic dispatchable, if not why. **(REQUIRED)**
 - ``# Blanket Implementation(s)`` Lists the blanket implementations of this trait, if any. **(RECOMMENDED)**
@@ -195,11 +205,41 @@ For errors, in the semantics header, one should describe how each variant behave
 - ``# Builder Method Chaining`` Informs the user if multiple identical builder methods are allowed, if yes what do they do, how they modify. **(REQUIRED)**
 
 **Method Sections**
+- ``# Semantics`` Lists how the method is meant to be used and what it does. **(REQUIRED)**
 - ``# Argument(s)`` Lists the various arguments the method accepts, their type and the semantics for each argument, if any. **(REQUIRED)**
 - ``# Returns`` Lists what the method returns back to the developer, the type and the semantics, if these are constant return values describe each return clause, if any. **(REQUIRED)**
 - ``# Error(s)`` Lists the various errors which may appear, under what conditions each error appears in. **(REQUIRED)**
 - ``# Panics`` Lists the various reasons the method may panic, under what circumstances and why. **(REQUIRED)**
-- ``# Semantics`` Lists how the method is meant to be used and what it does. **(REQUIRED)**
+
+**Type Alias Sections**
+- ``# Semantics`` Elaborates the semantics of the type alias and its underlying type. **(REQUIRED)**
+- ``# Generic(s)`` Describes the generics which the type alias may have (don't include it if there aren't any). **(RECOMMENDED)**
+
+**Attribute-Macro Sections**
+Attribute macros (like ``#[task]`, ``#[workflow]``, ``#[chronographer::main]``) modify the behavior of the item they annotate.
+- ``# Expansion Semantics`` Describes what the macro generates as code (do not provide the entire code, explain only what its
+    supposed to expand to), how it transforms the annotated item, and any hidden behavior. **(REQUIRED)**
+- ``# Valid Targets`` Specifies what the macro can be applied to (functions, structs / enums, modules, etc...), and any restrictions. **(REQUIRED)**
+- ``# Attributes & Parameters`` Lists all accepted attributes, their syntax, what they do, their types, default values and what they control. **(REQUIRED)**
+- ``# Interaction With Other Attributes`` Explains how this macro behaves when combined
+    with other attribute macros (e.g., using ``#[workflow]`` and ``#[task]`` together). **(REQUIRED)**
+- ``# Limitations`` Documents any known limitations, edge cases, or situations where the macro behaves unexpectedly. **(RECOMMENDED)**
+- ``# Hygiene & Scoping`` Describes how the macro handles variable scope, imports, and identifier collisions. **(RECOMMENDED)**
+
+**Declarative & Function-Like Macro Sections**
+Declarative and function-like macros (like `dynamic_taskframe!`) are invoked with `!` and behave similarly to functions but with compile-time code generation.
+- ``# Expansion Semantics`` Describes what the macro generates as code (do not provide the entire code, explain only what its supposed to expand to). **(REQUIRED)**
+- ``# Invocation Syntax`` Shows the exact syntax for calling the macro, including all valid forms. **(REQUIRED)**
+- ``# Input Types`` Describes what kinds of expressions, types, or blocks the macro accepts as input. **(REQUIRED)**
+- ``# Limitations`` Documents any known limitations, edge cases, or situations where the macro behaves unexpectedly. **(RECOMMENDED)**
+
+**Derive Macro Sections**
+Derive macros (like `#[derive(Default)]` if you add them) automatically implement traits for structs/enums.
+- ``# Expansion Semantics`` Describes what the macro generates as code (do not provide the entire code, explain only what its supposed to expand to). **(REQUIRED)**
+- ``# Implemented Trait(s)`` Lists which traits the macro implements for its target, if any. **(REQUIRED)**
+- ``# Requirements`` Describes what the target struct/enum must provide (field names, types, etc...). For the macro to work. **(REQUIRED)**
+- ``# Customization Attributes`` Lists any helper attributes that modify the derived behavior (e.g., `#[my_attribute(name = "...")]`). **(RECOMMENDED)**
+- ``# Limitations`` Documents any known limitations, edge cases, or situations where the macro behaves unexpectedly. **(RECOMMENDED)**
 
 **GLOBAL Sections**
 - ``# Feature Gated?`` Lists if the item is feature-gated, why and which feature has to be enabled **(RECOMMENDED)**
@@ -253,7 +293,10 @@ An example of a good API docs first example is the following:
 This is a beginner example, as such, it only uses 3 workflow primitives and nothing complex, more advanced examples
 as said should skip the explanation.
 
-For our case the explanation of the ``builder`` methods, ``with_*`` methods and how ``build`` returns the workflow
+For our case the explanation of the ``builder`` methods, ``with_*`` methods and how ``build`` returns the workflow.
+
+There are also **Contrast Examples** which showcase failure (compile-time or panic), they are less common but definitely
+valuable in cases where you want to show how failure is introduced when doing something specific.
 
 # Making A Good "FAQ & Troubleshooting"
 This section should describe any common questions developers may have around this feature. It's best to take on the
@@ -310,6 +353,41 @@ API documentation. For example the ``TaskFrame`` section is above compared to th
 
 Similarly, the header ``# Events`` is above of ``# Execution Error(s)`` in the TaskFrame section.
 
+# Making A Good (Top) Summary
+The summary explains the topic briefly, its goal is for developers to quickly read it and understand the basics of this
+component / feature and how it fits in the rest of the system. It should include:
+- What the component / feature is about and what is it supposed to represent.
+- Which other systems use this feature / component and where its used.
+- Any notes regarding its usage via ``> **Note:**`` or just ``**Note:**``
+
+Contributors should answer these questions with needed clarity.
+
+# Tips About Technical Writing & Examples
+1. Avoid verbosity, explain things in simple language with known vocabulary and cleanly.
+2. Avoid using a bullet / numbered list when you have 1-2 components, instead make it a sentence.
+3. Almost always explain in a bullet / numbered list the entry (the description is separated either via ``:`` or `` - ``),
+  Only avoid explaining when you're just listing items or have already explained them.
+4. Do not use ``Code Fences`` for referring to components, instead link to them.
+5. Paragraphs should be around 2 lines and at worst, no more than ~3 lines.
+6. When writing an example, explain it below what is supposed to do (use helpful comments as well).
+7. Examples especially on the top should be simple and common to encounter, the further down the more complex and little
+  more niche. Still however, it shouldn't be too niche, only list relevant and common-*ish* examples.
+8. Use "contrast" examples where it makes sense (for simple components, avoid the use), as they are meant to showcase reasonable failure
+   when something is done.
+9. Use ``assert!`` or ``assert_ne!`` for comparisons and for listing what is the expected value in the example.
+10. Avoid most of the time the use of ``ignore`` and make your examples doc-testable, use only when examples are theoretical.
+11. Hide code via ``# <...>`` for doc-tests, only show code which is relevant.
+12. Use ``should_panic`` for when you expect the code to panic (hinting it better to the user).
+13. Use ``no_run`` to ensure the code compiles but not run.
+14. Use ``compile_fail`` to show a contrast example where failure is expected.
+15. Favor consistency with the other documentation as opposed to writing in isolation.
+
+Currently, the best API docs examples is the ``TaskIdentifier`` trait, it has just enough description about it to be
+informative and concise while acknowledging ``TaskIdentifier`` isn't complex and non-deserving of a full manifesto.
+
+Another good API docs example is ``CollectionExecStrategy``, while it is a bit more complex it addresses where it resides in,
+what it is supposed to do and so on, provides more examples than ``TaskIdentifier`` due to its complexity surface.
+
 # Introducing New API Docs Headers
 There may be times, where specific API headers don't fit in explaining your system. While contributors should typically avoid
 introducing new headers in already-established systems, they can introduce new ones if:
@@ -321,3 +399,11 @@ count as "global" headers.
 
 For introducing any "global" header, it is best to discuss this with the maintainer of the project (McBrincie212) beforehand,
 to reach a conclusion, introducing new headers could mean updating this spec and previous other API docs.
+
+# When (Not) To Document an API
+It is best to avoid document entirely **Private Items** such as internal struct/enum/func helpers, since they are never
+use-facing, if you need to add clarification on something, best use comments.
+
+Another reason to avoid documenting in heavy detail something is when it is a simple **Setter/Getter**, **Simple Type Alias** or
+anything remotely close, for these cases. It is best to keep the description concise and short while explaining anything
+that may be needed.
