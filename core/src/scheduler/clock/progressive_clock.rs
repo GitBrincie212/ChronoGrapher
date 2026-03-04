@@ -1,20 +1,36 @@
+use std::sync::Arc;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;
 use async_trait::async_trait;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
+use tokio::sync::Notify;
 
-#[derive(Default)]
-pub struct ProgressiveClock;
+pub struct ProgressiveClock(Arc<Notify>);
 
-impl Clone for ProgressiveClock {
-    fn clone(&self) -> Self {
-        *self
+impl Default for ProgressiveClock {
+    fn default() -> Self {
+        let notify = Arc::new(Notify::new());
+        let notify_clone = notify.clone();
+
+        tokio::spawn(async move {
+            let mut interval =
+                tokio::time::interval(Duration::from_millis(1));
+
+            interval.set_missed_tick_behavior(
+                tokio::time::MissedTickBehavior::Delay
+            );
+
+            loop {
+                interval.tick().await;
+                notify_clone.notify_waiters();
+            }
+        });
+
+        Self(notify)
     }
 }
-
-impl Copy for ProgressiveClock {}
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerClock<C> for ProgressiveClock {
@@ -32,5 +48,9 @@ impl<C: SchedulerConfig> SchedulerClock<C> for ProgressiveClock {
         };
 
         tokio::time::sleep(duration).await;
+    }
+
+    async fn tick(&self) {
+        self.0.notified().await
     }
 }
