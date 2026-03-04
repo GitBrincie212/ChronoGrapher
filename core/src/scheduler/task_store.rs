@@ -6,15 +6,8 @@ use crate::scheduler::SchedulerConfig;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 pub use ephemeral::*;
-use std::any::Any;
 use std::error::Error;
 use std::ops::Deref;
-use std::time::SystemTime;
-
-pub type SchedulePayload = (
-    Box<dyn Any + Send + Sync>,
-    Result<SystemTime, Box<dyn Error + Send + Sync>>,
-);
 
 pub enum RescheduleError {
     Success,
@@ -28,12 +21,10 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
 
     async fn init(&self) {}
 
-    async fn retrieve(&self) -> (Self::StoredTask, SystemTime, C::TaskIdentifier);
+    async fn retrieve(&self, clock: &C::SchedulerClock) -> Vec<C::TaskIdentifier>;
 
     fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask>;
-
-    async fn pop(&self);
-
+    
     fn exists(&self, idx: &C::TaskIdentifier) -> bool;
 
     async fn reschedule(
