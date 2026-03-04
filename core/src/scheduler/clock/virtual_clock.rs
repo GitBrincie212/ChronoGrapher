@@ -12,6 +12,7 @@ use crate::scheduler::clock::ProgressiveClock;
 pub struct VirtualClock {
     current_time: AtomicU64,
     notify: Notify,
+    ticks_buff: AtomicU64,
 }
 
 impl VirtualClock {
@@ -28,6 +29,7 @@ impl VirtualClock {
         VirtualClock {
             current_time: AtomicU64::new(initial_value),
             notify: Notify::new(),
+            ticks_buff: AtomicU64::new(0),
         }
     }
 
@@ -51,6 +53,18 @@ impl<C: SchedulerConfig> SchedulerClock<C> for VirtualClock {
         while <VirtualClock as SchedulerClock<C>>::now(self) < to {
             self.notify.notified().await;
         }
+    }
+
+    async fn tick(&self) {
+        let res = self.ticks_buff.load(Ordering::Relaxed);
+        if res > 0 {
+            self.ticks_buff.fetch_sub(1, Ordering::Relaxed);
+            return;
+        }
+        let prev = self.current_time.load(Ordering::Relaxed);
+        self.notify.notified().await;
+        let now = self.current_time.load(Ordering::Relaxed);
+        self.ticks_buff.fetch_add((now - prev).saturating_sub(1), Ordering::Relaxed);
     }
 }
 
