@@ -1,4 +1,4 @@
-use crate::task::{TaskTrigger, TriggerNotifier};
+use crate::task::TaskTrigger;
 use async_trait::async_trait;
 use std::error::Error;
 use std::time::SystemTime;
@@ -38,13 +38,7 @@ mod cron_lexer; // skipcq: RS-D1001
 ///
 /// # Required Method(s)
 /// When implementing [`TaskSchedule`], developers must implement the [schedule](TaskSchedule::schedule)
-/// method present in this trait.
-///
-/// It takes the current time as a ``SystemTime`` (via "now" argument) and computes the next time returning
-/// it as a Result which can be either the new future ``SystemTime`` or an error if failed.
-///
-/// > **Important Note:** The value for the "now" argument is not the same as using [`SystemTime::now`],
-/// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used
+/// method present in this trait, it is best to read the method's documentation for more details.
 ///
 /// # Required Subtrait(s)
 /// On its own [`TaskSchedule`] does not require any significant traits, it does however need ``'static``
@@ -96,20 +90,50 @@ mod cron_lexer; // skipcq: RS-D1001
 /// - [`TriggerNotifier`] - A channel used by the trigger to notify the "Scheduler Side" when the calculated time is ready.
 /// - [`Tasks`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
-/// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
 pub trait TaskSchedule: 'static + Send + Sync {
+    /// The only required method of [`TaskSchedule`].
+    ///
+    /// # Semantics
+    /// Its job is to calculate the next future time immediately given a current time and optionally
+    /// some outside state influencing those calculations.
+    ///
+    /// These calculations are more mathematical / computation which are immediate and return
+    /// deterministically, for deferred computation, refer to [`TaskTrigger`] and its [`TaskTrigger::trigger`].
+    ///
+    /// # Argument(s)
+    /// It takes the current time as a [`SystemTime`] (via "now" argument) and computes the next time returning
+    /// it as a Result which can be either the new future [`SystemTime`] or an error if failed.
+    ///
+    /// > **Important Note:** The value for the "now" argument is **NOT** the same as using [`SystemTime::now`],
+    /// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) (lives
+    /// in the "[`Scheduler`](crate::scheduler::Scheduler) Side") is used.
+    ///
+    /// # Returns
+    /// The method returns on success the "future" [`SystemTime`] (may return the current or past times
+    /// for immediate execution) and on failure a boxed error indicating what went wrong.
+    ///
+    /// # Example(s)
+    /// Refer to [`TaskSchedule`] for a complete example of implementing the trait and this method
+    /// specifically, as it is the only required one.
+    ///
+    /// # See Also
+    /// - [`TaskSchedule`] - The main trait this method belongs to
+    /// - [`TaskTrigger`] - The main system used for notifying the "Scheduler Side" for scheduling a Task.
+    /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
+    /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
     fn schedule(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>>;
 }
 
 #[async_trait]
 impl<T: TaskSchedule> TaskTrigger for T {
+    async fn init(&self, _now: SystemTime) -> Result<(), Box<dyn Error + Send + Sync>> {
+        Ok(())
+    }
+
     async fn trigger(
         &self,
         now: SystemTime,
-        notifier: TriggerNotifier,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let date = self.schedule(now)?;
-        notifier.notify(Ok(date)).await;
-        Ok(())
+    ) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+        self.schedule(now)
     }
 }
