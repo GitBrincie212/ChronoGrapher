@@ -17,6 +17,8 @@ pub trait SchedulerClock<C: SchedulerConfig>: 'static + Send + Sync {
     fn now(&self) -> SystemTime;
 
     async fn idle_to(&self, to: SystemTime);
+    
+    async fn tick(&self);
 }
 
 #[async_trait]
@@ -32,6 +34,10 @@ where
 
     async fn idle_to(&self, to: SystemTime) {
         self.deref().idle_to(to).await
+    }
+
+    async fn tick(&self) {
+        self.deref().tick().await
     }
 }
 
