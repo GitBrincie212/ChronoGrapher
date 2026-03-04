@@ -59,7 +59,6 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
     ) {
         let (scheduler_send, mut scheduler_receive) =
             tokio::sync::mpsc::channel::<(C::TaskIdentifier, Option<C::TaskError>)>(20480);
-        let notifier = tokio::sync::Notify::new();
 
         let blocked_ids: DashSet<C::TaskIdentifier> = DashSet::default();
 
@@ -86,7 +85,6 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
                                     }
                                     RescheduleError::UnknownTask => {}
                                 }
-                                notifier.notify_waiters();
                             }
                         }
 
@@ -104,17 +102,9 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
             // ============================
             async {
                 loop {
-                    let (task, time, id) = store.retrieve().await;
-                    tokio::select! {
-                        _ = clock.idle_to(time) => {
-                            store.pop().await;
-                            if !store.exists(&id) { continue; }
-
+                    for id in store.retrieve(clock.as_ref()).await {
+                        if let Some(task) = store.get(&id) {
                             spawn_task::<C>(id, scheduler_send.clone(), &dispatcher, task);
-                        }
-
-                        _ = notifier.notified() => {
-                            continue;
                         }
                     }
                 }
