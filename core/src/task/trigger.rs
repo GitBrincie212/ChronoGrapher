@@ -1,7 +1,6 @@
 pub mod schedule; // skipcq: RS-D1001
 
 use crate::scheduler::SchedulerConfig;
-use crate::scheduler::task_store::SchedulePayload;
 #[allow(unused_imports)]
 use crate::task::Task;
 pub use crate::task::trigger::schedule::calendar::TaskCalendarField;
@@ -13,42 +12,6 @@ use async_trait::async_trait;
 use std::any::Any;
 use std::error::Error;
 use std::time::SystemTime;
-use tokio::task::JoinHandle;
-
-pub struct TriggerNotifier {
-    id: Box<dyn Any + Send + Sync>,
-    notify: tokio::sync::mpsc::Sender<SchedulePayload>,
-}
-
-impl TriggerNotifier {
-    pub fn new<C: SchedulerConfig>(
-        id: <C as SchedulerConfig>::TaskIdentifier,
-        notify: tokio::sync::mpsc::Sender<SchedulePayload>,
-    ) -> Self {
-        Self {
-            id: Box::new(id),
-            notify,
-        }
-    }
-
-    pub fn notify_with<F, Fut>(self, time: F) -> JoinHandle<()>
-    where
-        F: Fn() -> Fut + 'static + Send,
-        Fut: Future<Output = Result<SystemTime, Box<dyn Error + Send + Sync>>> + Send + 'static,
-    {
-        tokio::spawn(async move {
-            let result = time().await;
-            self.notify(result).await;
-        })
-    }
-
-    pub async fn notify(self, result: Result<SystemTime, Box<dyn Error + Send + Sync>>) {
-        self.notify
-            .send((self.id, result))
-            .await
-            .expect("Failed to send notification via TaskTrigger, could not receive from the SchedulerTaskStore");
-    }
-}
 
 /// [`TaskTrigger`] is the main mechanism in which [`Tasks`](Task) schedule a future time (based on
 /// a current one) to run, this time is handed to the "[`Scheduler`](crate::scheduler::Scheduler) Side"
@@ -60,7 +23,7 @@ impl TriggerNotifier {
 /// # Semantics
 /// There are 2 arguments, the first is the "now" argument which utilizes [`SystemTime`] provided by Rust.
 ///
-/// > **Important Note:** The value for the "now" argument is not the same as using [`SystemTime::now`],
+/// > **Important Note:** The value for the "now" argument is **NOT** the same as using [`SystemTime::now`],
 /// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used
 ///
 /// The second argument is a [`TriggerNotifier`] which is the main channel in which the [`TaskTrigger`]
@@ -138,9 +101,34 @@ impl TriggerNotifier {
 /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
 #[async_trait]
 pub trait TaskTrigger: 'static + Send + Sync {
-    async fn trigger(
-        &self,
-        now: SystemTime,
-        notifier: TriggerNotifier,
-    ) -> Result<(), Box<dyn Error + Send + Sync>>;
+    async fn init(&self, now: SystemTime) -> Result<(), Box<dyn Error + Send + Sync>>;
+
+    /// The only required method of [`TaskTrigger`].
+    ///
+    /// # Semantics
+    /// Its job is to calculate the next future time given a current time and optionally
+    /// some outside state influencing those calculations.
+    ///
+    /// These calculations may be deferred and non-immediate which allows flexibility for interacting
+    /// with I/O, network-based APIs or anything in-between.
+    ///
+    /// For this reason, [`TaskTrigger`] returns its results via [`TaskTriggerNotifier`] which is explained
+    /// in the ``Argument(s)`` header below.
+    ///
+    /// When calculations are immediate and more mathematical / computational, it is best to use
+    /// [TaskSchedule](schedule::TaskSchedule) and its [`TaskSchedule::schedule`](schedule::TaskSchedule::schedule).
+    ///
+    /// # Arguments
+    /// There are two arguments at play, the first is the "now" argument which
+    /// utilizes [`SystemTime`] provided by Rust.
+    ///
+    /// > **Important Note:** The value for the "now" argument is **NOT** the same as using [`SystemTime::now`],
+    /// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used
+    ///
+    /// The second argument is a [`TriggerNotifier`] which is the main channel in which the [`TaskTrigger`]
+    /// sends its results back to "Scheduler Side".
+    ///
+    /// > **Important Note #2:** In almost all cases for notifying, it is best to use [`TriggerNotifier::notify_with`]
+    /// as to not block
+    async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>>;
 }
