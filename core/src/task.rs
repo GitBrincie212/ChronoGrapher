@@ -49,12 +49,12 @@ impl<E: TaskError> ErasedTask<E> {
         result
     }
 
-    pub fn frame(&self) -> &dyn DynTaskFrame<E> {
-        self.frame.as_ref()
+    pub fn frame(&self) -> &Arc<dyn DynTaskFrame<E>> {
+        &self.frame
     }
 
-    pub fn trigger(&self) -> &dyn TaskTrigger {
-        self.trigger.as_ref()
+    pub fn trigger(&self) -> &Arc<dyn TaskTrigger> {
+        &self.trigger
     }
 
     pub fn set_frame(&mut self, new_frame: impl TaskFrame<Error = E>) {
