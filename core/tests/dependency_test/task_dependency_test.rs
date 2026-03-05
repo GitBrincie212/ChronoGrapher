@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chronographer::errors::{StandardCoreErrorsCG, TaskError};
 use chronographer::prelude::*;
-use chronographer::task::dependency::{TaskDependency};
+use chronographer::task::dependency::TaskDependency;
 use chronographer::task::{OnTaskEnd, Task, TaskFrame, TaskFrameContext, TaskScheduleImmediate};
 use std::num::NonZeroU64;
 use std::sync::Arc;
@@ -23,7 +23,6 @@ impl TaskFrame for SimpleTaskFrame {
         }
     }
 }
-
 
 #[tokio::test]
 async fn test_task_dependency() {

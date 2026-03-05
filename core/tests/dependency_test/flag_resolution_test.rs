@@ -1,6 +1,6 @@
 use chronographer::prelude::*;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool};
+use std::sync::atomic::AtomicBool;
 
 #[tokio::test]
 async fn test_flag_resolution() {
