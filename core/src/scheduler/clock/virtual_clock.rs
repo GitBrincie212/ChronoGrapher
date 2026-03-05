@@ -4,7 +4,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Notify;
 
-use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::scheduler::clock::ProgressiveClock;
 
@@ -43,14 +42,14 @@ impl VirtualClock {
 }
 
 #[async_trait]
-impl<C: SchedulerConfig> SchedulerClock<C> for VirtualClock {
+impl SchedulerClock for VirtualClock {
     fn now(&self) -> SystemTime {
         let now = self.current_time.load(Ordering::Relaxed);
         UNIX_EPOCH + Duration::from_millis(now)
     }
 
     async fn idle_to(&self, to: SystemTime) {
-        while <VirtualClock as SchedulerClock<C>>::now(self) < to {
+        while <VirtualClock as SchedulerClock>::now(self) < to {
             self.notify.notified().await;
         }
     }
@@ -69,10 +68,10 @@ impl<C: SchedulerConfig> SchedulerClock<C> for VirtualClock {
 }
 
 #[async_trait]
-impl<C: SchedulerConfig> AdvanceableSchedulerClock<C> for VirtualClock {
+impl AdvanceableSchedulerClock for VirtualClock {
     fn advance(&self, duration: Duration) {
-        let now = <VirtualClock as SchedulerClock<C>>::now(self);
-        <VirtualClock as AdvanceableSchedulerClock<C>>::advance_to(self, now + duration)
+        let now = <VirtualClock as SchedulerClock>::now(self);
+        <VirtualClock as AdvanceableSchedulerClock>::advance_to(self, now + duration)
     }
 
     fn advance_to(&self, to: SystemTime) {

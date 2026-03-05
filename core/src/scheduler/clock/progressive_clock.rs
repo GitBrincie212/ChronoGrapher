@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;
@@ -33,7 +32,7 @@ impl Default for ProgressiveClock {
 }
 
 #[async_trait]
-impl<C: SchedulerConfig> SchedulerClock<C> for ProgressiveClock {
+impl SchedulerClock for ProgressiveClock {
     fn now(&self) -> SystemTime {
         SystemTime::now()
     }
