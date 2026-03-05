@@ -7,7 +7,7 @@ mod utils; // skipcq: RS-D1001
 use crate::errors::TaskError;
 use crate::scheduler::clock::*;
 use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
-use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, EngineNotifier, SchedulerTaskDispatcher};
+use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{Task, TaskFrame, TaskTrigger};
@@ -19,7 +19,7 @@ use std::sync::Arc;
 use crossbeam::queue::SegQueue;
 use tokio::join;
 use tokio::sync::{Notify, RwLock};
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, JoinSet};
 use typed_builder::TypedBuilder;
 
 pub(crate) use crate::scheduler::utils::*;
@@ -92,8 +92,8 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             let worker_clone = worker.clone();
             tokio::spawn(async move {
                 loop {
-                    if let Some((id, trigger)) 
-                        = worker_clone.0.pop() 
+                    if let Some((id, trigger))
+                        = worker_clone.0.pop()
                     {
                         let now = engine_clone.clock().now();
 
@@ -143,7 +143,8 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             dispatcher: Arc::new(config.dispatcher),
             process: RwLock::new(None),
             instruction_channel: RwLock::new(None),
-            trigger_workers: Arc::new(workers)
+            trigger_workers: Arc::new(workers),
+            pre_schedule_queue: Arc::new(SegQueue::new()),
         }
     }
 }
@@ -154,7 +155,8 @@ pub struct Scheduler<C: SchedulerConfig> {
     engine: Arc<C::SchedulerEngine>,
     process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>, JoinHandle<()>)>>,
     instruction_channel: RwLock<Option<tokio::sync::mpsc::Sender<SchedulerHandlePayload>>>,
-    trigger_workers: Arc<Vec<TriggerJobWorker<C>>>
+    trigger_workers: Arc<Vec<TriggerJobWorker<C>>>,
+    pre_schedule_queue: Arc<SegQueue<C::TaskIdentifier>>,
 }
 
 impl<C> Default for Scheduler<C>
@@ -181,14 +183,12 @@ fn spawn_task<C: SchedulerConfig>(
     dispatcher: &Arc<C::SchedulerTaskDispatcher>,
     task: <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::StoredTask
 ) {
-    let sender = EngineNotifier::new(
-        id,
-        reschedule_queue,
-    );
-
     let dispatcher = dispatcher.clone();
+    let id = id.clone();
     tokio::spawn(async move {
-        dispatcher.dispatch(task, &sender).await;
+        let result = dispatcher.dispatch(&id, task).await;
+        reschedule_queue.0.push((id, result.err()));
+        reschedule_queue.1.notify_waiters()
     });
 }
 
@@ -220,9 +220,21 @@ impl<C: SchedulerConfig> Scheduler<C> {
         let (instruct_send, instruct_receive) =
             tokio::sync::mpsc::channel::<SchedulerHandlePayload>(1024);
 
-        for (id, task) in self.store.iter() {
-            append_scheduler_handler::<C>(&task, id, instruct_send.clone()).await;
+        let workers = (2 * self.pre_schedule_queue.len()).isqrt().max(1);
+        let mut js = JoinSet::new();
+        for _ in 0..workers {
+            let queue_clone = self.pre_schedule_queue.clone();
+            let store_clone = self.store.clone();
+            let instruct_send_clone = instruct_send.clone();
+            js.spawn(async move {
+                while let Some(id) = queue_clone.pop()
+                    && let Some(task) = store_clone.get(&id) {
+                    append_scheduler_handler::<C>(&task, id, instruct_send_clone.clone()).await;
+                }
+            });
         }
+
+        js.join_all().await;
 
         *self.instruction_channel.write().await = Some(instruct_send);
 
@@ -277,6 +289,8 @@ impl<C: SchedulerConfig> Scheduler<C> {
         let id = C::TaskIdentifier::generate();
         if let Some(channel) = &*self.instruction_channel.read().await {
             append_scheduler_handler::<C>(&erased, id.clone(), channel.clone()).await;
+        } else {
+            self.pre_schedule_queue.push(id.clone());
         }
 
         let trigger = erased.trigger().clone();
