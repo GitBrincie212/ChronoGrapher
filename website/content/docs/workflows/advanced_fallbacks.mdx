@@ -1,0 +1,70 @@
+---
+title: Advanced Fallbacks & Richer Error Handling
+description: Learn how to better handle errors in complex workflows
+---
+
+In the previous chapter, we have discussed advanced usage regarding ``retry`` such as Backoff Strategies and Error Filtering.
+While in the topic of errors, we must mention the fact we ran into a couple of issues with our fallback.
+
+# Advanced Fallbacks
+Currently, with simple fallbacks (where we declared only one fallback), everything is restricted to one ``TaskFrame``.
+However, life shouldn't be hard, as such **Multi-Fallbacks** come in the full picture.
+
+Consider this example:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[derive(Debug)]
+struct ServerError;
+
+#[derive(Debug)]
+struct ResourceNotFound404;
+
+#[derive(Debug)]
+struct ResourceNotFound;
+
+#[taskframe]
+async fn my_task_fallback(ctx: &TaskContext) -> Result<(), TaskError> {
+    if let Some(err) = ctx.get_shared::<TaskError>() {
+        match err {
+            other => Err(other)
+        }
+    }
+    panic!("my_task_fallback isn't used as a fallback");
+}
+
+#[task(interval(6s))]
+#[workflow(
+    fallback(my_task_fallback)
+)]
+async fn my_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+With simple fallbacks, the fallback has to manage every different error that comes from our business logic (and workflow,
+though for simplicity not included).
+
+While one can make a monolithic function that tries to manage all errors, depending on the action performed by the business logic,
+different ways are required to handle the "same looking error".
+
+This is where the **Multi-Fallbacks** idea comes in play, instead of one, we can split the monolithic fallback to multiple
+smaller, single-purpose and reusable fallbacks.
+
+To achieve this let's rewrite our example like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[taskframe]
+async fn my_task_error1_fallback(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+
+#[task(interval(6s))]
+#[workflow(
+    fallback(my_task_fallback)
+)]
+async fn my_task(ctx: &TaskContext) -> Result<(), TaskError> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
