@@ -1,78 +1,16 @@
 use crate::scheduler::SchedulerConfig;
-use crate::scheduler::clock::SchedulerClock;
-use crate::scheduler::task_store::{RescheduleError, SchedulePayload, SchedulerTaskStore};
-use crate::task::{ErasedTask, TriggerNotifier};
+use crate::scheduler::task_store::SchedulerTaskStore;
+use crate::task::ErasedTask;
 use async_trait::async_trait;
 use dashmap::DashMap;
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
 use std::error::Error;
 use std::sync::Arc;
-use std::time::SystemTime;
-use tokio::sync::{Mutex, MutexGuard};
 
-struct InternalScheduledItem<C: SchedulerConfig>(SystemTime, C::TaskIdentifier);
-
-impl<C: SchedulerConfig> Eq for InternalScheduledItem<C> {}
-
-impl<C: SchedulerConfig> PartialEq<Self> for InternalScheduledItem<C> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<C: SchedulerConfig> PartialOrd<Self> for InternalScheduledItem<C> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<C: SchedulerConfig> Ord for InternalScheduledItem<C> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        other.0.cmp(&self.0)
-    }
-}
-
-type EarlyMutexLock<'a, C> = MutexGuard<'a, BinaryHeap<InternalScheduledItem<C>>>;
-
-pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig> {
-    earliest_sorted: Arc<Mutex<BinaryHeap<InternalScheduledItem<C>>>>,
-    tasks: DashMap<C::TaskIdentifier, Arc<ErasedTask<C::TaskError>>>,
-    sender: tokio::sync::mpsc::Sender<SchedulePayload>,
-    notifier: tokio::sync::Notify,
-}
+pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig>(DashMap<C::TaskIdentifier, Arc<ErasedTask<C::TaskError>>>);
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     fn default() -> Self {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<SchedulePayload>(1024);
-
-        let earliest_sorted = Arc::new(Mutex::new(BinaryHeap::new()));
-        let earliest_sorted_clone = earliest_sorted.clone();
-        tokio::spawn(async move {
-            while let Some((id, time)) = rx.recv().await {
-                let id = id.downcast_ref::<C::TaskIdentifier>()
-                    .expect("Different type was used on TriggerNotifier, which was meant as for an identifier");
-                match time {
-                    Ok(time) => {
-                        let mut lock = earliest_sorted_clone.lock().await;
-                        lock.push(InternalScheduledItem(time, id.clone()))
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "TaskTrigger corresponding to the id {:?} failed to compute a future time with the error {:?}",
-                            id, err
-                        )
-                    }
-                }
-            }
-        });
-
-        Self {
-            earliest_sorted,
-            tasks: DashMap::new(),
-            sender: tx,
-            notifier: tokio::sync::Notify::default(),
-        }
+        Self(DashMap::new())
     }
 }
 
@@ -82,77 +20,33 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
 
     async fn init(&self) {}
 
-    async fn retrieve(&self) -> (Self::StoredTask, SystemTime, C::TaskIdentifier) {
-        loop {
-            let early_lock: EarlyMutexLock<'_, C> = self.earliest_sorted.lock().await;
-            if let Some(rev_item) = early_lock.peek()
-                && let Some(task) = self.tasks.get(&rev_item.1)
-            {
-                return (task.value().clone(), rev_item.0, rev_item.1.clone());
-            }
-            drop(early_lock);
-            self.notifier.notified().await;
-        }
-    }
-
     fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask> {
-        self.tasks.get(idx).map(|x| x.value().clone())
-    }
-
-    async fn pop(&self) {
-        let mut early_lock = self.earliest_sorted.lock().await;
-        early_lock.pop();
+        self.0.get(idx).map(|x| x.value().clone())
     }
 
     fn exists(&self, idx: &C::TaskIdentifier) -> bool {
-        self.tasks.contains_key(idx)
+        self.0.contains_key(idx)
     }
 
-    async fn reschedule(
+    fn store(
         &self,
-        clock: &C::SchedulerClock,
         id: &C::TaskIdentifier,
-    ) -> RescheduleError {
-        if let Some(task) = self.tasks.get(id) {
-            let now = clock.now();
-            let notifier = TriggerNotifier::new::<C>(id.clone(), self.sender.clone());
-            return match task.trigger().trigger(now, notifier).await {
-                Ok(()) => {
-                    self.notifier.notify_waiters();
-                    RescheduleError::Success
-                }
-                Err(err) => RescheduleError::TriggerError(err),
-            };
-        }
-        RescheduleError::UnknownTask
-    }
-
-    async fn store(
-        &self,
-        clock: &C::SchedulerClock,
-        id: C::TaskIdentifier,
         task: ErasedTask<C::TaskError>,
-    ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
-        let now = clock.now();
-        let notifier = TriggerNotifier::new::<C>(id.clone(), self.sender.clone());
-        task.trigger().trigger(now, notifier).await?;
-        self.tasks.insert(id.clone(), Arc::new(task));
-        self.notifier.notify_waiters();
-
-        Ok::<<C as SchedulerConfig>::TaskIdentifier, Box<dyn Error + Send + Sync>>(id)
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.0.insert(id.clone(), Arc::new(task));
+        Ok(())
     }
 
-    async fn remove(&self, idx: &C::TaskIdentifier) {
-        self.tasks.remove(idx);
+    fn remove(&self, idx: &C::TaskIdentifier) {
+        self.0.remove(idx);
     }
 
-    async fn clear(&self) {
-        self.earliest_sorted.lock().await.clear();
-        self.tasks.clear();
+    fn clear(&self) {
+        self.0.clear();
     }
 
     fn iter(&self) -> impl Iterator<Item = (C::TaskIdentifier, Self::StoredTask)> {
-        self.tasks
+        self.0
             .iter()
             .map(|x| (x.key().clone(), x.value().clone()))
     }
