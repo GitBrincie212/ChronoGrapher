@@ -62,7 +62,7 @@ use std::time::SystemTime;
 /// ```
 /// use std::time::{SystemTime, Duration};
 /// use std::error::Error;
-/// use chronographer::task::{TaskTrigger, TriggerNotifier};
+/// use chronographer::task::TaskTrigger;
 /// use tokio::time::sleep;
 /// use async_trait::async_trait;
 ///
@@ -74,10 +74,28 @@ use std::time::SystemTime;
 ///     // if needed, by implementing the init(...) method from TaskTrigger
 ///
 ///     async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
-///         sleep(Duration::from_secs(2)).await;
+///         sleep(Duration::from_secs(2)).await; // Simulated delay
 ///         Ok(now + Duration::from_secs(5))
 ///     }
 /// }
+///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+/// let instance = DeferredEveryFiveSeconds;
+///
+/// let now = SystemTime::now();
+/// let instant = tokio::time::Instant::now();
+///
+/// let future_time = instance.trigger(now).await?;
+/// let elapsed = instant.elapsed().as_secs_f64();
+///
+/// // Checks the time the trigger took (the 10ms is for accounting some variability)
+/// assert!((elapsed - 2f64) <= 0.010, "Expected ~2s, got {}s", elapsed);
+///
+/// // Checks for the returned value if its actually correct
+/// assert_eq!(future_time, now + Duration::from_secs(5));
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// # See Also
