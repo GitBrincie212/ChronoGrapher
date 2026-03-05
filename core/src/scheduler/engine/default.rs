@@ -1,5 +1,5 @@
 use crate::scheduler::SchedulerConfig;
-use crate::scheduler::engine::{SchedulerEngine};
+use crate::scheduler::engine::SchedulerEngine;
 use async_trait::async_trait;
 use std::error::Error;
 use std::sync::Arc;
