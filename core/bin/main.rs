@@ -104,7 +104,11 @@ async fn main() {
     }
     println!("STARTING {}", t.elapsed().as_secs_f64());
 
+    let t = tokio::time::Instant::now();
     scheduler.start().await;
+
+    println!("STARTED AT {}", t.elapsed().as_secs_f64());
+
     let mut last = COUNTER.load(Ordering::Relaxed);
     let mut total = 0usize;
     let start = Instant::now();
