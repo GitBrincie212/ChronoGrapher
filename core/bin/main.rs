@@ -16,10 +16,9 @@ static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 async fn main() {
     dbg!("LOADING TASKS");
-    let mut millis: f64 = 0.9;
     let mut tasks: Vec<Pin<Box<dyn Future<Output=()> + Send>>> = Vec::with_capacity(200_000);
-    for _ in 0..200_000 {
-        millis *= 0.05;
+    for _ in 0..350_000 {
+        let millis = fastrand::f64() / 6f64;
         let task = every((millis * 1000.0).floor() as u32).millisecond()
             .in_timezone(&Local)
             .perform(|| async {
@@ -46,7 +45,7 @@ async fn main() {
 
     writeln!(file, "time_sec,tasks_per_sec").unwrap();
 
-    for _ in 0..=50 {
+    for i in 0..=50 {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         let current = COUNTER.load(Ordering::Relaxed);
@@ -58,7 +57,7 @@ async fn main() {
         let elapsed = start.elapsed().as_secs_f64();
         let avg = total as f64 / elapsed;
 
-        println!("Average tasks/sec: {:.2}", avg);
+        println!("{}", i);
         writeln!(file, "{:.2},{:.2}", elapsed, avg).unwrap();
     }
 }
@@ -97,9 +96,8 @@ async fn main() {
     let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
     println!("LOADING TASKS");
-    let mut millis: f64 = 0.999;
-    for _ in 0..250_000 {
-        millis *= 0.025;
+    for _ in 0..350_000 {
+        let millis = fastrand::f64() / 6f64;
         let task = Task::new(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
 
         let _ = scheduler.schedule(&task).await;
