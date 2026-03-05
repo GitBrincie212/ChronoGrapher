@@ -31,16 +31,16 @@ use std::time::SystemTime;
 /// # use std::error::Error;
 /// # use chronographer::task::trigger::schedule::TaskSchedule;
 ///
-/// #[tokio::main]
+/// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-///     let immediate_schedule = TaskScheduleImmediate;
-///     let now = SystemTime::now();
+/// let instance = TaskScheduleImmediate;
+/// let now = SystemTime::now();
 ///
-///     // Both schedule and trigger methods return the same result
-///     let future_time = immediate_schedule.trigger(now).await?;
+/// // Both schedule and trigger methods return the same result
+/// let future_time = instance.trigger(now).await?;
 ///
-///     assert_eq!(future_time, now);
-///     # Ok(())
+/// assert_eq!(future_time, now);
+/// # Ok(())
 /// # }
 /// ```
 ///
