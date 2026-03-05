@@ -1,174 +1,113 @@
 use crate::scheduler::SchedulerConfig;
-use crate::scheduler::clock::SchedulerClock;
-use crate::scheduler::engine::{SchedulerEngine, SchedulerHandlePayload};
-use crate::scheduler::task_dispatcher::{EngineNotifier, SchedulerTaskDispatcher};
-use crate::scheduler::task_store::{RescheduleError, SchedulerTaskStore};
+use crate::scheduler::engine::{SchedulerEngine};
 use async_trait::async_trait;
-use dashmap::DashSet;
-use std::any::type_name;
+use std::error::Error;
 use std::sync::Arc;
-use tokio::join;
+use std::time::{Duration, SystemTime};
+use crossbeam::queue::SegQueue;
+use tokio::sync::Notify;
+use crate::scheduler::clock::SchedulerClock;
+use crate::utils::hierarchical_timing_wheel::HierarchicalTimingWheel;
+use crate::utils::TaskIdentifier;
 
-type EngineSender<C> = tokio::sync::mpsc::Sender<(
-    <C as SchedulerConfig>::TaskIdentifier,
-    Option<<C as SchedulerConfig>::TaskError>
-)>;
-
-pub struct DefaultSchedulerEngine<C: SchedulerConfig> {
-    channel: Arc<Option<EngineSender<C>>>,
+enum WheelCommand<T: TaskIdentifier> {
+    Insert(T, Duration),
+    Skip(u8, tokio::sync::mpsc::Sender<(usize, u8, u8)>),
+    Clear,
 }
 
-impl<C: SchedulerConfig> Default for DefaultSchedulerEngine<C> {
+pub struct DefaultSchedulerEngine<C: SchedulerConfig> {
+    command_batch: Arc<SegQueue<WheelCommand<C::TaskIdentifier>>>,
+    get_result_queue: Arc<(SegQueue<Vec<C::TaskIdentifier>>, Notify)>,
+    clock: Arc<C::SchedulerClock>,
+}
+
+impl<C: SchedulerConfig> Default for DefaultSchedulerEngine<C>
+where
+    C::SchedulerClock: Default
+{
     fn default() -> Self {
+        let clock = Arc::new(C::SchedulerClock::default());
+
+        let mut hierarchical_wheel
+            = HierarchicalTimingWheel::<C::TaskIdentifier>::default();
+
+        let command_batch = Arc::new(SegQueue::new());
+        let get_result_queue = Arc::new((SegQueue::new(), Notify::new()));
+
+        let clock_clone = clock.clone();
+        let batch_clone = command_batch.clone();
+        let get_result_queue_clone = get_result_queue.clone();
+        tokio::spawn(async move {
+            loop {
+                clock_clone.tick().await;
+                while let Some(command) = batch_clone.pop() {
+                    match command {
+                        WheelCommand::Insert(val, pos) => {
+                            hierarchical_wheel.insert(val, pos);
+                        }
+                        WheelCommand::Skip(..) => {
+                            todo!()
+                        }
+
+                        WheelCommand::Clear => {
+                            hierarchical_wheel.clear()
+                        }
+                    }
+                }
+                get_result_queue_clone.0.push(hierarchical_wheel.tick());
+                get_result_queue_clone.1.notify_waiters()
+            }
+        });
+
         Self {
-            channel: Arc::new(None),
+            clock,
+            command_batch,
+            get_result_queue
         }
     }
 }
 
-fn spawn_task<C: SchedulerConfig>(
-    id: C::TaskIdentifier, scheduler_send: EngineSender<C>,
-    dispatcher: &Arc<C::SchedulerTaskDispatcher>,
-    task: <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::StoredTask
-) {
-    let sender = EngineNotifier::new(
-        id,
-        scheduler_send,
-    );
-
-    let dispatcher = dispatcher.clone();
-    tokio::spawn(async move {
-        dispatcher.dispatch(task, &sender).await;
-    });
-}
-
-pub enum SchedulerHandleInstructions {
-    Reschedule, // Forces the Task to reschedule (instances may still run)
-    Halt,       // Cancels the Task's current execution, if any
-    Block,      // Blocks the Task from rescheduling
-    Execute,    // Spawns a new instance of the Task to run
-}
-
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
-    async fn main(
-        &self,
-        clock: Arc<C::SchedulerClock>,
-        store: Arc<C::SchedulerTaskStore>,
-        dispatcher: Arc<C::SchedulerTaskDispatcher>,
-    ) {
-        let (scheduler_send, mut scheduler_receive) =
-            tokio::sync::mpsc::channel::<(C::TaskIdentifier, Option<C::TaskError>)>(20480);
-
-        let blocked_ids: DashSet<C::TaskIdentifier> = DashSet::default();
-
-        join!(
-            // ============================
-            // Reschedule Logic
-            // ============================
-            async {
-                while let Some((id, err)) = scheduler_receive.recv().await {
-                    if blocked_ids.contains(&id) {
-                        blocked_ids.remove(&id);
-                        continue;
-                    }
-
-                    match err {
-                        None => {
-                            if let Some(_task) = store.get(&id) {
-                                match store.reschedule(&clock, &id).await {
-                                    RescheduleError::Success => {}
-                                    RescheduleError::TriggerError(_) => {
-                                        eprintln!(
-                                            "Failed to reschedule Task with the identifier {id:?}"
-                                        )
-                                    }
-                                    RescheduleError::UnknownTask => {}
-                                }
-                            }
-                        }
-
-                        Some(err) => {
-                            eprintln!(
-                                "Scheduler engine received an error for Task with identifier ({:?}):\n\t {:?}",
-                                id, err
-                            );
-                        }
-                    }
-                }
-            },
-            // ============================
-            // Engine Loop
-            // ============================
-            async {
-                loop {
-                    for id in store.retrieve(clock.as_ref()).await {
-                        if let Some(task) = store.get(&id) {
-                            spawn_task::<C>(id, scheduler_send.clone(), &dispatcher, task);
-                        }
-                    }
-                }
-            },
-        );
+    async fn retrieve(&self) -> Vec<C::TaskIdentifier> {
+        loop {
+            if self.get_result_queue.0.is_empty() {
+                self.get_result_queue.1.notified().await;
+                continue
+            }
+            let res = self.get_result_queue.0.pop().unwrap();
+            return res;
+        }
     }
 
-    async fn create_instruction_channel(
+    async fn init(
         &self,
-        clock: &Arc<C::SchedulerClock>,
         store: &Arc<C::SchedulerTaskStore>,
         dispatcher: &Arc<C::SchedulerTaskDispatcher>,
-    ) -> tokio::sync::mpsc::Sender<SchedulerHandlePayload> {
-        let (instruct_send, mut instruct_receive) =
-            tokio::sync::mpsc::channel::<SchedulerHandlePayload>(1024);
+    ) {}
 
-        let clock = clock.clone();
-        let store = store.clone();
-        let dispatcher = dispatcher.clone();
-        let engine_sender_channel = self.channel.clone();
+    fn clock(&self) -> &C::SchedulerClock {
+        self.clock.as_ref()
+    }
 
-        tokio::spawn(async move {
-            while let Some((id, instruction)) = instruct_receive.recv().await {
-                let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(|| {
-                    panic!(
-                        "Cannot downcast to TaskIdentifier of type {:?}",
-                        type_name::<C::TaskIdentifier>()
-                    )
-                });
+    async fn schedule(
+        &self,
+        id: &C::TaskIdentifier,
+        time: SystemTime,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let now = self.clock.now();
+        self.command_batch.push(WheelCommand::Insert(
+            id.clone(),
+            time.duration_since(now).unwrap_or(Duration::ZERO)
+        ));
+        Ok(())
+    }
 
-                match instruction {
-                    SchedulerHandleInstructions::Reschedule => {
-                        match store.reschedule(clock.as_ref(), id).await {
-                            RescheduleError::Success => {}
-                            RescheduleError::TriggerError(err) => {
-                                eprintln!(
-                                    "Failed reschedule via instruction the task(identifier being \
-                                        \"{id:?}\") with error:\n\t{err:?}"
-                                )
-                            }
-                            RescheduleError::UnknownTask => {}
-                        }
-                    }
+    async fn cancel(&self, id: &C::TaskIdentifier) {
+    }
 
-                    SchedulerHandleInstructions::Halt => {
-                        dispatcher.cancel(id).await;
-                    }
-
-                    SchedulerHandleInstructions::Block => {
-                        store.remove(id).await;
-                    }
-
-                    SchedulerHandleInstructions::Execute => {
-                        if let Some(task) = store.get(id) {
-                            engine_sender_channel.as_ref().as_ref().map(|sender| {
-                                spawn_task::<C>(id.clone(), sender.clone(), &dispatcher, task);
-                            });
-                            continue;
-                        }
-                    }
-                }
-            }
-        });
-
-        instruct_send
+    async fn clear(&self) {
+        todo!()
     }
 }

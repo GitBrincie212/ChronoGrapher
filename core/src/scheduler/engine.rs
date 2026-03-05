@@ -1,28 +1,32 @@
 pub mod default;
 
 pub use default::DefaultSchedulerEngine;
-use std::any::Any;
 
+use std::error::Error;
 use crate::scheduler::SchedulerConfig;
-use crate::scheduler::engine::default::SchedulerHandleInstructions;
 use async_trait::async_trait;
 use std::sync::Arc;
-
-pub type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
+use std::time::SystemTime;
 
 #[async_trait]
 pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
-    async fn init(&self) {}
-    async fn main(
+    async fn retrieve(&self) -> Vec<C::TaskIdentifier>;
+
+    async fn init(
         &self,
-        clock: Arc<C::SchedulerClock>,
-        store: Arc<C::SchedulerTaskStore>,
-        dispatcher: Arc<C::SchedulerTaskDispatcher>,
-    );
-    async fn create_instruction_channel(
-        &self,
-        clock: &Arc<C::SchedulerClock>,
         store: &Arc<C::SchedulerTaskStore>,
         dispatcher: &Arc<C::SchedulerTaskDispatcher>,
-    ) -> tokio::sync::mpsc::Sender<SchedulerHandlePayload>;
+    );
+
+    fn clock(&self) -> &C::SchedulerClock;
+
+    async fn schedule(
+        &self,
+        id: &C::TaskIdentifier,
+        time: SystemTime,
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
+
+    async fn cancel(&self, id: &C::TaskIdentifier);
+
+    async fn clear(&self);
 }
