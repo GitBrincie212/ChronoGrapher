@@ -92,22 +92,21 @@ static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 #[allow(clippy::empty_loop)]
 async fn main() {
+    println!("LOADING TASKS");
     let t = tokio::time::Instant::now();
     let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
-    println!("LOADING TASKS");
     for _ in 0..350_000 {
         let millis = fastrand::f64() / 6f64;
         let task = Task::new(TaskScheduleInterval::from_secs_f64(millis), MyTaskFrame);
 
         let _ = scheduler.schedule(&task).await;
     }
-    println!("STARTING {}", t.elapsed().as_secs_f64());
 
     let t = tokio::time::Instant::now();
     scheduler.start().await;
 
-    println!("STARTED AT {}", t.elapsed().as_secs_f64());
+    println!("STARTED {}", t.elapsed().as_secs_f64());
 
     let mut last = COUNTER.load(Ordering::Relaxed);
     let mut total = 0usize;
