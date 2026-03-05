@@ -167,32 +167,32 @@ about the module, its goals... etc. For headers:
 
 **Struct Sections**
 For errors, in the semantics header, one should describe how it behaves, when it occurs and what information does it contain.
-- ``# Semantics`` Lists how the struct is meant to be used and what it does. **(REQUIRED)**
-- ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters). **(REQUIRED)**
+- ``# Semantics`` Lists how the struct is meant to be used and what it does (can be skipped if above headers or explanations are sufficient). **(RECOMMENDED)**
+- ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters, if any). **(REQUIRED)**
 - ``# Constructor(s)`` Lists the various constructors you can use (including builders, normal rust initialization and via the Default trait). **(REQUIRED)**
-- ``# Accessing/Modifying Field(s)`` Lists the fields which you can access and/or modify (via setters/getters or via just normal Rust fields). **(REQUIRED)**
-- ``# Trait Implementation(s)`` Lists the various implementations the struct implements (not including blanket implementations). **(REQUIRED)**
+- ``# Accessing/Modifying Field(s)`` Lists the fields which you can access and/or modify (via setters/getters or via just normal Rust fields, if any). **(REQUIRED)**
+- ``# Trait Implementation(s)`` Lists the various implementations the struct implements (not including blanket implementations, if any). **(REQUIRED)**
 - ``# Generic(s)`` Describes the generics which the struct may have (don't include it if there aren't any). **(RECOMMENDED)**
 
 **Enum Sections**
 For errors, in the semantics header, one should describe how each variant behaves, when it occurs and what information does each variant contain.
-- ``# Semantics`` Lists how the enum is meant, what each variant is best suited to and what it does. **(REQUIRED)**
+- ``# Semantics`` Lists how the enum is meant, what each variant is best suited to and what it does(can be skipped if above headers or explanations are sufficient). **(RECOMMENDED)**
 - ``# Variant(s)`` Lists and briefly describes the variants of this enum. **(REQUIRED)**
-- ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters). **(REQUIRED)**
-- ``# Constructor(s)`` Lists the various constructors you can use (including builders, normal rust initialization and via the Default trait) for each variant. **(REQUIRED)**
-- ``# Accessing/Modifying Field(s)`` Lists the fields which you can access and/or modify (via setters/getters or via just normal Rust fields). **(REQUIRED)**
-- ``# Trait Implementation(s)`` Lists the various implementations the enum implements (not including blanket implementations). **(REQUIRED)**
+- ``# Method(s)`` Lists and briefly describes the methods (only functions, no getters/setters, if any). **(REQUIRED)**
+- ``# Constructor(s)`` Lists the various constructors you can use (including builders, normal rust initialization and via the Default trait) for each variant, if any. **(REQUIRED)**
+- ``# Accessing/Modifying Field(s)`` Lists the fields which you can access and/or modify (via setters/getters or via just normal Rust fields, if any). **(REQUIRED)**
+- ``# Trait Implementation(s)`` Lists the various implementations the enum implements (not including blanket implementations, if any). **(REQUIRED)**
 - ``# Generic(s)`` Describes the generics which the enum may have (don't include it if there aren't any). **(RECOMMENDED)**
 
 **Trait Sections**
-- ``# Semantics`` Lists how the trait is meant to be implemented, used and what it does. **(REQUIRED)**
+- ``# Semantics`` Lists how the trait is meant to be implemented, used and what it does(can be skipped if above headers or explanations are sufficient). **(RECOMMENDED)**
 - ``# Required Method(s)`` Lists the various required methods and what they are meant to do, if any. **(REQUIRED)**
+- ``# Optional Method(s)`` Lists the various optional methods, what they are meant to do and their default behavior, if any. **(RECOMMENDED)**
 - ``# Required Subtrait(s)`` Lists the various subtraits required for this trait to be implemented, if any. **(REQUIRED)**
 - ``# Supertrait(s)`` Lists the various supertraits which require this trait and extend on top of, if any. **(REQUIRED)**
 - ``# Implementation(s)`` Lists the various implementations of this trait and briefly describes them (not blanket implementations), if any. **(REQUIRED)**
 - ``# Object Safety / Dynamic Dispatching`` Describes if the trait is object safe / dynamic dispatchable, if not why. **(REQUIRED)**
 - ``# Blanket Implementation(s)`` Lists the blanket implementations of this trait, if any. **(RECOMMENDED)**
-- ``# Optional Method(s)`` Lists the various optional methods, what they are meant to do and their default behavior (ideally follow it after required). **(RECOMMENDED)**
 - ``# Generic(s)`` Describes the generics which the trait may have (don't include it if there aren't any). **(RECOMMENDED)**
 
 **Builder Sections (NOT The Structs)**
@@ -205,11 +205,11 @@ For errors, in the semantics header, one should describe how each variant behave
 - ``# Builder Method Chaining`` Informs the user if multiple identical builder methods are allowed, if yes what do they do, how they modify. **(REQUIRED)**
 
 **Method Sections**
-- ``# Semantics`` Lists how the method is meant to be used and what it does. **(REQUIRED)**
+- ``# Semantics`` Lists how the method is meant to be used and what it does(can be skipped if above headers or explanations are sufficient). **(RECOMMENDED)**
 - ``# Argument(s)`` Lists the various arguments the method accepts, their type and the semantics for each argument, if any. **(REQUIRED)**
 - ``# Returns`` Lists what the method returns back to the developer, the type and the semantics, if these are constant return values describe each return clause, if any. **(REQUIRED)**
-- ``# Error(s)`` Lists the various errors which may appear, under what conditions each error appears in. **(REQUIRED)**
-- ``# Panics`` Lists the various reasons the method may panic, under what circumstances and why. **(REQUIRED)**
+- ``# Error(s)`` Lists the various errors which may appear, under what conditions each error appears in, if any. **(REQUIRED)**
+- ``# Panics`` Lists the various reasons the method may panic, under what circumstances and why, if any. **(REQUIRED)**
 
 **Type Alias Sections**
 - ``# Semantics`` Elaborates the semantics of the type alias and its underlying type. **(REQUIRED)**
