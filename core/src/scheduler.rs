@@ -24,8 +24,6 @@ use typed_builder::TypedBuilder;
 
 pub(crate) use crate::scheduler::utils::*;
 
-pub const TRIGGER_WORKER_POOL: usize = 16;
-
 pub(crate) type TriggerJobPayload<C> = (
     <C as SchedulerConfig>::TaskIdentifier,
     Arc<dyn TaskTrigger>,
@@ -72,15 +70,18 @@ pub struct SchedulerInitConfig<T: SchedulerConfig> {
     dispatcher: T::SchedulerTaskDispatcher,
     store: T::SchedulerTaskStore,
     engine: T::SchedulerEngine,
+
+    #[builder(default = 16)]
+    trigger_workers: usize,
 }
 
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
     fn from(config: SchedulerInitConfig<C>) -> Self {
         let engine = Arc::new(config.engine);
         let store = Arc::new(config.store);
-        let mut workers = Vec::with_capacity(TRIGGER_WORKER_POOL);
+        let mut workers = Vec::with_capacity(config.trigger_workers);
 
-        for _ in 0..TRIGGER_WORKER_POOL {
+        for _ in 0..config.trigger_workers {
             let worker = Arc::new((
                 SegQueue::<(C::TaskIdentifier, Arc<dyn TaskTrigger>)>::new(),
                 Notify::new()
