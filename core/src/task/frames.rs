@@ -30,8 +30,7 @@ pub use timeoutframe::*;
 
 use crate::errors::TaskError;
 use crate::prelude::NonObserverTaskHook;
-use crate::scheduler::SchedulerHandle;
-use crate::scheduler::engine::default::SchedulerHandleInstructions;
+use crate::scheduler::{SchedulerHandleInstructions, SchedulerHandle};
 use crate::task::{ErasedTask, TaskHook, TaskHookContainer, TaskHookContext, TaskHookEvent};
 use async_trait::async_trait;
 use std::ops::Deref;
