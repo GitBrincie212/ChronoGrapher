@@ -2,23 +2,25 @@ pub mod default; // skipcq: RS-D1001
 
 pub use default::*;
 use std::ops::Deref;
-
+use std::sync::Arc;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
-use crate::scheduler::SchedulerConfig;
+use crate::scheduler::{ReschedulePayload, SchedulerConfig};
 use crate::task::ErasedTask;
 use async_trait::async_trait;
+use crossbeam::queue::SegQueue;
+use tokio::sync::Notify;
 
 pub struct EngineNotifier<C: SchedulerConfig> {
     id: C::TaskIdentifier,
-    notify: tokio::sync::mpsc::Sender<(C::TaskIdentifier, Option<C::TaskError>)>,
+    reschedule_queue: Arc<(SegQueue<ReschedulePayload<C>>, Notify)>,
 }
 
 impl<C: SchedulerConfig> Clone for EngineNotifier<C> {
     fn clone(&self) -> Self {
         Self {
             id: self.id.clone(),
-            notify: self.notify.clone(),
+            reschedule_queue: self.reschedule_queue.clone(),
         }
     }
 }
@@ -26,9 +28,9 @@ impl<C: SchedulerConfig> Clone for EngineNotifier<C> {
 impl<C: SchedulerConfig> EngineNotifier<C> {
     pub fn new(
         id: C::TaskIdentifier,
-        notify: tokio::sync::mpsc::Sender<(C::TaskIdentifier, Option<C::TaskError>)>,
+        reschedule_queue: Arc<(SegQueue<ReschedulePayload<C>>, Notify)>
     ) -> Self {
-        Self { id, notify }
+        Self { id, reschedule_queue }
     }
 
     pub fn id(&self) -> &C::TaskIdentifier {
@@ -39,11 +41,9 @@ impl<C: SchedulerConfig> EngineNotifier<C> {
         self.id = id
     }
 
-    pub async fn notify(&self, result: Option<C::TaskError>) {
-        self.notify
-            .send((self.id.clone(), result))
-            .await
-            .expect("Failed to send notification via SchedulerTaskDispatcher, could not receive from the SchedulerEngine");
+    pub fn notify(&self, result: Option<C::TaskError>) {
+        self.reschedule_queue.0.push((self.id.clone(), result));
+        self.reschedule_queue.1.notify_waiters()
     }
 }
 

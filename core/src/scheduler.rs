@@ -16,8 +16,9 @@ use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use crossbeam::queue::SegQueue;
 use tokio::join;
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
@@ -25,10 +26,12 @@ pub(crate) use crate::scheduler::utils::*;
 
 pub const TRIGGER_WORKER_POOL: usize = 16;
 
-pub(crate) type TriggerJobWorkers<C> = Vec<tokio::sync::mpsc::Sender<(
+pub(crate) type TriggerJobPayload<C> = (
     <C as SchedulerConfig>::TaskIdentifier,
-    Arc<dyn TaskTrigger>
-)>>;
+    Arc<dyn TaskTrigger>,
+);
+pub(crate) type TriggerJobWorker<C> = Arc<(SegQueue<TriggerJobPayload<C>>, Notify)>;
+
 pub(crate) type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 pub(crate) type ReschedulePayload<C> = (
     <C as SchedulerConfig>::TaskIdentifier,
@@ -78,46 +81,59 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
         let mut workers = Vec::with_capacity(TRIGGER_WORKER_POOL);
 
         for _ in 0..TRIGGER_WORKER_POOL {
-            let (tx, mut rx) =
-                tokio::sync::mpsc::channel::<(C::TaskIdentifier, Arc<dyn TaskTrigger>)>(1024);
+            let worker = Arc::new((
+                SegQueue::<(C::TaskIdentifier, Arc<dyn TaskTrigger>)>::new(),
+                Notify::new()
+            ));
+            
             let engine_clone = engine.clone();
             let store_clone = store.clone();
+            let worker_clone = worker.clone();
             tokio::spawn(async move {
-                while let Some((id, trigger)) = rx.recv().await {
-                    let now = engine_clone.clock().now();
+                loop {
+                    if let Some((id, trigger)) 
+                        = worker_clone.0.pop() 
+                    {
+                        let now = engine_clone.clock().now();
 
-                    match trigger.init(now).await {
-                        Ok(()) => {}
-                        Err(err) => {
-                            eprintln!("Initialization error from TaskTrigger: {:?}", err);
-                            store_clone.remove(&id);
-                            continue;
+                        match trigger.init(now).await {
+                            Ok(()) => {}
+                            Err(err) => {
+                                eprintln!("Initialization error from TaskTrigger: {:?}", err);
+                                store_clone.remove(&id);
+                                continue;
+                            }
                         }
+
+                        let time = match trigger.trigger(now).await {
+                            Ok(time) => {
+                                time
+                            }
+                            Err(err) => {
+                                eprintln!("Computation error from TaskTrigger: {:?}", err);
+                                store_clone.remove(&id);
+                                continue;
+                            }
+                        };
+
+                        match engine_clone.schedule(&id, time).await {
+                            Ok(()) => {}
+                            Err(err) => {
+                                eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                                store_clone.remove(&id);
+                            }
+                        }
+
+                        continue;
                     }
 
-                    let time = match trigger.trigger(now).await {
-                        Ok(time) => {
-                            time
-                        }
-                        Err(err) => {
-                            eprintln!("Computation error from TaskTrigger: {:?}", err);
-                            store_clone.remove(&id);
-                            continue;
-                        }
-                    };
-
-                    match engine_clone.schedule(&id, time).await {
-                        Ok(()) => {}
-                        Err(err) => {
-                            eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                            store_clone.remove(&id);
-                            continue;
-                        }
-                    }
+                    worker_clone.1.notified().await;
                 }
+
+
             });
 
-            workers.push(tx);
+            workers.push(worker);
         }
 
         Self {
@@ -137,7 +153,7 @@ pub struct Scheduler<C: SchedulerConfig> {
     engine: Arc<C::SchedulerEngine>,
     process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>, JoinHandle<()>)>>,
     instruction_channel: RwLock<Option<tokio::sync::mpsc::Sender<SchedulerHandlePayload>>>,
-    trigger_workers: Arc<TriggerJobWorkers<C>>
+    trigger_workers: Arc<Vec<TriggerJobWorker<C>>>
 }
 
 impl<C> Default for Scheduler<C>
@@ -160,13 +176,13 @@ where
 
 fn spawn_task<C: SchedulerConfig>(
     id: C::TaskIdentifier,
-    scheduler_send: tokio::sync::mpsc::Sender<ReschedulePayload<C>>,
+    reschedule_queue: Arc<(SegQueue<ReschedulePayload<C>>, Notify)>,
     dispatcher: &Arc<C::SchedulerTaskDispatcher>,
     task: <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::StoredTask
 ) {
     let sender = EngineNotifier::new(
         id,
-        scheduler_send,
+        reschedule_queue,
     );
 
     let dispatcher = dispatcher.clone();
@@ -197,8 +213,8 @@ impl<C: SchedulerConfig> Scheduler<C> {
             self.engine.init(&store_clone, &dispatcher_clone)
         );
 
-        let (scheduler_send, scheduler_receive) =
-            tokio::sync::mpsc::channel::<(C::TaskIdentifier, Option<C::TaskError>)>(20480);
+        let reschedule_queue =
+            Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
 
         let (instruct_send, instruct_receive) =
             tokio::sync::mpsc::channel::<SchedulerHandlePayload>(1024);
@@ -216,14 +232,14 @@ impl<C: SchedulerConfig> Scheduler<C> {
                     &dispatcher_clone,
                     &store_clone,
                     self.trigger_workers.clone(),
-                    scheduler_send.clone()
+                    &reschedule_queue
                 ),
             ),
 
             tokio::spawn(
                 reschedule_logic::<C>(
                     &store_clone,
-                    scheduler_receive,
+                    &reschedule_queue,
                     self.trigger_workers.clone()
                 )
             ),
@@ -233,7 +249,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
                     &engine_clone,
                     &dispatcher_clone,
                     &store_clone,
-                    scheduler_send,
+                    &reschedule_queue
                 )
             )
         ));
@@ -265,7 +281,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
         let trigger = erased.trigger().clone();
 
         self.store.store(&id, erased)?;
-        assign_to_trigger_worker::<C>(trigger, &id, self.trigger_workers.as_ref()).await;
+        assign_to_trigger_worker::<C>(trigger, &id, self.trigger_workers.as_ref());
 
         Ok(id)
     }

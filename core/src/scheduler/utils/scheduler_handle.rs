@@ -1,7 +1,9 @@
 use std::any::{type_name, Any};
 use std::sync::Arc;
+use crossbeam::queue::SegQueue;
+use tokio::sync::Notify;
 use crate::prelude::{SchedulerConfig, TaskHook};
-use crate::scheduler::{assign_to_trigger_worker, spawn_task, ReschedulePayload, SchedulerHandlePayload, TriggerJobWorkers};
+use crate::scheduler::{assign_to_trigger_worker, spawn_task, ReschedulePayload, SchedulerHandlePayload, TriggerJobWorker};
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::ErasedTask;
@@ -47,11 +49,12 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     mut instruct_receive: tokio::sync::mpsc::Receiver<SchedulerHandlePayload>,
     dispatcher: &Arc<C::SchedulerTaskDispatcher>,
     store: &Arc<C::SchedulerTaskStore>,
-    workers: Arc<TriggerJobWorkers<C>>,
-    scheduler_send: tokio::sync::mpsc::Sender<ReschedulePayload<C>>,
+    workers: Arc<Vec<TriggerJobWorker<C>>>,
+    reschedule_queue: &Arc<(SegQueue<ReschedulePayload<C>>, Notify)>,
 ) -> impl Future<Output = ()> + 'static {
     let dispatcher = dispatcher.clone();
     let store = store.clone();
+    let reschedule_queue = reschedule_queue.clone();
 
     async move {
         while let Some((id, instruction)) = instruct_receive.recv().await {
@@ -65,7 +68,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
             match instruction {
                 SchedulerHandleInstructions::Reschedule => {
                     if let Some(task) = store.get(id) {
-                        assign_to_trigger_worker::<C>(task.trigger().clone(), &id, workers.as_ref()).await;
+                        assign_to_trigger_worker::<C>(task.trigger().clone(), &id, workers.as_ref());
                     }
                 }
 
@@ -80,7 +83,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
                 SchedulerHandleInstructions::Execute => {
                     if let Some(task) = store.get(id) {
 
-                        spawn_task::<C>(id.clone(), scheduler_send.clone(), &dispatcher, task);
+                        spawn_task::<C>(id.clone(), reschedule_queue.clone(), &dispatcher, task);
                     }
                 }
             }
