@@ -1,6 +1,6 @@
 use crate::scheduler::Arc;
 use crate::scheduler::SchedulerConfig;
-use crate::scheduler::task_dispatcher::{EngineNotifier, SchedulerTaskDispatcher};
+use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::ops::Deref;
@@ -23,11 +23,11 @@ impl<C: SchedulerConfig> Default for DefaultTaskDispatcher<C> {
 impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C> {
     async fn dispatch(
         &self,
+        id: &C::TaskIdentifier,
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
-        engine_notifier: &EngineNotifier<C>,
-    ) {
+    ) -> Result<(), C::TaskError> {
         let mut entry = self.0
-            .entry(engine_notifier.id().clone())
+            .entry(id.clone())
             .or_default();
 
         let handle = Arc::new(Notify::new());
@@ -36,11 +36,11 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C>
 
         tokio::select! {
             result = task.run() => {
-                engine_notifier.notify(result.err());
-                self.0.remove(engine_notifier.id());
+                self.0.remove(id);
+                return result;
             }
 
-            _ = handle.notified() => (),
+            _ = handle.notified() => Ok(()),
         }
 
     }
