@@ -30,7 +30,7 @@ use std::time::SystemTime;
 /// Errors during initialization indicate the [`TaskTrigger`] couldn't handle triggering. Reasons may
 /// include restricted access to the network (or a service), I/O issues (for monitoring files)... etc.
 ///
-/// The seconds stage is **Computation** which happens once the "[`Scheduler`](crate::scheduler::Scheduler) Side"
+/// The second stage is **Computation** which happens once the "[`Scheduler`](crate::scheduler::Scheduler) Side"
 /// confirms the [`TaskTrigger`] is ready, in which case it calls [`TaskTrigger::trigger`] on a worker (a thread).
 ///
 /// Errors during computation indicate failure from the [`TaskTrigger`] to compute something. An example
@@ -129,7 +129,7 @@ pub trait TaskTrigger: 'static + Send + Sync {
     async fn init(&self, now: SystemTime) -> Result<(), Box<dyn Error + Send + Sync>> {Ok(())}
 
     /// The second stage of [`TaskTrigger`] which is **Computation** where the actual logic of waiting,
-    /// monitering and calculation co-exist to return a new future time based on a current.
+    /// monitoring and calculation co-exist to return a new future time based on a current.
     ///
     /// # Semantics
     /// Its job is to calculate the next future time given a current time and optionally
