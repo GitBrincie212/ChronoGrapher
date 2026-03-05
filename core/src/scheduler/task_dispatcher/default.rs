@@ -4,18 +4,18 @@ use crate::scheduler::task_dispatcher::{EngineNotifier, SchedulerTaskDispatcher}
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::ops::Deref;
-use tokio::task::JoinHandle;
 use dashmap::DashMap;
+use tokio::sync::Notify;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 
 pub struct DefaultTaskDispatcher<C: SchedulerConfig>(
-    Arc<DashMap<C::TaskIdentifier, Vec<JoinHandle<()>>>>
+    DashMap<C::TaskIdentifier, Vec<Arc<Notify>>>
 );
 
 impl<C: SchedulerConfig> Default for DefaultTaskDispatcher<C> {
     fn default() -> Self {
-        Self(Arc::new(DashMap::new()))
+        Self(DashMap::new())
     }
 }
 
@@ -26,35 +26,29 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C>
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
         engine_notifier: &EngineNotifier<C>,
     ) {
-        let engine_id = engine_notifier.id().clone();
-        let dispatcher = self.0.clone();
-        let notifier = engine_notifier.clone();
-
         let mut entry = self.0
-            .entry(engine_id.clone())
+            .entry(engine_notifier.id().clone())
             .or_default();
 
-        let handle = tokio::spawn(async move {
-            let result = task.deref().run().await;
+        let handle = Arc::new(Notify::new());
+        entry.push(handle.clone());
+        drop(entry);
 
-            notifier.notify(result.err()).await;
-
-            if let Some(mut entry) = dispatcher.get_mut(&engine_id) {
-                entry.retain(|h| !h.is_finished());
-                if entry.is_empty() {
-                    drop(entry);
-                    dispatcher.remove(&engine_id);
-                }
+        tokio::select! {
+            result = task.run() => {
+                engine_notifier.notify(result.err());
+                self.0.remove(engine_notifier.id());
             }
-        });
 
-        entry.push(handle);
+            _ = handle.notified() => (),
+        }
+
     }
 
     async fn cancel(&self, id: &C::TaskIdentifier) {
         if let Some((_, notifiers)) = self.0.remove(id) {
-            for tx in notifiers.into_iter() {
-                let _ = tx.abort();
+            for handle in notifiers.into_iter() {
+                handle.notify_waiters();
             }
         }
     }
