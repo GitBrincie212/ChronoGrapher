@@ -92,7 +92,7 @@ use std::time::SystemTime;
 /// // Checks the time the trigger took (the 10ms is for accounting some variability)
 /// assert!((elapsed - 2f64) <= 0.010, "Expected ~2s, got {}s", elapsed);
 ///
-/// // Checks for the returned value if its actually correct
+/// // Checks for the returned value if it's actually correct
 /// assert_eq!(future_time, now + Duration::from_secs(5));
 /// # Ok(())
 /// # }
