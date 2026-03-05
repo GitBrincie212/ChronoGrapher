@@ -24,7 +24,6 @@ impl TaskFrame for SimpleTaskFrame {
     }
 }
 
-
 #[tokio::test]
 async fn test_task_dependency() {
     let should_succeed = Arc::new(AtomicBool::new(true));

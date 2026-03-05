@@ -1,14 +1,14 @@
 use crate::scheduler::SchedulerConfig;
+use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
+use crate::utils::TaskIdentifier;
+use crate::utils::hierarchical_timing_wheel::HierarchicalTimingWheel;
 use async_trait::async_trait;
+use crossbeam::queue::SegQueue;
 use std::error::Error;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-use crossbeam::queue::SegQueue;
 use tokio::sync::Notify;
-use crate::scheduler::clock::SchedulerClock;
-use crate::utils::hierarchical_timing_wheel::HierarchicalTimingWheel;
-use crate::utils::TaskIdentifier;
 
 enum WheelCommand<T: TaskIdentifier> {
     Insert(T, Duration),
@@ -24,13 +24,12 @@ pub struct DefaultSchedulerEngine<C: SchedulerConfig> {
 
 impl<C: SchedulerConfig> Default for DefaultSchedulerEngine<C>
 where
-    C::SchedulerClock: Default
+    C::SchedulerClock: Default,
 {
     fn default() -> Self {
         let clock = Arc::new(C::SchedulerClock::default());
 
-        let mut hierarchical_wheel
-            = HierarchicalTimingWheel::<C::TaskIdentifier>::default();
+        let mut hierarchical_wheel = HierarchicalTimingWheel::<C::TaskIdentifier>::default();
 
         let command_batch = Arc::new(SegQueue::new());
         let get_result_queue = Arc::new((SegQueue::new(), Notify::new()));
@@ -50,9 +49,7 @@ where
                             todo!()
                         }
 
-                        WheelCommand::Clear => {
-                            hierarchical_wheel.clear()
-                        }
+                        WheelCommand::Clear => hierarchical_wheel.clear(),
                     }
                 }
                 get_result_queue_clone.0.push(hierarchical_wheel.tick());
@@ -63,7 +60,7 @@ where
         Self {
             clock,
             command_batch,
-            get_result_queue
+            get_result_queue,
         }
     }
 }
@@ -74,7 +71,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
         loop {
             if self.get_result_queue.0.is_empty() {
                 self.get_result_queue.1.notified().await;
-                continue
+                continue;
             }
             let res = self.get_result_queue.0.pop().unwrap();
             return res;
@@ -85,7 +82,8 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
         &self,
         store: &Arc<C::SchedulerTaskStore>,
         dispatcher: &Arc<C::SchedulerTaskDispatcher>,
-    ) {}
+    ) {
+    }
 
     fn clock(&self) -> &C::SchedulerClock {
         self.clock.as_ref()
@@ -99,13 +97,12 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
         let now = self.clock.now();
         self.command_batch.push(WheelCommand::Insert(
             id.clone(),
-            time.duration_since(now).unwrap_or(Duration::ZERO)
+            time.duration_since(now).unwrap_or(Duration::ZERO),
         ));
         Ok(())
     }
 
-    async fn cancel(&self, id: &C::TaskIdentifier) {
-    }
+    async fn cancel(&self, id: &C::TaskIdentifier) {}
 
     async fn clear(&self) {
         todo!()
