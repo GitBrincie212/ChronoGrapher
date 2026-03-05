@@ -1,19 +1,15 @@
 pub mod schedule; // skipcq: RS-D1001
 
-use crate::scheduler::SchedulerConfig;
-#[allow(unused_imports)]
-use crate::task::Task;
 pub use crate::task::trigger::schedule::calendar::TaskCalendarField;
 pub use crate::task::trigger::schedule::calendar::TaskScheduleCalendar;
 pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
 pub use crate::task::trigger::schedule::immediate::TaskScheduleImmediate;
 pub use crate::task::trigger::schedule::interval::TaskScheduleInterval;
 use async_trait::async_trait;
-use std::any::Any;
 use std::error::Error;
 use std::time::SystemTime;
 
-/// [`TaskTrigger`] is the main mechanism in which [`Tasks`](Task) schedule a future time (based on
+/// [`TaskTrigger`] is the main mechanism in which [`Tasks`](crate::task::Task) schedule a future time (based on
 /// a current one) to run, this time is handed to the "[`Scheduler`](crate::scheduler::Scheduler) Side"
 /// for it to organize.
 ///
@@ -21,28 +17,28 @@ use std::time::SystemTime;
 /// or notify at any other time the "Scheduler Side" about its future time to schedule to.
 ///
 /// # Semantics
-/// There are 2 arguments, the first is the "now" argument which utilizes [`SystemTime`] provided by Rust.
+/// There are 2 methods the [`TaskTrigger`] has, both take one argument that being the "now" argument
+/// which utilizes [`SystemTime`] provided by Rust.
 ///
 /// > **Important Note:** The value for the "now" argument is **NOT** the same as using [`SystemTime::now`],
-/// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used
+/// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used.
 ///
-/// The second argument is a [`TriggerNotifier`] which is the main channel in which the [`TaskTrigger`]
-/// sends its results back to "Scheduler Side".
+/// Both methods describe a stage of the system, the first stage is **Initialization** whereby the
+/// "[`Scheduler`](crate::scheduler::Scheduler) Side" warns via [`TaskTrigger::init`] to initialize logic
+/// before triggering.
 ///
-/// There are two cases where [`TaskTrigger`] may error out **Errors During Initialization** are caused
-/// when calling the [`TaskTrigger::trigger`] method.
+/// Errors during initialization indicate the [`TaskTrigger`] couldn't handle triggering. Reasons may
+/// include restricted access to the network (or a service), I/O issues (for monitoring files)... etc.
 ///
-/// Reasons in which a [`TaskTrigger`] may error out can be due to restricted access to the network (or a service),
-/// I/O issues (for monitoring files) and anything else in-between.
+/// The seconds stage is **Computation** which happens once the "[`Scheduler`](crate::scheduler::Scheduler) Side"
+/// confirms the [`TaskTrigger`] is ready, in which case it calls [`TaskTrigger::trigger`] on a worker (a thread).
 ///
-/// Then there are **Errors During Computation**, these happen at a later stage, and they involve sending
-/// the results via [`TriggerNotifier`], specifically an error.
+/// Errors during computation indicate failure from the [`TaskTrigger`] to compute something. An example
+/// could be receiving an improper API response.
 ///
-/// An example which can cause this is an improper API response. When implementing, users are required
-/// to use the [async_trait](async_trait) macro on top of their implementation.
-///
-/// Then for notifying the "Scheduler Side" about the results, they do it via [`TriggerNotifier::notify`]
-/// method and supply the new future time. For more context look below in the example.
+/// When implementing, users are required to use the [async_trait](async_trait) macro on top of their
+/// implementation, then implement both [`TaskTrigger::trigger`] (optionally [`TaskTrigger::init`]
+/// if initialization logic is required).
 ///
 /// # Required Subtrait(s)
 /// On its own [`TaskTrigger`] does not require any significant traits, it does however need ``'static``
@@ -74,36 +70,66 @@ use std::time::SystemTime;
 ///
 /// #[async_trait]
 /// impl TaskTrigger for DeferredEveryFiveSeconds {
-///     async fn trigger(
-///         &self,
-///         now: SystemTime,
-///         notifier: TriggerNotifier,
-///     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-///         // Offloads our logic to not block initialization
-///         notifier.notify_with(move || async move {
-///             sleep(Duration::from_secs(2)).await;
-///             Ok(now + Duration::from_secs(5))
-///         });
+///     // By default init() returns Ok(()) every time. You can specify your own logic
+///     // if needed, by implementing the init(...) method from TaskTrigger
 ///
-///         Ok(())
+///     async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+///         sleep(Duration::from_secs(2)).await;
+///         Ok(now + Duration::from_secs(5))
 ///     }
 /// }
 /// ```
 ///
 /// # See Also
-/// - [`TriggerNotifier`] - The channel used to notify the "Scheduler Side" when the calculated time is ready.
+/// - [TaskSchedule](schedule::TaskSchedule) - An alias from this trait for more immediate mathematical computation.
 /// - [`TaskScheduleImmediate`] - For scheduling Tasks to immediately execute.
 /// - [`TaskScheduleInterval`] - For scheduling Tasks per interval basis.
 /// - [`TaskScheduleCron`] - For scheduling Tasks via a CRON expression (Quartz-style).
 /// - [`TaskScheduleCalendar`] - For scheduling Tasks via a human-readable configurable calendar object.
-/// - [`Tasks`](Task) - The main container which the schedule is hosted on.
+/// - [`Tasks`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
 #[async_trait]
 pub trait TaskTrigger: 'static + Send + Sync {
-    async fn init(&self, now: SystemTime) -> Result<(), Box<dyn Error + Send + Sync>>;
+    /// The first stage of [`TaskTrigger`] which is **Initialization** where given a current time,
+    /// deduce if the [`TaskTrigger`] can move into the next stage (triggering).
+    ///
+    /// # Semantics
+    /// Its job is to initialize anything the [`TaskTrigger`] may need for the triggering phase,
+    /// if anything fails there then it is immediately issued to the "[`Scheduler`](crate::scheduler::Scheduler) Side".
+    ///
+    /// By default, it always returns success, however this can be configured to your liking by
+    /// implementing the said method.
+    ///
+    /// # Arguments
+    /// The only argument is the "now" argument which utilizes [`SystemTime`] provided by Rust.
+    ///
+    /// > **Important Note:** The value for the "now" argument is **NOT** the same as using [`SystemTime::now`],
+    /// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used.
+    ///
+    /// # Returns
+    /// On success the method returns nothing and proceeds to the next stage which is triggering.
+    ///
+    /// If the method fails, it returns a boxed error, allowing inspection of what potentially happened
+    /// in the initialization stage.
+    ///
+    /// # Error(s)
+    /// Depending on the implementation, different errors may be thrown, there is no standard error
+    /// defined in the trait, the semantic implication of the error is it happened during initialization.
+    ///
+    /// # Example(s)
+    /// For a complete example on how to implement this method, it is best to view [`TaskTrigger`].
+    ///
+    /// # See Also
+    /// - [`TaskTrigger`] - The main trait that holds this method
+    /// - [TaskSchedule](schedule::TaskSchedule) - An alias from this trait for more immediate mathematical computation.
+    /// - [`Tasks`](crate::task::Task) - The main container which the schedule is hosted on.
+    /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
+    /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
+    async fn init(&self, now: SystemTime) -> Result<(), Box<dyn Error + Send + Sync>> {Ok(())}
 
-    /// The only required method of [`TaskTrigger`].
+    /// The second stage of [`TaskTrigger`] which is **Computation** where the actual logic of waiting,
+    /// monitering and calculation co-exist to return a new future time based on a current.
     ///
     /// # Semantics
     /// Its job is to calculate the next future time given a current time and optionally
@@ -112,23 +138,37 @@ pub trait TaskTrigger: 'static + Send + Sync {
     /// These calculations may be deferred and non-immediate which allows flexibility for interacting
     /// with I/O, network-based APIs or anything in-between.
     ///
-    /// For this reason, [`TaskTrigger`] returns its results via [`TaskTriggerNotifier`] which is explained
-    /// in the ``Argument(s)`` header below.
-    ///
     /// When calculations are immediate and more mathematical / computational, it is best to use
     /// [TaskSchedule](schedule::TaskSchedule) and its [`TaskSchedule::schedule`](schedule::TaskSchedule::schedule).
     ///
     /// # Arguments
-    /// There are two arguments at play, the first is the "now" argument which
-    /// utilizes [`SystemTime`] provided by Rust.
+    /// The only argument is the "now" argument which utilizes [`SystemTime`] provided by Rust.
     ///
     /// > **Important Note:** The value for the "now" argument is **NOT** the same as using [`SystemTime::now`],
-    /// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used
+    /// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) is used.
     ///
-    /// The second argument is a [`TriggerNotifier`] which is the main channel in which the [`TaskTrigger`]
-    /// sends its results back to "Scheduler Side".
+    /// # Returns
+    /// On success the method returns as a result the calculated time, that time may be older than now,
+    /// equal to now or an actual future time.
     ///
-    /// > **Important Note #2:** In almost all cases for notifying, it is best to use [`TriggerNotifier::notify_with`]
-    /// as to not block
+    /// On the first two cases, it signals the trigger wants to execute immediately, whereas on the
+    /// third it wants to specifically execute at the requested future time.
+    ///
+    /// If the method fails, it returns a boxed error, allowing inspection of what potentially happened
+    /// in the triggering stage.
+    ///
+    /// # Error(s)
+    /// Depending on the implementation, different errors may be thrown, there is no standard error
+    /// defined in the trait, the semantic implication of the error is it happened during triggering.
+    ///
+    /// # Example(s)
+    /// For a complete example on how to implement this method, it is best to view [`TaskTrigger`].
+    ///
+    /// # See Also
+    /// - [`TaskTrigger`] - The main trait that holds this method
+    /// - [TaskSchedule](schedule::TaskSchedule) - An alias from this trait for more immediate mathematical computation.
+    /// - [`Tasks`](crate::task::Task) - The main container which the schedule is hosted on.
+    /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
+    /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
     async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>>;
 }
