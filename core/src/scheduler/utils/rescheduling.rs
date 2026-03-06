@@ -3,14 +3,14 @@ use crossbeam::queue::SegQueue;
 use dashmap::DashSet;
 use tokio::sync::Notify;
 use crate::prelude::SchedulerConfig;
-use crate::scheduler::{assign_to_trigger_worker, ReschedulePayload, TriggerJobWorker};
+use crate::scheduler::{assign_to_trigger_worker, ReschedulePayload, SchedulerWorker};
 use crate::scheduler::task_store::SchedulerTaskStore;
 
 #[inline(always)]
 pub fn reschedule_logic<C: SchedulerConfig>(
     store: &Arc<C::SchedulerTaskStore>,
     reschedule_queue: &Arc<(SegQueue<ReschedulePayload<C>>, Notify)>,
-    workers: Arc<Vec<TriggerJobWorker<C>>>
+    workers: &Arc<Vec<SchedulerWorker<C>>>
 ) -> impl Future<Output = ()> + 'static {
     let store = store.clone();
     let workers = workers.clone();

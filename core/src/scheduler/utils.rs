@@ -7,16 +7,16 @@ pub use main_loop::*;
 pub use scheduler_handle::*;
 pub use rescheduling::*;
 use crate::prelude::SchedulerConfig;
-use crate::scheduler::TriggerJobWorker;
+use crate::scheduler::SchedulerWorker;
 use crate::task::TaskTrigger;
 use crate::utils::TaskIdentifier;
 
 pub fn assign_to_trigger_worker<C: SchedulerConfig>(
     trigger: Arc<dyn TaskTrigger>,
     id: &C::TaskIdentifier,
-    trigger_workers: &Vec<TriggerJobWorker<C>>
+    workers: &Vec<SchedulerWorker<C>>
 ) {
-    let idx = id.as_usize() & (trigger_workers.len() - 1);
-    trigger_workers[idx].0.push((id.clone(), trigger));
-    trigger_workers[idx].1.notify_waiters();
+    let idx = id.as_usize() & (workers.len() - 1);
+    workers[idx].trigger_queue.push((id.clone(), trigger));
+    workers[idx].notify.notify_waiters();
 }
