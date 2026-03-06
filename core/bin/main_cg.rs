@@ -21,6 +21,7 @@ impl TaskFrame for MyTaskFrame {
 
 pub async fn benchmark_chronographer() {
     println!("LOADING TASKS");
+    let t = tokio::time::Instant::now();
     let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
     for _ in 0..350_000 {
@@ -30,7 +31,6 @@ pub async fn benchmark_chronographer() {
         let _ = scheduler.schedule(&task).await;
     }
 
-    let t = tokio::time::Instant::now();
     scheduler.start().await;
 
     println!("STARTED {}", t.elapsed().as_secs_f64());

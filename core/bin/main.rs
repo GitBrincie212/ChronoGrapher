@@ -4,6 +4,7 @@ use std::fs::OpenOptions;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
+use crate::main_tokio::benchmark_tokio_schedule;
 
 mod main_cg;
 mod main_tokio;
