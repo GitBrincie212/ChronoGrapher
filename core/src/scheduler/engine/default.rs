@@ -78,13 +78,6 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
         }
     }
 
-    async fn init(
-        &self,
-        store: &Arc<C::SchedulerTaskStore>,
-        dispatcher: &Arc<C::SchedulerTaskDispatcher>,
-    ) {
-    }
-
     fn clock(&self) -> &C::SchedulerClock {
         self.clock.as_ref()
     }
@@ -102,7 +95,9 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
         Ok(())
     }
 
-    async fn cancel(&self, id: &C::TaskIdentifier) {}
+    async fn cancel(&self, id: &C::TaskIdentifier) {
+        todo!()
+    }
 
     async fn clear(&self) {
         todo!()
