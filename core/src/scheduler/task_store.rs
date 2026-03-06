@@ -28,6 +28,4 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     fn remove(&self, idx: &C::TaskIdentifier);
 
     fn clear(&self);
-
-    fn iter(&self) -> impl Iterator<Item = (C::TaskIdentifier, Self::StoredTask)>;
 }

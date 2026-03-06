@@ -44,10 +44,4 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
     fn clear(&self) {
         self.0.clear();
     }
-
-    fn iter(&self) -> impl Iterator<Item = (C::TaskIdentifier, Self::StoredTask)> {
-        self.0
-            .iter()
-            .map(|x| (x.key().clone(), x.value().clone()))
-    }
 }
