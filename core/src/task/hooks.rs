@@ -5,9 +5,10 @@ use crate::{define_event, define_event_group};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 pub mod events {
     pub use crate::task::OnTaskEnd;
@@ -33,6 +34,81 @@ pub mod events {
     pub use crate::task::hooks::TaskHookLifecycleEvents;
     pub use crate::task::hooks::TaskLifecycleEvents;
 } // skipcq: RS-D1001
+
+pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> = LazyLock::new(|| TaskHookContainer(DashMap::new()));
+
+type TaskHooks = HashMap<TypeId, Arc<dyn ErasedTaskHook>>;
+
+pub(crate) struct TaskHookContainer(
+    pub(crate) DashMap<(&'static str, usize), TaskHooks>
+);
+
+impl TaskHookContainer {
+    pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(
+        &self,
+        ctx: &TaskHookContext<'_>,
+        hook: Arc<T>,
+    ) {
+        let hook_id = TypeId::of::<T>();
+        let erased_hook: Arc<dyn ErasedTaskHook> =
+            Arc::new(ErasedTaskHookWrapper::<E>::new(hook.clone()));
+
+        self.0
+            .entry((E::EVENT_ID, ctx.task_id))
+            .or_default()
+            .insert(hook_id, erased_hook);
+
+        self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>))
+            .await;
+    }
+
+    pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self, task_id: usize) -> Option<Arc<T>> {
+        let interested_event_container = self.0.get(&(E::EVENT_ID, task_id))?;
+
+        let entry = interested_event_container.get(&TypeId::of::<T>())?;
+
+        entry.clone().as_arc_any().downcast::<T>().ok()
+    }
+
+    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskHookContext<'_>) {
+        let Some(mut event_category) = self.0.get_mut(&(E::EVENT_ID, ctx.task_id)) else {
+            return;
+        };
+
+        let Some(hook) = event_category.remove(&TypeId::of::<T>()) else {
+            return;
+        };
+
+        let erased = hook.clone();
+
+        let typed: Arc<T> = match erased.as_arc_any().downcast::<T>() {
+            Ok(typed) => typed,
+            Err(actual) => panic!(
+                "Failed to downcast stored TaskHook to expected concrete type '{}'. Event ID: '{}'. Expected TypeId: {:?}, actual TypeId: {:?}. \
+                Ensure the hook stored under this event is of the requested type and there are no type mismatches.",
+                std::any::type_name::<T>(),
+                E::EVENT_ID,
+                TypeId::of::<T>(),
+                actual.as_ref().type_id()
+            ),
+        };
+
+        self.emit::<OnHookDetach<E>>(ctx, &(typed as Arc<dyn TaskHook<E>>))
+            .await;
+    }
+
+    pub async fn emit<E: TaskHookEvent>(
+        &self,
+        ctx: &TaskHookContext<'_>,
+        payload: &E::Payload<'_>,
+    ) {
+        if let Some(entry) = self.0.get(&(E::EVENT_ID, ctx.task_id)) {
+            for hook in entry.value().iter() {
+                hook.1.on_emit(ctx, ErasedPayload::new(payload)).await;
+            }
+        }
+    }
+}
 
 pub trait TaskHookEvent: Send + Sync + Default + 'static {
     type Payload<'a>: Send + Sync
@@ -135,29 +211,14 @@ pub trait TaskHookLifecycleEvents<E: TaskHookEvent>:
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookAttach<E> {}
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
 
-#[derive(Default)]
-pub(crate) struct TaskHookEventCategory(pub DashMap<TypeId, Arc<dyn ErasedTaskHook>>);
-
 #[derive(Clone)]
 pub struct TaskHookContext<'a> {
     pub(crate) depth: u64,
-    pub(crate) hooks_container: Arc<TaskHookContainer>,
+    pub(crate) task_id: usize,
     pub(crate) frame: &'a dyn ErasedTaskFrame,
 }
 
 impl<'a> TaskHookContext<'a> {
-    pub(crate) fn new(
-        frame: &'a dyn ErasedTaskFrame,
-        depth: u64,
-        hooks_container: Arc<TaskHookContainer>,
-    ) -> Self {
-        Self {
-            depth,
-            hooks_container,
-            frame,
-        }
-    }
-
     pub fn depth(&self) -> u64 {
         self.depth
     }
@@ -167,19 +228,19 @@ impl<'a> TaskHookContext<'a> {
     }
 
     pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload<'_>) {
-        self.hooks_container.emit::<E>(self, payload).await;
+        TASKHOOK_REGISTRY.emit::<E>(self, payload).await;
     }
 
     pub async fn attach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self, hook: Arc<T>) {
-        self.hooks_container.attach::<E, T>(self, hook).await;
+        TASKHOOK_REGISTRY.attach::<E, T>(self, hook).await;
     }
 
     pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {
-        self.hooks_container.detach::<E, T>(self).await;
+        TASKHOOK_REGISTRY.detach::<E, T>(self).await;
     }
 
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
-        self.hooks_container.get::<E, T>()
+        TASKHOOK_REGISTRY.get::<E, T>(self.task_id)
     }
 }
 
@@ -192,75 +253,5 @@ impl<'a> ErasedPayload<'a> {
 
     unsafe fn cast<T: Sized + Send + Sync + 'a>(&self) -> &'a T {
         unsafe { &*(self.0 as *const (dyn Send + Sync) as *const T) }
-    }
-}
-
-pub struct TaskHookContainer(pub(crate) DashMap<&'static str, TaskHookEventCategory>);
-
-impl TaskHookContainer {
-    pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(
-        &self,
-        ctx: &TaskHookContext<'_>,
-        hook: Arc<T>,
-    ) {
-        let hook_id = TypeId::of::<T>();
-        let erased_hook: Arc<dyn ErasedTaskHook> =
-            Arc::new(ErasedTaskHookWrapper::<E>::new(hook.clone()));
-
-        self.0
-            .entry(E::EVENT_ID)
-            .or_default()
-            .0
-            .insert(hook_id, erased_hook);
-        self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>))
-            .await;
-    }
-
-    pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
-        let interested_event_container = self.0.get(E::EVENT_ID)?;
-
-        let entry = interested_event_container.0.get(&TypeId::of::<T>())?;
-        let entry = entry.value();
-
-        entry.clone().as_arc_any().downcast::<T>().ok()
-    }
-
-    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskHookContext<'_>) {
-        let Some(event_category) = self.0.get_mut(E::EVENT_ID) else {
-            return;
-        };
-
-        let Some((_, hook)) = event_category.0.remove(&TypeId::of::<T>()) else {
-            return;
-        };
-
-        let erased = hook.clone();
-
-        let typed: Arc<T> = match erased.as_arc_any().downcast::<T>() {
-            Ok(typed) => typed,
-            Err(actual) => panic!(
-                "Failed to downcast stored TaskHook to expected concrete type '{}'. Event ID: '{}'. Expected TypeId: {:?}, actual TypeId: {:?}. \
-                Ensure the hook stored under this event is of the requested type and there are no type mismatches.",
-                std::any::type_name::<T>(),
-                E::EVENT_ID,
-                TypeId::of::<T>(),
-                actual.as_ref().type_id()
-            ),
-        };
-
-        self.emit::<OnHookDetach<E>>(ctx, &(typed as Arc<dyn TaskHook<E>>))
-            .await;
-    }
-
-    pub async fn emit<E: TaskHookEvent>(
-        &self,
-        ctx: &TaskHookContext<'_>,
-        payload: &E::Payload<'_>,
-    ) {
-        if let Some(entry) = self.0.get(E::EVENT_ID) {
-            for hook in entry.value().0.iter() {
-                hook.value().on_emit(ctx, ErasedPayload::new(payload)).await;
-            }
-        }
     }
 }
