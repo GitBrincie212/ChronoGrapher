@@ -28,7 +28,9 @@ pub(crate) type TriggerJobPayload<C> = (
     <C as SchedulerConfig>::TaskIdentifier,
     Arc<dyn TaskTrigger>,
 );
-pub(crate) type TriggerJobWorker<C> = Arc<(SegQueue<TriggerJobPayload<C>>, Notify)>;
+
+pub(crate) type Worker<T> = Arc<(SegQueue<T>, Notify)>;
+pub(crate) type TriggerJobWorker<C> = Worker<TriggerJobPayload<C>>;
 
 pub(crate) type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 pub(crate) type ReschedulePayload<C> = (
@@ -73,19 +75,27 @@ pub struct SchedulerInitConfig<T: SchedulerConfig> {
 
     #[builder(default = 16)]
     trigger_workers: usize,
+
+    #[builder(default = 64)]
+    dispatch_workers: usize,
+}
+
+#[inline(always)]
+fn create_worker<T>() -> Worker<T> {
+    Arc::new((
+        SegQueue::<T>::new(),
+        Notify::new()
+    ))
 }
 
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
     fn from(config: SchedulerInitConfig<C>) -> Self {
         let engine = Arc::new(config.engine);
         let store = Arc::new(config.store);
-        let mut workers = Vec::with_capacity(config.trigger_workers);
+        let mut trigger_workers = Vec::with_capacity(config.trigger_workers);
 
         for _ in 0..config.trigger_workers {
-            let worker = Arc::new((
-                SegQueue::<(C::TaskIdentifier, Arc<dyn TaskTrigger>)>::new(),
-                Notify::new()
-            ));
+            let worker = create_worker::<(C::TaskIdentifier, Arc<dyn TaskTrigger>)>();
             
             let engine_clone = engine.clone();
             let store_clone = store.clone();
@@ -134,7 +144,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
 
             });
 
-            workers.push(worker);
+            trigger_workers.push(worker);
         }
 
         Self {
@@ -143,7 +153,8 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             dispatcher: Arc::new(config.dispatcher),
             process: RwLock::new(None),
             instruction_channel: RwLock::new(None),
-            trigger_workers: Arc::new(workers),
+            trigger_workers: Arc::new(trigger_workers),
+            dispatch_workers: config.dispatch_workers,
             pre_schedule_queue: Arc::new(SegQueue::new()),
         }
     }
@@ -156,6 +167,7 @@ pub struct Scheduler<C: SchedulerConfig> {
     process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>, JoinHandle<()>)>>,
     instruction_channel: RwLock<Option<tokio::sync::mpsc::Sender<SchedulerHandlePayload>>>,
     trigger_workers: Arc<Vec<TriggerJobWorker<C>>>,
+    dispatch_workers: usize,
     pre_schedule_queue: Arc<SegQueue<C::TaskIdentifier>>,
 }
 
@@ -179,17 +191,11 @@ where
 
 fn spawn_task<C: SchedulerConfig>(
     id: C::TaskIdentifier,
-    reschedule_queue: Arc<(SegQueue<ReschedulePayload<C>>, Notify)>,
-    dispatcher: &Arc<C::SchedulerTaskDispatcher>,
-    task: <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::StoredTask
+    dispatch_workers: Arc<Vec<Worker<C::TaskIdentifier>>>
 ) {
-    let dispatcher = dispatcher.clone();
-    let id = id.clone();
-    tokio::spawn(async move {
-        let result = dispatcher.dispatch(&id, task).await;
-        reschedule_queue.0.push((id, result.err()));
-        reschedule_queue.1.notify_waiters()
-    });
+    let idx = id.as_usize() & (dispatch_workers.len() - 1);
+    dispatch_workers[idx].0.push(id);
+    dispatch_workers[idx].1.notify_waiters();
 }
 
 impl<C: SchedulerConfig> Scheduler<C> {
@@ -211,11 +217,42 @@ impl<C: SchedulerConfig> Scheduler<C> {
         join!(
             self.store.init(),
             self.dispatcher.init(),
-            self.engine.init(&store_clone, &dispatcher_clone)
+            self.engine.init()
         );
+
+        let mut dispatch_workers = Vec::with_capacity(self.dispatch_workers);
 
         let reschedule_queue =
             Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
+
+        for _ in 0..self.dispatch_workers {
+            let worker = create_worker::<C::TaskIdentifier>();
+
+            let worker_clone = worker.clone();
+            let store_clone = store_clone.clone();
+            let dispatcher_clone = dispatcher_clone.clone();
+            let reschedule_queue_clone = reschedule_queue.clone();
+            tokio::spawn(async move {
+                loop {
+                    if let Some(id) = worker_clone.0.pop()
+                        && let Some(task) = store_clone.get(&id)
+                    {
+                        let result = dispatcher_clone.dispatch(&id, task).await;
+                        reschedule_queue_clone.0.push((id, result.err()));
+                        reschedule_queue_clone.1.notify_waiters();
+                        continue;
+                    }
+
+                    worker_clone.1.notified().await;
+                }
+
+
+            });
+
+            dispatch_workers.push(worker);
+        }
+
+        let dispatch_workers = Arc::new(dispatch_workers);
 
         let (instruct_send, instruct_receive) =
             tokio::sync::mpsc::channel::<SchedulerHandlePayload>(1024);
@@ -245,7 +282,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
                     &dispatcher_clone,
                     &store_clone,
                     self.trigger_workers.clone(),
-                    &reschedule_queue
+                    &dispatch_workers
                 ),
             ),
 
@@ -260,9 +297,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
             tokio::spawn(
                 main_loop_logic::<C>(
                     &engine_clone,
-                    &dispatcher_clone,
-                    &store_clone,
-                    &reschedule_queue
+                    &dispatch_workers
                 )
             )
         ));
