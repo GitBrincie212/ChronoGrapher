@@ -179,15 +179,6 @@ impl<C: SchedulerConfig> Scheduler<C> {
                     if let Some((id, trigger)) = workers[idx].trigger_queue.pop() {
                         let now = engine_clone.clock().now();
 
-                        match trigger.init(now).await {
-                            Ok(()) => {}
-                            Err(err) => {
-                                eprintln!("Initialization error from TaskTrigger: {:?}", err);
-                                store_clone.remove(&id);
-                                continue;
-                            }
-                        }
-
                         let time = match trigger.trigger(now).await {
                             Ok(time) => {
                                 time

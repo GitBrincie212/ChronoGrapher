@@ -126,10 +126,6 @@ pub trait TaskSchedule: 'static + Send + Sync {
 
 #[async_trait]
 impl<T: TaskSchedule> TaskTrigger for T {
-    async fn init(&self, _now: SystemTime) -> Result<(), Box<dyn Error + Send + Sync>> {
-        Ok(())
-    }
-
     async fn trigger(
         &self,
         now: SystemTime,
