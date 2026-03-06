@@ -22,7 +22,7 @@ pub fn main_loop_logic<C: SchedulerConfig>(
         loop {
             for id in engine.retrieve().await {
                 if let Some(task) = store.get(&id) {
-                    spawn_task::<C>(id.clone(), reschedule_queue.clone(), &dispatcher, task);
+                    spawn_task::<C>(id, reschedule_queue.clone(), &dispatcher, task);
                 }
             }
         }
