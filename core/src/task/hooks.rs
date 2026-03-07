@@ -37,10 +37,123 @@ pub mod events {
 
 pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> = LazyLock::new(|| TaskHookContainer(DashMap::new()));
 
-type TaskHooks = HashMap<TypeId, Arc<dyn ErasedTaskHook>>;
+#[derive(Default)]
+pub(crate) enum TaskHooksPromotion {
+    #[default]
+    Empty,
+    Single(TypeId, Arc<dyn ErasedTaskHook>),
+    Double((TypeId, Arc<dyn ErasedTaskHook>), (TypeId, Arc<dyn ErasedTaskHook>)),
+    Triplet((TypeId, Arc<dyn ErasedTaskHook>), (TypeId, Arc<dyn ErasedTaskHook>), (TypeId, Arc<dyn ErasedTaskHook>)),
+    Multiple(HashMap<TypeId, Arc<dyn ErasedTaskHook>>)
+}
+
+impl TaskHooksPromotion {
+    fn promote(&mut self, hook_id: TypeId, hook: Arc<dyn ErasedTaskHook>) {
+        match self {
+            TaskHooksPromotion::Empty => {
+                *self = TaskHooksPromotion::Single(hook_id, hook);
+            }
+
+            TaskHooksPromotion::Single(prev_id, prev_hook) => {
+                *self = TaskHooksPromotion::Double((prev_id.clone(), prev_hook.clone()), (hook_id, hook));
+            }
+
+            TaskHooksPromotion::Double(prev_pair1, prev_pair2) => {
+                *self = TaskHooksPromotion::Triplet(
+                    prev_pair1.clone(),
+                    prev_pair2.clone(),
+                    (hook_id, hook)
+                );
+            }
+            TaskHooksPromotion::Triplet(prev_pair1, prev_pair2, prev_pair3) => {
+                let mut map = HashMap::with_capacity(4);
+                map.insert(prev_pair1.0, prev_pair1.1.clone());
+                map.insert(prev_pair2.0, prev_pair2.1.clone());
+                map.insert(prev_pair3.0, prev_pair3.1.clone());
+                map.insert(hook_id, hook);
+                *self = TaskHooksPromotion::Multiple(map);
+            }
+            TaskHooksPromotion::Multiple(map) => {
+                map.insert(hook_id, hook);
+            }
+        }
+    }
+
+    fn fetch(&self, hook_id: &TypeId) -> Option<&Arc<dyn ErasedTaskHook>> {
+        match self {
+            TaskHooksPromotion::Single(id, hook) if *id == *hook_id => {
+                Some(hook)
+            }
+            TaskHooksPromotion::Double((id1, hook1), (id2, hook2)) => {
+                if *id1 == *hook_id {return Some(hook1)}
+                if *id2 == *hook_id {return Some(hook2)}
+                None
+            }
+            TaskHooksPromotion::Triplet(
+                (id1, hook1),
+                (id2, hook2),
+                (id3, hook3)
+            ) => {
+                if *id1 == *hook_id {return Some(hook1)}
+                if *id2 == *hook_id {return Some(hook2)}
+                if *id3 == *hook_id {return Some(hook3)}
+                None
+            }
+            TaskHooksPromotion::Multiple(vals) => {
+                vals.get(&hook_id)
+            }
+
+            _ => None
+        }
+    }
+
+    fn remove(&mut self, hook_id: &TypeId) -> Option<Arc<dyn ErasedTaskHook>> {
+        match self {
+            TaskHooksPromotion::Double(prev_pair1, prev_pair2) => {
+                if prev_pair1.0 == *hook_id {
+                    let hook1 = prev_pair1.1.clone();
+                    *self = TaskHooksPromotion::Single(prev_pair2.0.clone(), prev_pair2.1.clone());
+                    return Some(hook1);
+                } else if prev_pair2.0 == *hook_id {
+                    let hook2 = prev_pair2.1.clone();
+                    *self = TaskHooksPromotion::Single(prev_pair1.0.clone(), prev_pair1.1.clone());
+                    return Some(hook2);
+                }
+
+                None
+            }
+            TaskHooksPromotion::Triplet(prev_pair1, prev_pair2, prev_pair3) => {
+                if prev_pair1.0 == *hook_id {
+                    let hook1 = prev_pair1.1.clone();
+                    *self = TaskHooksPromotion::Double(prev_pair2.clone(), prev_pair3.clone());
+                    return Some(hook1);
+                } else if prev_pair2.0 == *hook_id {
+                    let hook2 = prev_pair2.1.clone();
+                    *self = TaskHooksPromotion::Double(prev_pair1.clone(), prev_pair3.clone());
+                    return Some(hook2);
+                } else if prev_pair3.0 == *hook_id {
+                    let hook3 = prev_pair3.1.clone();
+                    *self = TaskHooksPromotion::Double(prev_pair1.clone(), prev_pair2.clone());
+                    return Some(hook3);
+                }
+
+                None
+            }
+
+            TaskHooksPromotion::Multiple(map) => {
+                map.remove(&hook_id)
+            }
+
+            _ => {
+                *self = TaskHooksPromotion::Empty;
+                None
+            }
+        }
+    }
+}
 
 pub(crate) struct TaskHookContainer(
-    pub(crate) DashMap<(TypeId, usize), TaskHooks>
+    pub(crate) DashMap<(TypeId, usize), TaskHooksPromotion>
 );
 
 impl TaskHookContainer {
@@ -53,10 +166,9 @@ impl TaskHookContainer {
         let erased_hook: Arc<dyn ErasedTaskHook> =
             Arc::new(ErasedTaskHookWrapper::<E>::new(hook.clone()));
 
-        self.0
-            .entry((TypeId::of::<E>(), ctx.instance_id))
-            .or_default()
-            .insert(hook_id, erased_hook);
+        self.0.entry((TypeId::of::<E>(), ctx.instance_id))
+            .or_insert(TaskHooksPromotion::Empty)
+            .promote(hook_id, erased_hook);
 
         self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>))
             .await;
@@ -65,7 +177,7 @@ impl TaskHookContainer {
     pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self, task_id: usize) -> Option<Arc<T>> {
         let interested_event_container = self.0.get(&(TypeId::of::<E>(), task_id))?;
 
-        let entry = interested_event_container.get(&TypeId::of::<T>())?;
+        let entry = interested_event_container.fetch(&TypeId::of::<T>())?;
 
         entry.clone().as_arc_any().downcast::<T>().ok()
     }
@@ -103,8 +215,32 @@ impl TaskHookContainer {
         payload: &E::Payload<'_>,
     ) {
         if let Some(entry) = self.0.get(&(TypeId::of::<E>(), ctx.instance_id)) {
-            for hook in entry.value().iter() {
-                hook.1.on_emit(ctx, ErasedPayload::new(payload)).await;
+            match entry.value() {
+                TaskHooksPromotion::Empty => {}
+                TaskHooksPromotion::Single(_, hook) => {
+                    hook.on_emit(ctx, ErasedPayload::new(payload)).await;
+                }
+                TaskHooksPromotion::Double(
+                    (_, hook1),
+                    (_, hook2)
+                ) => {
+                    hook1.on_emit(ctx, ErasedPayload::new(payload)).await;
+                    hook2.on_emit(ctx, ErasedPayload::new(payload)).await;
+                }
+                TaskHooksPromotion::Triplet(
+                    (_, hook1),
+                    (_, hook2),
+                    (_, hook3)
+                ) => {
+                    hook1.on_emit(ctx, ErasedPayload::new(payload)).await;
+                    hook2.on_emit(ctx, ErasedPayload::new(payload)).await;
+                    hook3.on_emit(ctx, ErasedPayload::new(payload)).await;
+                }
+                TaskHooksPromotion::Multiple(vals) => {
+                    for hook in vals.values() {
+                        hook.on_emit(ctx, ErasedPayload::new(payload)).await;
+                    }
+                }
             }
         }
     }
