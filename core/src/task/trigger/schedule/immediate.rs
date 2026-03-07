@@ -46,7 +46,7 @@ use std::time::SystemTime;
 /// # }
 /// ```
 /// In the example above, we create an instance of [`TaskScheduleImmediate`], compute its time via ``trigger``
-/// method and assert if the ``future_time`` is the current time (for demonstrative purposes).
+/// method and assert that ``future_time`` is the current time (for demonstrative purposes).
 ///
 /// # See Also
 /// - [`TaskSchedule`] - The direct implementor of this trait.
