@@ -159,9 +159,9 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// the original frame as-is. In practice you would chain one or more wrappers before building for more complex workflows as per requirements.
     ///
     /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`TaskFrameBuilder::build`] - Consumes the builder and returns the composed frame.
     /// - [`TaskFrame`] - The trait that `frame` must implement.
-    /// - [`build`](TaskFrameBuilder::build) - Consumes the builder and returns the composed frame.
-
     pub fn new(frame: T) -> Self {
         Self(frame)
     }
