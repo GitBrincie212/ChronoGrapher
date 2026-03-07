@@ -33,7 +33,7 @@ use std::time::SystemTime;
 ///
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-/// let instance = TaskScheduleImmediate;
+/// let instance = TaskScheduleImmediate; // or via TaskScheduleImmediate::default()
 /// let now = SystemTime::now();
 ///
 /// // Both schedule and trigger methods return the same result
@@ -43,6 +43,8 @@ use std::time::SystemTime;
 /// # Ok(())
 /// # }
 /// ```
+/// In the example above, we create an instance of [`TaskScheduleImmediate`], compute its time via ``trigger``
+/// method and assert if the ``future_time`` is the current time (for demonstrative purposes).
 ///
 /// # See Also
 /// - [`TaskSchedule`] - The direct implementor of this trait.
