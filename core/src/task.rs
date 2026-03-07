@@ -12,6 +12,7 @@ pub use frame_builder::*;
 pub use frames::*;
 pub use hooks::*;
 pub use trigger::*;
+pub use schedule::*;
 
 use crate::errors::TaskError;
 #[allow(unused_imports)]
