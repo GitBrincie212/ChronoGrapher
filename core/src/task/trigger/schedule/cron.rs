@@ -7,22 +7,24 @@ use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::time::SystemTime;
 
-const RANGES: [RangeInclusive<u8>; 6] = [
-    0..=59u8,
-    0..=59u8,
-    0..=23u8,
-    1u8..=31u8,
-    1u8..=12u8,
-    1u8..=7u8,
+const RANGES: [RangeInclusive<u16>; 7] = [
+    0..=59u16,
+    0..=59u16,
+    0..=23u16,
+    1u16..=31u16,
+    1u16..=12u16,
+    1u16..=7u16,
+    1970u16..=2099u16,
 ];
 
-const FIELD_NAMES: [&str; 6] = [
+const FIELD_NAMES: [&str; 7] = [
     "seconds",
     "minutes",
     "hours",
     "day_of_month",
     "month",
     "day_of_week",
+    "year",
 ];
 
 fn validate_ast_node(node: &AstNode, field_pos: usize) -> Result<(), CronExpressionParserErrors> {
@@ -31,43 +33,44 @@ fn validate_ast_node(node: &AstNode, field_pos: usize) -> Result<(), CronExpress
 
     match &node.kind {
         AstTreeNode::Exact(value) => {
-            if !range.contains(value) {
+            let value = *value as u16;
+            if !range.contains(&value) {
                 return Err(CronExpressionParserErrors::ValueOutOfRange {
-                    value: *value,
+                    value: value as u8,
                     field: field_name.to_string(),
-                    min: *range.start(),
-                    max: *range.end(),
+                    min: *range.start() as u8,
+                    max: *range.end() as u8,
                 });
             }
         }
 
         AstTreeNode::Range(start, end) => {
             let start_val = match &start.kind {
-                AstTreeNode::Exact(val) => *val,
+                AstTreeNode::Exact(val) => *val as u16,
                 _ => return Err(CronExpressionParserErrors::ExpectedNumber),
             };
             let end_val = match &end.kind {
-                AstTreeNode::Exact(val) => *val,
+                AstTreeNode::Exact(val) => *val as u16,
                 _ => return Err(CronExpressionParserErrors::ExpectedNumber),
             };
 
             if start_val > end_val {
                 return Err(CronExpressionParserErrors::InvalidRange {
-                    start: start_val,
-                    end: end_val,
+                    start: start_val as u8,
+                    end: end_val as u8,
                     field: field_name.to_string(),
-                    min: *range.start(),
-                    max: *range.end(),
+                    min: *range.start() as u8,
+                    max: *range.end() as u8,
                 });
             }
 
             if !range.contains(&start_val) || !range.contains(&end_val) {
                 return Err(CronExpressionParserErrors::InvalidRange {
-                    start: start_val,
-                    end: end_val,
+                    start: start_val as u8,
+                    end: end_val as u8,
                     field: field_name.to_string(),
-                    min: *range.start(),
-                    max: *range.end(),
+                    min: *range.start() as u8,
+                    max: *range.end() as u8,
                 });
             }
         }
@@ -182,11 +185,12 @@ pub struct TaskScheduleCron {
     day_of_month: CronField,
     month: CronField,
     day_of_week: CronField,
+    year: CronField,
 }
 
 impl TaskScheduleCron {
-    pub fn new(cron: [CronField; 6]) -> Self {
-        let [seconds, minute, hour, day_of_month, month, day_of_week] = cron;
+    pub fn new(cron: [CronField; 7]) -> Self {
+        let [seconds, minute, hour, day_of_month, month, day_of_week, year] = cron;
         Self {
             seconds,
             minute,
@@ -194,6 +198,7 @@ impl TaskScheduleCron {
             day_of_month,
             month,
             day_of_week,
+            year,
         }
     }
 }
@@ -208,7 +213,7 @@ impl FromStr for TaskScheduleCron {
             error_type: CronErrorTypes::Lexer(error_type),
         })?;
 
-        let mut ast: [AstNode; 6] = Default::default();
+        let mut ast: [AstNode; 7] = Default::default();
         let mut prev_toks: &[Token] = &tokens[0];
         for (idx, toks) in tokens.iter().enumerate() {
             if toks.len() == 0 {
@@ -255,7 +260,7 @@ impl FromStr for TaskScheduleCron {
             });
         }
 
-        let cron_fields: [CronField; 6] = ast
+        let cron_fields: [CronField; 7] = ast
             .iter()
             .map(ast_to_cron_field)
             .collect::<Vec<_>>()

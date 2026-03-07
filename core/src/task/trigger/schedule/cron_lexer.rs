@@ -79,8 +79,8 @@ fn try_allocate_number(
 
 pub fn tokenize_fields(
     s: &str,
-) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
-    let mut tokens: [Vec<Token>; 6] = [const { Vec::new() }; 6];
+) -> Result<[Vec<Token>; 7], (CronExpressionLexerErrors, usize, usize)> {
+    let mut tokens: [Vec<Token>; 7] = [const { Vec::new() }; 7];
     let mut current_number = 0u8;
     let mut field_pos = 0;
     let mut char_buffer: String = String::with_capacity(3);
@@ -111,7 +111,7 @@ pub fn tokenize_fields(
                 ));
             }
 
-            if field_pos >= 5 {
+            if field_pos >= 6 {
                 return Err((
                     CronExpressionLexerErrors::UnknownFieldFormat,
                     position,
@@ -181,7 +181,7 @@ pub fn tokenize_fields(
         })
     }
 
-    if field_pos != 5 && field_pos != 4 {
+    if field_pos != 6 && field_pos != 5 {
         return Err((
             CronExpressionLexerErrors::UnknownFieldFormat,
             s.len() - 1,
