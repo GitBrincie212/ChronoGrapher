@@ -1,3 +1,5 @@
+///! A standalone module containing only the [`TaskScheduleImmediate`] scheduling primitive
+
 use crate::task::schedule::TaskSchedule;
 use std::error::Error;
 use std::time::SystemTime;
