@@ -26,7 +26,7 @@ pub(crate) use crate::scheduler::utils::*;
 
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
     pub dispatch_queue: SegQueue<C::TaskIdentifier>,
-    pub trigger_queue: SegQueue<(C::TaskIdentifier, Arc<dyn TaskTrigger>)>,
+    pub trigger_queue: SegQueue<C::TaskIdentifier>,
     pub notify: Notify
 }
 
@@ -176,7 +176,10 @@ impl<C: SchedulerConfig> Scheduler<C> {
             let reschedule_queue_clone = reschedule_queue.clone();
             tokio::spawn(async move {
                 loop {
-                    if let Some((id, trigger)) = workers[idx].trigger_queue.pop() {
+                    if let Some(id) = workers[idx].trigger_queue.pop()
+                        && let Some(task) = store_clone.get(&id)
+                    {
+                        let trigger = task.trigger();
                         let now = engine_clone.clock().now();
 
                         let time = match trigger.trigger(now).await {
@@ -248,7 +251,6 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
             tokio::spawn(
                 reschedule_logic::<C>(
-                    &store_clone,
                     &reschedule_queue,
                     &self.workers
                 )
@@ -287,11 +289,9 @@ impl<C: SchedulerConfig> Scheduler<C> {
         } else {
             self.pre_schedule_queue.push(id.clone());
         }
-
-        let trigger = erased.trigger().clone();
-
+        
         self.store.store(&id, erased)?;
-        assign_to_trigger_worker::<C>(trigger, &id, self.workers.as_ref());
+        assign_to_trigger_worker::<C>(id.clone(), self.workers.as_ref());
 
         Ok(id)
     }
