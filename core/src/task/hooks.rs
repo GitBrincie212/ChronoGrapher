@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::{Arc, LazyLock};
 
@@ -81,13 +80,12 @@ impl TaskHooksPromotion {
 
     fn fetch(&self, hook_id: &TypeId) -> Option<&Arc<dyn ErasedTaskHook>> {
         match self {
-            TaskHooksPromotion::Single(id, hook) if *id == *hook_id => {
-                Some(hook)
+            TaskHooksPromotion::Single(id, hook) => {
+                if *id == *hook_id {return Some(hook)}
             }
             TaskHooksPromotion::Double((id1, hook1), (id2, hook2)) => {
                 if *id1 == *hook_id {return Some(hook1)}
                 if *id2 == *hook_id {return Some(hook2)}
-                None
             }
             TaskHooksPromotion::Triplet(
                 (id1, hook1),
@@ -97,14 +95,15 @@ impl TaskHooksPromotion {
                 if *id1 == *hook_id {return Some(hook1)}
                 if *id2 == *hook_id {return Some(hook2)}
                 if *id3 == *hook_id {return Some(hook3)}
-                None
             }
             TaskHooksPromotion::Multiple(vals) => {
-                vals.get(&hook_id)
+                return vals.get(hook_id);
             }
 
-            _ => None
-        }
+            _ => {}
+        };
+
+        None
     }
 
     fn remove(&mut self, hook_id: &TypeId) -> Option<Arc<dyn ErasedTaskHook>> {
@@ -141,7 +140,7 @@ impl TaskHooksPromotion {
             }
 
             TaskHooksPromotion::Multiple(map) => {
-                map.remove(&hook_id)
+                map.remove(hook_id)
             }
 
             _ => {
@@ -152,9 +151,7 @@ impl TaskHooksPromotion {
     }
 }
 
-pub(crate) struct TaskHookContainer(
-    pub(crate) DashMap<(TypeId, usize), TaskHooksPromotion>
-);
+pub(crate) struct TaskHookContainer(pub DashMap<(TypeId, usize), TaskHooksPromotion>);
 
 impl TaskHookContainer {
     pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(
@@ -168,14 +165,14 @@ impl TaskHookContainer {
 
         self.0.entry((TypeId::of::<E>(), ctx.instance_id))
             .or_insert(TaskHooksPromotion::Empty)
-            .promote(hook_id, erased_hook);
+            .promote(hook_id, erased_hook.clone());
 
         self.emit::<OnHookAttach<E>>(ctx, &(hook as Arc<dyn TaskHook<E>>))
             .await;
     }
 
-    pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self, task_id: usize) -> Option<Arc<T>> {
-        let interested_event_container = self.0.get(&(TypeId::of::<E>(), task_id))?;
+    pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self, instance_id: usize) -> Option<Arc<T>> {
+        let interested_event_container = self.0.get(&(TypeId::of::<E>(), instance_id))?;
 
         let entry = interested_event_container.fetch(&TypeId::of::<T>())?;
 

@@ -20,10 +20,8 @@ use crate::scheduler::Scheduler;
 use std::fmt::Debug;
 use std::sync::{Arc, LazyLock};
 use std::sync::atomic::AtomicUsize;
-use dashmap::DashMap;
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
-pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> = LazyLock::new(|| TaskHookContainer(DashMap::new()));
 
 pub type ErasedTask<E> = Task<dyn DynTaskFrame<E>, dyn TaskTrigger>;
 
