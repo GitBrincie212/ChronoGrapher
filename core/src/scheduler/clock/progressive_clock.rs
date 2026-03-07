@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use crate::scheduler::clock::SchedulerClock;
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;
 use async_trait::async_trait;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::Notify;
 
@@ -14,12 +14,9 @@ impl Default for ProgressiveClock {
         let notify_clone = notify.clone();
 
         tokio::spawn(async move {
-            let mut interval =
-                tokio::time::interval(Duration::from_millis(1));
+            let mut interval = tokio::time::interval(Duration::from_millis(1));
 
-            interval.set_missed_tick_behavior(
-                tokio::time::MissedTickBehavior::Delay
-            );
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
             loop {
                 interval.tick().await;

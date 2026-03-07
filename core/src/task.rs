@@ -17,8 +17,8 @@ use crate::errors::TaskError;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 use std::fmt::Debug;
-use std::sync::{Arc, LazyLock};
 use std::sync::atomic::AtomicUsize;
+use std::sync::{Arc, LazyLock};
 
 static HOOK_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
@@ -27,7 +27,7 @@ pub type ErasedTask<E> = Task<dyn DynTaskFrame<E>, dyn TaskTrigger>;
 pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static> {
     frame: Arc<T1>,
     trigger: Arc<T2>,
-    hook_id: usize
+    hook_id: usize,
 }
 
 impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2> {
@@ -35,7 +35,7 @@ impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2
         Self {
             frame: Arc::new(T1::default()),
             trigger: Arc::new(T2::default()),
-            hook_id: HOOK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            hook_id: HOOK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         }
     }
 }
@@ -107,7 +107,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         Self {
             frame: Arc::new(frame),
             trigger: Arc::new(schedule),
-            hook_id: HOOK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            hook_id: HOOK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         }
     }
 
@@ -115,7 +115,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         ErasedTask {
             frame: self.frame.clone(),
             trigger: self.trigger.clone(),
-            hook_id: self.hook_id
+            hook_id: self.hook_id,
         }
     }
 

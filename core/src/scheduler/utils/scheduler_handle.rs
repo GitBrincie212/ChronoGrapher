@@ -1,10 +1,12 @@
-use std::any::{type_name, Any};
-use std::sync::Arc;
 use crate::prelude::{SchedulerConfig, TaskHook};
-use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerHandlePayload, SchedulerWorker};
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
+use crate::scheduler::{
+    SchedulerHandlePayload, SchedulerWorker, assign_to_trigger_worker, spawn_task,
+};
 use crate::task::ErasedTask;
+use std::any::{Any, type_name};
+use std::sync::Arc;
 
 pub enum SchedulerHandleInstructions {
     Reschedule, // Forces the Task to reschedule (instances may still run)
@@ -65,7 +67,11 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
             match instruction {
                 SchedulerHandleInstructions::Reschedule => {
                     if let Some(task) = store.get(id) {
-                        assign_to_trigger_worker::<C>(task.trigger().clone(), &id, workers.as_ref());
+                        assign_to_trigger_worker::<C>(
+                            task.trigger().clone(),
+                            &id,
+                            workers.as_ref(),
+                        );
                     }
                 }
 

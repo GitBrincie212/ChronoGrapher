@@ -12,11 +12,11 @@ use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{Task, TaskFrame, TaskTrigger};
 use crate::utils::{DefaultTaskID, TaskIdentifier};
+use crossbeam::queue::SegQueue;
 use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use crossbeam::queue::SegQueue;
 use tokio::join;
 use tokio::sync::{Notify, RwLock};
 use tokio::task::{JoinHandle, JoinSet};
@@ -27,7 +27,7 @@ pub(crate) use crate::scheduler::utils::*;
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
     pub dispatch_queue: SegQueue<C::TaskIdentifier>,
     pub trigger_queue: SegQueue<(C::TaskIdentifier, Arc<dyn TaskTrigger>)>,
-    pub notify: Notify
+    pub notify: Notify,
 }
 
 impl<C: SchedulerConfig> Default for SchedulerWorker<C> {
@@ -35,7 +35,7 @@ impl<C: SchedulerConfig> Default for SchedulerWorker<C> {
         Self {
             dispatch_queue: SegQueue::new(),
             trigger_queue: SegQueue::new(),
-            notify: Notify::new()
+            notify: Notify::new(),
         }
     }
 }
@@ -43,7 +43,7 @@ impl<C: SchedulerConfig> Default for SchedulerWorker<C> {
 pub(crate) type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 pub(crate) type ReschedulePayload<C> = (
     <C as SchedulerConfig>::TaskIdentifier,
-    Option<<C as SchedulerConfig>::TaskError>
+    Option<<C as SchedulerConfig>::TaskError>,
 );
 
 pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
@@ -136,7 +136,7 @@ where
 
 fn spawn_task<C: SchedulerConfig>(
     id: C::TaskIdentifier,
-    dispatch_workers: &Vec<SchedulerWorker<C>>
+    dispatch_workers: &Vec<SchedulerWorker<C>>,
 ) {
     let idx = id.as_usize() & (dispatch_workers.len() - 1);
     dispatch_workers[idx].dispatch_queue.push(id);
@@ -165,8 +165,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
             self.engine.init()
         );
 
-        let reschedule_queue =
-            Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
+        let reschedule_queue = Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
 
         for idx in 0..self.workers.len() {
             let workers = self.workers.clone();
@@ -180,9 +179,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
                         let now = engine_clone.clock().now();
 
                         let time = match trigger.trigger(now).await {
-                            Ok(time) => {
-                                time
-                            }
+                            Ok(time) => time,
                             Err(err) => {
                                 eprintln!("Computation error from TaskTrigger: {:?}", err);
                                 store_clone.remove(&id);
@@ -226,7 +223,8 @@ impl<C: SchedulerConfig> Scheduler<C> {
             let instruct_send_clone = instruct_send.clone();
             js.spawn(async move {
                 while let Some(id) = queue_clone.pop()
-                    && let Some(task) = store_clone.get(&id) {
+                    && let Some(task) = store_clone.get(&id)
+                {
                     append_scheduler_handler::<C>(&task, id, instruct_send_clone.clone()).await;
                 }
             });
@@ -237,29 +235,18 @@ impl<C: SchedulerConfig> Scheduler<C> {
         *self.instruction_channel.write().await = Some(instruct_send);
 
         *self.process.write().await = Some((
-            tokio::spawn(
-                scheduler_handle_instructions_logic::<C>(
-                    instruct_receive,
-                    &dispatcher_clone,
-                    &store_clone,
-                    &self.workers
-                ),
-            ),
-
-            tokio::spawn(
-                reschedule_logic::<C>(
-                    &store_clone,
-                    &reschedule_queue,
-                    &self.workers
-                )
-            ),
-
-            tokio::spawn(
-                main_loop_logic::<C>(
-                    &engine_clone,
-                    &self.workers
-                )
-            )
+            tokio::spawn(scheduler_handle_instructions_logic::<C>(
+                instruct_receive,
+                &dispatcher_clone,
+                &store_clone,
+                &self.workers,
+            )),
+            tokio::spawn(reschedule_logic::<C>(
+                &store_clone,
+                &reschedule_queue,
+                &self.workers,
+            )),
+            tokio::spawn(main_loop_logic::<C>(&engine_clone, &self.workers)),
         ));
     }
 

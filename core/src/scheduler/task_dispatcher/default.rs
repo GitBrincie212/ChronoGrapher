@@ -1,17 +1,15 @@
 use crate::scheduler::Arc;
+#[allow(unused_imports)]
+use crate::scheduler::Scheduler;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
-use std::ops::Deref;
 use dashmap::DashMap;
+use std::ops::Deref;
 use tokio::sync::Notify;
-#[allow(unused_imports)]
-use crate::scheduler::Scheduler;
 
-pub struct DefaultTaskDispatcher<C: SchedulerConfig>(
-    DashMap<C::TaskIdentifier, Vec<Arc<Notify>>>
-);
+pub struct DefaultTaskDispatcher<C: SchedulerConfig>(DashMap<C::TaskIdentifier, Vec<Arc<Notify>>>);
 
 impl<C: SchedulerConfig> Default for DefaultTaskDispatcher<C> {
     fn default() -> Self {
@@ -26,9 +24,7 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C>
         id: &C::TaskIdentifier,
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
     ) -> Result<(), C::TaskError> {
-        let mut entry = self.0
-            .entry(id.clone())
-            .or_default();
+        let mut entry = self.0.entry(id.clone()).or_default();
 
         let handle = Arc::new(Notify::new());
         entry.push(handle.clone());
@@ -42,7 +38,6 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C>
 
             _ = handle.notified() => Ok(()),
         }
-
     }
 
     async fn cancel(&self, id: &C::TaskIdentifier) {

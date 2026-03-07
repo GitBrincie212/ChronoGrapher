@@ -107,7 +107,7 @@ async fn test_not_dependency() {
 
     let d1 = FlagDependency::new(f1.clone());
     f1.store(true, Ordering::Relaxed);
-    
+
     let not_dep = LogicalDependency::not(d1);
     assert!(
         !not_dep.is_resolved().await,

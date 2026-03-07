@@ -35,13 +35,12 @@ pub mod events {
     pub use crate::task::hooks::TaskLifecycleEvents;
 } // skipcq: RS-D1001
 
-pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> = LazyLock::new(|| TaskHookContainer(DashMap::new()));
+pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> =
+    LazyLock::new(|| TaskHookContainer(DashMap::new()));
 
 type TaskHooks = HashMap<TypeId, Arc<dyn ErasedTaskHook>>;
 
-pub(crate) struct TaskHookContainer(
-    pub(crate) DashMap<(&'static str, usize), TaskHooks>
-);
+pub(crate) struct TaskHookContainer(pub(crate) DashMap<(&'static str, usize), TaskHooks>);
 
 impl TaskHookContainer {
     pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(

@@ -1,10 +1,10 @@
 /*
-    The following code for the data structure isn't fully created by the ChronoGrapher Team,
-    only adapted for potentially better performance use case (credit is where due). Please refer to the
-    linked repository section for the original sync code:
+   The following code for the data structure isn't fully created by the ChronoGrapher Team,
+   only adapted for potentially better performance use case (credit is where due). Please refer to the
+   linked repository section for the original sync code:
 
-    https://github.com/Bathtor/rust-hash-wheel-timer/blob/master/src/wheels/byte_wheel.rs
- */
+   https://github.com/Bathtor/rust-hash-wheel-timer/blob/master/src/wheels/byte_wheel.rs
+*/
 
 #[derive(Clone)]
 pub struct WheelShard<T, const N: usize> {

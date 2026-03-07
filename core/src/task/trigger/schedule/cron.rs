@@ -1,11 +1,11 @@
-use crate::errors::{CronError, CronErrorTypes};
+use crate::errors::{CronError, CronErrorTypes, CronExpressionParserErrors};
 use crate::task::schedule::TaskSchedule;
+use crate::task::schedule::cron_lexer::{Token, tokenize_fields};
+use crate::task::schedule::cron_parser::{AstNode, AstTreeNode, CronParser};
 use std::error::Error;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::time::SystemTime;
-use crate::task::schedule::cron_lexer::{tokenize_fields, Token};
-use crate::task::schedule::cron_parser::{AstNode, AstTreeNode, CronParser};
 
 const RANGES: [RangeInclusive<u8>; 6] = [
     0..=59u8,
@@ -16,8 +16,150 @@ const RANGES: [RangeInclusive<u8>; 6] = [
     1u8..=7u8,
 ];
 
+const FIELD_NAMES: [&str; 6] = [
+    "seconds",
+    "minutes",
+    "hours",
+    "day_of_month",
+    "month",
+    "day_of_week",
+];
 
-#[derive(Clone, Eq, PartialEq, Default)]
+fn validate_ast_node(node: &AstNode, field_pos: usize) -> Result<(), CronExpressionParserErrors> {
+    let range = &RANGES[field_pos];
+    let field_name = FIELD_NAMES[field_pos];
+
+    match &node.kind {
+        AstTreeNode::Exact(value) => {
+            if !range.contains(value) {
+                return Err(CronExpressionParserErrors::ValueOutOfRange {
+                    value: *value,
+                    field: field_name.to_string(),
+                    min: *range.start(),
+                    max: *range.end(),
+                });
+            }
+        }
+
+        AstTreeNode::Range(start, end) => {
+            let start_val = match &start.kind {
+                AstTreeNode::Exact(val) => *val,
+                _ => return Err(CronExpressionParserErrors::ExpectedNumber),
+            };
+            let end_val = match &end.kind {
+                AstTreeNode::Exact(val) => *val,
+                _ => return Err(CronExpressionParserErrors::ExpectedNumber),
+            };
+
+            if start_val > end_val {
+                return Err(CronExpressionParserErrors::InvalidRange {
+                    start: start_val,
+                    end: end_val,
+                    field: field_name.to_string(),
+                    min: *range.start(),
+                    max: *range.end(),
+                });
+            }
+
+            if !range.contains(&start_val) || !range.contains(&end_val) {
+                return Err(CronExpressionParserErrors::InvalidRange {
+                    start: start_val,
+                    end: end_val,
+                    field: field_name.to_string(),
+                    min: *range.start(),
+                    max: *range.end(),
+                });
+            }
+        }
+
+        AstTreeNode::Step(_, step_value) => {
+            if *step_value == 0 {
+                return Err(CronExpressionParserErrors::InvalidStepValue { step: *step_value });
+            }
+        }
+
+        AstTreeNode::List(items) => {
+            for item in items {
+                validate_ast_node(item, field_pos)?;
+            }
+        }
+
+        AstTreeNode::LastOf(_) => {
+            if field_pos != 3 && field_pos != 5 {
+                return Err(CronExpressionParserErrors::InvalidLastOperator);
+            }
+        }
+
+        AstTreeNode::NearestWeekday(_) => {
+            if field_pos != 3 {
+                return Err(CronExpressionParserErrors::InvalidNearestWeekdayOperator);
+            }
+        }
+
+        AstTreeNode::NthWeekday(_, nth) => {
+            if field_pos != 5 {
+                return Err(CronExpressionParserErrors::InvalidNthWeekdayOperator);
+            }
+            if *nth < 1 || *nth > 5 {
+                return Err(CronExpressionParserErrors::InvalidNthWeekday { nth: *nth });
+            }
+        }
+
+        AstTreeNode::Unspecified => {}
+
+        AstTreeNode::Wildcard => {}
+    }
+
+    Ok(())
+}
+
+fn ast_to_cron_field(node: &AstNode) -> CronField {
+    match &node.kind {
+        AstTreeNode::Wildcard => CronField::Wildcard,
+
+        AstTreeNode::Exact(value) => CronField::Exact(*value),
+
+        AstTreeNode::Range(start, end) => {
+            let start_val = match &start.kind {
+                AstTreeNode::Exact(val) => *val,
+                _ => panic!("Range start must be exact value"),
+            };
+            let end_val = match &end.kind {
+                AstTreeNode::Exact(val) => *val,
+                _ => panic!("Range end must be exact value"),
+            };
+            CronField::Range(start_val, end_val)
+        }
+
+        AstTreeNode::Step(base, step_value) => {
+            let base_field = ast_to_cron_field(base);
+            CronField::Step(Box::new(base_field), *step_value)
+        }
+
+        AstTreeNode::List(items) => {
+            let cron_items: Vec<CronField> = items.iter().map(ast_to_cron_field).collect();
+            CronField::List(cron_items)
+        }
+
+        AstTreeNode::LastOf(Some(offset)) => CronField::Last(Some(*offset as i8)),
+        AstTreeNode::LastOf(None) => CronField::Last(None),
+
+        AstTreeNode::NearestWeekday(base) => {
+            let day_val = match &base.kind {
+                AstTreeNode::Exact(val) => *val,
+                AstTreeNode::LastOf(None) => return CronField::NearestWeekday(0),
+                _ => panic!("NearestWeekday base must be exact value or L"),
+            };
+            CronField::NearestWeekday(day_val)
+        }
+
+        AstTreeNode::NthWeekday(day, nth) => CronField::NthWeekday(*day, *nth),
+
+        AstTreeNode::Unspecified => CronField::Unspecified,
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub enum CronField {
     #[default]
     Wildcard,
@@ -72,7 +214,7 @@ impl FromStr for TaskScheduleCron {
             if toks.len() == 0 {
                 ast[idx] = AstNode {
                     start: prev_toks.last().unwrap().start,
-                    kind: AstTreeNode::Wildcard
+                    kind: AstTreeNode::Wildcard,
                 };
                 prev_toks = &toks;
                 continue;
@@ -89,7 +231,38 @@ impl FromStr for TaskScheduleCron {
             prev_toks = &toks;
         }
 
-        todo!()
+        for (field_pos, node) in ast.iter().enumerate() {
+            validate_ast_node(node, field_pos).map_err(|error_type| CronError {
+                field_pos,
+                position: node.start,
+                error_type: CronErrorTypes::Parser(error_type),
+            })?;
+        }
+
+        let day_of_month_unspecified = matches!(ast[3].kind, AstTreeNode::Unspecified);
+        let day_of_week_unspecified = matches!(ast[5].kind, AstTreeNode::Unspecified);
+
+        if day_of_month_unspecified && day_of_week_unspecified {
+            return Err(CronError {
+                field_pos: 3,
+                position: ast[3].start,
+                error_type: CronErrorTypes::Parser(
+                    CronExpressionParserErrors::InvalidUnspecifiedField {
+                        field: "day_of_month and day_of_week cannot both be unspecified"
+                            .to_string(),
+                    },
+                ),
+            });
+        }
+
+        let cron_fields: [CronField; 6] = ast
+            .iter()
+            .map(ast_to_cron_field)
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("Failed to convert Vec to array");
+
+        Ok(TaskScheduleCron::new(cron_fields))
     }
 }
 

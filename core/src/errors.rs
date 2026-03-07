@@ -113,6 +113,41 @@ pub enum CronExpressionParserErrors {
 
     #[error("Expected number but got something else")]
     ExpectedNumber,
+
+    #[error("Value {value} is out of range for {field} field (expected {min}-{max})")]
+    ValueOutOfRange {
+        value: u8,
+        field: String,
+        min: u8,
+        max: u8,
+    },
+
+    #[error("Invalid range {start}-{end} for {field} field (expected {min}-{max})")]
+    InvalidRange {
+        start: u8,
+        end: u8,
+        field: String,
+        min: u8,
+        max: u8,
+    },
+
+    #[error("Step value {step} must be greater than 0")]
+    InvalidStepValue { step: u8 },
+
+    #[error("Nth weekday {nth} is out of range (expected 1-5)")]
+    InvalidNthWeekday { nth: u8 },
+
+    #[error("Field '{field}' cannot be unspecified in this context")]
+    InvalidUnspecifiedField { field: String },
+
+    #[error("L (last) operator is only valid for day_of_month and day_of_week fields")]
+    InvalidLastOperator,
+
+    #[error("W (nearest weekday) operator is only valid for day_of_month field")]
+    InvalidNearestWeekdayOperator,
+
+    #[error("# (nth weekday) operator is only valid for day_of_week field")]
+    InvalidNthWeekdayOperator,
 }
 
 #[derive(Error, Debug)]

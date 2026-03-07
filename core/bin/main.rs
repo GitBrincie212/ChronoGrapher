@@ -1,10 +1,10 @@
 use crate::main_cg::benchmark_chronographer;
-use std::io::Write;
-use std::fs::OpenOptions;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::LazyLock;
-use std::time::{Duration, Instant};
 use crate::main_tokio::benchmark_tokio_schedule;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::sync::LazyLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 
 mod main_cg;
 mod main_tokio;

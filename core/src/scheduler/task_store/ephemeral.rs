@@ -6,7 +6,9 @@ use dashmap::DashMap;
 use std::error::Error;
 use std::sync::Arc;
 
-pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig>(DashMap<C::TaskIdentifier, Arc<ErasedTask<C::TaskError>>>);
+pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig>(
+    DashMap<C::TaskIdentifier, Arc<ErasedTask<C::TaskError>>>,
+);
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     fn default() -> Self {

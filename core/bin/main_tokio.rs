@@ -1,17 +1,18 @@
+use crate::COUNTER;
+use chrono::Local;
 use std::pin::Pin;
 use std::sync::atomic::Ordering;
-use chrono::Local;
 use tokio::spawn;
 use tokio::task::yield_now;
-use tokio_schedule::{every, Job};
-use crate::COUNTER;
+use tokio_schedule::{Job, every};
 
 pub async fn benchmark_tokio_schedule() {
     println!("LOADING TASKS");
-    let mut tasks: Vec<Pin<Box<dyn Future<Output=()> + Send>>> = Vec::with_capacity(200_000);
+    let mut tasks: Vec<Pin<Box<dyn Future<Output = ()> + Send>>> = Vec::with_capacity(200_000);
     for _ in 0..350_000 {
         let millis = fastrand::f64() / 6f64;
-        let task = every((millis * 1000.0).floor() as u32).millisecond()
+        let task = every((millis * 1000.0).floor() as u32)
+            .millisecond()
             .in_timezone(&Local)
             .perform(|| async {
                 yield_now().await;

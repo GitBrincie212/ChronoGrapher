@@ -4,7 +4,7 @@ use std::error::Error;
 use std::time::SystemTime;
 
 pub use calendar::{TaskCalendarField, TaskScheduleCalendar};
-pub use cron::{TaskScheduleCron, CronField};
+pub use cron::{CronField, TaskScheduleCron};
 pub use immediate::TaskScheduleImmediate;
 pub use interval::TaskScheduleInterval;
 
@@ -16,8 +16,8 @@ pub mod immediate; // skipcq: RS-D1001
 
 pub mod interval; // skipcq: RS-D1001
 
-mod cron_parser; // skipcq: RS-D1001
-mod cron_lexer; // skipcq: RS-D1001
+mod cron_lexer;
+mod cron_parser; // skipcq: RS-D1001 // skipcq: RS-D1001
 
 /// [`TaskSchedule`] is a trait for defining a schedule, it acts as an alias for [`TaskTrigger`]
 /// where the use of a [`TriggerNotifier`] to alert the "[`Scheduler`](crate::scheduler::Scheduler) Side"
@@ -126,10 +126,7 @@ pub trait TaskSchedule: 'static + Send + Sync {
 
 #[async_trait]
 impl<T: TaskSchedule> TaskTrigger for T {
-    async fn trigger(
-        &self,
-        now: SystemTime,
-    ) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+    async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         self.schedule(now)
     }
 }

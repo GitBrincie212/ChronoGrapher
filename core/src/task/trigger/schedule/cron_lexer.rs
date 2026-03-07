@@ -77,7 +77,9 @@ fn try_allocate_number(
     }
 }
 
-pub fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
+pub fn tokenize_fields(
+    s: &str,
+) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
     let mut tokens: [Vec<Token>; 6] = [const { Vec::new() }; 6];
     let mut current_number = 0u8;
     let mut field_pos = 0;

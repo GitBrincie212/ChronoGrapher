@@ -74,7 +74,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> TaskDependencyBuilder<T1, T2> {
         self.resolve_behavior = Arc::new(value);
         self
     }
-    
+
     pub async fn build(self) -> TaskDependency {
         let tracker = Arc::new(TaskDependencyTracker {
             run_count: Arc::new(AtomicU64::default()),
@@ -122,12 +122,10 @@ pub struct TaskDependency {
 }
 
 impl TaskDependency {
-    pub async fn new<T1: TaskFrame, T2: TaskTrigger>(
-        task: &'static Task<T1, T2>,
-    ) -> Self {
+    pub async fn new<T1: TaskFrame, T2: TaskTrigger>(task: &'static Task<T1, T2>) -> Self {
         TaskDependencyBuilder::<T1, T2>::new(task).build().await
     }
-    
+
     pub fn builder<T1: TaskFrame, T2: TaskTrigger>(
         task: &'static Task<T1, T2>,
     ) -> TaskDependencyBuilder<T1, T2> {

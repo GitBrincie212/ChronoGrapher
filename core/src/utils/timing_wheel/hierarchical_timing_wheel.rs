@@ -1,5 +1,5 @@
-use std::time::Duration;
 use crate::utils::WheelShard;
+use std::time::Duration;
 
 pub struct HierarchicalTimingWheel<T: 'static + Send> {
     level1: WheelShard<T, 256>,
@@ -76,8 +76,10 @@ impl<T: 'static + Send> HierarchicalTimingWheel<T> {
             &mut self.level2,
             &mut self.level3,
             &mut self.level4,
-            &mut self.level5
-        ].into_iter() {
+            &mut self.level5,
+        ]
+        .into_iter()
+        {
             let (result, curr) = shard.tick();
 
             results.extend(result);
@@ -95,8 +97,10 @@ impl<T: 'static + Send> HierarchicalTimingWheel<T> {
             &mut self.level2,
             &mut self.level3,
             &mut self.level4,
-            &mut self.level5
-        ].into_iter() {
+            &mut self.level5,
+        ]
+        .into_iter()
+        {
             shard.clear()
         }
     }

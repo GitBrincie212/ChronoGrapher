@@ -84,7 +84,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 /// - [SchedulerTaskStore](crate::scheduler::task_store::SchedulerTaskStore) - Manages linking identifiers to tasks.
 /// - [`Task`](crate::task::Task) - The object which the task identifier associates.
 pub trait TaskIdentifier:
-'static + Debug + Clone + Eq + PartialEq<Self> + Hash + Send + Sync
+    'static + Debug + Clone + Eq + PartialEq<Self> + Hash + Send + Sync
 {
     fn generate() -> Self;
     fn as_usize(&self) -> usize {
@@ -113,7 +113,8 @@ impl Hash for DefaultTaskID {
 impl TaskIdentifier for DefaultTaskID {
     fn generate() -> Self {
         DefaultTaskID(
-            fastrand::u128(0..=u128::MAX) & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF | 0x40008000000000000000,
+            fastrand::u128(0..=u128::MAX) & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF
+                | 0x40008000000000000000,
         )
     }
 
@@ -121,4 +122,3 @@ impl TaskIdentifier for DefaultTaskID {
         self.0 as usize
     }
 }
-
