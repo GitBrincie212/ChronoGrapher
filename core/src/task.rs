@@ -19,15 +19,17 @@ use crate::scheduler::Scheduler;
 use std::fmt::Debug;
 use std::sync::{Arc, LazyLock};
 use std::sync::atomic::AtomicUsize;
+use dashmap::DashMap;
 
-static HOOK_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> = LazyLock::new(|| TaskHookContainer(DashMap::new()));
 
 pub type ErasedTask<E> = Task<dyn DynTaskFrame<E>, dyn TaskTrigger>;
 
 pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static> {
     frame: Arc<T1>,
     trigger: Arc<T2>,
-    hook_id: usize
+    instance_id: usize
 }
 
 impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2> {
@@ -35,7 +37,7 @@ impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2
         Self {
             frame: Arc::new(T1::default()),
             trigger: Arc::new(T2::default()),
-            hook_id: HOOK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         }
     }
 }
@@ -70,7 +72,7 @@ impl<E: TaskError> ErasedTask<E> {
     pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
         let ctx = TaskHookContext {
             depth: 0,
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             frame: self.frame.erased(),
         };
 
@@ -78,12 +80,12 @@ impl<E: TaskError> ErasedTask<E> {
     }
 
     pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
-        TASKHOOK_REGISTRY.get::<EV, T>(self.hook_id)
+        TASKHOOK_REGISTRY.get::<EV, T>(self.instance_id)
     }
 
     pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
         let ctx = TaskHookContext {
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             depth: 0,
             frame: self.frame.erased(),
         };
@@ -93,7 +95,7 @@ impl<E: TaskError> ErasedTask<E> {
 
     pub async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) {
         let ctx = TaskHookContext {
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             depth: 0,
             frame: self.frame.erased(),
         };
@@ -107,7 +109,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         Self {
             frame: Arc::new(frame),
             trigger: Arc::new(schedule),
-            hook_id: HOOK_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         }
     }
 
@@ -115,7 +117,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         ErasedTask {
             frame: self.frame.clone(),
             trigger: self.trigger.clone(),
-            hook_id: self.hook_id
+            instance_id: self.instance_id
         }
     }
 
@@ -129,7 +131,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
 
     pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
         let ctx = TaskHookContext {
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             depth: 0,
             frame: self.frame.as_ref(),
         };
@@ -138,12 +140,12 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
     }
 
     pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
-        TASKHOOK_REGISTRY.get::<EV, T>(self.hook_id)
+        TASKHOOK_REGISTRY.get::<EV, T>(self.instance_id)
     }
 
     pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
         let ctx = TaskHookContext {
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             depth: 0,
             frame: self.frame.as_ref(),
         };
@@ -153,7 +155,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
 
     pub async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) {
         let ctx = TaskHookContext {
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             depth: 0,
             frame: self.frame.as_ref(),
         };

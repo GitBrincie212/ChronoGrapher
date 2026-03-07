@@ -28,7 +28,6 @@ macro_rules! define_event {
 
         impl TaskHookEvent for $name {
             type Payload<'a> = $payload where Self: 'a;
-            const EVENT_ID: &'static str = concat!("chronographer_core#", stringify!($name));
         }
     };
 }

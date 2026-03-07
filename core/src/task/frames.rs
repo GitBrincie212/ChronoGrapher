@@ -38,7 +38,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct RestrictTaskFrameContext<'a> {
-    pub(crate) hook_id: usize,
+    pub(crate) instance_id: usize,
     pub(crate) depth: u64,
     pub(crate) frame: &'a dyn ErasedTaskFrame,
 }
@@ -58,7 +58,7 @@ macro_rules! instruct_method {
 impl<'a> TaskFrameContext<'a> {
     pub(crate) fn subdivided_ctx(&self, frame: &'a dyn ErasedTaskFrame) -> Self {
         Self(RestrictTaskFrameContext {
-            hook_id: self.hook_id,
+            instance_id: self.instance_id,
             frame,
             depth: self.0.depth + 1,
         })
@@ -90,7 +90,7 @@ impl<'a> TaskFrameContext<'a> {
 impl<'a> RestrictTaskFrameContext<'a> {
     pub(crate) fn new(task: &'a ErasedTask<impl TaskError>) -> Self {
         Self {
-            hook_id: task.hook_id,
+            instance_id: task.instance_id,
             depth: 0,
             frame: task.frame.as_ref().erased(),
         }
@@ -102,7 +102,7 @@ impl<'a> RestrictTaskFrameContext<'a> {
 
     pub async fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
         let ctx = TaskHookContext {
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             depth: self.depth,
             frame: self.frame,
         };
@@ -112,7 +112,7 @@ impl<'a> RestrictTaskFrameContext<'a> {
 
     pub async fn attach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self, hook: Arc<TH>) {
         let ctx = TaskHookContext {
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             depth: self.depth,
             frame: self.frame,
         };
@@ -122,7 +122,7 @@ impl<'a> RestrictTaskFrameContext<'a> {
 
     pub async fn detach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) {
         let ctx = TaskHookContext {
-            task_id: self.hook_id,
+            instance_id: self.instance_id,
             depth: self.depth,
             frame: self.frame,
         };
@@ -131,7 +131,7 @@ impl<'a> RestrictTaskFrameContext<'a> {
     }
 
     pub fn get_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) -> Option<Arc<TH>> {
-        TASKHOOK_REGISTRY.get::<EV, TH>(self.hook_id)
+        TASKHOOK_REGISTRY.get::<EV, TH>(self.instance_id)
     }
 
     pub async fn shared<H>(&self, creator: impl FnOnce() -> H) -> Arc<H>

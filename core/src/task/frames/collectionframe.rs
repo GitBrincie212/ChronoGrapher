@@ -164,12 +164,12 @@ impl<P: CollectionExecPolicy<CollectionTaskError> + Send + Sync + 'static> Colle
 
         let mut js = tokio::task::JoinSet::new();
         for idx in 0..handle.length() {
-            let hook_id = handle.ctx.0.hook_id;
+            let instance_id = handle.ctx.0.instance_id;
             let frame = handle.collection.taskframes[idx].clone();
             let depth = handle.ctx.0.depth + 1;
             js.spawn(async move {
                 let child_ctx = TaskFrameContext(RestrictTaskFrameContext {
-                    hook_id,
+                    instance_id,
                     depth,
                     frame: frame.as_ref(),
                 });
