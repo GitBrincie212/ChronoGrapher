@@ -1,3 +1,40 @@
+//! This module contains various implementations of scheduling primitives and the [`TaskSchedule`] trait.
+//!
+//! When it comes to most use cases, the built-in scheduling primitives are most used. However, depending
+//! on your needs, you may implement the [`TaskSchedule`] trait for a custom schedule.
+//!
+//! In addition to [`TaskSchedule`] for custom schedules, there is the more general [`TaskTrigger`]
+//! which allows for deferred (non-immediate) response.
+//!
+//! While [`TaskSchedule`] internally implements the [`TaskTrigger`] trait, its semantic implies
+//! different things compared to directly implementing the [`TaskTrigger`] trait.
+//!
+//! These differences are best explained in [`TaskSchedule`] API documentation.
+//!
+//! # Exports
+//! - [`TaskSchedule`] - An alias trait of [`TaskTrigger`] for mathematical & immediate computations.
+//! - [`TaskScheduleImmediate`] - A primitive which schedules to execute immediately.
+//! - [`TaskScheduleInterval`] - A primitive which schedules per-interval basis.
+//! - [`TaskScheduleCron`] - A primitive which schedules based on a CRON expression.
+//! - [`CronField`] - A field used internally for [`TaskScheduleCron`]
+//! - [`TaskScheduleCalendar`] - A primitive which schedules via a human-readable calendar object.
+//! - [`TaskCalendarField`] - A field of [`TaskScheduleCalendar`] which allows complex scheduling.
+//!
+//! # Example(s)
+//! TODO: Expand upon the Example(s) once you are finished with documenting the other primitives
+//!
+//! Implementing your own custom schedule, best refer to [`TaskSchedule`] documentation
+//!
+//! # See Also
+//! - [`TaskScheduleImmediate`] - A primitive which schedules to execute immediately.
+//! - [`TaskScheduleInterval`] - A primitive which schedules per-interval basis.
+//! - [`TaskScheduleCron`] - A primitive which schedules based on a CRON expression.
+//! - [`CronField`] - A field used internally for [`TaskScheduleCron`]
+//! - [`TaskScheduleCalendar`] - A primitive which schedules via a human-readable calendar object.
+//! - [`TaskCalendarField`] - A field of [`TaskScheduleCalendar`] which allows complex scheduling.
+//! - [`TaskSchedule`] - An alias trait of [`TaskTrigger`] for mathematical & immediate computations.
+//! - [`TaskTrigger`] - The more general trait for managing scheduling.
+
 use crate::task::TaskTrigger;
 use async_trait::async_trait;
 use std::error::Error;
@@ -12,7 +49,7 @@ pub mod calendar; // skipcq: RS-D1001
 
 pub mod cron; // skipcq: RS-D1001
 
-pub mod immediate; // skipcq: RS-D1001
+pub mod immediate;
 
 pub mod interval; // skipcq: RS-D1001
 
