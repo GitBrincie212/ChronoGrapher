@@ -19,7 +19,7 @@ use std::sync::Arc;
 use crossbeam::queue::SegQueue;
 use tokio::join;
 use tokio::sync::{Notify, RwLock};
-use tokio::task::{JoinHandle, JoinSet};
+use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
 pub(crate) use crate::scheduler::utils::*;
@@ -99,9 +99,8 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             store: Arc::new(config.store),
             dispatcher: Arc::new(config.dispatcher),
             process: RwLock::new(None),
-            instruction_channel: RwLock::new(None),
+            instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
             workers: Arc::new(workers),
-            pre_schedule_queue: Arc::new(SegQueue::new()),
         }
     }
 }
@@ -111,9 +110,8 @@ pub struct Scheduler<C: SchedulerConfig> {
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
     process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>, JoinHandle<()>)>>,
-    instruction_channel: RwLock<Option<tokio::sync::mpsc::Sender<SchedulerHandlePayload>>>,
+    instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     workers: Arc<Vec<SchedulerWorker<C>>>,
-    pre_schedule_queue: Arc<SegQueue<C::TaskIdentifier>>,
 }
 
 impl<C> Default for Scheduler<C>
@@ -217,32 +215,11 @@ impl<C: SchedulerConfig> Scheduler<C> {
                 }
             });
         }
-
-        let (instruct_send, instruct_receive) =
-            tokio::sync::mpsc::channel::<SchedulerHandlePayload>(1024);
-
-        let workers = (2 * self.pre_schedule_queue.len()).isqrt().max(1);
-        let mut js = JoinSet::new();
-        for _ in 0..workers {
-            let queue_clone = self.pre_schedule_queue.clone();
-            let store_clone = self.store.clone();
-            let instruct_send_clone = instruct_send.clone();
-            js.spawn(async move {
-                while let Some(id) = queue_clone.pop()
-                    && let Some(task) = store_clone.get(&id) {
-                    append_scheduler_handler::<C>(&task, id, instruct_send_clone.clone()).await;
-                }
-            });
-        }
-
-        js.join_all().await;
-
-        *self.instruction_channel.write().await = Some(instruct_send);
-
+        
         *self.process.write().await = Some((
             tokio::spawn(
                 scheduler_handle_instructions_logic::<C>(
-                    instruct_receive,
+                    &self.instruction_queue,
                     &dispatcher_clone,
                     &store_clone,
                     &self.workers
@@ -284,11 +261,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
     ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
         let erased = task.as_erased();
         let id = C::TaskIdentifier::generate();
-        if let Some(channel) = &*self.instruction_channel.read().await {
-            append_scheduler_handler::<C>(&erased, id.clone(), channel.clone()).await;
-        } else {
-            self.pre_schedule_queue.push(id.clone());
-        }
+        append_scheduler_handler::<C>(&erased, id.clone(), self.instruction_queue.clone()).await;
         
         self.store.store(&id, erased)?;
         assign_to_trigger_worker::<C>(id.clone(), self.workers.as_ref());

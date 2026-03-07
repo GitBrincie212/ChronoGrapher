@@ -1,5 +1,7 @@
 use std::any::{type_name, Any};
 use std::sync::Arc;
+use crossbeam::queue::SegQueue;
+use tokio::sync::Notify;
 use crate::prelude::{SchedulerConfig, TaskHook};
 use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerHandlePayload, SchedulerWorker};
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
@@ -15,15 +17,13 @@ pub enum SchedulerHandleInstructions {
 
 pub struct SchedulerHandle {
     pub id: Arc<dyn Any + Send + Sync>,
-    pub channel: tokio::sync::mpsc::Sender<SchedulerHandlePayload>,
+    pub channel: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
 }
 
 impl SchedulerHandle {
     pub(crate) async fn instruct(&self, instruction: SchedulerHandleInstructions) {
-        self.channel
-            .send((self.id.clone(), instruction))
-            .await
-            .expect("Cannot instruct");
+        self.channel.0.push((self.id.clone(), instruction));
+        self.channel.1.notify_waiters();
     }
 }
 
@@ -32,7 +32,7 @@ impl TaskHook<()> for SchedulerHandle {}
 pub async fn append_scheduler_handler<C: SchedulerConfig>(
     task: &ErasedTask<C::TaskError>,
     id: C::TaskIdentifier,
-    channel: tokio::sync::mpsc::Sender<SchedulerHandlePayload>,
+    channel: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
 ) {
     let handle = SchedulerHandle {
         id: Arc::new(id),
@@ -44,7 +44,7 @@ pub async fn append_scheduler_handler<C: SchedulerConfig>(
 
 #[inline(always)]
 pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
-    mut instruct_receive: tokio::sync::mpsc::Receiver<SchedulerHandlePayload>,
+    instruct_queue: &Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     dispatcher: &Arc<C::SchedulerTaskDispatcher>,
     store: &Arc<C::SchedulerTaskStore>,
     workers: &Arc<Vec<SchedulerWorker<C>>>,
@@ -52,9 +52,10 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     let dispatcher = dispatcher.clone();
     let store = store.clone();
     let workers = workers.clone();
+    let instruct_queue = instruct_queue.clone();
 
     async move {
-        while let Some((id, instruction)) = instruct_receive.recv().await {
+        while let Some((id, instruction)) = instruct_queue.0.pop() {
             let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(|| {
                 panic!(
                     "Cannot downcast to TaskIdentifier of type {:?}",
@@ -68,11 +69,11 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
                 }
 
                 SchedulerHandleInstructions::Halt => {
-                    dispatcher.cancel(id).await;
+                    dispatcher.cancel(&id).await;
                 }
 
                 SchedulerHandleInstructions::Block => {
-                    store.remove(id);
+                    store.remove(&id);
                 }
 
                 SchedulerHandleInstructions::Execute => {
@@ -80,5 +81,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
                 }
             }
         }
+
+        instruct_queue.1.notified().await;
     }
 }
