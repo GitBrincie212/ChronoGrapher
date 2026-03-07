@@ -121,6 +121,47 @@ use std::time::Duration;
 pub struct TaskFrameBuilder<T: TaskFrame>(T);
 
 impl<T: TaskFrame> TaskFrameBuilder<T> {
+    /// Method creates a new [`TaskFrameBuilder`] by wrapping the given [`TaskFrame`], this is the
+    /// only entry point for constructing a builder for the workflow.
+    ///
+    /// The provided [`TaskFrame`] becomes the innermost layer of the composed workflow. Subsequent
+    /// `with_*` calls wrap additional behavior around it, and [`build`](TaskFrameBuilder::build)
+    /// extracts the final composed frame and builds complex workflows.
+    ///
+    /// # Argument(s)
+    /// Any type implementing [`TaskFrame`], this becomes the base frame that all
+    /// subsequent wrappers are layered on top of.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping `frame`, ready for chaining `with_*` methods.
+    ///
+    /// # Example(s)
+    /// ```
+    /// use chronographer::task::TaskFrameBuilder;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// // Wrap `MyFrame` in a builder, then immediately extract it unchanged.
+    /// let frame: MyFrame = TaskFrameBuilder::new(MyFrame).build();
+    /// ```
+    /// When called without any `with_*` methods, [`build`](TaskFrameBuilder::build) returns
+    /// the original frame as-is. In practice you would chain one or more wrappers before building for more complex workflows as per requirements.
+    ///
+    /// # See Also
+    /// - [`TaskFrame`] - The trait that `frame` must implement.
+    /// - [`build`](TaskFrameBuilder::build) - Consumes the builder and returns the composed frame.
+
     pub fn new(frame: T) -> Self {
         Self(frame)
     }
