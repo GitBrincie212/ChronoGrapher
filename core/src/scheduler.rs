@@ -11,7 +11,7 @@ use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDisp
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{Task, TaskFrame, TaskTrigger};
-use crate::utils::{DefaultTaskID, TaskIdentifier};
+use crate::utils::{SnowflakeID, TaskIdentifier};
 use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
@@ -66,7 +66,7 @@ pub trait SchedulerConfig: Sized + 'static {
 pub struct DefaultSchedulerConfig<E: TaskError>(PhantomData<E>);
 
 impl<E: TaskError> SchedulerConfig for DefaultSchedulerConfig<E> {
-    type TaskIdentifier = DefaultTaskID;
+    type TaskIdentifier = SnowflakeID;
     type TaskError = E;
     type SchedulerTaskStore = EphemeralSchedulerTaskStore<Self>;
     type SchedulerTaskDispatcher = DefaultTaskDispatcher<Self>;

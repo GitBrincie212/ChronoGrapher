@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::SystemTime;
 
 /// [`TaskIdentifier`] trait used for defining unique identifiers. For example UUID, integers, strings,
 /// and generally any kind of identifier format the user can use which suits their needs.
@@ -101,20 +103,61 @@ impl TaskIdentifier for Uuid {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct DefaultTaskID(u128);
+static PREV_ID: AtomicU64 = AtomicU64::new(0);
 
-impl Hash for DefaultTaskID {
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct SnowflakeID(u64);
+
+impl SnowflakeID {
+    const CHRONOGRAPHER_EPOCH_MS: u64 = 1772985384873;
+}
+
+impl Hash for SnowflakeID {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u128(self.0)
+        state.write_u64(self.0)
     }
 }
 
-impl TaskIdentifier for DefaultTaskID {
+impl TaskIdentifier for SnowflakeID {
     fn generate() -> Self {
-        DefaultTaskID(
-            fastrand::u128(0..=u128::MAX) & 0xFFFFFFFFFFFF4FFFBFFFFFFFFFFFFFFF | 0x40008000000000000000,
-        )
+        loop {
+            let current = PREV_ID.load(Ordering::Relaxed);
+
+            let last_timestamp = current >> 16;
+            let last_sequence = current & 0xFFFF;
+
+            let now = (
+                SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64
+            ) - Self::CHRONOGRAPHER_EPOCH_MS;
+
+            let (timestamp, sequence) = if now == last_timestamp {
+                let next_seq = (last_sequence + 1) & 0xFFFF;
+
+                if next_seq == 0 {
+                    continue;
+                }
+
+                (now, next_seq)
+            } else {
+                (now, 0)
+            };
+
+            let new_id = (timestamp << 16) | sequence;
+
+            if PREV_ID.compare_exchange(
+                    current,
+                    new_id,
+                    Ordering::SeqCst,
+                    Ordering::Relaxed,
+                )
+                .is_ok()
+            {
+                return SnowflakeID(new_id);
+            }
+        }
     }
 
     fn as_usize(&self) -> usize {
