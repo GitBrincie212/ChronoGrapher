@@ -30,11 +30,9 @@ crossbeam = { version = "0.8.4", features = ["std"] }
 tokio_schedule = "0.3.2"
 
 [features]
-default = ["scheduler_handles"]
 anyhow = ["dep:anyhow"]
 eyre = ["dep:eyre"]
 uuid = ["dep:uuid"]
-scheduler_handles = []
 # chrono = ["dep:chrono"]
 
 [[bin]]

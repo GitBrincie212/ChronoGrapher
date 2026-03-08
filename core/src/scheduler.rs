@@ -100,7 +100,6 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             dispatcher: Arc::new(config.dispatcher),
             process: RwLock::new(None),
             workers: Arc::new(workers),
-            #[cfg(feature = "scheduler_handles")]
             instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
         }
     }
@@ -110,12 +109,8 @@ pub struct Scheduler<C: SchedulerConfig> {
     store: Arc<C::SchedulerTaskStore>,
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
-    #[cfg(feature = "scheduler_handles")]
     process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>, JoinHandle<()>)>>,
-    #[cfg(not(feature = "scheduler_handles"))]
-    process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>)>>,
     workers: Arc<Vec<SchedulerWorker<C>>>,
-    #[cfg(feature = "scheduler_handles")]
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
 }
 
@@ -235,49 +230,28 @@ impl<C: SchedulerConfig> Scheduler<C> {
             )
         );
 
-        #[cfg(feature = "scheduler_handles")]
-        {
-            *self.process.write().await = Some((
-                tokio::spawn(
-                    crate::scheduler::utils::scheduler_handle::scheduler_handle_instructions_logic::<C>(
-                        &self.instruction_queue,
-                        &dispatcher_clone,
-                        &store_clone,
-                        &self.workers
-                    ),
-                ),
+        let scheduler_handle_instructions = tokio::spawn(
+            scheduler_handle_instructions_logic::<C>(
+                &self.instruction_queue,
+                &dispatcher_clone,
+                &store_clone,
+                &self.workers
+            ),
+        );
 
-                reschedule_loop,
-                main_loop
-            ));
-        }
-
-        #[cfg(not(feature = "scheduler_handles"))]
-        {
-            *self.process.write().await = Some((
-                reschedule_loop,
-                main_loop
-            ));
-        }
+        *self.process.write().await = Some((
+            scheduler_handle_instructions,
+            reschedule_loop,
+            main_loop
+        ));
     }
 
     pub async fn abort(&self) {
         let process = self.process.write().await.take();
-        #[cfg(feature = "scheduler_handles")]
-        {
-            if let Some((p1, p2, p3)) = process {
-                p1.abort();
-                p2.abort();
-                p3.abort()
-            }
-        }
-
-        #[cfg(not(feature = "scheduler_handles"))]
-        {
-            if let Some((p1, p2)) = process {
-                p1.abort();
-                p2.abort();
-            }
+        if let Some((p1, p2, p3)) = process {
+            p1.abort();
+            p2.abort();
+            p3.abort()
         }
     }
 
@@ -292,7 +266,6 @@ impl<C: SchedulerConfig> Scheduler<C> {
         let erased = task.as_erased();
         let id = C::TaskIdentifier::generate();
 
-        #[cfg(feature = "scheduler_handles")]
         append_scheduler_handler::<C>(&erased, id.clone(), self.instruction_queue.clone()).await;
         
         self.store.store(&id, erased)?;
