@@ -29,6 +29,7 @@ where
     }
 }
 
+#[cfg(feature = "macros")]
 #[macro_export]
 macro_rules! dynamic_taskframe {
     ($block: block) => {{
