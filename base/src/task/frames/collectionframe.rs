@@ -1,7 +1,7 @@
 use crate::task::TaskHookEvent;
 use crate::errors::{StandardCoreErrorsCG, TaskError};
 use crate::task::{ErasedTaskFrame, RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
-use crate::{define_event, define_event_group};
+use crate::utils::macros::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};

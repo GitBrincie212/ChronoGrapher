@@ -1,6 +1,6 @@
 use crate::errors::TaskError;
 use crate::task::{TaskFrame, TaskFrameContext, TaskHookEvent};
-use crate::{define_event, define_event_group};
+use crate::utils::macros::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::clone::Clone;
 use std::fmt::Debug;

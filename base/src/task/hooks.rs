@@ -1,7 +1,7 @@
 use crate::errors::TaskError;
 #[allow(unused_imports)]
 use crate::task::frames::*;
-use crate::{define_event, define_event_group};
+use crate::utils::macros::{define_event, define_event_group};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use std::any::{Any, TypeId};

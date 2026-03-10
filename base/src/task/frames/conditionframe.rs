@@ -4,7 +4,7 @@ use crate::task::FallbackTaskFrame;
 use crate::task::TaskFrame;
 use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{RestrictTaskFrameContext, TaskFrameContext, TaskHookEvent};
-use crate::{define_event, define_event_group};
+use crate::utils::macros::{define_event, define_event_group};
 use async_trait::async_trait;
 use typed_builder::TypedBuilder;
 

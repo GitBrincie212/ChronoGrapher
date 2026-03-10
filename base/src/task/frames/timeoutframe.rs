@@ -1,4 +1,4 @@
-use crate::define_event;
+use crate::utils::macros::define_event;
 use crate::errors::TimeoutTaskFrameError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};

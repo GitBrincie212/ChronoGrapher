@@ -1,6 +1,6 @@
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
-use crate::{define_event, define_event_group};
+use crate::utils::macros::{define_event, define_event_group};
 use async_trait::async_trait;
 use std::time::Duration;
 use tokio::time::Instant;

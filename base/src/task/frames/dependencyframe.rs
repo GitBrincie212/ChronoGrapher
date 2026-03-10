@@ -1,4 +1,4 @@
-use crate::define_event;
+use crate::utils::macros::define_event;
 use crate::errors::{DependencyTaskFrameError, StandardCoreErrorsCG, TaskError};
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
