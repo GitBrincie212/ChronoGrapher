@@ -2,8 +2,7 @@ use std::sync::Arc;
 use crossbeam::queue::SegQueue;
 use dashmap::DashSet;
 use tokio::sync::Notify;
-use crate::prelude::SchedulerConfig;
-use crate::scheduler::{assign_to_trigger_worker, ReschedulePayload, SchedulerWorker};
+use crate::scheduler::{assign_to_trigger_worker, ReschedulePayload, SchedulerConfig, SchedulerWorker};
 
 #[inline(always)]
 pub fn reschedule_logic<C: SchedulerConfig>(

@@ -1,5 +1,5 @@
 [package]
-name = "chronographer"
+name = "chronographer_base"
 version = "0.1.0"
 edition = "2024"
 license-file = "../LICENSE"
@@ -12,7 +12,7 @@ keywords = ["ChronoGrapher", "scheduler", "scheduling", "workflow", "orchestrati
 categories = ["embedded", "asynchronous"]
 
 [lib]
-name = "chronographer"
+name = "chronographer_base"
 crate-type = ["rlib"]
 
 [dependencies]
@@ -34,15 +34,3 @@ anyhow = ["dep:anyhow"]
 eyre = ["dep:eyre"]
 uuid = ["dep:uuid"]
 # chrono = ["dep:chrono"]
-
-[[bin]]
-name = "chronographer"
-path = "bin/main.rs"
-
-[[bin]]
-name = "test"
-path = "bin/test.rs"
-
-[[bin]]
-name = "test2"
-path = "bin/test2.rs"

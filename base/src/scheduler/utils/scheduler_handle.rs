@@ -2,11 +2,10 @@ use std::any::{type_name, Any};
 use std::sync::Arc;
 use crossbeam::queue::SegQueue;
 use tokio::sync::Notify;
-use crate::prelude::{SchedulerConfig, TaskHook};
-use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerHandlePayload, SchedulerWorker};
+use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerConfig, SchedulerHandlePayload, SchedulerWorker};
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::ErasedTask;
+use crate::task::{ErasedTask, TaskHook};
 
 pub enum SchedulerHandleInstructions {
     Reschedule, // Forces the Task to reschedule (instances may still run)

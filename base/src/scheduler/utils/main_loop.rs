@@ -1,6 +1,5 @@
 use std::sync::Arc;
-use crate::prelude::SchedulerConfig;
-use crate::scheduler::{spawn_task, SchedulerWorker};
+use crate::scheduler::{spawn_task, SchedulerConfig, SchedulerWorker};
 use crate::scheduler::engine::SchedulerEngine;
 
 #[inline(always)]

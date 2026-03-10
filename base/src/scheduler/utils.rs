@@ -5,8 +5,7 @@ pub mod rescheduling;
 pub use main_loop::*;
 pub use scheduler_handle::*;
 pub use rescheduling::*;
-use crate::prelude::SchedulerConfig;
-use crate::scheduler::SchedulerWorker;
+use crate::scheduler::{SchedulerConfig, SchedulerWorker};
 use crate::utils::TaskIdentifier;
 
 pub fn assign_to_trigger_worker<C: SchedulerConfig>(

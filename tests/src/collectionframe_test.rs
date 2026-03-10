@@ -40,7 +40,7 @@ struct FixedSelectAccessor(usize);
 
 #[async_trait]
 impl SelectFrameAccessor for FixedSelectAccessor {
-    async fn select(&self, _ctx: &chronographer::task::RestrictTaskFrameContext<'_>) -> usize {
+    async fn select(&self, _ctx: &RestrictTaskFrameContext<'_>) -> usize {
         self.0
     }
 }
