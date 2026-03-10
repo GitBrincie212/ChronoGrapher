@@ -1,0 +1,20 @@
+[package]
+name = "bin"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chronographer = {path = "../core"}
+async-trait = "0.1.89"
+tokio = "1.50.0"
+fastrand = "2.3.0"
+tokio_schedule = "0.3.2"
+chrono = "0.4.44"
+
+[[bin]]
+name = "test"
+path = "./src/test.rs"
+
+[[bin]]
+name = "test2"
+path = "./src/test2.rs"
