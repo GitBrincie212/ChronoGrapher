@@ -272,6 +272,6 @@ pub fn every(input: TokenStream) -> TokenStream {
         + (input.minutes * 60.0)
         + (input.hours * 3600.0)
         + (input.days * 86400.0);
-
-    TokenStream::from(quote! { chronographer::task::interval::TaskScheduleInterval::from_secs_f64(#sum) })
+    
+    TokenStream::from(quote! { chronographer_base::task::interval::TaskScheduleInterval::from_secs_f64(#sum) })
 }

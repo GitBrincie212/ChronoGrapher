@@ -1,5 +1,5 @@
 [package]
-name = "chronographer-macros"
+name = "chronographer_macros"
 version = "0.1.0"
 edition = "2024"
 
@@ -10,4 +10,4 @@ proc-macro = true
 syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 strsim = "0.11.1"
-chronographer = { path = "../core" }
+chronographer_base = { path = "../base" }
