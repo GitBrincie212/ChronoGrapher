@@ -17,9 +17,11 @@ crate-type = ["rlib"]
 
 [dependencies]
 chronographer_base = {path = "../base"}
-chronographer_macros = {path = "../proc" }
+chronographer_macros = {path = "../proc", optional = true }
 
 [features]
+default = ["macros", "chronographer_base/macros"]
+macros = ["dep:chronographer_macros"]
 anyhow = ["chronographer_base/anyhow"]
 eyre = ["chronographer_base/eyre"]
 uuid = ["chronographer_base/uuid"]

@@ -30,6 +30,7 @@ crossbeam = { version = "0.8.4", features = ["std"] }
 tokio_schedule = "0.3.2"
 
 [features]
+macros = []
 anyhow = ["dep:anyhow"]
 eyre = ["dep:eyre"]
 uuid = ["dep:uuid"]
