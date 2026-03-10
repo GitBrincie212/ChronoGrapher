@@ -1,7 +1,13 @@
 pub use chronographer_base::*;
+
+#[cfg(feature = "macros")]
 pub use chronographer_macros::*;
 
 pub mod prelude {
+    #[cfg(feature = "macros")]
+    // Macros
+    pub use chronographer_macros::every;
+
     // Core
     pub use crate::errors::TaskError;
     pub use crate::task::{TaskFrameContext, RestrictTaskFrameContext, Task};
