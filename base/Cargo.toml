@@ -35,3 +35,14 @@ anyhow = ["dep:anyhow"]
 eyre = ["dep:eyre"]
 uuid = ["dep:uuid"]
 # chrono = ["dep:chrono"]
+
+[dev-dependencies]
+divan = { version = "4.3.0", package = "codspeed-divan-compat" }
+
+[[bench]]
+name = "timing_wheel"
+harness = false
+
+[[bench]]
+name = "cron_lexer"
+harness = false
