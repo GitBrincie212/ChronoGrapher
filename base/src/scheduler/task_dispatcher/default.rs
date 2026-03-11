@@ -1,16 +1,15 @@
-use crate::scheduler::Arc;
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 use std::ops::Deref;
 use dashmap::DashMap;
-use tokio::sync::Notify;
+use tokio_util::sync::CancellationToken;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 
 pub struct DefaultTaskDispatcher<C: SchedulerConfig>(
-    DashMap<C::TaskIdentifier, Vec<Arc<Notify>>>
+    DashMap<C::TaskIdentifier, CancellationToken>
 );
 
 impl<C: SchedulerConfig> Default for DefaultTaskDispatcher<C> {
@@ -26,13 +25,8 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C>
         id: &C::TaskIdentifier,
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
     ) -> Result<(), C::TaskError> {
-        let mut entry = self.0
-            .entry(id.clone())
-            .or_default();
-
-        let handle = Arc::new(Notify::new());
-        entry.push(handle.clone());
-        drop(entry);
+        let tok = CancellationToken::new();
+        self.0.insert(id.clone(), tok.clone());
 
         tokio::select! {
             result = task.run() => {
@@ -40,16 +34,14 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C>
                 return result;
             }
 
-            _ = handle.notified() => Ok(()),
+            _ = tok.cancelled() => Ok(()),
         }
 
     }
 
     async fn cancel(&self, id: &C::TaskIdentifier) {
-        if let Some((_, notifiers)) = self.0.remove(id) {
-            for handle in notifiers.into_iter() {
-                handle.notify_waiters();
-            }
+        if let Some((_, tok)) = self.0.remove(id) {
+            tok.cancel()
         }
     }
 }
