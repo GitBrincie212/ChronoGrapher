@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chronographer_base::utils::timing_wheel::HierarchicalTimingWheel;
+use chronographer::utils::timing_wheel::HierarchicalTimingWheel;
 
 fn main() {
     divan::main();

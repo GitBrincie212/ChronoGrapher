@@ -1,0 +1,8 @@
+[package]
+name = "benches"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chronographer = {path = "../core"}
+divan = { version = "4.3.0", package = "codspeed-divan-compat" }
