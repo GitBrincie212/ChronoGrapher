@@ -3,13 +3,13 @@ use crate::task::schedule::cron_lexer::{Token, TokenType};
 
 #[derive(Clone, Debug)]
 #[derive(Default)]
-pub struct AstNode {
+pub(crate) struct AstNode {
     pub start: usize,
     pub kind: AstTreeNode,
 }
 
 #[derive(Default, Clone, Debug)]
-pub enum AstTreeNode {
+pub(crate) enum AstTreeNode {
     #[default]
     Wildcard,
 
@@ -23,7 +23,7 @@ pub enum AstTreeNode {
     NearestWeekday(Box<AstNode>),
 }
 
-pub struct CronParser<'a> {
+pub(crate) struct CronParser<'a> {
     tokens: &'a [Token],
     pub(crate) pos: usize,
 }

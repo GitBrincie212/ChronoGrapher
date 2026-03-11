@@ -1,7 +1,7 @@
 use crate::errors::CronExpressionLexerErrors;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum TokenType {
+pub(crate) enum TokenType {
     Value(u8),
     Minus,
     Wildcard,
@@ -14,7 +14,7 @@ pub enum TokenType {
 }
 
 #[derive(Debug)]
-pub struct Token {
+pub(crate) struct Token {
     pub(crate) start: usize,
     pub(crate) token_type: TokenType,
 }
@@ -77,7 +77,7 @@ fn try_allocate_number(
     }
 }
 
-pub fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
+pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
     let mut tokens: [Vec<Token>; 6] = [const { Vec::new() }; 6];
     let mut current_number = 0u8;
     let mut field_pos = 0;
