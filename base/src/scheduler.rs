@@ -24,17 +24,32 @@ use typed_builder::TypedBuilder;
 
 pub(crate) use crate::scheduler::utils::*;
 
+pub enum SchedulerWork {
+    Trigger,
+    Dispatch
+}
+
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
-    pub dispatch_queue: SegQueue<C::TaskIdentifier>,
-    pub trigger_queue: SegQueue<C::TaskIdentifier>,
+    pub queue: SegQueue<(C::TaskIdentifier, SchedulerWork)>,
     pub notify: Notify
+}
+
+impl<C: SchedulerConfig> SchedulerWorker<C> {
+    pub(crate) fn spawn_dispatch(&self, identifier: C::TaskIdentifier) {
+        self.queue.push((identifier, SchedulerWork::Dispatch));
+        self.notify.notify_waiters();
+    }
+
+    pub(crate) fn spawn_trigger(&self, identifier: C::TaskIdentifier) {
+        self.queue.push((identifier, SchedulerWork::Dispatch));
+        self.notify.notify_waiters();
+    }
 }
 
 impl<C: SchedulerConfig> Default for SchedulerWorker<C> {
     fn default() -> Self {
         Self {
-            dispatch_queue: SegQueue::new(),
-            trigger_queue: SegQueue::new(),
+            queue: SegQueue::new(),
             notify: Notify::new()
         }
     }
@@ -137,8 +152,7 @@ fn spawn_task<C: SchedulerConfig>(
     dispatch_workers: &Vec<SchedulerWorker<C>>
 ) {
     let idx = id.as_usize() & (dispatch_workers.len() - 1);
-    dispatch_workers[idx].dispatch_queue.push(id);
-    dispatch_workers[idx].notify.notify_waiters();
+    dispatch_workers[idx].spawn_dispatch(id);
 }
 
 impl<C: SchedulerConfig> Scheduler<C> {
@@ -174,41 +188,43 @@ impl<C: SchedulerConfig> Scheduler<C> {
             let reschedule_queue_clone = reschedule_queue.clone();
             tokio::spawn(async move {
                 loop {
-                    if let Some(id) = workers[idx].trigger_queue.pop()
+                    if let Some((id, work_type)) = workers[idx].queue.pop()
                         && let Some(task) = store_clone.get(&id)
                     {
-                        let trigger = task.trigger();
-                        let now = engine_clone.clock().now();
+                        match work_type {
+                            SchedulerWork::Trigger => {
+                                let trigger = task.trigger();
+                                let now = engine_clone.clock().now();
 
-                        let time = match trigger.trigger(now).await {
-                            Ok(time) => {
-                                time
-                            }
-                            Err(err) => {
-                                eprintln!("Computation error from TaskTrigger: {:?}", err);
-                                store_clone.remove(&id);
+                                let time = match trigger.trigger(now).await {
+                                    Ok(time) => {
+                                        time
+                                    }
+                                    Err(err) => {
+                                        eprintln!("Computation error from TaskTrigger: {:?}", err);
+                                        store_clone.remove(&id);
+                                        continue;
+                                    }
+                                };
+
+                                match engine_clone.schedule(&id, time).await {
+                                    Ok(()) => {}
+                                    Err(err) => {
+                                        eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                                        store_clone.remove(&id);
+                                    }
+                                }
+
                                 continue;
                             }
-                        };
 
-                        match engine_clone.schedule(&id, time).await {
-                            Ok(()) => {}
-                            Err(err) => {
-                                eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                                store_clone.remove(&id);
+                            SchedulerWork::Dispatch => {
+                                let result = dispatcher_clone.dispatch(&id, task).await;
+                                reschedule_queue_clone.0.push((id, result.err()));
+                                reschedule_queue_clone.1.notify_waiters();
+                                continue;
                             }
                         }
-
-                        continue;
-                    }
-
-                    if let Some(id) = workers[idx].dispatch_queue.pop()
-                        && let Some(task) = store_clone.get(&id)
-                    {
-                        let result = dispatcher_clone.dispatch(&id, task).await;
-                        reschedule_queue_clone.0.push((id, result.err()));
-                        reschedule_queue_clone.1.notify_waiters();
-                        continue;
                     }
 
                     workers[idx].notify.notified().await;

@@ -13,6 +13,5 @@ pub fn assign_to_trigger_worker<C: SchedulerConfig>(
     workers: &Vec<SchedulerWorker<C>>
 ) {
     let idx = id.as_usize() & (workers.len() - 1);
-    workers[idx].trigger_queue.push(id);
-    workers[idx].notify.notify_waiters();
+    workers[idx].spawn_trigger(id);
 }
