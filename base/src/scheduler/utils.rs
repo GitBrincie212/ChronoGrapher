@@ -8,6 +8,7 @@ pub use rescheduling::*;
 use crate::scheduler::{SchedulerConfig, SchedulerWorker};
 use crate::utils::TaskIdentifier;
 
+#[inline(always)]
 pub fn assign_to_trigger_worker<C: SchedulerConfig>(
     id: C::TaskIdentifier,
     workers: &Vec<SchedulerWorker<C>>

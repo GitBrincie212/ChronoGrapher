@@ -147,6 +147,7 @@ where
     }
 }
 
+#[inline(always)]
 fn spawn_task<C: SchedulerConfig>(
     id: C::TaskIdentifier,
     dispatch_workers: &Vec<SchedulerWorker<C>>
