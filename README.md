@@ -1,8 +1,6 @@
 <h1 align="center">ChronoGrapher</h1>
 <img src="./assets/Chronographer Banner.png" alt="Chronographer Banner" />
 
-[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge/GitBrincie212/ChronoGrapher)](https://codspeed.io/GitBrincie212/ChronoGrapher?utm_source=badge)
-
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">One Unified Workflow Orchestrator, Unlimited Power</h1>
 
