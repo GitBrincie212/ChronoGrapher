@@ -54,21 +54,28 @@ impl TaskHooksPromotion {
             }
 
             TaskHooksPromotion::Single(prev_id, prev_hook) => {
-                *self = TaskHooksPromotion::Double((prev_id.clone(), prev_hook.clone()), (hook_id, hook));
+                *self = TaskHooksPromotion::Double((*prev_id, prev_hook.clone()), (hook_id, hook));
             }
 
-            TaskHooksPromotion::Double(prev_pair1, prev_pair2) => {
+            TaskHooksPromotion::Double(
+                (id1, hook1),
+                (id2, hook2)
+            ) => {
                 *self = TaskHooksPromotion::Triplet(
-                    prev_pair1.clone(),
-                    prev_pair2.clone(),
+                    (*id1, hook1.clone()),
+                    (*id2, hook2.clone()),
                     (hook_id, hook)
                 );
             }
-            TaskHooksPromotion::Triplet(prev_pair1, prev_pair2, prev_pair3) => {
+            TaskHooksPromotion::Triplet(
+                (id1, hook1),
+                (id2, hook2),
+                (id3, hook3),
+            ) => {
                 let mut map = HashMap::with_capacity(4);
-                map.insert(prev_pair1.0, prev_pair1.1.clone());
-                map.insert(prev_pair2.0, prev_pair2.1.clone());
-                map.insert(prev_pair3.0, prev_pair3.1.clone());
+                map.insert(*id1, hook1.clone());
+                map.insert(*id2, hook2.clone());
+                map.insert(*id3, hook3.clone());
                 map.insert(hook_id, hook);
                 *self = TaskHooksPromotion::Multiple(map);
             }
