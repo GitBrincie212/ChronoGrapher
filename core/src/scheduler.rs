@@ -134,10 +134,7 @@ where
     }
 }
 
-fn spawn_task<C: SchedulerConfig>(
-    id: C::TaskIdentifier,
-    dispatch_workers: &Vec<SchedulerWorker<C>>,
-) {
+fn spawn_task<C: SchedulerConfig>(id: C::TaskIdentifier, dispatch_workers: &[SchedulerWorker<C>]) {
     let idx = id.as_usize() & (dispatch_workers.len() - 1);
     dispatch_workers[idx].dispatch_queue.push(id);
     dispatch_workers[idx].notify.notify_waiters();

@@ -67,11 +67,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
             match instruction {
                 SchedulerHandleInstructions::Reschedule => {
                     if let Some(task) = store.get(id) {
-                        assign_to_trigger_worker::<C>(
-                            task.trigger().clone(),
-                            &id,
-                            workers.as_ref(),
-                        );
+                        assign_to_trigger_worker::<C>(task.trigger().clone(), id, workers.as_ref());
                     }
                 }
 

@@ -14,7 +14,7 @@ use std::sync::Arc;
 pub fn assign_to_trigger_worker<C: SchedulerConfig>(
     trigger: Arc<dyn TaskTrigger>,
     id: &C::TaskIdentifier,
-    workers: &Vec<SchedulerWorker<C>>,
+    workers: &[SchedulerWorker<C>],
 ) {
     let idx = id.as_usize() & (workers.len() - 1);
     workers[idx].trigger_queue.push((id.clone(), trigger));

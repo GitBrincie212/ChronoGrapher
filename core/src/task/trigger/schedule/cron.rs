@@ -2,6 +2,7 @@ use crate::errors::{CronError, CronErrorTypes, CronExpressionParserErrors};
 use crate::task::schedule::TaskSchedule;
 use crate::task::schedule::cron_lexer::{Token, tokenize_fields};
 use crate::task::schedule::cron_parser::{AstNode, AstTreeNode, CronParser};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Timelike};
 use std::error::Error;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
@@ -177,6 +178,115 @@ pub enum CronField {
     NthWeekday(u8, u8),
 }
 
+impl CronField {
+    fn matches(&self, value: u8) -> bool {
+        match self {
+            CronField::Wildcard => true,
+            CronField::Exact(v) => *v == value,
+            CronField::Range(start, end) => (*start..=*end).contains(&value),
+            CronField::Step(base, step) => {
+                let start_value = match **base {
+                    CronField::Exact(v) => v,
+                    CronField::Wildcard => 0,
+                    _ => base.min(),
+                };
+                value >= start_value && (value - start_value).is_multiple_of(*step)
+            }
+            CronField::List(fields) => fields.iter().any(|f| f.matches(value)),
+            CronField::Unspecified => false,
+            _ => false,
+        }
+    }
+
+    fn min(&self) -> u8 {
+        match self {
+            CronField::Wildcard => 0,
+            CronField::Exact(v) => *v,
+            CronField::Range(start, _) => *start,
+            CronField::Step(base, _) => base.min(),
+            CronField::List(fields) => fields.iter().map(|f| f.min()).min().unwrap_or(0),
+            CronField::Unspecified => 0,
+            CronField::Last(_) | CronField::NearestWeekday(_) | CronField::NthWeekday(_, _) => 1,
+        }
+    }
+
+    fn max(&self) -> u8 {
+        match self {
+            CronField::Wildcard => 59,
+            CronField::Exact(v) => *v,
+            CronField::Range(_, end) => *end,
+            CronField::Step(base, step) => {
+                let base_max = base.max();
+                let base_min = base.min();
+                base_max - ((base_max - base_min) % step)
+            }
+            CronField::List(fields) => fields.iter().map(|f| f.max()).max().unwrap_or(59),
+            CronField::Unspecified => 59,
+            CronField::Last(_) | CronField::NearestWeekday(_) | CronField::NthWeekday(_, _) => 31,
+        }
+    }
+
+    fn next_valid(&self, current: u8, field_max: u8) -> Option<u8> {
+        if self.matches(current) {
+            return Some(current);
+        }
+
+        match self {
+            CronField::Wildcard => Some(current),
+            CronField::Exact(v) => {
+                if *v > current {
+                    Some(*v)
+                } else {
+                    None
+                }
+            }
+            CronField::Range(start, end) => {
+                if current < *start {
+                    Some(*start)
+                } else if current <= *end {
+                    Some(current)
+                } else {
+                    None
+                }
+            }
+            CronField::Step(base, step) => {
+                let start_value = base.min();
+                if current < start_value {
+                    Some(start_value)
+                } else {
+                    let steps_ahead = (current - start_value).div_ceil(*step) * *step;
+                    let next_value = start_value + steps_ahead;
+                    if next_value <= field_max {
+                        Some(next_value)
+                    } else {
+                        None
+                    }
+                }
+            }
+            CronField::List(fields) => {
+                let mut candidates: Vec<u8> = fields
+                    .iter()
+                    .flat_map(|f| {
+                        let mut vals = Vec::new();
+                        let mut v = f.min();
+                        while v <= f.max() && v <= field_max {
+                            if f.matches(v) {
+                                vals.push(v);
+                            }
+                            v += 1;
+                        }
+                        vals
+                    })
+                    .collect();
+
+                candidates.sort_unstable();
+                candidates.into_iter().find(|&v| v >= current)
+            }
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct TaskScheduleCron {
     seconds: CronField,
@@ -190,7 +300,15 @@ pub struct TaskScheduleCron {
 
 impl TaskScheduleCron {
     pub fn new(cron: [CronField; 7]) -> Self {
-        let [seconds, minute, hour, day_of_month, month, day_of_week, year] = cron;
+        let [
+            seconds,
+            minute,
+            hour,
+            day_of_month,
+            month,
+            day_of_week,
+            year,
+        ] = cron;
         Self {
             seconds,
             minute,
@@ -199,6 +317,122 @@ impl TaskScheduleCron {
             month,
             day_of_week,
             year,
+        }
+    }
+
+    fn next_time_from(&self, current: NaiveDateTime) -> Option<NaiveDateTime> {
+        let mut dt = current + Duration::seconds(1);
+
+        loop {
+            if !self.matches_year(dt.year() as u16) {
+                let next_year = self.next_valid_year(dt.year() as u16)?;
+                dt = NaiveDate::from_ymd_opt(next_year as i32, 1, 1)?.and_hms_opt(0, 0, 0)?;
+                continue;
+            }
+
+            if !self.month.matches(dt.month() as u8) {
+                dt = match self.month.next_valid(dt.month() as u8, 12) {
+                    Some(next_month) => NaiveDate::from_ymd_opt(dt.year(), next_month as u32, 1)?
+                        .and_hms_opt(0, 0, 0)?,
+                    None => {
+                        let next_year = self.next_valid_year(dt.year() as u16 + 1)?;
+                        NaiveDate::from_ymd_opt(next_year as i32, self.month.min() as u32, 1)?
+                            .and_hms_opt(0, 0, 0)?
+                    }
+                };
+                continue;
+            }
+
+            if !self.matches_day(dt) {
+                dt = (dt.date() + Duration::days(1)).and_hms_opt(0, 0, 0)?;
+                continue;
+            }
+
+            if !self.hour.matches(dt.hour() as u8) {
+                dt = match self.hour.next_valid(dt.hour() as u8, 23) {
+                    Some(next_hour) => dt.date().and_hms_opt(next_hour as u32, 0, 0)?,
+                    None => (dt.date() + Duration::days(1)).and_hms_opt(0, 0, 0)?,
+                };
+                continue;
+            }
+
+            if !self.minute.matches(dt.minute() as u8) {
+                dt = match self.minute.next_valid(dt.minute() as u8, 59) {
+                    Some(next_minute) => dt.date().and_hms_opt(dt.hour(), next_minute as u32, 0)?,
+                    None => {
+                        let next_hour = self.hour.next_valid(dt.hour() as u8 + 1, 23);
+                        match next_hour {
+                            Some(hour) => {
+                                dt.date()
+                                    .and_hms_opt(hour as u32, self.minute.min() as u32, 0)?
+                            }
+                            None => (dt.date() + Duration::days(1)).and_hms_opt(0, 0, 0)?,
+                        }
+                    }
+                };
+                continue;
+            }
+
+            if !self.seconds.matches(dt.second() as u8) {
+                dt = match self.seconds.next_valid(dt.second() as u8, 59) {
+                    Some(next_second) => {
+                        dt.date()
+                            .and_hms_opt(dt.hour(), dt.minute(), next_second as u32)?
+                    }
+                    None => {
+                        let next_minute = self.minute.next_valid(dt.minute() as u8 + 1, 59);
+                        if let Some(minute) = next_minute {
+                            dt.date().and_hms_opt(
+                                dt.hour(),
+                                minute as u32,
+                                self.seconds.min() as u32,
+                            )?
+                        } else if let Some(hour) = self.hour.next_valid(dt.hour() as u8 + 1, 23) {
+                            dt.date().and_hms_opt(
+                                hour as u32,
+                                self.minute.min() as u32,
+                                self.seconds.min() as u32,
+                            )?
+                        } else {
+                            (dt.date() + Duration::days(1)).and_hms_opt(0, 0, 0)?
+                        }
+                    }
+                };
+                continue;
+            }
+
+            return Some(dt);
+        }
+    }
+
+    fn matches_year(&self, year: u16) -> bool {
+        self.year.matches(year as u8)
+    }
+
+    fn next_valid_year(&self, current: u16) -> Option<u16> {
+        if current > 2099 {
+            return None;
+        }
+        self.year
+            .next_valid(current as u8, 99)
+            .map(|y| y as u16 + 2026)
+    }
+
+    fn matches_day(&self, dt: NaiveDateTime) -> bool {
+        let day_matches = matches!(self.day_of_month, CronField::Unspecified)
+            || self.day_of_month.matches(dt.day() as u8);
+        let weekday_matches = matches!(self.day_of_week, CronField::Unspecified)
+            || self
+                .day_of_week
+                .matches(dt.weekday().num_days_from_sunday() as u8 + 1);
+
+        let dom_specified = !matches!(self.day_of_month, CronField::Unspecified);
+        let dow_specified = !matches!(self.day_of_week, CronField::Unspecified);
+
+        if dom_specified && dow_specified {
+            day_matches && weekday_matches
+        } else {
+            day_matches || weekday_matches
         }
     }
 }
@@ -216,24 +450,24 @@ impl FromStr for TaskScheduleCron {
         let mut ast: [AstNode; 7] = Default::default();
         let mut prev_toks: &[Token] = &tokens[0];
         for (idx, toks) in tokens.iter().enumerate() {
-            if toks.len() == 0 {
+            if toks.is_empty() {
                 ast[idx] = AstNode {
-                    start: prev_toks.last().unwrap().start,
+                    start: prev_toks.last().map_or(0, |t| t.start),
                     kind: AstTreeNode::Wildcard,
                 };
-                prev_toks = &toks;
+                prev_toks = toks;
                 continue;
             }
-            let mut parser_instance = CronParser::new(&toks);
+            let mut parser_instance = CronParser::new(toks);
             ast[idx] = parser_instance
                 .parse_field()
                 .map_err(|error_type| CronError {
                     field_pos: idx,
-                    position: (&toks[parser_instance.pos]).start,
+                    position: toks[parser_instance.pos].start,
                     error_type: CronErrorTypes::Parser(error_type),
                 })?;
 
-            prev_toks = &toks;
+            prev_toks = toks;
         }
 
         for (field_pos, node) in ast.iter().enumerate() {
@@ -265,14 +499,38 @@ impl FromStr for TaskScheduleCron {
             .map(ast_to_cron_field)
             .collect::<Vec<_>>()
             .try_into()
-            .expect("Failed to convert Vec to array");
+            .map_err(|_| CronError {
+                field_pos: 0,
+                position: 0,
+                error_type: CronErrorTypes::Parser(
+                    CronExpressionParserErrors::InvalidUnspecifiedField {
+                        field: "Failed to convert cron fields to array".to_string(),
+                    },
+                ),
+            })?;
 
         Ok(TaskScheduleCron::new(cron_fields))
     }
 }
 
 impl TaskSchedule for TaskScheduleCron {
-    fn schedule(&self, _time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
-        todo!()
+    fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+        let duration = time.duration_since(std::time::UNIX_EPOCH)?;
+        let secs = duration.as_secs();
+        let nanos = duration.subsec_nanos();
+
+        let chrono_dt =
+            chrono::DateTime::from_timestamp(secs as i64, nanos).ok_or("Invalid timestamp")?;
+        let dt = chrono_dt.naive_utc();
+
+        let next_dt = self
+            .next_time_from(dt)
+            .ok_or("No valid scheduling time found")?;
+
+        let next_timestamp = next_dt.and_utc().timestamp();
+        let next_system_time =
+            std::time::UNIX_EPOCH + std::time::Duration::from_secs(next_timestamp as u64);
+
+        Ok(next_system_time)
     }
 }
