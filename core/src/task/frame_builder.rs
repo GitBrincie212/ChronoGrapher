@@ -168,7 +168,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
 }
 
 impl<T: TaskFrame> TaskFrameBuilder<T> {
-    /// [`with_instant_retry`] is a builder method that wraps the inner [`TaskFrame`] in a [`RetriableTaskFrame`] configured for instant retries.
+    /// Method wraps the inner [`TaskFrame`] in a [`RetriableTaskFrame`] configured for instant retries.
     ///
     /// This wrapper allows the execution to immediately retry upon failure without any
     /// intermediate delay (backoff). It is particularly useful for fast-failing, transient
