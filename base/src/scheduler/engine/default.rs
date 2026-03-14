@@ -69,12 +69,10 @@ where
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
     async fn retrieve(&self) -> Vec<C::TaskIdentifier> {
         loop {
-            if self.get_result_queue.0.is_empty() {
-                self.get_result_queue.1.notified().await;
-                continue;
+            if let Some(res) = self.get_result_queue.0.pop() {
+                return res;
             }
-            let res = self.get_result_queue.0.pop().unwrap();
-            return res;
+            self.get_result_queue.1.notified().await;
         }
     }
 
