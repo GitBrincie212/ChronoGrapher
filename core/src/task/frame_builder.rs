@@ -168,6 +168,45 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
 }
 
 impl<T: TaskFrame> TaskFrameBuilder<T> {
+    /// [`with_instant_retry`] is a builder method that wraps the inner [`TaskFrame`] in a [`RetriableTaskFrame`] configured for instant retries.
+    ///
+    /// This wrapper allows the execution to immediately retry upon failure without any
+    /// intermediate delay (backoff). It is particularly useful for fast-failing, transient
+    /// issues where a delay would be unnecessary.
+    ///
+    /// # Arguments
+    /// `retries` is a type [`NonZeroU32] parameter specifying the maximum number of times frame should retry on failure.
+    /// even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping the composed [`RetriableTaskFrame`] wrapping its inner workflow with an immediate retry.
+    ///
+    /// # Example(s)
+    /// ```
+    /// use std::num::NonZeroU32;
+    /// use chronographer::task::TaskFrameBuilder;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, RetriableTaskFrame};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// let retries = NonZeroU32::new(3).unwrap();
+    /// let builder = TaskFrameBuilder::new(MyFrame)
+    ///     .with_instant_retry(retries); // Retries up to 3 times on failure
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`TaskFrame`] - The trait that `frame` must implement.
     pub fn with_instant_retry(
         self,
         retries: NonZeroU32,
