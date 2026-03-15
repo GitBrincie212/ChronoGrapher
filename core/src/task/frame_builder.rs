@@ -203,7 +203,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(condition)
     }
 
-    async fn with_dependency(
+    async fn _with_dependency(
         self,
         dependency: impl FrameDependency + 'static,
     ) -> TaskFrameBuilder<DependencyTaskFrame<T>> {
@@ -215,7 +215,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(dependent)
     }
 
-    async fn with_dependencies(
+    async fn _with_dependencies(
         self,
         dependencies: Vec<Arc<dyn FrameDependency>>,
     ) -> TaskFrameBuilder<DependencyTaskFrame<T>> {

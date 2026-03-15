@@ -12,7 +12,9 @@ use tokio::sync::Notify;
 
 enum WheelCommand<T: TaskIdentifier> {
     Insert(T, Duration),
+    #[allow(dead_code)]
     Skip(u8, tokio::sync::mpsc::Sender<(usize, u8, u8)>),
+    #[allow(dead_code)]
     Clear,
 }
 
@@ -95,7 +97,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
         Ok(())
     }
 
-    async fn cancel(&self, id: &C::TaskIdentifier) {
+    async fn cancel(&self, _id: &C::TaskIdentifier) {
         todo!()
     }
 

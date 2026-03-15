@@ -106,11 +106,17 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
     }
 }
 
+struct SchedulerProcess {
+    handle_a: JoinHandle<()>,
+    handle_b: JoinHandle<()>,
+    handle_c: JoinHandle<()>,
+}
+
 pub struct Scheduler<C: SchedulerConfig> {
     store: Arc<C::SchedulerTaskStore>,
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
-    process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>, JoinHandle<()>)>>,
+    process: RwLock<Option<SchedulerProcess>>,
     instruction_channel: RwLock<Option<tokio::sync::mpsc::Sender<SchedulerHandlePayload>>>,
     workers: Arc<Vec<SchedulerWorker<C>>>,
     pre_schedule_queue: Arc<SegQueue<C::TaskIdentifier>>,
@@ -231,28 +237,33 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
         *self.instruction_channel.write().await = Some(instruct_send);
 
-        *self.process.write().await = Some((
-            tokio::spawn(scheduler_handle_instructions_logic::<C>(
+        *self.process.write().await = Some(SchedulerProcess {
+            handle_a: tokio::spawn(scheduler_handle_instructions_logic::<C>(
                 instruct_receive,
                 &dispatcher_clone,
                 &store_clone,
                 &self.workers,
             )),
-            tokio::spawn(reschedule_logic::<C>(
+            handle_b: tokio::spawn(reschedule_logic::<C>(
                 &store_clone,
                 &reschedule_queue,
                 &self.workers,
             )),
-            tokio::spawn(main_loop_logic::<C>(&engine_clone, &self.workers)),
-        ));
+            handle_c: tokio::spawn(main_loop_logic::<C>(&engine_clone, &self.workers)),
+        });
     }
 
     pub async fn abort(&self) {
         let process = self.process.write().await.take();
-        if let Some((p1, p2, p3)) = process {
-            p1.abort();
-            p2.abort();
-            p3.abort()
+        if let Some(SchedulerProcess {
+            handle_a,
+            handle_b,
+            handle_c,
+        }) = process
+        {
+            handle_a.abort();
+            handle_b.abort();
+            handle_c.abort()
         }
     }
 

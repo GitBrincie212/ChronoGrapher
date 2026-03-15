@@ -105,8 +105,8 @@ pub trait TaskSchedule: 'static + Send + Sync {
     /// it as a Result which can be either the new future [`SystemTime`] or an error if failed.
     ///
     /// > **Important Note:** The value for the "now" argument is **NOT** the same as using [`SystemTime::now`],
-    /// the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) (lives
-    /// in the "[`Scheduler`](crate::scheduler::Scheduler) Side") is used.
+    /// > the value is defined by which [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) (lives
+    /// > in the "[`Scheduler`](crate::scheduler::Scheduler) Side") is used.
     ///
     /// # Returns
     /// The method returns on success the "future" [`SystemTime`] (may return the current or past times
