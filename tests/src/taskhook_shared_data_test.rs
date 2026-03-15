@@ -54,7 +54,7 @@ async fn test_shared_returns_same_instance() {
     };
     let task = Task::new(TaskScheduleImmediate, frame);
 
-    task.as_erased().run().await.unwrap();
+    task.into_erased().run().await.unwrap();
 
     assert_eq!(
         result.load(Ordering::SeqCst),
@@ -106,7 +106,7 @@ async fn test_shared_isolated_by_type() {
     };
     let task = Task::new(TaskScheduleImmediate, frame);
 
-    task.as_erased().run().await.unwrap();
+    task.into_erased().run().await.unwrap();
 
     assert_eq!(
         result.load(Ordering::SeqCst),
@@ -143,7 +143,7 @@ async fn test_get_shared_none_if_missing() {
     };
     let task = Task::new(TaskScheduleImmediate, frame);
 
-    task.as_erased().run().await.unwrap();
+    task.into_erased().run().await.unwrap();
 
     assert_eq!(
         result.load(Ordering::SeqCst),
@@ -184,7 +184,7 @@ async fn test_get_shared_some_if_exists() {
     };
     let task = Task::new(TaskScheduleImmediate, frame);
 
-    task.as_erased().run().await.unwrap();
+    task.into_erased().run().await.unwrap();
 
     assert_eq!(
         result.load(Ordering::SeqCst),
@@ -252,7 +252,7 @@ async fn test_shared_custom_state_manager() {
     };
     let task = Task::new(TaskScheduleImmediate, frame);
 
-    task.as_erased().run().await.unwrap();
+    task.into_erased().run().await.unwrap();
 
     assert_eq!(
         result.load(Ordering::SeqCst),
@@ -293,7 +293,7 @@ async fn test_shared_with_marker() {
     };
     let task = Task::new(TaskScheduleImmediate, frame);
 
-    task.as_erased().run().await.unwrap();
+    task.into_erased().run().await.unwrap();
 
     assert_eq!(result.load(Ordering::SeqCst), 1);
 }
@@ -339,8 +339,8 @@ async fn test_shared_scoped_to_task_context() {
         },
     );
 
-    task1.as_erased().run().await.unwrap();
-    task2.as_erased().run().await.unwrap();
+    task1.into_erased().run().await.unwrap();
+    task2.into_erased().run().await.unwrap();
 
     struct SupervisorTask {
         result: Arc<AtomicUsize>,
@@ -376,7 +376,7 @@ async fn test_shared_scoped_to_task_context() {
             result: result.clone(),
         },
     );
-    supervisor.as_erased().run().await.unwrap();
+    supervisor.into_erased().run().await.unwrap();
 
     assert_eq!(
         result.load(Ordering::SeqCst),

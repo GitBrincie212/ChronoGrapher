@@ -74,7 +74,7 @@ async fn sequential_quit_on_failure_returns_indexed_error() {
 
     let task = Task::new(TaskScheduleImmediate, frame);
     let err = task
-        .as_erased()
+        .into_erased()
         .run()
         .await
         .expect_err("sequential strategy should stop on failure");
@@ -97,7 +97,7 @@ async fn sequential_silent_runs_all_frames() {
     );
 
     let task = Task::new(TaskScheduleImmediate, frame);
-    task.as_erased()
+    task.into_erased()
         .run()
         .await
         .expect("silent should suppress failures");
@@ -119,7 +119,7 @@ async fn parallel_quit_on_success_returns_early() {
     );
 
     let task = Task::new(TaskScheduleImmediate, frame);
-    task.as_erased()
+    task.into_erased()
         .run()
         .await
         .expect("parallel should return success once any frame succeeds");
@@ -137,7 +137,7 @@ async fn selection_exec_runs_selected_frame_only() {
     );
 
     let task = Task::new(TaskScheduleImmediate, frame);
-    task.as_erased()
+    task.into_erased()
         .run()
         .await
         .expect("selection should succeed");
@@ -156,7 +156,7 @@ async fn selection_exec_out_of_bounds_returns_error() {
 
     let task = Task::new(TaskScheduleImmediate, frame);
     let err = task
-        .as_erased()
+        .into_erased()
         .run()
         .await
         .expect_err("selection should fail when index is out of bounds");
