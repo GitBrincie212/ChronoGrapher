@@ -7,7 +7,6 @@ edition = "2024"
 chronographer = {path = "../core"}
 async-trait = "0.1.89"
 tokio = "1.50.0"
-fastrand = "2.3.0"
 tokio_schedule = "0.3.2"
 chrono = "0.4.44"
 
