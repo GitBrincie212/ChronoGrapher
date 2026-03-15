@@ -3,7 +3,7 @@ use std::io::Write;
 use std::fs::OpenOptions;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use crate::main_tokio::benchmark_tokio_schedule;
 
 mod main_cg;
@@ -13,8 +13,6 @@ pub static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0)
 
 pub async fn benchmark() {
     let mut last = COUNTER.load(Ordering::Relaxed);
-    let mut total = 0usize;
-    let start = Instant::now();
 
     let mut file = OpenOptions::new()
         .append(true)
@@ -27,23 +25,16 @@ pub async fn benchmark() {
     for i in 0..=50 {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let current = COUNTER.load(Ordering::Relaxed);
-        let delta = current - last;
-        last = current;
-
-        total += delta;
-
-        let elapsed = start.elapsed().as_secs_f64();
-        let avg = total as f64 / elapsed;
+        let delta = COUNTER.swap(0, Ordering::SeqCst);
 
         println!("{}", i);
-        writeln!(file, "{:.2},{:.2}", elapsed, avg).unwrap();
+        writeln!(file, "{:.2},{:.2}", i, delta).unwrap();
     }
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 #[allow(clippy::empty_loop)]
 async fn main() {
-    benchmark_chronographer().await;
+    benchmark_tokio_schedule().await;
     benchmark().await;
 }
