@@ -178,7 +178,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
     ///
     /// # Returns
-    /// A [`TaskFrameBuilder`] wrapping the composed [`RetriableTaskFrame`] wrapping its inner workflow with an immediate retry.
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with an immediate retry.
     ///
     /// # Example(s)
     /// ```
@@ -200,11 +200,13 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// let retries = NonZeroU32::new(3).unwrap();
     /// let builder = TaskFrameBuilder::new(MyFrame)
-    ///     .with_instant_retry(retries); // Retries up to 3 times on failure
+    ///     .with_instant_retry(retries) // Retries up to 3 times on failure
+    ///     .build();
     /// ```
     ///
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`RetriableTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame
     /// - [`TaskFrame`] - The trait that `frame` must implement.
     pub fn with_instant_retry(
         self,
@@ -226,23 +228,42 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # Arguments
     ///
     /// - `retries` is a type [`NonZeroU32`] parameter specifying the maximum number of times frame should retry on failure.
+    ///   even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
     /// - `delay` is a type [`Duration`] parameter specifying the constant delay between retries.
     ///
     /// # Returns
-    /// A new [`TaskFrameBuilder`] wrapping the [`RetriableTaskFrame`] with the specified retry configuration.
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a retry configured with a constant delay per retry.
     ///
     /// # Examples
-    ///
     /// ```
-    /// # use chrono_grapher::task::{TaskFrameBuilder, NonZeroU32, Duration};
-    /// # use std::time::Duration;
-    /// let task = TaskFrameBuilder::new()
-    ///     .with_retry(NonZeroU32::new(3).unwrap(), Duration::from_secs(1))
+    /// use chrono_grapher::task::{TaskFrameBuilder, NonZeroU32, Duration};
+    /// use std::time::Duration;
+    ///
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, RetriableTaskFrame};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// let retries = NonZeroU32::new(3).unwrap();
+    /// let delay_per_retry = Duration::from_secs(1);
+    ///
+    /// let task = TaskFrameBuilder::new(MyFrame)
+    ///     .with_retry(retries, delay_per_retry)
     ///     .build();
     /// ```
     ///
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`RetriableTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame
     /// - [`TaskFrame`] - The trait that `frame` must implement.
     pub fn with_retry(
         self,
