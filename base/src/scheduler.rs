@@ -31,27 +31,20 @@ pub enum SchedulerWork {
 
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
     pub queue: SegQueue<(C::TaskIdentifier, SchedulerWork)>,
-    pub notify: Notify
+    pub notify: Arc<Notify>,
 }
 
 impl<C: SchedulerConfig> SchedulerWorker<C> {
+    #[inline(always)]
     pub(crate) fn spawn_dispatch(&self, identifier: C::TaskIdentifier) {
         self.queue.push((identifier, SchedulerWork::Dispatch));
         self.notify.notify_waiters();
     }
 
+    #[inline(always)]
     pub(crate) fn spawn_trigger(&self, identifier: C::TaskIdentifier) {
         self.queue.push((identifier, SchedulerWork::Dispatch));
         self.notify.notify_waiters();
-    }
-}
-
-impl<C: SchedulerConfig> Default for SchedulerWorker<C> {
-    fn default() -> Self {
-        Self {
-            queue: SegQueue::new(),
-            notify: Notify::new()
-        }
     }
 }
 
@@ -103,9 +96,13 @@ pub struct SchedulerInitConfig<T: SchedulerConfig> {
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
     fn from(config: SchedulerInitConfig<C>) -> Self {
         let mut workers = Vec::with_capacity(config.workers);
+        let notifier = Arc::new(Notify::new());
 
         for _ in 0..config.workers {
-            let worker = SchedulerWorker::<C>::default();
+            let worker = SchedulerWorker::<C> {
+                queue: SegQueue::new(),
+                notify: notifier.clone(),
+            };
             workers.push(worker);
         }
 
@@ -187,49 +184,56 @@ impl<C: SchedulerConfig> Scheduler<C> {
             let dispatcher_clone = dispatcher_clone.clone();
             let engine_clone = engine_clone.clone();
             let reschedule_queue_clone = reschedule_queue.clone();
+            let worker_len = workers.len();
             tokio::spawn(async move {
-                loop {
-                    if let Some((id, work_type)) = workers[idx].queue.pop()
-                        && let Some(task) = store_clone.get(&id)
-                    {
-                        match work_type {
-                            SchedulerWork::Trigger => {
-                                let trigger = task.trigger();
-                                let now = engine_clone.clock().now();
+                let mut pointing = idx;
+                for _ in 0..worker_len {
+                    let mut should_continue = true;
+                    while let Some((id, work_type)) = workers[pointing].queue.pop()
+                        && should_continue {
+                        if let Some(task) = store_clone.get(&id) {
+                            should_continue = pointing == idx;
+                            match work_type {
+                                SchedulerWork::Trigger => {
+                                    let trigger = task.trigger();
+                                    let now = engine_clone.clock().now();
 
-                                let time = match trigger.trigger(now).await {
-                                    Ok(time) => {
-                                        time
-                                    }
-                                    Err(err) => {
-                                        eprintln!("Computation error from TaskTrigger: {:?}", err);
-                                        store_clone.remove(&id);
-                                        continue;
-                                    }
-                                };
+                                    let time = match trigger.trigger(now).await {
+                                        Ok(time) => {
+                                            time
+                                        }
+                                        Err(err) => {
+                                            eprintln!("Computation error from TaskTrigger: {:?}", err);
+                                            store_clone.remove(&id);
+                                            continue;
+                                        }
+                                    };
 
-                                match engine_clone.schedule(&id, time).await {
-                                    Ok(()) => {}
-                                    Err(err) => {
-                                        eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                                        store_clone.remove(&id);
+                                    match engine_clone.schedule(&id, time).await {
+                                        Ok(()) => {}
+                                        Err(err) => {
+                                            eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                                            store_clone.remove(&id);
+                                        }
                                     }
+
+                                    continue;
                                 }
 
-                                continue;
-                            }
-
-                            SchedulerWork::Dispatch => {
-                                let result = dispatcher_clone.dispatch(&id, task).await;
-                                reschedule_queue_clone.0.push((id, result.err()));
-                                reschedule_queue_clone.1.notify_waiters();
-                                continue;
+                                SchedulerWork::Dispatch => {
+                                    let result = dispatcher_clone.dispatch(&id, task).await;
+                                    reschedule_queue_clone.0.push((id, result.err()));
+                                    reschedule_queue_clone.1.notify_waiters();
+                                    continue;
+                                }
                             }
                         }
                     }
 
-                    workers[idx].notify.notified().await;
+                    pointing = fastrand::usize(..worker_len);
                 }
+
+                workers[idx].notify.notified().await;
             });
         }
 
