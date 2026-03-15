@@ -16,33 +16,13 @@ name = "chronographer"
 crate-type = ["rlib"]
 
 [dependencies]
-async-trait = "0.1.89"
-thiserror = "2.0.16"
-typed-builder = "0.23.0"
-tokio = { version = "1.47.1", features = ["time", "rt-multi-thread", "macros", "sync"] }
-fastrand = "2.3.0"
-dashmap = { version = "7.0.0-rc2" }
-chrono = { version = "0.4.41", features = ["now"] }
-anyhow = { version = "1.0.101" , features = ["std"], optional = true }
-eyre = {version = "0.6.12", optional = true}
-uuid = { version = "1.18.1", features = ["v4"], optional = true }
-crossbeam = { version = "0.8.4", features = ["std"] }
-tokio_schedule = "0.3.2"
+chronographer_base = {path = "../base"}
+chronographer_macros = {path = "../proc", optional = true }
 
 [features]
-anyhow = ["dep:anyhow"]
-eyre = ["dep:eyre"]
-uuid = ["dep:uuid"]
+default = ["macros", "chronographer_base/macros"]
+macros = ["dep:chronographer_macros"]
+anyhow = ["chronographer_base/anyhow"]
+eyre = ["chronographer_base/eyre"]
+uuid = ["chronographer_base/uuid"]
 # chrono = ["dep:chrono"]
-
-[[bin]]
-name = "chronographer"
-path = "bin/main.rs"
-
-[[bin]]
-name = "test"
-path = "bin/test.rs"
-
-[[bin]]
-name = "test2"
-path = "bin/test2.rs"

@@ -1,15 +1,16 @@
-pub mod errors; // skipcq: RS-D1001
+pub use chronographer_base::*;
 
-pub mod scheduler; // skipcq: RS-D1001
-
-pub mod task; // skipcq: RS-D1001
-
-pub mod utils; // skipcq: RS-D1001
+#[cfg(feature = "macros")]
+pub use chronographer_macros::*;
 
 pub mod prelude {
+    #[cfg(feature = "macros")]
+    // Macros
+    pub use chronographer_macros::every;
+
     // Core
     pub use crate::errors::TaskError;
-    pub use crate::task::{RestrictTaskFrameContext, Task};
+    pub use crate::task::{TaskFrameContext, RestrictTaskFrameContext, Task};
 
     // Common frames
     pub use crate::task::collectionframe::CollectionTaskFrame;
@@ -27,10 +28,13 @@ pub mod prelude {
     pub use crate::task::retryframe::RetriableTaskFrame;
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
 
-    // Scheduling
+    // Scheduling / Triggering
     pub use crate::task::trigger::TaskScheduleInterval;
     pub use crate::task::trigger::schedule::calendar::TaskScheduleCalendar;
+    pub use crate::task::trigger::schedule::calendar::TaskCalendarField;
     pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
+    pub use crate::task::trigger::schedule::TaskSchedule;
+    pub use crate::task::trigger::TaskTrigger;
 
     // Schedulers
     pub use crate::scheduler::DefaultScheduler;
@@ -50,5 +54,8 @@ pub mod prelude {
     // Utils / Misc
     pub use crate::task::TaskFrameBuilder;
     pub use crate::task::dependency::*;
-    pub use crate::task::retryframe::{ExponentialBackoffStrategy, RetryBackoffStrategy};
+    pub use crate::task::retryframe::{
+        ExponentialBackoffStrategy, LinearBackoffStrategy, ConstantBackoffStrategy,
+        JitterBackoffStrategy, RetryBackoffStrategy
+    };
 } // skipcq: RS-D1001

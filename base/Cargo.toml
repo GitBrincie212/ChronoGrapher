@@ -1,0 +1,37 @@
+[package]
+name = "chronographer_base"
+version = "0.1.0"
+edition = "2024"
+license-file = "../LICENSE"
+homepage = "https://github.com/GitBrincie212/ChronoGrapher"
+authors = ["McBrincie212"]
+description = "The core library (acts as a foundation) for the ChronoGrapher scheduling / workflow orchestration platform"
+readme = "README.md"
+repository = "https://github.com/GitBrincie212/ChronoGrapher"
+keywords = ["ChronoGrapher", "scheduler", "scheduling", "workflow", "orchestration"]
+categories = ["embedded", "asynchronous"]
+
+[lib]
+name = "chronographer_base"
+crate-type = ["rlib"]
+
+[dependencies]
+async-trait = "0.1.89"
+thiserror = "2.0.16"
+typed-builder = "0.23.0"
+tokio = { version = "1.47.1", features = ["time", "rt-multi-thread", "macros", "sync"] }
+fastrand = "2.3.0"
+dashmap = { version = "7.0.0-rc2" }
+chrono = { version = "0.4.41", features = ["now"] }
+anyhow = { version = "1.0.101" , features = ["std"], optional = true }
+eyre = {version = "0.6.12", optional = true}
+uuid = { version = "1.18.1", features = ["v4"], optional = true }
+crossbeam = { version = "0.8.4", features = ["std"] }
+tokio-util = "0.7.18"
+
+[features]
+macros = []
+anyhow = ["dep:anyhow"]
+eyre = ["dep:eyre"]
+uuid = ["dep:uuid"]
+# chrono = ["dep:chrono"]
