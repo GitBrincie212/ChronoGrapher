@@ -1,0 +1,61 @@
+error: Unexpected suffix "md", did you mean "ms"
+ --> ui/every_errors.rs:4:12
+  |
+4 |     every!(1md); // Unexpected suffix "md", did you mean "ms"
+  |            ^^^
+
+error: Incorrect time field ordering expected nothing, got "days"
+ --> ui/every_errors.rs:5:17
+  |
+5 |     every!(1ms, 3d); // Incorrect time field ordering expected nothing, got "days"
+  |                 ^^
+
+error: Incorrect time field ordering expected "milliseconds", got "days"
+ --> ui/every_errors.rs:6:16
+  |
+6 |     every!(1s, 3d); // Incorrect time field ordering expected "milliseconds", got "days"
+  |                ^^
+
+error: Incorrect time field ordering expected either "milliseconds" or "seconds", got "days"
+ --> ui/every_errors.rs:7:16
+  |
+7 |     every!(1m, 3d); // Incorrect time field ordering expected either "milliseconds" or "seconds", got "days"
+  |                ^^
+
+error: Unexpected integer followed after fractional part
+ --> ui/every_errors.rs:8:22
+  |
+8 |     every!(3d, 2.5h, 1ms); // Unexpected integer followed after fractional part
+  |                      ^^^
+
+error: Expected time field literals got nothing
+ --> ui/every_errors.rs:9:5
+  |
+9 |     every!(); // Expected time field literals got nothing
+  |     ^^^^^^^^
+  |
+  = note: this error originates in the macro `every` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:10:12
+   |
+10 |     every!(-5d); // Expected a positive integer but got ...
+   |            ^
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:11:12
+   |
+11 |     every!(-2.3h); // Expected a positive float but got ...
+   |            ^
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:12:15
+   |
+12 |     every!(3m,,); // Expected a positive integer or float literal but got something else
+   |               ^
+
+error: Unexpected a seperator ","
+  --> ui/every_errors.rs:13:17
+   |
+13 |     every!(3m 2s, 5ms); // Unexpected a seperator ","
+   |                 ^
