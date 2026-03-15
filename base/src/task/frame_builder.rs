@@ -218,6 +218,32 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         )
     }
 
+    /// Method wraps the inner [`TaskFrame`] in a [`RetriableTaskFrame`] configured with a constant delay between retries.
+    ///
+    /// This wrapper allows the execution to retry upon failure with a constant delay between attempts. It is useful for
+    /// retrying with a fixed interval between retries.
+    ///
+    /// # Arguments
+    ///
+    /// - `retries` is a type [`NonZeroU32`] parameter specifying the maximum number of times frame should retry on failure.
+    /// - `delay` is a type [`Duration`] parameter specifying the constant delay between retries.
+    ///
+    /// # Returns
+    /// A new [`TaskFrameBuilder`] wrapping the [`RetriableTaskFrame`] with the specified retry configuration.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use chrono_grapher::task::{TaskFrameBuilder, NonZeroU32, Duration};
+    /// # use std::time::Duration;
+    /// let task = TaskFrameBuilder::new()
+    ///     .with_retry(NonZeroU32::new(3).unwrap(), Duration::from_secs(1))
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`TaskFrame`] - The trait that `frame` must implement.
     pub fn with_retry(
         self,
         retries: NonZeroU32,
