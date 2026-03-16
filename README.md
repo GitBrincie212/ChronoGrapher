@@ -41,7 +41,7 @@ async fn main(scheduler: DefaultScheduler<Box<dyn TaskError>>) {
 }
 ```
 
-> Temporary Note: The proccedual macros are being worked on and thus need more time to be finished. These examples most likely won't work until the macro extension is done, for now simply map the syntax to the base API (the individual structs, traits, enums... etc).
+> Temporary Note: The proccedual macros are being worked on and thus need more time to be finished. These examples most likely won't work until the macro extension is done, for now simply map the syntax to the base API (the individual structs, traits, enums... etc). Currently the macros API is a vision being worked on and the syntax may change as time goes on
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Solving Modern Scheduling Challenges</h1>
