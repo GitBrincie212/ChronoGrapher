@@ -41,6 +41,8 @@ async fn main(scheduler: DefaultScheduler<Box<dyn TaskError>>) {
 }
 ```
 
+> Temporary Note: The proccedual macros are being worked on and thus need more time to be finished. These examples most likely won't work until the macro extension is done, for now simply map the syntax to the base API (the individual structs, traits, enums... etc).
+
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Solving Modern Scheduling Challenges</h1>
 Today's applications are inherently ambitious, polyglot and complex. Yet workflow orchestration for the most part
