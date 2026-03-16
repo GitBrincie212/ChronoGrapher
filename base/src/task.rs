@@ -23,19 +23,19 @@ use std::sync::atomic::AtomicUsize;
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-pub type ErasedTask<E> = Task<dyn DynTaskFrame<E>, dyn TaskTrigger>;
+pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E>>, Box<dyn TaskTrigger>>;
 
-pub struct Task<T1: ?Sized + 'static, T2: ?Sized + 'static> {
-    frame: Arc<T1>,
-    trigger: Arc<T2>,
+pub struct Task<T1, T2> {
+    frame: T1,
+    trigger: T2,
     instance_id: usize
 }
 
 impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2> {
     fn default() -> Self {
         Self {
-            frame: Arc::new(T1::default()),
-            trigger: Arc::new(T2::default()),
+            frame: T1::default(),
+            trigger: T2::default(),
             instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         }
     }
@@ -52,20 +52,12 @@ impl<E: TaskError> ErasedTask<E> {
         result
     }
 
-    pub fn frame(&self) -> &Arc<dyn DynTaskFrame<E>> {
-        &self.frame
+    pub fn frame(&self) -> &dyn DynTaskFrame<E> {
+        self.frame.as_ref()
     }
 
-    pub fn trigger(&self) -> &Arc<dyn TaskTrigger> {
-        &self.trigger
-    }
-
-    pub fn set_frame(&mut self, new_frame: impl TaskFrame<Error = E>) {
-        self.frame = Arc::new(new_frame) as Arc<dyn DynTaskFrame<E>>
-    }
-
-    pub fn set_trigger(&mut self, new_trigger: impl TaskTrigger) {
-        self.trigger = Arc::new(new_trigger) as Arc<dyn TaskTrigger>
+    pub fn trigger(&self) -> &dyn TaskTrigger  {
+        self.trigger.as_ref()
     }
 
     pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
@@ -104,27 +96,27 @@ impl<E: TaskError> ErasedTask<E> {
 }
 
 impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
-    pub fn new(schedule: T2, frame: T1) -> Self {
+    pub fn new(trigger: T2, frame: T1) -> Self {
         Self {
-            frame: Arc::new(frame),
-            trigger: Arc::new(schedule),
+            frame,
+            trigger,
             instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         }
     }
 
-    pub fn as_erased(&self) -> ErasedTask<T1::Error> {
+    pub fn into_erased(self) -> ErasedTask<T1::Error> {
         ErasedTask {
-            frame: self.frame.clone(),
-            trigger: self.trigger.clone(),
+            frame: Box::new(self.frame),
+            trigger: Box::new(self.trigger),
             instance_id: self.instance_id
         }
     }
 
-    pub fn frame(&self) -> &Arc<T1> {
+    pub fn frame(&self) -> &T1 {
         &self.frame
     }
 
-    pub fn trigger(&self) -> &Arc<T2> {
+    pub fn trigger(&self) -> &T2 {
         &self.trigger
     }
 
@@ -132,7 +124,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         let ctx = TaskHookContext {
             instance_id: self.instance_id,
             depth: 0,
-            frame: self.frame.as_ref(),
+            frame: &self.frame,
         };
 
         ctx.attach_hook(hook).await;
@@ -146,7 +138,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         let ctx = TaskHookContext {
             instance_id: self.instance_id,
             depth: 0,
-            frame: self.frame.as_ref(),
+            frame: &self.frame,
         };
 
         ctx.emit::<EV>(payload).await;
@@ -156,7 +148,7 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         let ctx = TaskHookContext {
             instance_id: self.instance_id,
             depth: 0,
-            frame: self.frame.as_ref(),
+            frame: &self.frame,
         };
 
         ctx.detach_hook::<EV, T>().await;
