@@ -348,6 +348,46 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         )
     }
 
+    /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds the specified duration.
+    /// 
+    /// This wrapper allows the execution to be strictly bound by a time limit. If the inner task takes longer than the
+    /// `max_duration` parameter, it will be forcefully yielded, canceled, and a timeout error will be propagated up the chain.
+    ///
+    /// # Arguments
+    ///
+    /// `max_duration` is a type [`Duration`] parameter specifying the maximum amount of time the task is allowed to run before being timed out.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a timeout limit.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::time::Duration;
+    /// use chronographer::task::TaskFrameBuilder;
+    ///
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, TimeoutTaskFrame};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// let task = TaskFrameBuilder::new(MyFrame)
+    ///     .with_timeout(Duration::from_secs(30)) // Give the inner task up to 30 seconds to finish
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`TimeoutTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`TaskFrame`] - The trait that `frame` must implement.
     pub fn with_timeout(self, max_duration: Duration) -> TaskFrameBuilder<TimeoutTaskFrame<T>> {
         TaskFrameBuilder(TimeoutTaskFrame::new(self.0, max_duration))
     }
