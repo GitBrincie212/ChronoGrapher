@@ -179,6 +179,13 @@ impl Parse for Every {
                         ));
                     }
 
+                    if lit.to_string().to_ascii_lowercase().contains('e') {
+                        return Err(syn::Error::new(
+                            lit_span,
+                            "Scientific notation is prohibited in use"
+                        ))
+                    }
+
                     let num = parse_as_positive_fraction!(lit, lit_span, "positive float");
                     encountered_fractional = true;
 
