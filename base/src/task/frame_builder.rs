@@ -278,7 +278,62 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
                 .build(),
         )
     }
-
+    
+    /// Method wraps the inner [`TaskFrame`] in a [`RetriableTaskFrame`] configured with a custom backoff strategy between retries.
+    ///
+    /// This wrapper allows the execution to retry upon failure using a custom [`RetryBackoffStrategy`] to determine
+    /// the delay between attempts. It is useful for scenarios requiring exponential backoff, jitter, or other dynamic
+    /// retry intervals.
+    ///
+    /// # Arguments
+    ///
+    /// - `retries` is a type [`NonZeroU32`] parameter specifying the maximum number of times frame should retry on failure.
+    ///   even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
+    /// - `strat` is a type implementing [`RetryBackoffStrategy`] parameter specifying the custom backoff strategy between retries.
+    /// 
+    /// # Strategy
+    ///
+    /// - [`ConstantBackoffStrategy`] this backoff strategy retries execution with a constant delay duration between attempts.
+    /// - [`LinearBackoffStrategy`] this backoff strategy retries execution with a delay that scales linearly (delay * retry attempt).
+    /// - [`ExponentialBackoffStrategy`] this backoff strategy retries execution with a delay that scales exponentially (delay ^ retry attempt).
+    ///  
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a retry configured with the provided backoff strategy.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::num::NonZeroU32;
+    /// use std::time::Duration;
+    /// use chronographer::task::{TaskFrameBuilder, ConstantBackoffStrategy};
+    ///
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, RetriableTaskFrame};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// let retries = NonZeroU32::new(3).unwrap();
+    /// let strategy = ConstantBackoffStrategy::new(Duration::from_secs(1));
+    ///
+    /// let task = TaskFrameBuilder::new(MyFrame)
+    ///     .with_backoff_retry(retries, strategy)
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`RetriableTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame
+    /// - [`RetryBackoffStrategy`] - The trait that `strat` must implement.
+    /// - [`TaskFrame`] - The trait that `frame` must implement.
     pub fn with_backoff_retry(
         self,
         retries: NonZeroU32,
