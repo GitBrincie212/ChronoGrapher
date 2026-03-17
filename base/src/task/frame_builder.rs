@@ -287,16 +287,14 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Arguments
     ///
-    /// - `retries` is a type [`NonZeroU32`] parameter specifying the maximum number of times frame should retry on failure.
+    /// - ``retries`` is a type [`NonZeroU32`] parameter specifying the maximum number of times, the TaskFrame should retry on failure.
     ///   even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
-    /// - `strat` is a type implementing [`RetryBackoffStrategy`] parameter specifying the custom backoff strategy between retries.
+    /// - ``strat`` is a type implementing [`RetryBackoffStrategy`] parameter specifying the custom backoff strategy between retries.
     /// 
-    /// # Strategy
-    ///
-    /// - [`ConstantBackoffStrategy`] this backoff strategy retries execution with a constant delay duration between attempts.
-    /// - [`LinearBackoffStrategy`] this backoff strategy retries execution with a delay that scales linearly (delay * retry attempt).
-    /// - [`ExponentialBackoffStrategy`] this backoff strategy retries execution with a delay that scales exponentially (delay ^ retry attempt).
-    ///  
+    /// ChronoGrapher currently provides these three backoff strategies but new ones may be derived via [`RetryBackoffStrategy`]:
+    /// - [`ConstantBackoffStrategy`] - Retries execution with a constant delay duration between attempts.
+    /// - [`LinearBackoffStrategy`] - Retries execution with a delay that scales linearly (``delay`` * ``retry_attempt``).
+    /// - [`ExponentialBackoffStrategy`] - Retries execution with a delay that scales exponentially (``delay`` ^ ``retry_attempt``).
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a retry configured with the provided backoff strategy.
@@ -332,8 +330,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`RetriableTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame
-    /// - [`RetryBackoffStrategy`] - The trait that `strat` must implement.
-    /// - [`TaskFrame`] - The trait that `frame` must implement.
+    /// - [`RetryBackoffStrategy`] - The trait that ``strat`` must implement.
+    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_backoff_retry(
         self,
         retries: NonZeroU32,
@@ -351,11 +349,13 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds the specified duration.
     /// 
     /// This wrapper allows the execution to be strictly bound by a time limit. If the inner task takes longer than the
-    /// `max_duration` parameter, it will be forcefully yielded, canceled, and a timeout error will be propagated up the chain.
+    /// ``max_duration`` parameter, it will be forcefully yielded, canceled, and a timeout error will be propagated up the chain.
+    ///
+    /// > **Note:** Due to limitations from Rust, the [`TimeoutTaskFrame``] might not cancel in time the operation especially if its CPU-heavy work, for this reason it is
+    /// reccomended to ``yield`` whenever possible. For more information visit the [`TimeoutTaskFrame`] documentation.
     ///
     /// # Arguments
-    ///
-    /// `max_duration` is a type [`Duration`] parameter specifying the maximum amount of time the task is allowed to run before being timed out.
+    /// ``max_duration`` is a type [`Duration`] parameter specifying the maximum amount of time the task is allowed to run before being timed out.
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a timeout limit.
@@ -387,7 +387,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`TimeoutTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
-    /// - [`TaskFrame`] - The trait that `frame` must implement.
+    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_timeout(self, max_duration: Duration) -> TaskFrameBuilder<TimeoutTaskFrame<T>> {
         TaskFrameBuilder(TimeoutTaskFrame::new(self.0, max_duration))
     }
