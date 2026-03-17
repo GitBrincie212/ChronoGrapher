@@ -63,7 +63,8 @@ impl SchedulerClock for VirtualClock {
         let prev = self.current_time.load(Ordering::Relaxed);
         self.notify.notified().await;
         let now = self.current_time.load(Ordering::Relaxed);
-        self.ticks_buff.fetch_add((now - prev).saturating_sub(1), Ordering::Relaxed);
+        self.ticks_buff
+            .fetch_add((now - prev).saturating_sub(1), Ordering::Relaxed);
     }
 }
 

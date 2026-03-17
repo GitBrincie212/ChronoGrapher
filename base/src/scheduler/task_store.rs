@@ -14,7 +14,7 @@ pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     type StoredTask: Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static;
 
     async fn init(&self) {}
-    
+
     fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask>;
 
     fn exists(&self, idx: &C::TaskIdentifier) -> bool;

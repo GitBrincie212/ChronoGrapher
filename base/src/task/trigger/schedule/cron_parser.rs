@@ -1,8 +1,7 @@
 use crate::errors::CronExpressionParserErrors;
 use crate::task::schedule::cron_lexer::{Token, TokenType};
 
-#[derive(Clone, Debug)]
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct AstNode {
     pub start: usize,
     pub kind: AstTreeNode,
@@ -56,7 +55,7 @@ impl<'a> CronParser<'a> {
 
         Ok(AstNode {
             start: segments[0].start,
-            kind: AstTreeNode::List(segments)
+            kind: AstTreeNode::List(segments),
         })
     }
 
@@ -76,14 +75,17 @@ impl<'a> CronParser<'a> {
         Ok(base)
     }
 
-    fn try_parse_step(&mut self, base: &AstNode) -> Result<Option<AstNode>, CronExpressionParserErrors> {
+    fn try_parse_step(
+        &mut self,
+        base: &AstNode,
+    ) -> Result<Option<AstNode>, CronExpressionParserErrors> {
         if self.advanced_if(&TokenType::Step) {
             let step = self.parse_atom()?;
 
             if let AstTreeNode::Exact(val) = step.kind {
                 return Ok(Some(AstNode {
                     start: base.start,
-                    kind: AstTreeNode::Step(Box::new(base.clone()), val)
+                    kind: AstTreeNode::Step(Box::new(base.clone()), val),
                 }));
             }
 
@@ -93,7 +95,10 @@ impl<'a> CronParser<'a> {
         Ok(None)
     }
 
-    fn try_parse_nth_weekday(&mut self, base: &AstNode) -> Result<Option<AstNode>, CronExpressionParserErrors> {
+    fn try_parse_nth_weekday(
+        &mut self,
+        base: &AstNode,
+    ) -> Result<Option<AstNode>, CronExpressionParserErrors> {
         if self.advanced_if(&TokenType::NthWeekday) {
             let AstTreeNode::Exact(val1) = base.kind else {
                 return Err(CronExpressionParserErrors::ExpectedNumber);
@@ -107,26 +112,29 @@ impl<'a> CronParser<'a> {
 
             return Ok(Some(AstNode {
                 start: base.start,
-                kind: AstTreeNode::NthWeekday(val1, val2)
+                kind: AstTreeNode::NthWeekday(val1, val2),
             }));
         }
 
         Ok(None)
     }
 
-    fn try_parse_nearest_weekday(&mut self, base: &AstNode) -> Result<Option<AstNode>, CronExpressionParserErrors> {
+    fn try_parse_nearest_weekday(
+        &mut self,
+        base: &AstNode,
+    ) -> Result<Option<AstNode>, CronExpressionParserErrors> {
         if self.advanced_if(&TokenType::NearestWeekday) {
             if let AstTreeNode::Exact(_) = base.kind {
                 return Ok(Some(AstNode {
                     start: base.start,
-                    kind: AstTreeNode::NearestWeekday(Box::new(base.clone()))
+                    kind: AstTreeNode::NearestWeekday(Box::new(base.clone())),
                 }));
             }
 
             if let AstTreeNode::LastOf(None) = base.kind {
                 return Ok(Some(AstNode {
                     start: base.start,
-                    kind: AstTreeNode::NearestWeekday(Box::new(base.clone()))
+                    kind: AstTreeNode::NearestWeekday(Box::new(base.clone())),
                 }));
             }
 
@@ -136,15 +144,20 @@ impl<'a> CronParser<'a> {
         Ok(None)
     }
 
-    fn try_parse_lastof(&mut self, base: &AstNode) -> Result<Option<AstNode>, CronExpressionParserErrors> {
+    fn try_parse_lastof(
+        &mut self,
+        base: &AstNode,
+    ) -> Result<Option<AstNode>, CronExpressionParserErrors> {
         if self.advanced_if(&TokenType::Last) {
-            let AstTreeNode::Exact(val) = base.kind else {
-                return Err(CronExpressionParserErrors::ExpectedNumber);
+            let last_node = match base.kind {
+                AstTreeNode::Exact(val) => Some(val),
+                AstTreeNode::LastOf(None) => None,
+                _ => return Err(CronExpressionParserErrors::ExpectedNumber),
             };
 
             return Ok(Some(AstNode {
                 start: base.start,
-                kind: AstTreeNode::LastOf(Some(val))
+                kind: AstTreeNode::LastOf(last_node),
             }));
         }
 
@@ -156,10 +169,23 @@ impl<'a> CronParser<'a> {
 
         if self.advanced_if(&TokenType::Minus) {
             let end = self.parse_atom()?;
-            return Ok(AstNode {
-                start: atom.start,
-                kind: AstTreeNode::Range(Box::new(atom), Box::new(end))
-            });
+
+            return match atom.kind {
+                AstTreeNode::LastOf(None) => {
+                    if let AstTreeNode::Exact(val) = end.kind {
+                        Ok(AstNode {
+                            start: atom.start,
+                            kind: AstTreeNode::LastOf(Some(val)),
+                        })
+                    } else {
+                        Err(CronExpressionParserErrors::ExpectedNumber)
+                    }
+                }
+                _ => Ok(AstNode {
+                    start: atom.start,
+                    kind: AstTreeNode::Range(Box::new(atom), Box::new(end)),
+                }),
+            };
         }
 
         Ok(atom)
@@ -177,7 +203,7 @@ impl<'a> CronParser<'a> {
                 self.advance();
                 Ok(AstNode {
                     start,
-                    kind: AstTreeNode::Wildcard
+                    kind: AstTreeNode::Wildcard,
                 })
             }
 
@@ -185,7 +211,7 @@ impl<'a> CronParser<'a> {
                 self.advance();
                 Ok(AstNode {
                     start,
-                    kind: AstTreeNode::Unspecified
+                    kind: AstTreeNode::Unspecified,
                 })
             }
 
@@ -193,7 +219,7 @@ impl<'a> CronParser<'a> {
                 self.advance();
                 Ok(AstNode {
                     start,
-                    kind: AstTreeNode::Exact(val)
+                    kind: AstTreeNode::Exact(val),
                 })
             }
 
@@ -201,7 +227,7 @@ impl<'a> CronParser<'a> {
                 self.advance();
                 Ok(AstNode {
                     start,
-                    kind: AstTreeNode::LastOf(None)
+                    kind: AstTreeNode::LastOf(None),
                 })
             }
 

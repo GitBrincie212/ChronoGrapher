@@ -2,9 +2,9 @@ pub mod default;
 
 pub use default::DefaultSchedulerEngine;
 
-use std::error::Error;
 use crate::scheduler::SchedulerConfig;
 use async_trait::async_trait;
+use std::error::Error;
 use std::time::SystemTime;
 
 #[async_trait]

@@ -18,7 +18,7 @@ use std::time::SystemTime;
 ///
 /// # Semantics
 /// There is only one required method for the [`TaskTrigger`], that being [`TaskTrigger::trigger`].
-/// 
+///
 /// When implementing, users are required to use the [async_trait](async_trait) macro on top of their
 /// implementation, then implement [`TaskTrigger::trigger`].
 ///
