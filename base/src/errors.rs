@@ -180,7 +180,7 @@ pub enum CronExpressionLexerErrors {
     EmptyField,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum StandardCoreErrorsCG {
     #[error(
         "Task frame index `{0}` is out of bounds for `{1}` with task frame size `{2}` element(s)"
@@ -198,9 +198,11 @@ pub enum StandardCoreErrorsCG {
     #[error("Invalid CRON expression (parsing failed); Number of fields not in known format")]
     InvalidCronExpression,
 
-    #[cfg(feature = "chrono")]
     #[error("Timedelta supplied is out of range")]
     IntervalTimedeltaOutOfRange,
+
+    #[error("Floating-based seconds supplied is out of range")]
+    IntervalSecondsOutOfRange,
 
     #[error("The current SchedulerEngine does not support scheduler instructions")]
     SchedulerInstructionsUnsupported,
