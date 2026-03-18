@@ -27,7 +27,7 @@ impl<T, const N: usize> WheelShard<T, N> {
     }
 
     pub fn skip(&mut self, to: u8) {
-        self.current = (to as usize) & N; // Same as using modulo but faster
+        self.current = (to as usize) & (N - 1); // Same as using modulo but faster
     }
 
     pub fn insert(&mut self, pos: u8, value: T) {
@@ -35,11 +35,9 @@ impl<T, const N: usize> WheelShard<T, N> {
         self.slots[index].push(value);
     }
 
-    pub fn tick(&mut self) -> (Vec<T>, usize) {
-        self.current = (self.current + 1) & N; // Same as wrapping_add but faster
-        let mut expired = Vec::new();
-        std::mem::swap(&mut expired, &mut self.slots[self.current]);
-        (expired, self.current)
+    pub fn tick(&mut self) -> (impl Iterator<Item = T>, usize) {
+        self.current = (self.current + 1) & (N - 1); // Same as wrapping_add but faster
+        (self.slots[self.current].drain(..), self.current)
     }
 
     pub fn clear(&mut self) {
