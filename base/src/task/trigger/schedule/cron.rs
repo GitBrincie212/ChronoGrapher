@@ -8,7 +8,6 @@ use std::fmt::Debug;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::time::SystemTime;
-use crate::task::TaskScheduleInterval;
 
 const RANGES: [RangeInclusive<u16>; 7] = [
     0..=59u16,
