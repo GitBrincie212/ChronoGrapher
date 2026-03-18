@@ -7,27 +7,27 @@
 */
 
 #[derive(Clone)]
-pub struct WheelShard<T, const N: usize> {
-    slots: [Vec<T>; N],
+pub struct ByteWheel<T> {
+    slots: [Vec<T>; 256],
     current: usize,
 }
 
-impl<T, const N: usize> Default for WheelShard<T, N> {
+impl<T> Default for ByteWheel<T> {
     fn default() -> Self {
         Self {
-            slots: [const { Vec::new() }; N],
+            slots: [const { Vec::new() }; 256],
             current: 0,
         }
     }
 }
 
-impl<T, const N: usize> WheelShard<T, N> {
+impl<T> ByteWheel<T> {
     pub fn current(&self) -> usize {
         self.current
     }
 
     pub fn skip(&mut self, to: u8) {
-        self.current = (to as usize) & (N - 1); // Same as using modulo but faster
+        self.current = (to as usize) & 255; // Same as using modulo but faster
     }
 
     pub fn insert(&mut self, pos: u8, value: T) {
@@ -36,7 +36,7 @@ impl<T, const N: usize> WheelShard<T, N> {
     }
 
     pub fn tick(&mut self) -> (impl Iterator<Item = T>, usize) {
-        self.current = (self.current + 1) & (N - 1); // Same as wrapping_add but faster
+        self.current = (self.current + 1) & 255; // Same as wrapping_add but faster
         (self.slots[self.current].drain(..), self.current)
     }
 

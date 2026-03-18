@@ -1,12 +1,12 @@
-use crate::utils::WheelShard;
+use crate::utils::ByteWheel;
 use std::time::Duration;
 
 pub struct HierarchicalTimingWheel<T: 'static + Send> {
-    level1: WheelShard<T, 256>,
-    level2: WheelShard<T, 256>,
-    level3: WheelShard<T, 256>,
-    level4: WheelShard<T, 256>,
-    level5: WheelShard<T, 256>,
+    level1: ByteWheel<T>,
+    level2: ByteWheel<T>,
+    level3: ByteWheel<T>,
+    level4: ByteWheel<T>,
+    level5: ByteWheel<T>,
 }
 
 const END_RANGE0: u128 = 256u128;
@@ -18,11 +18,11 @@ const END_RANGE4: u128 = 256u128.pow(5);
 impl<T: 'static + Send> Default for HierarchicalTimingWheel<T> {
     fn default() -> Self {
         Self {
-            level1: WheelShard::default(),
-            level2: WheelShard::default(),
-            level3: WheelShard::default(),
-            level4: WheelShard::default(),
-            level5: WheelShard::default(),
+            level1: ByteWheel::default(),
+            level2: ByteWheel::default(),
+            level3: ByteWheel::default(),
+            level4: ByteWheel::default(),
+            level5: ByteWheel::default(),
         }
     }
 }
