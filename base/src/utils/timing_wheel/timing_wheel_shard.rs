@@ -36,9 +36,11 @@ impl<T> ByteWheel<T> {
         self.slots[index].push(value);
     }
 
-    pub fn tick(&mut self) -> (Drain<T>, usize) {
+    pub fn tick(&mut self) -> (Vec<T>, usize) {
         self.current = (self.current + 1) & 255; // Same as wrapping_add but faster
-        (self.slots[self.current].drain(..), self.current)
+        let mut expired = Vec::new();
+        std::mem::swap(&mut expired, &mut self.slots[self.current]);
+        (expired, self.current)
     }
 
     pub fn clear(&mut self) {
