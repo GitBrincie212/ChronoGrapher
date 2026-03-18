@@ -91,10 +91,15 @@ use crate::errors::StandardCoreErrorsCG;
 /// macro which is the recommended approach for any duration known at compile-time.
 ///
 /// # Feature Gated?
-/// The constructor [`TaskScheduleInterval::timedelta`] is gated behind the ``chrono`` feature. It is
-/// meant to support construction of chrono's ``TimeDelta``, enable the feature to use it.
+/// The [every!](chronographer::prelude::every) is gated behind the ``macros`` feature which is enabled
+/// by default (but can be disabled to not include any macros).
 ///
 /// # See Also
+/// - [`TaskScheduleInterval::timedelta`] - A constructor for [`chrono::TimeDelta`]
+/// - [`TaskScheduleInterval::duration`] - A constructor for [`Duration`]
+/// - [`TaskScheduleInterval::from_secs`] - A simple constructor for integer second-based intervals.
+/// - [`TaskScheduleInterval::from_secs_f64`] - A simple constructor for floating point second-based intervals.
+/// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
 /// - [`TaskSchedule`] - The direct implementor of this trait.
 /// - [TaskTrigger](crate::task::TaskTrigger) - The general trait which is implemented under the hood.
 /// - [`Task`](crate::task::Task) - The main container which the schedule is hosted on.
