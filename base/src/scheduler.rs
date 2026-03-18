@@ -38,13 +38,13 @@ impl<C: SchedulerConfig> SchedulerWorker<C> {
     #[inline(always)]
     pub(crate) fn spawn_dispatch(&self, identifier: C::TaskIdentifier) {
         self.queue.push((identifier, SchedulerWork::Dispatch));
-        self.notify.notify_waiters();
+        self.notify.notify_one();
     }
 
     #[inline(always)]
     pub(crate) fn spawn_trigger(&self, identifier: C::TaskIdentifier) {
         self.queue.push((identifier, SchedulerWork::Dispatch));
-        self.notify.notify_waiters();
+        self.notify.notify_one();
     }
 }
 
