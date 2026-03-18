@@ -38,6 +38,7 @@ use crate::errors::StandardCoreErrorsCG;
 /// - [`Copy`]
 ///
 /// # Example(s)
+/// Basic usage of [`TaskScheduleInterval`]:
 /// ```rust
 /// use chronographer::task::{TaskScheduleInterval, TaskTrigger};
 /// use std::time::{SystemTime, Duration};
@@ -63,6 +64,31 @@ use crate::errors::StandardCoreErrorsCG;
 /// ```
 /// In the example above, we create an instance of [`TaskScheduleInterval`], compute its time via ``trigger``
 /// method, the result is ``new_time`` is approximately equal to ``now + 1 second`` (within a small tolerance).
+///
+/// Using the [every!](chronographer::prelude::every) macro:
+/// ```rust
+/// use chronographer::task::{TaskScheduleInterval, TaskTrigger};
+/// use std::time::{SystemTime, Duration};
+/// # use std::error::Error;
+///
+/// # #[tokio::main]
+/// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+/// let instance1 = every!(300ms); // every 300ms
+/// let instance2 = every!(5.2s); // every 5.2 seconds
+/// let instance3 = every!(13m); // every 13 minutes
+/// let instance4 = every!(4h); // every 4 hours
+/// let instance5 = every!(30d); // every 30 days
+/// let instance6 = every!(1d, 2h); // every 1 day and 2 hours
+/// let instance7 = every!(1d, 2.5h); // every 1 day and 2.5 hours
+/// let instance8 = every!(1d, 2h, 3m, 4s, 5ms); // every 1 day, 2 hours, 3 minutes, 4 seconds and 5 milliseconds
+/// let instance9 = every!(1d /* some comment */ 5ms); // every 1 day, 5 milliseconds
+///
+/// // Commas are optional
+/// # Ok(())
+/// # }
+/// ```
+/// In the above example we create multiple [`TaskScheduleInterval`] instances with the [every!](chronographer::prelude::every)
+/// macro which is the recommended approach for any duration known at compile-time.
 ///
 /// # Feature Gated?
 /// The constructor [`TaskScheduleInterval::timedelta`] is gated behind the ``chrono`` feature. It is
