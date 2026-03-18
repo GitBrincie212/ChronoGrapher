@@ -5,6 +5,7 @@
 
    https://github.com/Bathtor/rust-hash-wheel-timer/blob/master/src/wheels/byte_wheel.rs
 */
+use std::vec::Drain;
 
 #[derive(Clone)]
 pub struct ByteWheel<T> {
@@ -35,7 +36,7 @@ impl<T> ByteWheel<T> {
         self.slots[index].push(value);
     }
 
-    pub fn tick(&mut self) -> (impl Iterator<Item = T>, usize) {
+    pub fn tick(&mut self) -> (Drain<T>, usize) {
         self.current = (self.current + 1) & 255; // Same as wrapping_add but faster
         (self.slots[self.current].drain(..), self.current)
     }

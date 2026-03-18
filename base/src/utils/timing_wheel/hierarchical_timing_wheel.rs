@@ -1,5 +1,6 @@
 use crate::utils::ByteWheel;
 use std::time::Duration;
+use std::vec::Drain;
 
 pub struct HierarchicalTimingWheel<T: 'static + Send> {
     level1: ByteWheel<T>,
@@ -23,6 +24,41 @@ impl<T: 'static + Send> Default for HierarchicalTimingWheel<T> {
             level3: ByteWheel::default(),
             level4: ByteWheel::default(),
             level5: ByteWheel::default(),
+        }
+    }
+}
+
+pub struct TickIter<'a, T> {
+    shards: std::array::IntoIter<&'a mut ByteWheel<T>, 5>,
+    current_iter: Option<Drain<'a, T>>,
+    stop: bool,
+}
+
+impl<T: 'static + Send> Iterator for TickIter<'_, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(iter) = &mut self.current_iter {
+                if let Some(item) = iter.next() {
+                    return Some(item);
+                }
+
+                self.current_iter = None;
+            }
+
+            if self.stop {
+                return None;
+            }
+
+            let shard = self.shards.next()?;
+            let (result, curr) = shard.tick();
+
+            if curr != 0 {
+                self.stop = true;
+            }
+
+            self.current_iter = Some(result);
         }
     }
 }
@@ -68,27 +104,18 @@ impl<T: 'static + Send> HierarchicalTimingWheel<T> {
     }
     */
 
-    pub fn tick(&mut self) -> Vec<T> {
-        let mut results = Vec::new();
-
-        for shard in [
-            &mut self.level1,
-            &mut self.level2,
-            &mut self.level3,
-            &mut self.level4,
-            &mut self.level5,
-        ]
-        .into_iter()
-        {
-            let (result, curr) = shard.tick();
-
-            results.extend(result);
-            if curr != 0 {
-                break;
-            }
+    pub fn tick(&mut self) -> TickIter<'_, T> {
+        TickIter {
+            shards: [
+                &mut self.level1,
+                &mut self.level2,
+                &mut self.level3,
+                &mut self.level4,
+                &mut self.level5,
+            ].into_iter(),
+            current_iter: None,
+            stop: false,
         }
-
-        results
     }
 
     pub fn clear(&mut self) {
