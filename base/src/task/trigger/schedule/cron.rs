@@ -4,9 +4,11 @@ use crate::task::schedule::cron_lexer::{Token, tokenize_fields};
 use crate::task::schedule::cron_parser::{AstNode, AstTreeNode, CronParser};
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Timelike};
 use std::error::Error;
+use std::fmt::Debug;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::time::SystemTime;
+use crate::task::TaskScheduleInterval;
 
 const RANGES: [RangeInclusive<u16>; 7] = [
     0..=59u16,
@@ -287,6 +289,95 @@ impl CronField {
     }
 }
 
+/// [`TaskScheduleCron`] is a [`TaskSchedule`] used to execute a [Task](crate::task::Task) based on
+/// a CRON expression (The [Quartz CRON syntax](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html)).
+///
+/// # Scheduling Semantics
+/// [`TaskScheduleCron`] contains multiple [`CronField`], these are containers which represent the CRON
+/// expression at the fundamental level.
+///
+/// When a schedule occurs, these blocks are used in unison to calculate the new future time (unlike
+/// parsing the CRON expression repeatedly just with a new ``DateTime`` which is more performance heavy).
+///
+/// Typically, the use of [`CronField`] is abstracted away via the [`TaskScheduleCron::from_str`]
+/// constructor or via the use of the ``cron!`` macro.
+///
+/// The CRON implementation is based off how [Quartz CRON](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html)
+/// syntax defines it, it is recommended to visit their documentation to learn more on how to use it.
+///
+/// # Constructor(s)
+/// There are two common ways to construct a [`TaskScheduleCron`] instance. The first is via [`TaskScheduleCron::from_str`]
+/// for string-based CRON expressions and anything dynamic (value only known at runtime).
+///
+/// Very useful if the CRON expression is fetched from elsewhere (like a database, an API request... etc.).
+/// The main drawback of using this constructor is non compile-time guarantees which easily leads to logic-based errors.
+///
+/// Alternatively, there is the ``cron!`` macro. Its job is to provide compile-time guarantees the supplied
+/// CRON expression is valid as a schedule (in addition it provides a slight performance boost when constructing).
+///
+/// In most cases its preferred to use the ``cron!`` macro as the main source of construction, however
+/// fallback to [`TaskScheduleCron::from_str`] when the expression isn't static and known at compile-time.
+///
+/// There is a third way to construct a [`TaskScheduleCron`] but it requires the use of manually creating
+/// [`CronField`] structs and placing them in an array which is **NOT** recommended (only for providing fancier
+/// constructors or macros).
+///
+/// # Trait Implementation(s)
+/// Apart from [`TaskScheduleCron`] implementing the [`TaskSchedule`] trait and [`FromStr`], it implements as well:
+/// - [`Debug`]
+/// - [`Clone`]
+/// - [`PartialEq`]
+/// - [`Eq`]
+///
+/// # Example(s)
+/// Using the [`TaskScheduleCron::from_str`] constructor for dynamic-based CRON expressions
+/// ```rust
+/// use chronographer::prelude::{TaskScheduleCron, TaskTrigger};
+/// use std::time::{SystemTime, Duration};
+/// # use std::error::Error;
+///
+/// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+/// let expr1 = TaskScheduleCron::from_str("* * * * * *")?; // Every second
+/// let expr2 = TaskScheduleCron::from_str("0 0 12 * * ?")?; // Every day at 12:00 PM
+/// let expr3 = TaskScheduleCron::from_str("0 0/5 14 * * ?")?; // Every 5 minutes from 2:00 PM - 2:55 PM
+/// let expr4 = TaskScheduleCron::from_str("0 15 10 ? * MON-FRI")?; // Every Monday, Tuesday, Wednesday, Thursday and Friday at 10:15 AM
+/// let expr5 = TaskScheduleCron::from_str("0 15 10 ? * 6L")?; // Every month at last friday at 10:15 AM
+/// # Ok(())
+/// # }
+/// ```
+/// In the example we use [`FromStr`] constructor for various CRON expressions (each having a comment next to it
+/// explaining its meaning taken from the quartz documentation). In these kinds of CRON expressions it is best
+/// to use the ``cron!`` macro which is what the next example shows.
+///
+/// Using the ``cron!`` macro for static-based CRON expressions
+/// ```rust
+/// use chronographer::prelude::{cron, TaskScheduleCron, TaskTrigger};
+/// use std::time::{SystemTime, Duration};
+/// # use std::error::Error;
+///
+/// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+/// let expr1 = cron!("* * * * * *"); // Every second
+/// let expr2 = cron!("0 0 12 * * ?"); // Every day at 12:00 PM
+/// let expr3 = cron!("0 0/5 14 * * ?"); // Every 5 minutes from 2:00 PM - 2:55 PM
+/// let expr4 = cron!("0 15 10 ? * MON-FRI"); // Every Monday, Tuesday, Wednesday, Thursday and Friday at 10:15 AM
+/// let expr5 = cron!("0 15 10 ? * 6L"); // Every month at last friday at 10:15 AM
+/// # Ok(())
+/// # }
+/// ```
+/// The same example above now uses the ``cron!`` macro for the various CRON expressions. This is generally
+/// much preferred overall as even a typo will simply produce a compile-time error (plus slightly faster construction times).
+///
+/// # Feature Gated?
+/// The [cron!](chronographer::prelude::cron) is gated behind the ``macros`` feature which is enabled
+/// by default (but can be disabled to not include any macros).
+///
+/// # See Also
+/// - [`TaskScheduleCron::from_str`] - A constructor for dynamic CRON based expressions
+/// - [cron!](chronographer::prelude::cron) - A macro with a readable syntax for defining a CRON expression.
+/// - [`TaskSchedule`] - The direct implementor of this trait.
+/// - [TaskTrigger](crate::task::TaskTrigger) - The general trait which is implemented under the hood.
+/// - [`Task`](crate::task::Task) - The main container which the schedule is hosted on.
+/// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 #[derive(Clone, Eq, PartialEq)]
 pub struct TaskScheduleCron {
     seconds: CronField,
