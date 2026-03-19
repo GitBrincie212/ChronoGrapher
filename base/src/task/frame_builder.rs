@@ -278,7 +278,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
                 .build(),
         )
     }
-    
+
     /// Method wraps the inner [`TaskFrame`] in a [`RetriableTaskFrame`] configured with a custom backoff strategy between retries.
     ///
     /// This wrapper allows the execution to retry upon failure using a custom [`RetryBackoffStrategy`] to determine
@@ -290,7 +290,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - ``retries`` is a type [`NonZeroU32`] parameter specifying the maximum number of times, the TaskFrame should retry on failure.
     ///   even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
     /// - ``strat`` is a type implementing [`RetryBackoffStrategy`] parameter specifying the custom backoff strategy between retries.
-    /// 
+    ///
     /// ChronoGrapher currently provides these three backoff strategies but new ones may be derived via [`RetryBackoffStrategy`]:
     /// - [`ConstantBackoffStrategy`] - Retries execution with a constant delay duration between attempts.
     /// - [`LinearBackoffStrategy`] - Retries execution with a delay that scales linearly (``delay`` * ``retry_attempt``).
@@ -347,7 +347,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     }
 
     /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds the specified duration.
-    /// 
+    ///
     /// This wrapper allows the execution to be strictly bound by a time limit. If the inner task takes longer than the
     /// ``max_duration`` parameter, it will be forcefully yielded, canceled, and a timeout error will be propagated up the chain.
     ///
@@ -392,6 +392,56 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(TimeoutTaskFrame::new(self.0, max_duration))
     }
 
+    /// Method wraps the inner [`TaskFrame`] in a [`FallbackTaskFrame`] which will execute a specified fallback task upon failure of the main task.
+    ///
+    /// This wrapper allows for fault tolerance by providing an alternative workflow path. If the primary inner task returns an error,
+    /// the assigned fallback frame will automatically be executed instead, preventing the workflow from immediately failing.
+    ///
+    /// # Arguments
+    ///
+    /// ``fallback`` is a type implementing [`TaskFrame`] parameter specifying the alternative task to execute if the primary task fails.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a fallback behavior.
+    ///
+    /// # Examples
+    /// ```
+    /// use chronographer::task::TaskFrameBuilder;
+    ///
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, FallbackTaskFrame};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Err("Primary task failed".to_string())
+    /// #     }
+    /// # }
+    /// #
+    /// # struct BackupFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for BackupFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// let task = TaskFrameBuilder::new(MyFrame)
+    ///     .with_fallback(BackupFrame) // Run BackupFrame if MyFrame fails
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`FallbackTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`TaskFrame`] - The trait that ``fallback`` must implement.
     pub fn with_fallback<T2: TaskFrame + 'static>(
         self,
         fallback: T2,
