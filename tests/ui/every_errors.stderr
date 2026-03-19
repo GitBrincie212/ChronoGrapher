@@ -1,0 +1,229 @@
+error: Unexpected suffix "md", did you mean "ms"
+ --> ui/every_errors.rs:4:12
+  |
+4 |     every!(1md); // Unexpected suffix "md", did you mean "ms"
+  |            ^^^
+
+error: Incorrect time field ordering expected nothing, got "days"
+ --> ui/every_errors.rs:5:17
+  |
+5 |     every!(1ms, 3d); // Incorrect time field ordering expected nothing, got "days"
+  |                 ^^
+
+error: Incorrect time field ordering expected "milliseconds", got "days"
+ --> ui/every_errors.rs:6:16
+  |
+6 |     every!(1s, 3d); // Incorrect time field ordering expected "milliseconds", got "days"
+  |                ^^
+
+error: Incorrect time field ordering expected either "milliseconds" or "seconds", got "days"
+ --> ui/every_errors.rs:7:16
+  |
+7 |     every!(1m, 3d); // Incorrect time field ordering expected either "milliseconds" or "seconds", got "days"
+  |                ^^
+
+error: Unexpected integer followed after fractional part
+ --> ui/every_errors.rs:8:22
+  |
+8 |     every!(3d, 2.5h, 1ms); // Unexpected integer followed after fractional part
+  |                      ^^^
+
+error: Expected time field literals got nothing
+ --> ui/every_errors.rs:9:5
+  |
+9 |     every!(); // Expected time field literals got nothing
+  |     ^^^^^^^^
+  |
+  = note: this error originates in the macro `every` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:10:12
+   |
+10 |     every!(-5d); // Expected a positive integer but got ...
+   |            ^
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:11:12
+   |
+11 |     every!(-2.3h); // Expected a positive float but got ...
+   |            ^
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:12:15
+   |
+12 |     every!(3m,,); // Expected a positive integer or float literal but got something else
+   |               ^
+
+error: Unexpected a seperator ","
+  --> ui/every_errors.rs:13:17
+   |
+13 |     every!(3m 2s, 5ms); // Unexpected a seperator ","
+   |                 ^
+
+error: Unexpected a seperator ","
+  --> ui/every_errors.rs:15:12
+   |
+15 |     every!(, 3ms 2d); // Unexpected a seperator ","
+   |            ^
+
+error: Expected a positive integer but got "0s"
+  --> ui/every_errors.rs:17:12
+   |
+17 |     every!(0s); // Exceeded expected range of 0..60 for "seconds" time field, got "0"
+   |            ^^
+
+error: Expected a positive float but got "0.0ms"
+  --> ui/every_errors.rs:18:12
+   |
+18 |     every!(0.0ms); // Exceeded expected range of 0..1000 for "milliseconds" time field, got "0"
+   |            ^^^^^
+
+error: Exceeded expected range of 0..60 for "seconds" time field, got "100"
+  --> ui/every_errors.rs:19:12
+   |
+19 |     every!(1e2s); // Exceeded expected range of 0..60 for "seconds" time field, got "100"
+   |            ^^^^
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:20:12
+   |
+20 |     every!(2 + 2h); // Expected a positive integer or float literal but got something else
+   |            ^
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:21:12
+   |
+21 |     every!(concat!(1, "s")); // Expected a positive integer or float literal but got something else
+   |            ^^^^^^
+
+error: Unexpected a seperator ","
+  --> ui/every_errors.rs:22:12
+   |
+22 |     every!(,); // Expected a positive integer or float literal but got something else
+   |            ^
+
+error: Unexpected suffix "ŝ", did you mean "s"
+  --> ui/every_errors.rs:23:12
+   |
+23 |     every!(1ŝ); // Unexpected suffix "ŝ"
+   |            ^^
+
+error: Unexpected suffix "sec"
+  --> ui/every_errors.rs:25:12
+   |
+25 |     every!(1sec); // Unexpected suffix "sec", did you mean "s"
+   |            ^^^^
+
+error: Unexpected suffix "min"
+  --> ui/every_errors.rs:26:12
+   |
+26 |     every!(1min); // Unexpected suffix "min", did you mean "m"
+   |            ^^^^
+
+error: Unexpected suffix "hour"
+  --> ui/every_errors.rs:27:12
+   |
+27 |     every!(1hour); // Unexpected suffix "hour", did you mean "h"
+   |            ^^^^^
+
+error: Unexpected suffix "day"
+  --> ui/every_errors.rs:28:12
+   |
+28 |     every!(1day); // Unexpected suffix "day", did you mean "d"
+   |            ^^^^
+
+error: Exceeded expected range of 0..1000 for "milliseconds" time field, got "1000"
+  --> ui/every_errors.rs:30:12
+   |
+30 |     every!(1000ms); // Exceeded expected range of 0..1000 for "milliseconds" time field, got "1000"
+   |            ^^^^^^
+
+error: Exceeded expected range of 0..60 for "seconds" time field, got "60"
+  --> ui/every_errors.rs:31:12
+   |
+31 |     every!(60s); // Exceeded expected range of 0..60 for "seconds" time field, got "60"
+   |            ^^^
+
+error: Exceeded expected range of 0..60 for "minutes" time field, got "60"
+  --> ui/every_errors.rs:32:12
+   |
+32 |     every!(60m); // Exceeded expected range of 0..60 for "minutes" time field, got "60"
+   |            ^^^
+
+error: Exceeded expected range of 0..60 for "hours" time field, got "60"
+  --> ui/every_errors.rs:33:12
+   |
+33 |     every!(60h); // Exceeded expected range of 0..60 for "hours" time field, got "60"
+   |            ^^^
+
+error: Exceeded expected range of 0..=31 for "days" time field, got "32"
+  --> ui/every_errors.rs:34:12
+   |
+34 |     every!(32d); // Exceeded expected range of 0..=31 for "days" time field, got "32"
+   |            ^^^
+
+error: Duplicate time field, expected either "milliseconds" or "seconds", got "minutes"
+  --> ui/every_errors.rs:36:15
+   |
+36 |     every!(1m 1m); // Duplicate time field, expected either "milliseconds" or "seconds", got "minutes"
+   |               ^^
+
+error: Incorrect time field ordering expected "milliseconds", got "minutes"
+  --> ui/every_errors.rs:38:15
+   |
+38 |     every!(1s 1m); // Incorrect time field ordering expected "milliseconds", got "minutes"
+   |               ^^
+
+error: Unexpected integer followed after fractional part
+  --> ui/every_errors.rs:40:17
+   |
+40 |     every!(1.5m 1s); // Fractional parts are allowed only at the lowest time field
+   |                 ^^
+
+error: Unexpected a seperator ","
+  --> ui/every_errors.rs:42:17
+   |
+42 |     every!(1m 1s,); // Expected a seperator (,) but got "1m 1s"
+   |                 ^
+
+error: Unexpected a seperator ","
+  --> ui/every_errors.rs:43:12
+   |
+43 |     every!(, 1m 1s); // Unexpected a seperator ","
+   |            ^
+
+error: Unexpected suffix "S", did you mean "s"
+  --> ui/every_errors.rs:46:12
+   |
+46 |     every!(1S); // Unexpected suffix "S", did you mean "s"
+   |            ^^
+
+error: Unexpected suffix "MS"
+  --> ui/every_errors.rs:47:12
+   |
+47 |     every!(1MS); // Unexpected suffix "MS", did you mean "ms"
+   |            ^^^
+
+error: Expected a seperator (,) but got "1m"
+  --> ui/every_errors.rs:54:19
+   |
+54 |     every!(1d, 1h 1m); // Expected a seperator (,) but got "1m"
+   |                   ^^
+
+error: Exceeded expected range of 0..1000 for "milliseconds" time field, got "1000"
+  --> ui/every_errors.rs:57:12
+   |
+57 |     every!(1_000ms); // Expected a positive integer but got "1_000ms"
+   |            ^^^^^^^
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:58:12
+   |
+58 |     every!(.5s); // Expected a positive float literal but got something else
+   |            ^
+
+error: Expected a positive integer or float literal but got something else
+  --> ui/every_errors.rs:59:12
+   |
+59 |     every!(1.s); // Expected a positive float literal but got something else
+   |            ^
