@@ -57,4 +57,8 @@ fn main() {
     every!(1_000ms); // Expected a positive integer but got "1_000ms"
     every!(.5s); // Expected a positive float literal but got something else
     every!(1.s); // Expected a positive float literal but got something else
+
+    every!(1e1s); // Scientific notation is prohibited in use
+    every!(1.2e1s); // Scientific notation is prohibited in use
+    every!(1e-1s); // Scientific notation is prohibited in use
 }

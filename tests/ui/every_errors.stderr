@@ -78,7 +78,7 @@ error: Expected a positive float but got "0.0ms"
 18 |     every!(0.0ms); // Exceeded expected range of 0..1000 for "milliseconds" time field, got "0"
    |            ^^^^^
 
-error: Exceeded expected range of 0..60 for "seconds" time field, got "100"
+error: Scientific notation is prohibited in use
   --> ui/every_errors.rs:19:12
    |
 19 |     every!(1e2s); // Exceeded expected range of 0..60 for "seconds" time field, got "100"
@@ -227,3 +227,21 @@ error: Expected a positive integer or float literal but got something else
    |
 59 |     every!(1.s); // Expected a positive float literal but got something else
    |            ^
+
+error: Scientific notation is prohibited in use
+  --> ui/every_errors.rs:61:12
+   |
+61 |     every!(1e1s); // Scientific notation is prohibited in use
+   |            ^^^^
+
+error: Scientific notation is prohibited in use
+  --> ui/every_errors.rs:62:12
+   |
+62 |     every!(1.2e1s); // Scientific notation is prohibited in use
+   |            ^^^^^^
+
+error: Scientific notation is prohibited in use
+  --> ui/every_errors.rs:63:12
+   |
+63 |     every!(1e-1s); // Scientific notation is prohibited in use
+   |            ^^^^^
