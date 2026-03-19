@@ -116,26 +116,26 @@ pub enum CronExpressionParserErrors {
 
     #[error("Value {value} is out of range for {field} field (expected {min}-{max})")]
     ValueOutOfRange {
-        value: u8,
+        value: u32,
         field: String,
-        min: u8,
-        max: u8,
+        min: u32,
+        max: u32,
     },
 
     #[error("Invalid range {start}-{end} for {field} field (expected {min}-{max})")]
     InvalidRange {
-        start: u8,
-        end: u8,
+        start: u32,
+        end: u32,
         field: String,
-        min: u8,
-        max: u8,
+        min: u32,
+        max: u32,
     },
 
     #[error("Step value {step} must be greater than 0")]
-    InvalidStepValue { step: u8 },
+    InvalidStepValue { step: u32 },
 
     #[error("Nth weekday {nth} is out of range (expected 1-5)")]
-    InvalidNthWeekday { nth: u8 },
+    InvalidNthWeekday { nth: u32 },
 
     #[error("Field '{field}' cannot be unspecified in this context")]
     InvalidUnspecifiedField { field: String },
@@ -171,10 +171,10 @@ pub enum CronExpressionLexerErrors {
     NonNumericOperatorUse,
 
     #[error("Undefined range, minimum bound is higher than maximum bound ({start} >= {end})")]
-    InvalidRangeBounds { start: u8, end: u8 },
+    InvalidRangeBounds { start: u32, end: u32 },
 
     #[error("Number `{num}` exceeds expected range (of {start} - {end})")]
-    InvalidNumericRange { num: u8, start: u8, end: u8 },
+    InvalidNumericRange { num: u32, start: u32, end: u32 },
 
     #[error("Empty field")]
     EmptyField,

@@ -13,12 +13,12 @@ pub(crate) enum AstTreeNode {
     Wildcard,
 
     List(Vec<AstNode>),
-    Step(Box<AstNode>, u8),
+    Step(Box<AstNode>, u32),
     Range(Box<AstNode>, Box<AstNode>),
-    Exact(u8),
-    LastOf(Option<u8>),
+    Exact(u32),
+    LastOf(Option<u32>),
     Unspecified,
-    NthWeekday(u8, u8),
+    NthWeekday(u32, u32),
     NearestWeekday(Box<AstNode>),
 }
 

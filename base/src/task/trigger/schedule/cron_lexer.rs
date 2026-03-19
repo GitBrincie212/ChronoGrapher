@@ -2,7 +2,7 @@ use crate::errors::CronExpressionLexerErrors;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum TokenType {
-    Value(u8),
+    Value(u32),
     Minus,
     Wildcard,
     ListSeparator,
@@ -25,7 +25,7 @@ fn constant_to_numeric(
     position: usize,
     tokens: &mut Vec<Token>,
 ) -> Result<(), (CronExpressionLexerErrors, usize, usize)> {
-    let num: u8 = match &char_buffer[0..=2] {
+    let num: u32 = match &char_buffer[0..=2] {
         "SUN" | "sun" if field_pos == 3 => 1,
         "MON" | "mon" if field_pos == 3 => 2,
         "TUE" | "tue" if field_pos == 3 => 3,
@@ -64,7 +64,7 @@ fn constant_to_numeric(
 
 fn try_allocate_number(
     digit_start: &mut Option<usize>,
-    current_number: &mut u8,
+    current_number: &mut u32,
     tokens: &mut Vec<Token>,
 ) {
     if let Some(start) = digit_start {
@@ -79,7 +79,7 @@ fn try_allocate_number(
 
 pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
     let mut tokens: [Vec<Token>; 6] = [const { Vec::new() }; 6];
-    let mut current_number = 0u8;
+    let mut current_number = 0u32;
     let mut field_pos = 0;
     let mut char_buffer: String = String::with_capacity(3);
     let mut chars = s.chars().enumerate().peekable();
@@ -139,7 +139,7 @@ pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressio
 
         if char.is_ascii_digit() {
             digit_start = Some(position);
-            current_number = current_number * 10 + (char as u8 - b'0');
+            current_number = current_number * 10 + ((char as u8 - b'0') as u32);
             continue;
         }
 
