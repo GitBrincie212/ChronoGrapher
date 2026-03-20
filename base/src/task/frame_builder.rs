@@ -504,6 +504,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`ConditionalFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
     /// - [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) - Wrapper that executes a fallback frame on false conditions.
+    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_condition(
         self,
         predicate: impl ConditionalFramePredicate + 'static,
@@ -518,7 +519,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
 
     /// Method wraps the inner [`TaskFrame`] in a [`ConditionalFrame`] and optionally executes a secondary inner task upon a falsey condition value.
     ///
-    /// This operates similarly to [`with_condition`](TaskFrameBuilder::with_condition) but guarantees a secondary frame will run
+    /// This wrapper operates similarly to [`with_condition`](TaskFrameBuilder::with_condition) but guarantees a secondary frame will run
     /// if the dynamic predicate evaluates to `false`. Instead of simply skipping execution for a false condition, the wrapper delegates
     /// execution to the `fallback` task.
     ///
@@ -582,6 +583,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`ConditionalFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
     /// - [`with_condition`](TaskFrameBuilder::with_condition) - Wrapper that simply aborts/skips on false condition.
+    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_fallback_condition<T2: TaskFrame + 'static>(
         self,
         fallback: T2,
@@ -596,7 +598,53 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(condition)
     }
 
-    async fn _with_dependency(
+    /// Method wraps the inner [`TaskFrame`] in a [`DependencyTaskFrame`] waiting for a specific dependency to be resolved before execution.
+    ///
+    /// This wrapper allows the execution of the inner task to be deferred until a defined condition or dependency
+    /// is met. It polls the provided [`FrameDependency`] asynchronously until it indicates that it has been resolved,
+    /// only then allowing the primary inner task to execute.
+    ///
+    /// # Arguments
+    ///
+    /// ``dependency`` is a type implementing the [`FrameDependency`] trait that guards the inner task's execution.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a dependency execution gate.
+    ///
+    /// # Examples
+    /// ```
+    /// use chronographer::task::TaskFrameBuilder;
+    /// use std::sync::atomic::AtomicBool;
+    /// use std::sync::Arc;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, FlagDependency};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// // Create a simple flag dependency that can be toggled
+    /// let atomic_flag = Arc::new(AtomicBool::new(false));
+    /// let flag_dep = FlagDependency::new(atomic_flag.clone());
+    ///
+    /// let task = TaskFrameBuilder::new(MyFrame)
+    ///     .with_dependency(flag_dep) // MyFrame will only execute when the flag resolves to true
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`DependencyTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`FrameDependency`] - The core trait that defines the required dependency.
+    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
+    pub fn with_dependency(
         self,
         dependency: impl FrameDependency + 'static,
     ) -> TaskFrameBuilder<DependencyTaskFrame<T>> {
@@ -608,7 +656,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(dependent)
     }
 
-    async fn _with_dependencies(
+    pub fn with_dependencies(
         self,
         dependencies: Vec<Arc<dyn FrameDependency>>,
     ) -> TaskFrameBuilder<DependencyTaskFrame<T>> {
