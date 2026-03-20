@@ -656,6 +656,54 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(dependent)
     }
 
+    /// Method wraps the inner [`TaskFrame`] in a [`DependencyTaskFrame`] waiting for multiple dependencies to be resolved before execution.
+    ///
+    /// This behaves exactly like [`with_dependency`](TaskFrameBuilder::with_dependency), but it takes a collection of [`FrameDependency`] instances.
+    /// The inner task will only begin execution once **all** the provided dependencies have been successfully resolved.
+    ///
+    /// # Arguments
+    ///
+    /// ``dependencies`` is a `Vec` of elements implementing the [`FrameDependency`] trait, acting as multiple guards for the inner task's execution.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a multi-dependency execution gate.
+    ///
+    /// # Examples
+    /// ```
+    /// use chronographer::task::TaskFrameBuilder;
+    /// use std::sync::atomic::AtomicBool;
+    /// use std::sync::Arc;
+    /// # use std::sync::atomic::Ordering;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, FlagDependency, FrameDependency};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// let atomic_flag1 = Arc::new(AtomicBool::new(false));
+    /// let atomic_flag2 = Arc::new(AtomicBool::new(false));
+    ///
+    /// let dep1 = Arc::new(FlagDependency::new(atomic_flag1.clone())) as Arc<dyn FrameDependency>;
+    /// let dep2 = Arc::new(FlagDependency::new(atomic_flag2.clone())) as Arc<dyn FrameDependency>;
+    ///
+    /// let task = TaskFrameBuilder::new(MyFrame)
+    ///     .with_dependencies(vec![dep1, dep2]) // Executes when both dependencies resolve
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`DependencyTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`FrameDependency`] - The core trait that defines the required dependency.
+    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_dependencies(
         self,
         dependencies: Vec<Arc<dyn FrameDependency>>,
