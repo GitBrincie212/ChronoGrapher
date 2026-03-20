@@ -455,14 +455,14 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// evaluated asynchronously to determine whether the inner task should run. Note that the predicate is not a direct
     /// boolean value but rather a logic wrapper (implementing [`ConditionalFramePredicate`]) that gets checked at runtime.
     ///
-    /// If the predicate returns `true`, the inner task is unconditionally executed.
-    /// If the predicate returns `false`, the result depends on how the underlying [`ConditionalFrame`] is configured; it
-    /// can either return an error, or just resolve as a success without executing the task. In the context of `with_condition`,
-    /// it acts as a no-operation and returns a success by default upon a falsey value.
+    /// If the predicate returns `true`, the inner task is unconditionally executed, however if it returns `false`, in the context 
+    /// of this method, it acts as a no-operation and returns a success by default upon a falsey value.
+    ///
+    /// If a fallback behaiviour needs to be configured to execute as a backup when the predicate returns false, then 
+    /// [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) is the better choice.
     ///
     /// # Arguments
-    ///
-    /// ``predicate`` is a type implementing [`ConditionalFramePredicate`] parameter containing the condition logic to evaluate.
+    /// The method requires one argument that being ``predicate`` is a type implementing [`ConditionalFramePredicate`] parameter containing the condition logic to evaluate.
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a conditional execution gate.
@@ -519,18 +519,21 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
 
     /// Method wraps the inner [`TaskFrame`] in a [`ConditionalFrame`] and optionally executes a secondary inner task upon a falsey condition value.
     ///
-    /// This wrapper operates similarly to [`with_condition`](TaskFrameBuilder::with_condition) but guarantees a secondary frame will run
-    /// if the dynamic predicate evaluates to `false`. Instead of simply skipping execution for a false condition, the wrapper delegates
-    /// execution to the `fallback` task.
+    /// This wrapper allows the execution of the inner task to be controlled by dynamic condition logic. The predicate is
+    /// evaluated asynchronously to determine whether the inner task should run. Note that the predicate is not a direct
+    /// boolean value but rather a logic wrapper (implementing [`ConditionalFramePredicate`]) that gets checked at runtime.
     ///
-    /// If the predicate returns `true`, the primary inner task is executed.
-    /// If the predicate returns `false`, the secondary `fallback` task is executed. The result behavior mirrors whatever the
-    /// fallback frame surfaces upon execution.
+    /// If the predicate returns ``true``, the inner task is unconditionally executed, however if it returns ``false``, in the context 
+    /// of this method, it executes a ``fallback`` [`TaskFrame`] defined in the arguments and returns a success by default upon a falsey value.
+    ///
+    /// If an error is desired to be returned and without a fallback [`TaskFrame`] executing on top, then 
+    /// [`with_condition`](TaskFrameBuilder::with_condition) is the better choice.
     ///
     /// # Arguments
+    /// There are two arguments the method requires, the first is ``fallback`` which is a type implementing [`TaskFrame`] parameter specifying the alternative/secondary 
+    /// task to execute if the conditional predicate evaluates to false.
     ///
-    /// ``fallback`` is a type implementing [`TaskFrame`] parameter specifying the alternative/secondary task to execute if the conditional predicate evaluates to false.
-    /// ``predicate`` is a type implementing [`ConditionalFramePredicate`] parameter containing the logic to evaluate.
+    /// The second is the ``predicate`` is a type implementing [`ConditionalFramePredicate`] parameter containing the logic to evaluate.
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a conditional-fallback execution gate.
@@ -604,9 +607,10 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// is met. It polls the provided [`FrameDependency`] asynchronously until it indicates that it has been resolved,
     /// only then allowing the primary inner task to execute.
     ///
-    /// # Arguments
+    /// If one desires to specify multiple dependencies instead of only one, then [`with_dependencies`](TaskFrameBuilder::with_dependencies) is the method for this requirement.
     ///
-    /// ``dependency`` is a type implementing the [`FrameDependency`] trait that guards the inner task's execution.
+    /// # Arguments
+    /// The method requires one argument, that being ``dependency`` is a type implementing the [`FrameDependency`] trait that guards the inner task's execution.
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a dependency execution gate.
@@ -661,9 +665,16 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// This behaves exactly like [`with_dependency`](TaskFrameBuilder::with_dependency), but it takes a collection of [`FrameDependency`] instances.
     /// The inner task will only begin execution once **all** the provided dependencies have been successfully resolved.
     ///
-    /// # Arguments
+    /// Method wraps the inner [`TaskFrame`] in a [`DependencyTaskFrame`] waiting for multiple dependencies to be resolved before execution.
     ///
-    /// ``dependencies`` is a `Vec` of elements implementing the [`FrameDependency`] trait, acting as multiple guards for the inner task's execution.
+    /// This wrapper allows the execution of the inner task to be deferred until multiple defined condition or dependencies are met. It polls 
+    /// the provided [`FrameDependencies`](FrameDependency) asynchronously until all indicate that they've been resolved,
+    /// only then allowing the primary inner task to execute.
+    ///
+    /// If one desires to specify only one dependencies instead of multiple, then [`with_dependency`](TaskFrameBuilder::with_dependency) is the method for this requirement.
+    ///
+    /// # Arguments
+    /// The method accepts one argument, that being ``dependencies`` is a ``Vec`` of elements implementing the [`FrameDependency`] trait, acting as multiple guards for the inner task's execution.
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a multi-dependency execution gate.
@@ -723,7 +734,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// final constructed workflow so it can be executed or embedded inside a `Task`.
     ///
     /// # Returns
-    /// The composed inner [`TaskFrame`] of type `T`.
+    /// The composed inner [`TaskFrame`] of type ``T`` (containing the inner TaskFrame with the additional behaviors defined).
     ///
     /// # Examples
     /// ```
