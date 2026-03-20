@@ -716,6 +716,45 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(dependent)
     }
 
+    /// Method consumes the builder and returns the underlying, fully-composed [`TaskFrame`].
+    ///
+    /// This method serves as the final step in the builder chain. After stacking various behaviors
+    /// (such as retries, timeouts, or conditions) on top of the inner task, `build` extracts the
+    /// final constructed workflow so it can be executed or embedded inside a `Task`.
+    ///
+    /// # Returns
+    /// The composed inner [`TaskFrame`] of type `T`.
+    ///
+    /// # Examples
+    /// ```
+    /// use chronographer::task::TaskFrameBuilder;
+    /// use std::time::Duration;
+    ///
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, TimeoutTaskFrame};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// let base_frame = MyFrame;
+    ///
+    /// // Using the builder to wrap it in a timeout and then extracting it
+    /// let built_frame: TimeoutTaskFrame<MyFrame> = TaskFrameBuilder::new(base_frame)
+    ///     .with_timeout(Duration::from_secs(5))
+    ///     .build(); // <- Returns the fully composed frame, discarding the builder
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`TaskFrame`] - The trait that the returned frame implements.
     pub fn build(self) -> T {
         self.0
     }
