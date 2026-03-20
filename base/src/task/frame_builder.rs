@@ -516,6 +516,72 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(condition)
     }
 
+    /// Method wraps the inner [`TaskFrame`] in a [`ConditionalFrame`] and optionally executes a secondary inner task upon a falsey condition value.
+    ///
+    /// This operates similarly to [`with_condition`](TaskFrameBuilder::with_condition) but guarantees a secondary frame will run
+    /// if the dynamic predicate evaluates to `false`. Instead of simply skipping execution for a false condition, the wrapper delegates
+    /// execution to the `fallback` task.
+    ///
+    /// If the predicate returns `true`, the primary inner task is executed.
+    /// If the predicate returns `false`, the secondary `fallback` task is executed. The result behavior mirrors whatever the
+    /// fallback frame surfaces upon execution.
+    ///
+    /// # Arguments
+    ///
+    /// ``fallback`` is a type implementing [`TaskFrame`] parameter specifying the alternative/secondary task to execute if the conditional predicate evaluates to false.
+    /// ``predicate`` is a type implementing [`ConditionalFramePredicate`] parameter containing the logic to evaluate.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a conditional-fallback execution gate.
+    ///
+    /// # Examples
+    /// ```
+    /// use chronographer::task::TaskFrameBuilder;
+    ///
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, ConditionalFramePredicate, RestrictTaskFrameContext};
+    /// # use async_trait::async_trait;
+    /// #
+    /// # struct MyFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for MyFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    /// #
+    /// # struct BackupFrame;
+    /// #
+    /// # #[async_trait]
+    /// # impl TaskFrame for BackupFrame {
+    /// #     type Error = String;
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    /// #
+    /// # struct CheckCondition;
+    /// #
+    /// # #[async_trait]
+    /// # impl ConditionalFramePredicate for CheckCondition {
+    /// #     async fn execute(&self, _ctx: &RestrictTaskFrameContext) -> bool {
+    /// #         false
+    /// #     }
+    /// # }
+    ///
+    /// let task = TaskFrameBuilder::new(MyFrame)
+    ///     .with_fallback_condition(BackupFrame, CheckCondition) // Runs MyFrame if true, BackupFrame if false
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`ConditionalFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
+    /// - [`with_condition`](TaskFrameBuilder::with_condition) - Wrapper that simply aborts/skips on false condition.
     pub fn with_fallback_condition<T2: TaskFrame + 'static>(
         self,
         fallback: T2,
