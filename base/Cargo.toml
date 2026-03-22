@@ -27,6 +27,7 @@ anyhow = { version = "1.0.101" , features = ["std"], optional = true }
 eyre = {version = "0.6.12", optional = true}
 uuid = { version = "1.18.1", features = ["v4"], optional = true }
 crossbeam = { version = "0.8.4", features = ["std"] }
+haphazard = "0.1.8"
 tokio-util = "0.7.18"
 
 [features]
