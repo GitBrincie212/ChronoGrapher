@@ -155,7 +155,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// let frame: MyFrame = TaskFrameBuilder::new(MyFrame).build();
     /// ```
     /// When called without any `with_*` methods, [`build`](TaskFrameBuilder::build) returns
-    /// the original frame as-is. In practice you would chain one or more wrappers before building for more complex workflows as per requirements.
+    /// the original frame as-is. In practice, you would chain one or more wrappers before building for more complex workflows as per requirements.
     ///
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
@@ -671,7 +671,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// the provided [`FrameDependencies`](FrameDependency) asynchronously until all indicate that they've been resolved,
     /// only then allowing the primary inner task to execute.
     ///
-    /// If one desires to specify only one dependencies instead of multiple, then [`with_dependency`](TaskFrameBuilder::with_dependency) is the method for this requirement.
+    /// If one desires to specify only one dependency instead of multiple, then [`with_dependency`](TaskFrameBuilder::with_dependency) is the method for this requirement.
     ///
     /// # Arguments
     /// The method accepts one argument, that being ``dependencies`` is a ``Vec`` of elements implementing the [`FrameDependency`] trait, acting as multiple guards for the inner task's execution.
