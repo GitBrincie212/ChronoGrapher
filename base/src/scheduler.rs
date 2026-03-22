@@ -10,7 +10,7 @@ use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::EphemeralSchedulerTaskStore;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::task::{Task, TaskFrame, TaskTrigger};
+use crate::task::{TaskFrame, TaskHandle, TaskRef, TaskTrigger};
 use crate::utils::{SnowflakeID, TaskIdentifier};
 use std::any::Any;
 use std::error::Error;
@@ -25,36 +25,84 @@ use typed_builder::TypedBuilder;
 pub(crate) use crate::scheduler::utils::*;
 
 pub enum SchedulerWork {
+    Dispatch,
     Trigger,
-    Dispatch
+    Instruction
 }
 
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
-    pub queue: SegQueue<(C::TaskIdentifier, SchedulerWork)>,
+    pub queue: SegQueue<(TaskHandle<C>, SchedulerWork)>,
     pub notify: Arc<Notify>,
 }
 
 impl<C: SchedulerConfig> SchedulerWorker<C> {
     #[inline(always)]
-    pub(crate) fn spawn_dispatch(&self, identifier: C::TaskIdentifier) {
-        self.queue.push((identifier, SchedulerWork::Dispatch));
+    pub(crate) fn spawn_dispatch(&self, handle: TaskHandle<C>) {
+        self.queue.push((handle, SchedulerWork::Dispatch));
         self.notify.notify_one();
     }
 
     #[inline(always)]
-    pub(crate) fn spawn_trigger(&self, identifier: C::TaskIdentifier) {
-        self.queue.push((identifier, SchedulerWork::Dispatch));
+    pub(crate) fn spawn_trigger(&self, handle: TaskHandle<C>) {
+        self.queue.push((handle, SchedulerWork::Trigger));
         self.notify.notify_one();
+    }
+
+    #[inline(always)]
+    pub(crate) fn spawn_instruction(&self, handle: TaskHandle<C>) {
+        self.queue.push((handle, SchedulerWork::Instruction));
+        self.notify.notify_one();
+    }
+}
+
+#[inline(always)]
+pub(crate) async fn do_trigger_work<C: SchedulerConfig>(handle: TaskHandle<C>, engine: &C::SchedulerEngine) {
+    if let Some(trigger) = handle.trigger().await  {
+        let now = engine.clock().now();
+        let time = match trigger.trigger(now).await {
+            Ok(time) => time,
+            Err(err) => {
+                eprintln!("Computation error from TaskTrigger: {:?}", err);
+                handle.cancel().await;
+                return;
+            }
+        };
+
+        match engine.schedule(handle.clone(), time).await {
+            Ok(()) => {}
+            Err(err) => {
+                eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                handle.cancel().await;
+            }
+        }
+    }
+}
+
+#[inline(always)]
+pub(crate) async fn do_dispatch_work<C: SchedulerConfig>(
+    handle: TaskHandle<C>,
+    engine: &C::SchedulerEngine,
+    dispatcher: &C::SchedulerTaskDispatcher
+) {
+    let result = dispatcher.dispatch(&handle).await;
+    match result {
+        Ok(()) => {
+            do_trigger_work(handle, engine).await;
+        }
+
+        Err(err) => {
+            eprintln!("Scheduler engine received an error:\n\t {err:?}");
+        }
     }
 }
 
 pub(crate) type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 pub(crate) type ReschedulePayload<C> = (
-    <C as SchedulerConfig>::TaskIdentifier,
+    TaskHandle<C>,
     Option<<C as SchedulerConfig>::TaskError>
 );
 
-pub type DefaultScheduler<E> = Scheduler<DefaultSchedulerConfig<E>>;
+pub type DefaultScheduler<E = Box<dyn TaskError>> = Scheduler<DefaultSchedulerConfig<E>>;
 
 #[cfg(feature = "anyhow")]
 pub type DefaultAnyhowScheduler = DefaultScheduler<anyhow::Error>;
@@ -77,7 +125,7 @@ impl<E: TaskError> SchedulerConfig for DefaultSchedulerConfig<E> {
     type TaskIdentifier = SnowflakeID;
     type TaskError = E;
     type SchedulerTaskStore = EphemeralSchedulerTaskStore<Self>;
-    type SchedulerTaskDispatcher = DefaultTaskDispatcher<Self>;
+    type SchedulerTaskDispatcher = DefaultTaskDispatcher;
     type SchedulerEngine = DefaultSchedulerEngine<Self>;
     type SchedulerClock = ProgressiveClock;
 }
@@ -110,7 +158,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             engine: Arc::new(config.engine),
             store: Arc::new(config.store),
             dispatcher: Arc::new(config.dispatcher),
-            process: RwLock::new(None),
+            process: RwLock::new(Vec::new()),
             workers: Arc::new(workers),
             instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
         }
@@ -121,7 +169,7 @@ pub struct Scheduler<C: SchedulerConfig> {
     store: Arc<C::SchedulerTaskStore>,
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
-    process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>, JoinHandle<()>)>>,
+    process: RwLock<Vec<JoinHandle<()>>>,
     workers: Arc<Vec<SchedulerWorker<C>>>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
 }
@@ -144,15 +192,6 @@ where
     }
 }
 
-#[inline(always)]
-fn spawn_task<C: SchedulerConfig>(
-    id: C::TaskIdentifier,
-    dispatch_workers: &Vec<SchedulerWorker<C>>
-) {
-    let idx = id.as_usize() & (dispatch_workers.len() - 1);
-    dispatch_workers[idx].spawn_dispatch(id);
-}
-
 impl<C: SchedulerConfig> Scheduler<C> {
     pub fn builder() -> SchedulerInitConfigBuilder<C> {
         SchedulerInitConfig::builder()
@@ -160,13 +199,13 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
     pub async fn start(&self) {
         let process_lock = self.process.read().await;
-        if process_lock.is_some() {
+        if !process_lock.is_empty() {
             return;
         }
+
         drop(process_lock);
 
         let engine_clone = self.engine.clone();
-        let store_clone = self.store.clone();
         let dispatcher_clone = self.dispatcher.clone();
 
         join!(
@@ -175,135 +214,91 @@ impl<C: SchedulerConfig> Scheduler<C> {
             self.engine.init()
         );
 
-        let reschedule_queue =
-            Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
-
+        let mut jobs = Vec::with_capacity(self.workers.len());
         for idx in 0..self.workers.len() {
             let workers = self.workers.clone();
-            let store_clone = store_clone.clone();
             let dispatcher_clone = dispatcher_clone.clone();
             let engine_clone = engine_clone.clone();
-            let reschedule_queue_clone = reschedule_queue.clone();
             let worker_len = workers.len();
-            tokio::spawn(async move {
-                let mut pointing = idx;
-                for _ in 0..worker_len {
-                    let mut should_continue = true;
-                    while let Some((id, work_type)) = workers[pointing].queue.pop()
-                        && should_continue {
-                        if let Some(task) = store_clone.get(&id) {
+            let job = tokio::spawn(async move {
+                loop {
+                    let mut pointing = idx;
+                    for _ in 0..worker_len {
+                        let mut should_continue = true;
+                        while let Some((handle, work_type)) = workers[pointing].queue.pop()
+                            && should_continue && !handle.is_invalid()
+                        {
                             should_continue = pointing == idx;
                             match work_type {
                                 SchedulerWork::Trigger => {
-                                    let trigger = task.trigger();
-                                    let now = engine_clone.clock().now();
-
-                                    let time = match trigger.trigger(now).await {
-                                        Ok(time) => {
-                                            time
-                                        }
-                                        Err(err) => {
-                                            eprintln!("Computation error from TaskTrigger: {:?}", err);
-                                            store_clone.remove(&id);
-                                            continue;
-                                        }
-                                    };
-
-                                    match engine_clone.schedule(&id, time).await {
-                                        Ok(()) => {}
-                                        Err(err) => {
-                                            eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                                            store_clone.remove(&id);
-                                        }
-                                    }
-
-                                    continue;
+                                    do_trigger_work::<C>(handle, engine_clone.as_ref()).await;
                                 }
 
                                 SchedulerWork::Dispatch => {
-                                    let result = dispatcher_clone.dispatch(&id, task).await;
-                                    reschedule_queue_clone.0.push((id, result.err()));
-                                    reschedule_queue_clone.1.notify_waiters();
-                                    continue;
+                                    do_dispatch_work::<C>(handle, engine_clone.as_ref(), dispatcher_clone.as_ref()).await;
                                 }
+
+                                SchedulerWork::Instruction => {}
+                            }
+                        }
+
+                        pointing = fastrand::usize(..worker_len);
+                    }
+
+                    loop {
+                        tokio::select! {
+                            tasks = engine_clone.retrieve() => {
+                                for handle in tasks {
+                                    assign_dispatching_to_worker(handle, workers.as_ref());
+                                }
+                            }
+
+                            _ = workers[idx].notify.notified() => {
+                                break
                             }
                         }
                     }
-
-                    pointing = fastrand::usize(..worker_len);
                 }
-
-                workers[idx].notify.notified().await;
             });
+
+            jobs.push(job);
         }
 
-        let reschedule_loop = tokio::spawn(
-            reschedule_logic::<C>(
-                &reschedule_queue,
-                &self.workers
-            )
-        );
-
-        let main_loop = tokio::spawn(
-            main_loop_logic::<C>(
-                &engine_clone,
-                &self.workers
-            )
-        );
-
-        let scheduler_handle_instructions = tokio::spawn(
-            scheduler_handle_instructions_logic::<C>(
-                &self.instruction_queue,
-                &dispatcher_clone,
-                &store_clone,
-                &self.workers
-            ),
-        );
-
-        *self.process.write().await = Some((
-            scheduler_handle_instructions,
-            reschedule_loop,
-            main_loop
-        ));
+        *self.process.write().await = jobs;
     }
 
     pub async fn abort(&self) {
-        let process = self.process.write().await.take();
-        if let Some((p1, p2, p3)) = process {
-            p1.abort();
-            p2.abort();
-            p3.abort()
+        let mut lock = self.process.write().await;
+        for process in lock.drain(..) {
+            process.abort();
         }
     }
 
-    pub fn clear(&self) {
-        self.store.clear();
+    pub async fn clear(&self) {
+        join!(
+            self.store.clear(),
+            self.engine.clear()
+        );
     }
 
     pub async fn schedule(
         &self,
-        task: Task<impl TaskFrame<Error = C::TaskError>, impl TaskTrigger>,
-    ) -> Result<C::TaskIdentifier, Box<dyn Error + Send + Sync>> {
-        let erased = task.into_erased();
-        let id = C::TaskIdentifier::generate();
+        trigger: impl TaskTrigger,
+        frame: impl TaskFrame<Error = C::TaskError>
+    ) -> Result<TaskHandle<C>, Box<dyn Error + Send + Sync>> {
+        let incomplete_handle = self.store.allocate(trigger, frame).await?;
+        let handle = TaskHandle::<C>::new(
+            Arc::downgrade(&self.store),
+            Arc::downgrade(&self.dispatcher),
+            Arc::downgrade(&self.engine),
+            Arc::downgrade(&self.workers),
+            incomplete_handle
+        );
 
-        append_scheduler_handler::<C>(&erased, id.clone(), self.instruction_queue.clone()).await;
-        
-        self.store.store(&id, erased)?;
-        assign_to_trigger_worker::<C>(id.clone(), self.workers.as_ref());
-
-        Ok(id)
-    }
-
-    pub fn cancel(&self, idx: &C::TaskIdentifier) {
-        self.store.remove(idx);
-    }
-
-    pub fn exists(&self, idx: &C::TaskIdentifier) -> bool {
-        self.store.exists(idx)
+        Ok(handle)
     }
 
     pub async fn has_started(&self) -> bool {
-        self.process.read().await.is_some()
+        !self.process.read().await.is_empty()
     }
 }

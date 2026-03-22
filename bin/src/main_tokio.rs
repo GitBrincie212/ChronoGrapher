@@ -10,7 +10,7 @@ pub async fn benchmark_tokio_schedule() {
     println!("LOADING TASKS");
 
     const EXEC_TIMES: usize = 6;
-    const TASKS_ALLOCATED: usize = 450_000;
+    const TASKS_ALLOCATED: usize = 550_000;
 
     let spread_millis = 1000.0 / ((TASKS_ALLOCATED * EXEC_TIMES) as f64);
 

@@ -1,7 +1,7 @@
 pub mod default; // skipcq: RS-D1001
 
 use crate::scheduler::SchedulerConfig;
-use crate::task::ErasedTask;
+use crate::task::{ErasedTask, TaskHandle};
 use async_trait::async_trait;
 pub use default::*;
 use std::ops::Deref;
@@ -12,9 +12,6 @@ pub trait SchedulerTaskDispatcher<C: SchedulerConfig>: 'static + Send + Sync {
 
     async fn dispatch(
         &self,
-        id: &C::TaskIdentifier,
-        task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
+        id: &TaskHandle<C>,
     ) -> Result<(), C::TaskError>;
-
-    async fn cancel(&self, id: &C::TaskIdentifier);
 }

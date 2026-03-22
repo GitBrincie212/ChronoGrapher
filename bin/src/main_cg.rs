@@ -116,12 +116,12 @@ pub async fn benchmark_chronographer() {
     for _ in 0..TASKS_ALLOCATED {
         millis = (millis + spread_millis).rem_euclid(1000.0);
 
-        let task = Task::new(
+        let handle = scheduler.schedule(
             TaskScheduleInterval::duration(Duration::from_millis(millis.round() as u64)),
             MyTaskFrame
-        );
-
-        let _ = scheduler.schedule(&task).await;
+        ).await.unwrap();
+        
+        handle.schedule();
     }
 
     scheduler.start().await;

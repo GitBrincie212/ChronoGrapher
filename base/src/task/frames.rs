@@ -29,8 +29,8 @@ pub use thresholdframe::*;
 pub use timeoutframe::*;
 
 use crate::errors::TaskError;
-use crate::scheduler::{SchedulerHandleInstructions, SchedulerHandle};
-use crate::task::{ErasedTask, NonObserverTaskHook, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
+use crate::scheduler::{SchedulerHandleInstructions, SchedulerHandle, SchedulerConfig};
+use crate::task::{ErasedTask, NonObserverTaskHook, TaskHandle, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -55,7 +55,7 @@ macro_rules! instruct_method {
 }
 
 impl<'a> TaskFrameContext<'a> {
-    pub(crate) fn subdivided_ctx(&self, frame: &'a dyn ErasedTaskFrame) -> Self {
+    pub(crate) fn subdivided_ctx(&self, handle: &TaskHandle<impl SchedulerConfig>) -> Self {
         Self(RestrictTaskFrameContext {
             instance_id: self.instance_id,
             frame,
@@ -87,9 +87,23 @@ impl<'a> TaskFrameContext<'a> {
 }
 
 impl<'a> RestrictTaskFrameContext<'a> {
-    pub(crate) fn new(task: &'a ErasedTask<impl TaskError>) -> Self {
+    pub(crate) fn new(task: TaskHandle<impl SchedulerConfig>) -> Self {
+        fn send_dispatch() {
+            task
+        }
+
         Self {
             instance_id: task.instance_id,
+            instruction_closure: &move |instruction| Box::new(async {
+                match instruction {
+                    SchedulerHandleInstructions::Reschedule => {}
+                    SchedulerHandleInstructions::Halt => {}
+                    SchedulerHandleInstructions::Block => {}
+                    SchedulerHandleInstructions::Execute => {
+                        task.run().await;
+                    }
+                }
+            }),
             depth: 0,
             frame: task.frame.as_ref().erased(),
         }

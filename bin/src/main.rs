@@ -35,6 +35,6 @@ pub async fn benchmark() {
 #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 #[allow(clippy::empty_loop)]
 async fn main() {
-    benchmark_tokio_schedule().await;
+    benchmark_chronographer().await;
     benchmark().await;
 }
