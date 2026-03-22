@@ -1,3 +1,6 @@
+//! Contains the utility [`TaskFrameBuilder`] which is used for constructing workflows via
+//! a builder-based pattern. For more information on how its used check the documentation of [`TaskFrameBuilder`]
+
 use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
