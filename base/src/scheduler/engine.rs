@@ -6,10 +6,13 @@ use crate::scheduler::SchedulerConfig;
 use async_trait::async_trait;
 use std::error::Error;
 use std::time::SystemTime;
+use crate::task::TaskHandle;
 
 #[async_trait]
 pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
-    async fn retrieve(&self) -> Vec<C::TaskIdentifier>;
+    async fn retrieve(&self) -> Vec<TaskHandle<C>>;
+    
+    fn is_empty(&self) -> bool;
 
     async fn init(&self) {}
 
@@ -17,11 +20,9 @@ pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
 
     async fn schedule(
         &self,
-        id: &C::TaskIdentifier,
+        id: TaskHandle<C>,
         time: SystemTime,
     ) -> Result<(), Box<dyn Error + Send + Sync>>;
-
-    async fn cancel(&self, id: &C::TaskIdentifier);
-
+    
     async fn clear(&self);
 }
