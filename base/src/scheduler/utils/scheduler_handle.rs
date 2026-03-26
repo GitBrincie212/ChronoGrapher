@@ -2,7 +2,7 @@ use std::any::{type_name, Any};
 use std::sync::Arc;
 use crossbeam::queue::SegQueue;
 use tokio::sync::Notify;
-use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerConfig, SchedulerHandlePayload, SchedulerWorker};
+use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerConfig, SchedulerHandlePayload, WorkerPool};
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ErasedTask, TaskHook};
@@ -47,41 +47,46 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     instruct_queue: &Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     dispatcher: &Arc<C::SchedulerTaskDispatcher>,
     store: &Arc<C::SchedulerTaskStore>,
-    workers: &Arc<Vec<SchedulerWorker<C>>>,
+    pool: &Arc<WorkerPool<C>>,
+    workers: usize,
 ) -> impl Future<Output = ()> + 'static {
     let dispatcher = dispatcher.clone();
     let store = store.clone();
-    let workers = workers.clone();
+    let pool = pool.clone();
     let instruct_queue = instruct_queue.clone();
 
     async move {
-        while let Some((id, instruction)) = instruct_queue.0.pop() {
-            let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(|| {
-                panic!(
-                    "Cannot downcast to TaskIdentifier of type {:?}",
-                    type_name::<C::TaskIdentifier>()
-                )
-            });
+        loop {
+            if let Some((id, instruction)) = instruct_queue.0.pop() {
+                let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(|| {
+                    panic!(
+                        "Cannot downcast to TaskIdentifier of type {:?}",
+                        type_name::<C::TaskIdentifier>()
+                    )
+                });
 
-            match instruction {
-                SchedulerHandleInstructions::Reschedule => {
-                    assign_to_trigger_worker::<C>(id.clone(), workers.as_ref());
+                match instruction {
+                    SchedulerHandleInstructions::Reschedule => {
+                        assign_to_trigger_worker::<C>(id.clone(), pool.as_ref(), workers);
+                    }
+
+                    SchedulerHandleInstructions::Halt => {
+                        dispatcher.cancel(&id).await;
+                    }
+
+                    SchedulerHandleInstructions::Block => {
+                        store.remove(&id);
+                    }
+
+                    SchedulerHandleInstructions::Execute => {
+                        spawn_task::<C>(id.clone(), pool.as_ref(), workers);
+                    }
                 }
 
-                SchedulerHandleInstructions::Halt => {
-                    dispatcher.cancel(&id).await;
-                }
-
-                SchedulerHandleInstructions::Block => {
-                    store.remove(&id);
-                }
-
-                SchedulerHandleInstructions::Execute => {
-                    spawn_task::<C>(id.clone(), workers.as_ref());
-                }
+                continue;
             }
-        }
 
-        instruct_queue.1.notified().await;
+            instruct_queue.1.notified().await;
+        }
     }
 }

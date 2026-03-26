@@ -5,14 +5,15 @@ pub mod rescheduling;
 pub use main_loop::*;
 pub use scheduler_handle::*;
 pub use rescheduling::*;
-use crate::scheduler::{SchedulerConfig, SchedulerWorker};
+use crate::scheduler::{SchedulerConfig, WorkerPool};
 use crate::utils::TaskIdentifier;
 
 #[inline(always)]
 pub fn assign_to_trigger_worker<C: SchedulerConfig>(
     id: C::TaskIdentifier,
-    workers: &Vec<SchedulerWorker<C>>
+    pool: &WorkerPool<C>,
+    workers: usize,
 ) {
-    let idx = id.as_usize() & (workers.len() - 1);
-    workers[idx].spawn_trigger(id);
+    let _ = id.as_usize() & (workers.saturating_sub(1));
+    pool.spawn_trigger(id);
 }

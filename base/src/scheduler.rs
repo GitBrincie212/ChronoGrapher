@@ -16,6 +16,7 @@ use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use crossbeam::deque;
 use crossbeam::queue::SegQueue;
 use tokio::join;
 use tokio::sync::{Notify, RwLock};
@@ -24,26 +25,30 @@ use typed_builder::TypedBuilder;
 
 pub(crate) use crate::scheduler::utils::*;
 
-pub enum SchedulerWork {
-    Trigger,
-    Dispatch
+pub enum UnifiedWork<C: SchedulerConfig>{
+    TaskDispatch(C::TaskIdentifier),
+    TaskTrigger(C::TaskIdentifier),
+    MainLoopTick,
+    Reschedule(C::TaskIdentifier, Option<C::TaskError>),
+    Instruction(C::TaskIdentifier, SchedulerHandleInstructions)
 }
 
-pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
-    pub queue: SegQueue<(C::TaskIdentifier, SchedulerWork)>,
+pub(crate) struct WorkerPool<C: SchedulerConfig> {
+    pub injector: crossbeam::deque::Injector<UnifiedWork<C>>,
+    pub stealers: std::sync::Mutex<Vec<crossbeam::deque::Stealer<UnifiedWork<C>>>>,
     pub notify: Arc<Notify>,
 }
 
-impl<C: SchedulerConfig> SchedulerWorker<C> {
+impl<C: SchedulerConfig> WorkerPool<C> {
     #[inline(always)]
     pub(crate) fn spawn_dispatch(&self, identifier: C::TaskIdentifier) {
-        self.queue.push((identifier, SchedulerWork::Dispatch));
+        self.injector.push(UnifiedWork::TaskDispatch(identifier));
         self.notify.notify_one();
     }
 
     #[inline(always)]
     pub(crate) fn spawn_trigger(&self, identifier: C::TaskIdentifier) {
-        self.queue.push((identifier, SchedulerWork::Dispatch));
+        self.injector.push(UnifiedWork::TaskTrigger(identifier));
         self.notify.notify_one();
     }
 }
@@ -95,35 +100,42 @@ pub struct SchedulerInitConfig<T: SchedulerConfig> {
 
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
     fn from(config: SchedulerInitConfig<C>) -> Self {
-        let mut workers = Vec::with_capacity(config.workers);
         let notifier = Arc::new(Notify::new());
-
-        for _ in 0..config.workers {
-            let worker = SchedulerWorker::<C> {
-                queue: SegQueue::new(),
-                notify: notifier.clone(),
-            };
-            workers.push(worker);
-        }
+        let pool = WorkerPool::<C> {
+            injector: crossbeam::deque::Injector::new(),
+            stealers: std::sync::Mutex::new(Vec::with_capacity(config.workers)),
+            notify: notifier,
+        };
 
         Self {
             engine: Arc::new(config.engine),
             store: Arc::new(config.store),
             dispatcher: Arc::new(config.dispatcher),
+            reschedule_queue: Arc::new((SegQueue::new(), Notify::new())),
+            instruction_queue: Arc::new((SegQueue::new(), Notify::new())),
             process: RwLock::new(None),
-            workers: Arc::new(workers),
-            instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
+            pool: Arc::new(pool),
+            workers: config.workers,
         }
     }
+}
+
+pub(crate) struct SchedulerProcess {
+    workers: Vec<JoinHandle<()>>,
+    scheduler_handle_instructions: JoinHandle<()>,
+    reschedule_loop: JoinHandle<()>,
+    main_loop: JoinHandle<()>,
 }
 
 pub struct Scheduler<C: SchedulerConfig> {
     store: Arc<C::SchedulerTaskStore>,
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
-    process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>, JoinHandle<()>)>>,
-    workers: Arc<Vec<SchedulerWorker<C>>>,
+    reschedule_queue: Arc<(SegQueue<ReschedulePayload<C>>, Notify)>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
+    process: RwLock<Option<SchedulerProcess>>,
+    pool: Arc<WorkerPool<C>>,
+    workers: usize,
 }
 
 impl<C> Default for Scheduler<C>
@@ -147,10 +159,11 @@ where
 #[inline(always)]
 fn spawn_task<C: SchedulerConfig>(
     id: C::TaskIdentifier,
-    dispatch_workers: &Vec<SchedulerWorker<C>>
+    pool: &WorkerPool<C>,
+    workers: usize,
 ) {
-    let idx = id.as_usize() & (dispatch_workers.len() - 1);
-    dispatch_workers[idx].spawn_dispatch(id);
+    let _ = id.as_usize() & (workers.saturating_sub(1));
+    pool.spawn_dispatch(id);
 }
 
 impl<C: SchedulerConfig> Scheduler<C> {
@@ -175,79 +188,125 @@ impl<C: SchedulerConfig> Scheduler<C> {
             self.engine.init()
         );
 
-        let reschedule_queue =
-            Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
-
-        for idx in 0..self.workers.len() {
-            let workers = self.workers.clone();
+        let mut worker_handles: Vec<JoinHandle<()>> = Vec::with_capacity(self.workers);
+        for _ in 0..self.workers {
+            let pool = self.pool.clone();
             let store_clone = store_clone.clone();
             let dispatcher_clone = dispatcher_clone.clone();
             let engine_clone = engine_clone.clone();
-            let reschedule_queue_clone = reschedule_queue.clone();
-            let worker_len = workers.len();
-            tokio::spawn(async move {
-                let mut pointing = idx;
-                for _ in 0..worker_len {
-                    let mut should_continue = true;
-                    while let Some((id, work_type)) = workers[pointing].queue.pop()
-                        && should_continue {
-                        if let Some(task) = store_clone.get(&id) {
-                            should_continue = pointing == idx;
-                            match work_type {
-                                SchedulerWork::Trigger => {
-                                    let trigger = task.trigger();
-                                    let now = engine_clone.clock().now();
+            let reschedule_queue = self.reschedule_queue.clone();
 
-                                    let time = match trigger.trigger(now).await {
-                                        Ok(time) => {
-                                            time
-                                        }
-                                        Err(err) => {
-                                            eprintln!("Computation error from TaskTrigger: {:?}", err);
-                                            store_clone.remove(&id);
-                                            continue;
-                                        }
-                                    };
-
-                                    match engine_clone.schedule(&id, time).await {
-                                        Ok(()) => {}
-                                        Err(err) => {
-                                            eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                                            store_clone.remove(&id);
-                                        }
-                                    }
-
-                                    continue;
-                                }
-
-                                SchedulerWork::Dispatch => {
-                                    let result = dispatcher_clone.dispatch(&id, task).await;
-                                    reschedule_queue_clone.0.push((id, result.err()));
-                                    reschedule_queue_clone.1.notify_waiters();
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-
-                    pointing = fastrand::usize(..worker_len);
+            let handle = tokio::task::spawn_blocking(move || {
+                let local = crossbeam::deque::Worker::new_fifo();
+                let stealer = local.stealer();
+                {
+                    let mut stealers = pool.stealers.lock().expect("poisoned stealers mutex");
+                    stealers.push(stealer);
                 }
 
-                workers[idx].notify.notified().await;
+                let rt = tokio::runtime::Handle::current();
+                rt.block_on(async move {
+                    loop {
+                        let work = loop {
+                            if let Some(work) = local.pop() {
+                                break Some(work);
+                            }
+
+                            match pool.injector.steal_batch_and_pop(&local) {
+                                deque::Steal::Success(work) => break Some(work),
+                                deque::Steal::Retry => continue,
+                                deque::Steal::Empty => {}
+                            }
+
+                            let stealers_snapshot = {
+                                pool.stealers
+                                    .lock()
+                                    .expect("poisoned stealers mutex")
+                                    .clone()
+                            };
+
+                            let mut stolen = None;
+                            for stealer in &stealers_snapshot {
+                                match stealer.steal() {
+                                    deque::Steal::Success(work) => {
+                                        stolen = Some(work);
+                                        break;
+                                    }
+                                    deque::Steal::Retry => {}
+                                    deque::Steal::Empty => {}
+                                }
+                            }
+                            if stolen.is_some() {
+                                break stolen;
+                            }
+
+                            break None;
+                        };
+
+                        let Some(work) = work else {
+                            pool.notify.notified().await;
+                            continue;
+                        };
+
+                        match work {
+                            UnifiedWork::TaskTrigger(id) => {
+                                let Some(task) = store_clone.get(&id) else {
+                                    continue;
+                                };
+                                let trigger = task.trigger();
+                                let now = engine_clone.clock().now();
+
+                                let time = match trigger.trigger(now).await {
+                                    Ok(time) => time,
+                                    Err(err) => {
+                                        eprintln!("Computation error from TaskTrigger: {:?}", err);
+                                        store_clone.remove(&id);
+                                        continue;
+                                    }
+                                };
+
+                                match engine_clone.schedule(&id, time).await {
+                                    Ok(()) => {}
+                                    Err(err) => {
+                                        eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                                        store_clone.remove(&id);
+                                    }
+                                }
+                            }
+
+                            UnifiedWork::TaskDispatch(id) => {
+                                let Some(task) = store_clone.get(&id) else {
+                                    continue;
+                                };
+                                let result = dispatcher_clone.dispatch(&id, task).await;
+                                reschedule_queue.0.push((id, result.err()));
+                                reschedule_queue.1.notify_waiters();
+                            }
+
+                            UnifiedWork::MainLoopTick
+                            | UnifiedWork::Reschedule(_, _)
+                            | UnifiedWork::Instruction(_, _) => {}
+                        }
+                    }
+                });
             });
+
+            worker_handles.push(handle);
         }
 
         let reschedule_loop = tokio::spawn(
             reschedule_logic::<C>(
-                &reschedule_queue,
-                &self.workers
+                &self.reschedule_queue,
+                &self.pool,
+                self.workers,
             )
         );
 
         let main_loop = tokio::spawn(
             main_loop_logic::<C>(
                 &engine_clone,
-                &self.workers
+                &self.pool,
+                self.workers,
             )
         );
 
@@ -256,23 +315,28 @@ impl<C: SchedulerConfig> Scheduler<C> {
                 &self.instruction_queue,
                 &dispatcher_clone,
                 &store_clone,
-                &self.workers
+                &self.pool,
+                self.workers,
             ),
         );
 
-        *self.process.write().await = Some((
+        *self.process.write().await = Some(SchedulerProcess {
+            workers: worker_handles,
             scheduler_handle_instructions,
             reschedule_loop,
-            main_loop
-        ));
+            main_loop,
+        });
     }
 
     pub async fn abort(&self) {
         let process = self.process.write().await.take();
-        if let Some((p1, p2, p3)) = process {
-            p1.abort();
-            p2.abort();
-            p3.abort()
+        if let Some(process) = process {
+            for worker in process.workers {
+                worker.abort();
+            }
+            process.scheduler_handle_instructions.abort();
+            process.reschedule_loop.abort();
+            process.main_loop.abort();
         }
     }
 
@@ -287,10 +351,8 @@ impl<C: SchedulerConfig> Scheduler<C> {
         let erased = task.into_erased();
         let id = C::TaskIdentifier::generate();
 
-        append_scheduler_handler::<C>(&erased, id.clone(), self.instruction_queue.clone()).await;
-        
         self.store.store(&id, erased)?;
-        assign_to_trigger_worker::<C>(id.clone(), self.workers.as_ref());
+        assign_to_trigger_worker::<C>(id.clone(), &self.pool, self.workers);
 
         Ok(id)
     }
