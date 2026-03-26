@@ -4,6 +4,7 @@ pub mod task_dispatcher; // skipcq: RS-D1001
 pub mod task_store; // skipcq: RS-D1001
 mod utils; // skipcq: RS-D1001
 
+use std::num::NonZeroUsize;
 use crate::errors::TaskError;
 use crate::scheduler::clock::*;
 use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
@@ -137,7 +138,10 @@ pub struct SchedulerInitConfig<T: SchedulerConfig> {
     store: T::SchedulerTaskStore,
     engine: T::SchedulerEngine,
 
-    #[builder(default = 64)]
+    #[builder(default = (std::thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::MIN)
+            .get() * 4).next_power_of_two()
+    )]
     workers: usize,
 }
 
@@ -177,11 +181,10 @@ pub struct Scheduler<C: SchedulerConfig> {
 impl<C> Default for Scheduler<C>
 where
     C: SchedulerConfig<
-            SchedulerTaskStore: Default,
-            SchedulerTaskDispatcher: Default,
-            SchedulerEngine: Default,
-            TaskError: TaskError,
-        >,
+        SchedulerTaskStore: Default,
+        SchedulerTaskDispatcher: Default,
+        SchedulerEngine: Default,
+    >,
 {
     fn default() -> Self {
         Self::builder()
@@ -226,7 +229,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
                     for _ in 0..worker_len {
                         let mut should_continue = true;
                         while let Some((handle, work_type)) = workers[pointing].queue.pop()
-                            && should_continue && !handle.is_invalid()
+                            && should_continue && handle.is_valid()
                         {
                             should_continue = pointing == idx;
                             match work_type {
