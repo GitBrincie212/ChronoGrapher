@@ -18,6 +18,7 @@ use crate::errors::TaskError;
 #[allow(unused_imports)]
 use crate::scheduler::Scheduler;
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::{Arc, LazyLock, Weak};
 use std::sync::atomic::AtomicUsize;
@@ -28,7 +29,7 @@ use crate::scheduler::task_store::SchedulerTaskStore;
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
 #[async_trait]
-pub trait TaskRef<C: SchedulerConfig>: Clone + Send + Sync {
+pub trait TaskRef<C: SchedulerConfig>: Hash + PartialEq + Eq + Clone + Send + Sync {
     type TaskFrame<'a>: DynTaskFrame<C::TaskError> where Self: 'a;
     type TaskTrigger<'a>: TaskTrigger where Self: 'a;
 
@@ -40,7 +41,7 @@ pub trait TaskRef<C: SchedulerConfig>: Clone + Send + Sync {
     async fn emit_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>);
     async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self);
 
-    fn is_invalid(&self) -> bool;
+    fn is_valid(&self) -> bool;
     async fn cancelled(&self);
     async fn cancel(&self);
 }
