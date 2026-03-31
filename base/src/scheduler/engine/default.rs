@@ -9,14 +9,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 use tokio::sync::Notify;
-use crate::task::TaskHandle;
 
 enum WheelCommand<C: SchedulerConfig> {
-    Insert(TaskHandle<C>, Duration),
+    Insert(C::TaskIdentifier, Duration),
     Clear,
 }
 
-type ResultQueue<C> = (SegQueue<Vec<TaskHandle<C>>>, Notify, AtomicUsize);
+type ResultQueue<C> = (SegQueue<Vec<<C as SchedulerConfig>::TaskIdentifier>>, Notify, AtomicUsize);
 
 pub struct DefaultSchedulerEngine<C: SchedulerConfig> {
     command_batch: Arc<SegQueue<WheelCommand<C>>>,
@@ -32,7 +31,7 @@ where
         let clock = Arc::new(C::SchedulerClock::default());
 
         let mut hierarchical_wheel =
-            HierarchicalTimingWheel::<TaskHandle<C>>::default();
+            HierarchicalTimingWheel::<C::TaskIdentifier>::default();
 
         let command_batch = Arc::new(SegQueue::new());
         let get_result_queue = Arc::new((SegQueue::new(), Notify::new(), AtomicUsize::new(0)));
@@ -68,7 +67,7 @@ where
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
-    async fn retrieve(&self) -> Vec<TaskHandle<C>> {
+    async fn retrieve(&self) -> Vec<C::TaskIdentifier> {
         loop {
             if let Some(res) = self.get_result_queue.0.pop() {
                 return res;
@@ -87,12 +86,12 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
 
     async fn schedule(
         &self,
-        handle: TaskHandle<C>,
+        id: &C::TaskIdentifier,
         time: SystemTime,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let now = self.clock.now();
         self.command_batch.push(WheelCommand::Insert(
-            handle,
+            id.clone(),
             time.duration_since(now).unwrap_or(Duration::ZERO),
         ));
         Ok(())

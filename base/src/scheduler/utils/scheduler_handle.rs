@@ -2,8 +2,10 @@ use std::any::{type_name, Any};
 use std::sync::Arc;
 use crossbeam::queue::SegQueue;
 use tokio::sync::Notify;
-use crate::scheduler::{assign_dispatching_to_worker, assign_triggering_to_worker, SchedulerConfig, SchedulerHandlePayload, SchedulerWorker};
-use crate::task::{ErasedTask, TaskHandle, TaskHook, TaskRef};
+use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerConfig, SchedulerHandlePayload, SchedulerWorker};
+use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
+use crate::scheduler::task_store::SchedulerTaskStore;
+use crate::task::{ErasedTask, TaskHook};
 
 pub enum SchedulerHandleInstructions {
     Reschedule, // Forces the Task to reschedule (instances may still run)
@@ -43,14 +45,18 @@ pub async fn append_scheduler_handler<C: SchedulerConfig>(
 #[inline(always)]
 pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     instruct_queue: &Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
+    dispatcher: &Arc<C::SchedulerTaskDispatcher>,
+    store: &Arc<C::SchedulerTaskStore>,
     workers: &Arc<Vec<SchedulerWorker<C>>>,
 ) -> impl Future<Output = ()> + 'static {
+    let dispatcher = dispatcher.clone();
+    let store = store.clone();
     let workers = workers.clone();
     let instruct_queue = instruct_queue.clone();
 
     async move {
-        while let Some((handle, instruction)) = instruct_queue.0.pop() {
-            let handle = handle.downcast_ref::<TaskHandle<C>>().unwrap_or_else(|| {
+        while let Some((id, instruction)) = instruct_queue.0.pop() {
+            let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(|| {
                 panic!(
                     "Cannot downcast to TaskIdentifier of type {:?}",
                     type_name::<C::TaskIdentifier>()
@@ -59,19 +65,19 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
 
             match instruction {
                 SchedulerHandleInstructions::Reschedule => {
-                    assign_triggering_to_worker::<C>(handle.clone(), workers.as_ref());
+                    assign_to_trigger_worker::<C>(id.clone(), workers.as_ref());
                 }
 
                 SchedulerHandleInstructions::Halt => {
-                    handle.cancel().await;
+                    dispatcher.cancel(&id).await;
                 }
 
                 SchedulerHandleInstructions::Block => {
-                    handle.remove().await;
+                    store.remove(&id);
                 }
 
                 SchedulerHandleInstructions::Execute => {
-                    assign_dispatching_to_worker::<C>(handle.clone(), workers.as_ref());
+                    spawn_task::<C>(id.clone(), workers.as_ref());
                 }
             }
         }

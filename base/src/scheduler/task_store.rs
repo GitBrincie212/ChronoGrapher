@@ -1,27 +1,31 @@
 pub mod ephemeral;
 // skipcq: RS-D1001
 
-use std::error::Error;
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::task::ErasedTask;
 use async_trait::async_trait;
 pub use ephemeral::*;
-use crate::task::{TaskFrame, TaskRef, TaskTrigger};
+use std::error::Error;
+use std::ops::Deref;
 
 #[async_trait]
 pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
-    type TaskRef: TaskRef<C>;
+    type StoredTask: Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static;
 
     async fn init(&self) {}
 
-    async fn allocate(
+    fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask>;
+
+    fn exists(&self, idx: &C::TaskIdentifier) -> bool;
+
+    fn store(
         &self,
-        trigger: impl TaskTrigger,
-        frame: impl TaskFrame<Error = C::TaskError>
-    ) -> Result<Self::TaskRef, Box<dyn Error + Send + Sync>>;
+        id: &C::TaskIdentifier,
+        task: ErasedTask<C::TaskError>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
 
-    async fn deallocate(&self, handle: &Self::TaskRef);
+    fn remove(&self, idx: &C::TaskIdentifier);
 
-    async fn clear(&self);
+    fn clear(&self);
 }
