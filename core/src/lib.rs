@@ -29,11 +29,10 @@ pub mod prelude {
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
 
     // Scheduling / Triggering
-    pub use crate::task::trigger::TaskScheduleInterval;
-    pub use crate::task::trigger::schedule::calendar::TaskScheduleCalendar;
-    pub use crate::task::trigger::schedule::calendar::TaskCalendarField;
-    pub use crate::task::trigger::schedule::cron::TaskScheduleCron;
-    pub use crate::task::trigger::schedule::TaskSchedule;
+    pub use crate::task::trigger::schedule::TaskScheduleInterval;
+    pub use crate::task::trigger::schedule::TaskScheduleCalendar;
+    pub use crate::task::trigger::schedule::TaskCalendarField;
+    pub use crate::task::trigger::schedule::TaskScheduleCron;
     pub use crate::task::trigger::TaskTrigger;
 
     // Schedulers

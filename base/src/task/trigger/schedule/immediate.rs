@@ -1,10 +1,11 @@
 ///! A standalone module containing only the [`TaskScheduleImmediate`] scheduling primitive
 
-use crate::task::schedule::TaskSchedule;
 use std::error::Error;
 use std::time::SystemTime;
+use async_trait::async_trait;
+use crate::task::TaskTrigger;
 
-/// [`TaskScheduleImmediate`] is a [`TaskSchedule`] used to immediately execute a [Task](crate::task::Task) up front,
+/// [`TaskScheduleImmediate`] is a [`TaskTrigger`] used to immediately execute a [Task](crate::task::Task) up front,
 /// without calculating a future time.
 ///
 /// # Scheduling Semantics
@@ -20,7 +21,7 @@ use std::time::SystemTime;
 /// or alternatively via [`Default`] trait using the [`TaskScheduleImmediate::default`] constructor.
 ///
 /// # Trait Implementation(s)
-/// Apart from [`TaskScheduleImmediate`] implementing the [`TaskSchedule`] trait, it implements as well:
+/// Apart from [`TaskScheduleImmediate`] implementing the [`TaskTrigger`] trait, it implements as well:
 /// - [`Debug`]
 /// - [`Clone`]
 /// - [`Copy`]
@@ -50,14 +51,15 @@ use std::time::SystemTime;
 ///
 /// # See Also
 /// - [`TaskSchedule`] - The direct implementor of this trait.
-/// - [TaskTrigger](crate::task::TaskTrigger) - The general trait which is implemented under the hood.
+/// - [`TaskTrigger`] - The general trait which is implemented under the hood.
 /// - [`Task`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TaskScheduleImmediate;
 
-impl TaskSchedule for TaskScheduleImmediate {
-    fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+#[async_trait]
+impl TaskTrigger for TaskScheduleImmediate {
+    async fn trigger(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         Ok(time)
     }
 }

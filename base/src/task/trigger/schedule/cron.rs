@@ -1,5 +1,4 @@
 use crate::errors::{CronError, CronErrorTypes, CronExpressionParserErrors};
-use crate::task::schedule::TaskSchedule;
 use crate::task::schedule::cron_lexer::{Token, tokenize_fields};
 use crate::task::schedule::cron_parser::{AstNode, AstTreeNode, CronParser};
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Timelike};
@@ -8,6 +7,8 @@ use std::fmt::{Debug, Formatter, Write};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::time::SystemTime;
+use async_trait::async_trait;
+use crate::task::TaskTrigger;
 
 const RANGES: [RangeInclusive<u32>; 7] = [
     0..=59,
@@ -317,7 +318,7 @@ impl CronField {
     }
 }
 
-/// [`TaskScheduleCron`] is a [`TaskSchedule`] used to execute a [Task](crate::task::Task) based on
+/// [`TaskScheduleCron`] is a [`TaskTrigger`] used to execute a [Task](crate::task::Task) based on
 /// a CRON expression (The [Quartz CRON syntax](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html)).
 ///
 /// # Scheduling Semantics
@@ -351,7 +352,7 @@ impl CronField {
 /// constructors or macros).
 ///
 /// # Trait Implementation(s)
-/// Apart from [`TaskScheduleCron`] implementing the [`TaskSchedule`] trait and [`FromStr`], it implements as well:
+/// Apart from [`TaskScheduleCron`] implementing the [`TaskTrigger`] trait and [`FromStr`], it implements as well:
 /// - [`Debug`]
 /// - [`Clone`]
 /// - [`PartialEq`]
@@ -402,8 +403,7 @@ impl CronField {
 /// # See Also
 /// - [`TaskScheduleCron::from_str`] - A constructor for dynamic CRON based expressions
 /// - [cron!](chronographer::prelude::cron) - A macro with a readable syntax for defining a CRON expression.
-/// - [`TaskSchedule`] - The direct implementor of this trait.
-/// - [TaskTrigger](crate::task::TaskTrigger) - The general trait which is implemented under the hood.
+/// - [`TaskTrigger`] - The direct implementor of this trait.
 /// - [`Task`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 #[derive(Clone, Eq, PartialEq)]
@@ -693,8 +693,9 @@ impl FromStr for TaskScheduleCron {
     }
 }
 
-impl TaskSchedule for TaskScheduleCron {
-    fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+#[async_trait]
+impl TaskTrigger for TaskScheduleCron {
+    async fn trigger(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         let duration = time.duration_since(std::time::UNIX_EPOCH)?;
         let secs = duration.as_secs();
         let nanos = duration.subsec_nanos();

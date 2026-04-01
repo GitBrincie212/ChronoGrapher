@@ -1,9 +1,10 @@
-use crate::task::schedule::TaskSchedule;
 use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike, Utc};
 use std::error::Error;
 use std::fmt::Debug;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::time::SystemTime;
+use async_trait::async_trait;
+use crate::task::TaskTrigger;
 
 pub trait TaskCalendarField: Send + Sync {
     fn evaluate(&self, date_fields: &mut [u32], idx: usize);
@@ -297,11 +298,12 @@ fn rebuild_datetime_from_parts(
                     return dt;
                 }
             }
-            chrono::Utc.from_utc_datetime(&naive).with_timezone(&Local)
+            Utc.from_utc_datetime(&naive).with_timezone(&Local)
         }
     }
 }
 
+#[async_trait]
 impl<
     Year: TaskCalendarField + 'static,
     Month: TaskCalendarField + 'static,
@@ -310,9 +312,9 @@ impl<
     Minute: TaskCalendarField + 'static,
     Second: TaskCalendarField + 'static,
     Millisecond: TaskCalendarField + 'static,
-> TaskSchedule for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
+> TaskTrigger for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
 {
-    fn schedule(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+    async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         let time = DateTime::<Utc>::from(now);
         let mut fields: [&dyn TaskCalendarField; 7] = [
             &self.millisecond,

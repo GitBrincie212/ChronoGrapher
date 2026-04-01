@@ -142,5 +142,5 @@ pub fn every(input: TokenStream) -> TokenStream {
         + (input.hours * 3600.0)
         + (input.days * 86400.0);
     
-    TokenStream::from(quote! { chronographer::task::interval::TaskScheduleInterval::from_secs_f64(#sum).unwrap() })
+    TokenStream::from(quote! { chronographer::task::schedule::TaskScheduleInterval::from_secs_f64(#sum).unwrap() })
 }

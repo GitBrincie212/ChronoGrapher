@@ -1,13 +1,14 @@
 ///! A standalone module containing only the [`TaskScheduleInterval`] scheduling primitive
 
-use crate::task::schedule::TaskSchedule;
 use std::error::Error;
 use std::fmt::Debug;
 use std::ops::Add;
 use std::time::{Duration, SystemTime};
+use async_trait::async_trait;
 use crate::errors::StandardCoreErrorsCG;
+use crate::task::TaskTrigger;
 
-/// [`TaskScheduleInterval`] is a [`TaskSchedule`] used to execute a [Task](crate::task::Task) in an
+/// [`TaskScheduleInterval`] is a [`TaskTrigger`] used to execute a [Task](crate::task::Task) in an
 /// interval basis (based on the current time).
 ///
 /// # Scheduling Semantics
@@ -32,7 +33,7 @@ use crate::errors::StandardCoreErrorsCG;
 /// procedural macros crate.
 ///
 /// # Trait Implementation(s)
-/// Apart from [`TaskScheduleInterval`] implementing the [`TaskSchedule`] trait, it implements as well:
+/// Apart from [`TaskScheduleInterval`] implementing the [`TaskTrigger`] trait, it implements as well:
 /// - [`Debug`]
 /// - [`Clone`]
 /// - [`Copy`]
@@ -100,8 +101,7 @@ use crate::errors::StandardCoreErrorsCG;
 /// - [`TaskScheduleInterval::from_secs`] - A simple constructor for integer second-based intervals.
 /// - [`TaskScheduleInterval::from_secs_f64`] - A simple constructor for floating point second-based intervals.
 /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
-/// - [`TaskSchedule`] - The direct implementor of this trait.
-/// - [TaskTrigger](crate::task::TaskTrigger) - The general trait which is implemented under the hood.
+/// - [`TaskTrigger`] - The direct implementor of this trait.
 /// - [`Task`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 #[derive(Debug, Clone, Copy)]
@@ -288,8 +288,9 @@ impl Into<Duration> for TaskScheduleInterval {
     }
 }
 
-impl TaskSchedule for TaskScheduleInterval {
-    fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+#[async_trait]
+impl TaskTrigger for TaskScheduleInterval {
+    async fn trigger(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         Ok(time.add(self.0))
     }
 }

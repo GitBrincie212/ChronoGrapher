@@ -5,7 +5,6 @@
 
    https://github.com/Bathtor/rust-hash-wheel-timer/blob/master/src/wheels/byte_wheel.rs
 */
-use std::vec::Drain;
 
 #[derive(Clone)]
 pub struct ByteWheel<T> {
