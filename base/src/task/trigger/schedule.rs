@@ -4,7 +4,6 @@
 //! on your needs, you may implement the [`TaskTrigger`](crate::task::TaskTrigger) trait for a custom schedule.
 //!
 //! # Exports
-//! - [`TaskSchedule`] - An alias trait of [`TaskTrigger`](crate::task::TaskTrigger) for mathematical & immediate computations.
 //! - [`TaskScheduleImmediate`] - A primitive which schedules to execute immediately.
 //! - [`TaskScheduleInterval`] - A primitive which schedules per-interval basis.
 //! - [`TaskScheduleCron`] - A primitive which schedules based on a CRON expression.
