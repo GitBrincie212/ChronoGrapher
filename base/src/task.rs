@@ -15,20 +15,23 @@ pub use trigger::*;
 pub use schedule::*;
 
 use crate::errors::TaskError;
-#[allow(unused_imports)]
-use crate::scheduler::Scheduler;
+use std::any::TypeId;
 use std::fmt::Debug;
 use std::sync::{Arc, LazyLock};
 use std::sync::atomic::AtomicUsize;
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E>>, Box<dyn TaskTrigger>>;
+pub struct TaskHookSubmission {
+    pub event_type: TypeId,
+    pub hook_type: TypeId,
+    pub hook: Vec<Arc<dyn ErasedTaskHook>>
+}
 
 pub struct Task<T1, T2> {
     frame: T1,
     trigger: T2,
-    instance_id: usize
+    hooks: Vec<TaskHookSubmission>
 }
 
 impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2> {
@@ -36,8 +39,50 @@ impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2
         Self {
             frame: T1::default(),
             trigger: T2::default(),
-            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            hooks: Vec::new()
         }
+    }
+}
+
+impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
+    pub fn new(frame: T1, trigger: T2) -> Self {
+        Self {
+            frame,
+            trigger,
+            hooks: Vec::new()
+        }
+    }
+
+    pub fn frame(&self) -> &T1 {
+        &self.frame
+    }
+
+    pub fn set_frame(&mut self, new: T1) -> T1 {
+        std::mem::replace(&mut self.frame, new)
+    }
+
+    pub fn trigger(&self) -> &T2 {
+        &self.trigger
+    }
+
+    pub fn set_trigger(&mut self, new: T2) -> T2 {
+        std::mem::replace(&mut self.trigger, new)
+    }
+
+    pub fn attach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&mut self, hook: Arc<TH>) {
+        todo!()
+    }
+
+    pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<&T> {
+        todo!()
+    }
+
+    pub fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&mut self) {
+        todo!()
+    }
+
+    pub fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
+        todo!()
     }
 }
 
@@ -50,107 +95,5 @@ impl<E: TaskError> ErasedTask<E> {
             .await;
 
         result
-    }
-
-    pub fn frame(&self) -> &dyn DynTaskFrame<E> {
-        self.frame.as_ref()
-    }
-
-    pub fn trigger(&self) -> &dyn TaskTrigger  {
-        self.trigger.as_ref()
-    }
-
-    pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
-        let ctx = TaskHookContext {
-            depth: 0,
-            instance_id: self.instance_id,
-            frame: self.frame.erased(),
-        };
-
-        ctx.attach_hook(hook).await;
-    }
-
-    pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
-        TASKHOOK_REGISTRY.get::<EV, T>(self.instance_id)
-    }
-
-    pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
-        let ctx = TaskHookContext {
-            instance_id: self.instance_id,
-            depth: 0,
-            frame: self.frame.erased(),
-        };
-
-        ctx.emit::<EV>(payload).await;
-    }
-
-    pub async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) {
-        let ctx = TaskHookContext {
-            instance_id: self.instance_id,
-            depth: 0,
-            frame: self.frame.erased(),
-        };
-
-        ctx.detach_hook::<EV, T>().await;
-    }
-}
-
-impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
-    pub fn new(trigger: T2, frame: T1) -> Self {
-        Self {
-            frame,
-            trigger,
-            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        }
-    }
-
-    pub fn into_erased(self) -> ErasedTask<T1::Error> {
-        ErasedTask {
-            frame: Box::new(self.frame),
-            trigger: Box::new(self.trigger),
-            instance_id: self.instance_id
-        }
-    }
-
-    pub fn frame(&self) -> &T1 {
-        &self.frame
-    }
-
-    pub fn trigger(&self) -> &T2 {
-        &self.trigger
-    }
-
-    pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
-        let ctx = TaskHookContext {
-            instance_id: self.instance_id,
-            depth: 0,
-            frame: &self.frame,
-        };
-
-        ctx.attach_hook(hook).await;
-    }
-
-    pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
-        TASKHOOK_REGISTRY.get::<EV, T>(self.instance_id)
-    }
-
-    pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
-        let ctx = TaskHookContext {
-            instance_id: self.instance_id,
-            depth: 0,
-            frame: &self.frame,
-        };
-
-        ctx.emit::<EV>(payload).await;
-    }
-
-    pub async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) {
-        let ctx = TaskHookContext {
-            instance_id: self.instance_id,
-            depth: 0,
-            frame: &self.frame,
-        };
-
-        ctx.detach_hook::<EV, T>().await;
     }
 }

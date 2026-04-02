@@ -453,7 +453,7 @@ pub trait NonObserverTaskHook: Send + Sync + 'static {}
 impl<T: NonObserverTaskHook> TaskHook<()> for T {}
 
 #[derive(Clone)]
-struct ErasedTaskHookWrapper<E: TaskHookEvent> {
+pub(crate) struct ErasedTaskHookWrapper<E: TaskHookEvent> {
     hook: Arc<dyn TaskHook<E>>,
     concrete: Arc<dyn Any + Send + Sync>,
     _marker: PhantomData<E>,
