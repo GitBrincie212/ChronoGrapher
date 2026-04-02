@@ -114,14 +114,14 @@ are the system interacted most frequently with). It is best to analyze the lifec
 # Lifecycle of ``Tasks``
 > **NOTE:** As of the time of writing this, there is an issue open for rethinking the lifecycle of Tasks. This document
 may be updated some time in the future to reflect the final changes but for now we will only describe the current planned way.
-For more information, look into [GitHub Issue 154#](https://github.com/GitBrincie212/ChronoGrapher/issues/154).
+For more information, look into [154#](https://github.com/GitBrincie212/ChronoGrapher/issues/154).
 
 The lifecycle of a Task begins with its intermediate temporary representation of ``Task<T1, T2>``. The goal of this
 representation is to act as a container which hosts our TaskFrame, TaskTrigger and various TaskHooks. It indicates no
 ownership and is present in a typed form.
 
 Its storage model is inefficient but simple as its only temporary and not an actual long-lived object. It should be noted
-that passing down references involveds ``&T`` (or ``&mut T`` for anything that wants to modify this representation). Hence, it
+that passing down references involves ``&T`` (or ``&mut T`` for anything that wants to modify this representation). Hence, it
 cannot be shared between threads (it is not meant to).
 
 Afterward when this intermediate representation is passed down to other portions of code, it can be scheduled via a Scheduler
