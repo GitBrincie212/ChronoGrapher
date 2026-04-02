@@ -1,3 +1,11 @@
+# Table Of Contents
+1. [Overview & Philosophy](#overview--philosophy)
+2. [File Structure](#file-structure-overview)
+3. [Core Abstractions](#core-abstractions)
+4. [Task Lifecycle](#lifecycle-of-tasks)
+5. [Task Composites](#how-tasks-composites-work)
+6. [Scheduler Composites](#how-schedulers-composites-work)
+
 # Overview & Philosophy
 Chronographer is an unopinionated composable scheduling library built in Rust.
 
