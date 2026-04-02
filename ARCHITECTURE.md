@@ -28,6 +28,47 @@ for only one thing).
 <strong>(*)</strong> Complexity and power <u>is a spectrum</u>, and should be balanced (with a small bias towards power use). As such, 
 simplifying a system which has tons of flexibility may not always be the right approach (as some flexibility may be lost).
 
+# File Structure Overview
+The current repository hosts ChronoGrapher's core framework, which is vital for extending it. The core is split into 4
+separate parts (more specifically crates), plus one if you include the website but this will be its own repository in the future:
+- **``/base``** This is the bedrock layer of ChronoGrapher, it hosts all the traits, structs and generally systems that
+  ChronoGrapher exposes. There are next to no macros present (for internal use and those are declarative macros). In addition,
+  it is meant to be exposed in Rust and only.
+- **``/proc``** Exposes the procedural macros API for Rust users, these work on top of the base types 
+  (though they don't use the). This includes things such as the function-like macros such as ``every!``, attribute macros
+  and even derive macros.
+- **``/core``** This layer merges the procedural macro API and the base API as one crate, it additionally defines a prelude
+  module for Rust users to easily import and use ChronoGrapher. Apart from that, it does nothing else.
+- **``/sdks``*** This is where all different SDKs for other programming languages live, they use the base API and
+  build on top of it with bindings such as [PyO3](https://pyo3.rs/v0.28.2/), [NAPI.rs](https://napi.rs)... etc.
+  They match as close to the original API while remaining ergonomic / native to their respective language.
+
+<strong>(*)</strong> Currently no SDKs apart from Rust have been implemented, until the core of Rust is fully finished.
+Only then progress may start to implement them (to ensure the core is fully finished and won't need any changes to be done
+as SDKs are technical debt).
+
+It should be noted, while not a crate itself, the website of ChronoGrapher can be found in ``/website`` folder. 
+Its tech stack is as follows:
+- **Fumadocs:** For writing documentation in Markdown plus other additional features
+- **ReactJS:** For an easier time creating the website (the frontend) required by Fumadocs.
+- **Next.js:** For the frontend required by Fumadocs.
+- **AnimeJS:** For easier animations via JavaScript.
+- **TypeScript:** For better type safety and DX.
+- **pnpm** The package manager for the project (faster than npm).
+- **BiomeJS** For linting & formatting.
+
+For more information about the framework as well as the website, it is recommended to run ``pnpm run dev`` to launch the website.
+
+Other folders to mention but not directly packaged or a close part of ChronoGrapher (but they do also play a vital role) are:
+- **``/tests``** For unit and integration tests, testing both the procedural macro API and the base API to ensure
+  correctness throughout the entirety of the system.
+- **``/benches``** Contains benchmarks for both memory usage and runtime performance of the entirity of ChronoGrapher
+  via CodSpeed to ensure high throughput and low memry usage.
+- **``/bin``** Used for testing the library in action as a user, it serves nothing else to ChronoGrapher apart
+  from mimicking the user environment.
+- **``/assets``** Contains various media files used throughout the project's documents (not including the website) such as
+  various images, animations / videos... etc. 
+
 # Core Abstractions
 Chronographer defines two main systems, those being **Tasks** and **Schedulers**, they are broken down
 into multiple sub parts each specialized in one thing and only. Each of these systems is separate on its own and rarely
@@ -193,3 +234,47 @@ to writing one by one.
 > to ``TaskHooks``.
 
 ![Task Wokflow](assets/architecture/diagram4.svg)
+
+# How Scheduler's Composites Work
+With the Tasks out of the way. Schedulers follow next with their composites. As discussed there are 3 composites (four if
+you count the clock) working in unison, ``SchedulerEngine``, ``SchedulerTaskStore`` and ``SchedulerTaskDispatcher``.
+
+## SchedulerTaskDispatcher: The Muscles
+A ``SchedulerTaskDispatcher`` has three goals to achieve:
+- (Optionally) set up the environment for the Task to run
+- Provide a mechanism for cancelling instances of Tasks
+- Handle how rescheduling of Tasks occurs (either before or after).
+- Handle multiple instances of Tasks (allowing to run concurrently, blocking... etc.)
+
+Cancelling a Task happens via the dispatcher's ``cancel(...)`` method and dispatching an instance happens via ``dispatch(...)``
+method.
+
+## SchedulerEngine: The Brain
+The job of a ``SchedulerEngine`` is simple, expose an API to add/remove Tasks with a time to schedule. The Scheduler
+frequently checks if there are any Tasks due via the ``retrieve(...)`` method and if there are then the ``SchedulerEngine``
+returns those.
+
+The model can be as simple as a binary heap / priority queue sorted by earliest time, to a hierarchical timing wheel to
+a distributed service via RPC calls. In the near future, ``SchedulerEngines`` should account for persistence 
+as well (part of it) and effectively store Tasks.
+
+The aforementioned ``SchedulerClock`` allows defining how time moves forward and how it generally behaves, this is used
+internally by the engine to organize the Tasks. In most cases the ``ProgressiveClock`` should be used in production and 
+``VirtualClock`` for simulations / debugging.
+
+![SchedulerEngine Design](assets/architecture/diagram5.svg)
+
+## SchedulerTaskStore: The Memory
+The ``SchedulerTaskStore`` has one and only goal, that being to store Tasks in any kind of format and allow interaction
+in the Tasks via ``TaskRefs`` (which are wrapped by the ``Scheduler`` to ``TaskHandle``). Tasks may be arbitrarily added, removed and even fetch data from.
+
+There are two storage types of ``SchedulerTaskStore``, **Ephemeral Stores** which only work within RAM making them less
+durable but much faster with zero cost in storage space and there are **Persistent Stores**, slow and bulky but more durable.
+
+For **Persistent Stores**. ChronoGrapher will expose a ``PersistenceBackend``, this declares the format the Tasks will be
+stored and can be as simple as writing to a ``.txt`` file, managing a database, a distributed file system (DFS)... etc.
+
+For now ChronoGrapher provides ``EphemeralSchedulerTaskStore`` which stores Tasks in a concurrent slot map. When a Task
+wants to be stored in a ``SchedulerTaskStore``, it follows the aforementioned phases of destructuring, reassembly and storing.
+
+![SchedulerTaskStore Design](assets/architecture/diagram6.svg)
