@@ -20,7 +20,7 @@ chronographer_base = {path = "../base"}
 chronographer_macros = {path = "../proc", optional = true }
 
 [features]
-default = ["macros", "chronographer_base/macros"]
+default = ["macros"]
 macros = ["dep:chronographer_macros"]
 anyhow = ["chronographer_base/anyhow"]
 eyre = ["chronographer_base/eyre"]
