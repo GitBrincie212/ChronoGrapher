@@ -1,13 +1,13 @@
 use crate::errors::{CronError, CronErrorTypes, CronExpressionParserErrors};
 use crate::task::schedule::cron_lexer::{Token, tokenize_fields};
 use crate::task::schedule::cron_parser::{AstNode, AstTreeNode, CronParser};
-use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, Timelike};
 use std::error::Error;
 use std::fmt::{Debug, Formatter, Write};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use async_trait::async_trait;
+use time::UtcDateTime;
 use crate::task::TaskTrigger;
 
 const RANGES: [RangeInclusive<u32>; 7] = [
@@ -500,88 +500,116 @@ impl TaskScheduleCron {
         }
     }
 
-    fn next_time_from(&self, current: NaiveDateTime) -> Option<NaiveDateTime> {
-        let mut dt = current + Duration::seconds(1);
+    fn next_time_from(&self, current: SystemTime) -> Option<SystemTime> {
+        let current = UtcDateTime::from(current);
+        let mut dt = current + Duration::from_secs(1);
 
         loop {
             if !self.matches_year(dt.year() as u32) {
                 let next_year = self.next_valid_year(dt.year() as u32)?;
-                dt = NaiveDate::from_ymd_opt(next_year as i32, 1, 1)?.and_hms_opt(0, 0, 0)?;
+                dt = UtcDateTime::new(
+                    time::Date::from_calendar_date(next_year as i32, time::Month::January, 1).ok()?,
+                    time::Time::from_hms(0, 0, 0).ok()?
+                );
                 continue;
             }
 
-            if !self.month.matches(dt.month()) {
-                dt = match self.month.next_valid(dt.month(), 12) {
-                    Some(next_month) => NaiveDate::from_ymd_opt(dt.year(), next_month, 1)?
-                        .and_hms_opt(0, 0, 0)?,
+            let month = (dt.month() as u8) as u32;
+
+            if !self.month.matches(month) {
+                dt = match self.month.next_valid(month, 12) {
+                    Some(next_month) => UtcDateTime::new(
+                        time::Date::from_calendar_date(dt.year(), time::Month::try_from(next_month as u8).ok()?, 1).ok()?,
+                        time::Time::from_hms(0, 0, 0).ok()?
+                    ),
+
                     None => {
                         let next_year = self.next_valid_year(dt.year() as u32 + 1)?;
-                        NaiveDate::from_ymd_opt(next_year as i32, self.month.min(), 1)?
-                            .and_hms_opt(0, 0, 0)?
+                        UtcDateTime::new(
+                            time::Date::from_calendar_date(
+                                next_year as i32,
+                                time::Month::try_from(self.month.min() as u8).ok()?,
+                                1
+                            ).ok()?,
+                            time::Time::from_hms(0, 0, 0).ok()?
+                        )
                     }
                 };
                 continue;
             }
 
             if !self.matches_day(dt) {
-                dt = (dt.date() + Duration::days(1)).and_hms_opt(0, 0, 0)?;
+                dt = (dt.date() + Duration::from_hours(24))
+                    .with_hms(0, 0, 0)
+                    .ok()?
+                    .as_utc();
                 continue;
             }
 
-            if !self.hour.matches(dt.hour()) {
-                dt = match self.hour.next_valid(dt.hour(), 23) {
-                    Some(next_hour) => dt.date().and_hms_opt(next_hour, 0, 0)?,
-                    None => (dt.date() + Duration::days(1)).and_hms_opt(0, 0, 0)?,
+            if !self.hour.matches(dt.hour() as u32) {
+                dt = match self.hour.next_valid(dt.hour() as u32, 23) {
+                    Some(next_hour) => dt.date().with_hms(next_hour as u8, 0, 0).ok()?.as_utc(),
+                    None => (dt.date() + Duration::from_hours(24)).with_hms(0, 0, 0).ok()?.as_utc(),
                 };
                 continue;
             }
 
-            if !self.minute.matches(dt.minute()) {
-                dt = match self.minute.next_valid(dt.minute(), 59) {
-                    Some(next_minute) => dt.date().and_hms_opt(dt.hour(), next_minute, 0)?,
+            if !self.minute.matches(dt.minute() as u32) {
+                dt = match self.minute.next_valid(dt.minute() as u32, 59) {
+                    Some(next_minute) => dt.date().with_hms(dt.hour(), next_minute as u8, 0).ok()?.as_utc(),
                     None => {
-                        let next_hour = self.hour.next_valid(dt.hour() + 1, 23);
+                        let next_hour = self.hour.next_valid((dt.hour() + 1) as u32, 23);
                         match next_hour {
                             Some(hour) => {
                                 dt.date()
-                                    .and_hms_opt(hour, self.minute.min(), 0)?
+                                    .with_hms(hour as u8, self.minute.min() as u8, 0)
+                                    .ok()?
+                                    .as_utc()
                             }
-                            None => (dt.date() + Duration::days(1)).and_hms_opt(0, 0, 0)?,
+                            None => (dt.date() + Duration::from_hours(24))
+                                .with_hms(0, 0, 0)
+                                .ok()?
+                                .as_utc(),
                         }
                     }
                 };
                 continue;
             }
 
-            if !self.seconds.matches(dt.second()) {
-                dt = match self.seconds.next_valid(dt.second(), 59) {
+            if !self.seconds.matches(dt.second() as u32) {
+                dt = match self.seconds.next_valid(dt.second() as u32, 59) {
                     Some(next_second) => {
                         dt.date()
-                            .and_hms_opt(dt.hour(), dt.minute(), next_second)?
+                            .with_hms(dt.hour(), dt.minute(), next_second as u8)
+                            .ok()?
+                            .as_utc()
                     }
                     None => {
-                        let next_minute = self.minute.next_valid(dt.minute() + 1, 59);
+                        let next_minute = self.minute.next_valid(dt.minute() as u32 + 1, 59);
                         if let Some(minute) = next_minute {
-                            dt.date().and_hms_opt(
+                            dt.date().with_hms(
                                 dt.hour(),
-                                minute,
-                                self.seconds.min(),
-                            )?
-                        } else if let Some(hour) = self.hour.next_valid(dt.hour() + 1, 23) {
-                            dt.date().and_hms_opt(
-                                hour,
-                                self.minute.min(),
-                                self.seconds.min(),
-                            )?
+                                minute as u8,
+                                self.seconds.min() as u8,
+                            ).ok()?.as_utc()
+                        } else if let Some(hour) = self.hour.next_valid(dt.hour() as u32 + 1, 23) {
+                            dt.date().with_hms(
+                                hour as u8,
+                                self.minute.min() as u8,
+                                self.seconds.min() as u8,
+                            ).ok()?.as_utc()
                         } else {
-                            (dt.date() + Duration::days(1)).and_hms_opt(0, 0, 0)?
+                            (dt.date() + Duration::from_hours(24))
+                                .with_hms(0, 0, 0)
+                                .ok()?
+                                .as_utc()
                         }
                     }
                 };
                 continue;
             }
 
-            return Some(dt);
+            return Some(SystemTime::from(dt));
         }
     }
 
@@ -598,13 +626,13 @@ impl TaskScheduleCron {
             .map(|y| y + 2026)
     }
 
-    fn matches_day(&self, dt: NaiveDateTime) -> bool {
+    fn matches_day(&self, dt: UtcDateTime) -> bool {
         let day_matches = matches!(self.day_of_month, CronField::Unspecified)
-            || self.day_of_month.matches(dt.day());
+            || self.day_of_month.matches(dt.day() as u32);
         let weekday_matches = matches!(self.day_of_week, CronField::Unspecified)
             || self
                 .day_of_week
-                .matches(dt.weekday().num_days_from_sunday() + 1);
+                .matches((dt.weekday().number_days_from_sunday() + 1) as u32);
 
         let dom_specified = !matches!(self.day_of_month, CronField::Unspecified);
         let dow_specified = !matches!(self.day_of_week, CronField::Unspecified);
@@ -696,22 +724,9 @@ impl FromStr for TaskScheduleCron {
 #[async_trait]
 impl TaskTrigger for TaskScheduleCron {
     async fn trigger(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
-        let duration = time.duration_since(std::time::UNIX_EPOCH)?;
-        let secs = duration.as_secs();
-        let nanos = duration.subsec_nanos();
-
-        let chrono_dt =
-            chrono::DateTime::from_timestamp(secs as i64, nanos).ok_or("Invalid timestamp")?;
-        let dt = chrono_dt.naive_utc();
-
-        let next_dt = self
-            .next_time_from(dt)
-            .ok_or("No valid scheduling time found")?;
-
-        let next_timestamp = next_dt.and_utc().timestamp();
-        let next_system_time =
-            std::time::UNIX_EPOCH + std::time::Duration::from_secs(next_timestamp as u64);
-
-        Ok(next_system_time)
+        Ok(
+            self.next_time_from(time)
+                .ok_or("No valid scheduling time found")?
+        )
     }
 }

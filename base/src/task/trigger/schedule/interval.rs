@@ -108,6 +108,7 @@ use crate::task::TaskTrigger;
 pub struct TaskScheduleInterval(pub(crate) Duration);
 
 impl TaskScheduleInterval {
+    #[cfg(feature = "chrono")]
     /// A constructor for [`TaskScheduleInterval`] via a [`chrono::TimeDelta`].
     ///
     /// # Argument(s)
@@ -159,6 +160,45 @@ impl TaskScheduleInterval {
         Ok(Self(interval.to_std().map_err(|_| {
             StandardCoreErrorsCG::IntervalTimedeltaOutOfRange
         })?))
+    }
+
+    /// A constructor for [`TaskScheduleInterval`] via a [`time::Duration`].
+    ///
+    /// # Argument(s)
+    /// It accepts one argument and that being [`time::Duration`] which represents the
+    /// interval-basis the [`TaskScheduleInterval`] will use.
+    ///
+    /// # Returns
+    /// The newly constructed [`TaskScheduleInterval`] from the [`time::Duration`] argument.
+    ///
+    /// # Example(s)
+    /// ```rust
+    /// use chronographer_base::task::TaskScheduleInterval;
+    /// use std::time::Duration;
+    /// # use chronographer_base::errors::StandardCoreErrorsCG;
+    ///
+    /// # fn main() -> Result<(), StandardCoreErrorsCG> {
+    /// let dur = time::Duration::seconds(34);
+    /// let interval = TaskScheduleInterval::time_duration(dur);
+    /// let interval_dur: Duration = interval.into();
+    ///
+    /// assert_eq!(interval_dur, Duration::from_secs(34));
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskScheduleInterval`] - The main source which the constructor method is part of.
+    /// - [`TaskScheduleInterval::timedelta`] - A similar constructor but for [`chrono::TimeDelta`]
+    /// - [`TaskScheduleInterval::from_secs`] - A simpler constructor for integer second-based intervals.
+    /// - [`TaskScheduleInterval::from_secs_f64`] - A simpler constructor for floating point second-based intervals.
+    /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
+    pub fn time_duration(interval: time::Duration) -> Result<Self, StandardCoreErrorsCG> {
+        if interval.is_negative() || interval.is_zero()  {
+            return Err(StandardCoreErrorsCG::IntervalSecondsOutOfRange)
+        }
+
+        Ok(Self(Duration::try_from(interval).unwrap()))
     }
 
     /// A constructor for [`TaskScheduleInterval`] via a [`Duration`].

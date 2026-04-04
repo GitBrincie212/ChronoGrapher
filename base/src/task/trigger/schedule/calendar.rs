@@ -1,4 +1,3 @@
-use chrono::{DateTime, Datelike, Local, LocalResult, NaiveDate, TimeZone, Timelike, Utc};
 use std::error::Error;
 use std::fmt::Debug;
 use std::ops::{Bound, Deref, RangeBounds};
@@ -261,48 +260,6 @@ calendar_builder_method!(second, Second);
 
 calendar_builder_method!(millisecond, Millisecond);
 
-#[inline(always)]
-fn last_day_of_month(year: i32, month: u32) -> u32 {
-    let (next_year, next_month) = if month == 12 {
-        (year + 1, 1)
-    } else {
-        (year, month + 1)
-    };
-    (NaiveDate::from_ymd_opt(next_year, next_month, 1).unwrap() - chrono::Duration::days(1)).day()
-}
-
-#[inline]
-fn rebuild_datetime_from_parts(
-    year: i32,
-    month: u32,
-    day: u32,
-    hour: u32,
-    minute: u32,
-    second: u32,
-    millisecond: u32,
-) -> DateTime<Local> {
-    let day = std::cmp::min(day, last_day_of_month(year, month));
-    let naive = NaiveDate::from_ymd_opt(year, month, day)
-        .unwrap()
-        .and_hms_milli_opt(hour, minute, second, millisecond)
-        .expect("Invalid timestamp");
-
-    match Local.from_local_datetime(&naive) {
-        LocalResult::Single(dt) => dt,
-        LocalResult::Ambiguous(dt1, _) => dt1,
-        LocalResult::None => {
-            let mut candidate = naive;
-            for _ in 0..10 {
-                candidate += chrono::Duration::minutes(1);
-                if let LocalResult::Single(dt) = Local.from_local_datetime(&candidate) {
-                    return dt;
-                }
-            }
-            Utc.from_utc_datetime(&naive).with_timezone(&Local)
-        }
-    }
-}
-
 #[async_trait]
 impl<
     Year: TaskCalendarField + 'static,
@@ -315,7 +272,7 @@ impl<
 > TaskTrigger for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
 {
     async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
-        let time = DateTime::<Utc>::from(now);
+        let time = time::UtcDateTime::from(now);
         let mut fields: [&dyn TaskCalendarField; 7] = [
             &self.millisecond,
             &self.second,
@@ -327,12 +284,12 @@ impl<
         ];
 
         let dates: &mut [u32] = &mut [
-            time.timestamp_subsec_millis(),
-            time.second(),
-            time.minute(),
-            time.hour(),
-            time.day0(),
-            time.month0(),
+            time.millisecond() as u32,
+            time.second() as u32,
+            time.minute() as u32,
+            time.hour() as u32,
+            time.day() as u32,
+            (time.month() as u32) - 1,
             time.year() as u32,
         ];
 
@@ -340,15 +297,28 @@ impl<
             field.evaluate(dates, idx)
         }
 
-        let modified = rebuild_datetime_from_parts(
-            dates[6] as i32,
-            dates[5] + 1,
-            dates[4] + 1,
-            dates[3],
-            dates[2],
-            dates[1],
-            dates[0],
+        let month = match dates[5] % 12 {
+            0 => time::Month::January,
+            1 => time::Month::February,
+            2 => time::Month::March,
+            3 => time::Month::April,
+            4 => time::Month::May,
+            5 => time::Month::June,
+            6 => time::Month::July,
+            7 => time::Month::August,
+            8 => time::Month::September,
+            9 => time::Month::October,
+            10 => time::Month::November,
+            11 => time::Month::December,
+            _ => {unreachable!()}
+        };
+
+        let date = time::UtcDateTime::new(
+            time::Date::from_calendar_date(dates[6] as i32, month, dates[4] as u8)?,
+            time::Time::from_hms(dates[3] as u8, dates[2] as u8, dates[1] as u8)?
+                .replace_millisecond(dates[0] as u16)?
         );
-        Ok(SystemTime::from(modified))
+
+        Ok(SystemTime::from(date))
     }
 }
