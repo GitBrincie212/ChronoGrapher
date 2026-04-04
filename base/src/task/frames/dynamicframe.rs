@@ -28,14 +28,3 @@ where
         self.0(ctx).await
     }
 }
-
-#[cfg(feature = "macros")]
-#[macro_export]
-macro_rules! dynamic_taskframe {
-    ($block: block) => {{
-        DynamicTaskFrame::new(|taskframe_ctx| async {
-            $block;
-            Ok(())
-        })
-    }};
-}

@@ -3,6 +3,18 @@ pub use chronographer_base::*;
 #[cfg(feature = "macros")]
 pub use chronographer_macros::*;
 
+#[cfg(feature = "macros")]
+#[macro_export]
+macro_rules! dynamic_taskframe {
+    ($block: block) => {{
+        DynamicTaskFrame::new(|taskframe_ctx| async {
+            $block;
+            Ok(())
+        })
+    }};
+}
+
+
 pub mod prelude {
     #[cfg(feature = "macros")]
     // Macros
