@@ -67,12 +67,14 @@ where
 
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
-    async fn retrieve(&self) -> Vec<C::TaskIdentifier> {
-        loop {
-            if let Some(res) = self.get_result_queue.0.pop() {
-                return res;
+    fn retrieve(&self) -> impl Future<Output = Vec<C::TaskIdentifier>> + Send {
+        async move {
+            loop {
+                if let Some(res) = self.get_result_queue.0.pop() {
+                    return res;
+                }
+                self.get_result_queue.1.notified().await;
             }
-            self.get_result_queue.1.notified().await;
         }
     }
 
@@ -84,20 +86,22 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
         self.clock.as_ref()
     }
 
-    async fn schedule(
+    fn schedule(
         &self,
         id: &C::TaskIdentifier,
         time: SystemTime,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let now = self.clock.now();
-        self.command_batch.push(WheelCommand::Insert(
-            id.clone(),
-            time.duration_since(now).unwrap_or(Duration::ZERO),
-        ));
-        Ok(())
+    ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send {
+        async move {
+            let now = self.clock.now();
+            self.command_batch.push(WheelCommand::Insert(
+                id.clone(),
+                time.duration_since(now).unwrap_or(Duration::ZERO),
+            ));
+            Ok(())
+        }
     }
 
-    async fn clear(&self) {
-        self.command_batch.push(WheelCommand::Clear);
+    fn clear(&self) -> impl Future<Output = ()> + Send {
+        async move { self.command_batch.push(WheelCommand::Clear) }
     }
 }

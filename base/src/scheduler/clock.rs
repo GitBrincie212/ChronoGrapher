@@ -15,7 +15,7 @@ pub trait SchedulerClock: 'static + Send + Sync {
 
     async fn idle_to(&self, to: SystemTime);
 
-    async fn tick(&self);
+    fn tick(&self)  -> impl Future<Output = ()> + Send;
 }
 
 #[async_trait]
@@ -32,8 +32,8 @@ where
         self.deref().idle_to(to).await
     }
 
-    async fn tick(&self) {
-        self.deref().tick().await
+    fn tick(&self) -> impl Future<Output = ()> + Send {
+        self.deref().tick()
     }
 }
 

@@ -109,7 +109,7 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
         }
 
         if total == self.threshold.get() && ctx.depth == 0 {
-            ctx.instruct_block().await;
+            ctx.instruct_block();
         }
 
         res

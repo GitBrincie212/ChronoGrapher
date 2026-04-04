@@ -29,50 +29,42 @@ macro_rules! assert_approx {
 #[tokio::test]
 async fn test_initial_epoch() {
     let clock = VirtualClock::from_epoch();
-    let scheduler_clock: &dyn SchedulerClock = &clock;
-    assert_approx!(scheduler_clock.now(), UNIX_EPOCH, EPSILON);
+    assert_approx!(clock.now(), UNIX_EPOCH, EPSILON);
 }
 
 #[tokio::test]
 async fn test_custom_time() {
     let time0 = UNIX_EPOCH + Duration::from_secs(45);
     let clock = VirtualClock::new(time0);
-    let scheduler_clock: &dyn SchedulerClock = &clock;
-    assert_approx!(scheduler_clock.now(), time0, EPSILON);
+    assert_approx!(clock.now(), time0, EPSILON);
 }
 
 #[tokio::test]
 async fn test_advance() {
     let clock = VirtualClock::from_epoch();
-    let scheduler_clock: &dyn SchedulerClock = &clock;
-    let advanceable_clock: &dyn AdvanceableSchedulerClock = &clock;
-    advanceable_clock.advance(Duration::from_secs(1));
-    assert_eq!(scheduler_clock.now(), UNIX_EPOCH + Duration::from_secs(1));
-    advanceable_clock.advance(Duration::from_secs(100));
-    assert_eq!(scheduler_clock.now(), UNIX_EPOCH + Duration::from_secs(101));
+    clock.advance(Duration::from_secs(1));
+    assert_eq!(clock.now(), UNIX_EPOCH + Duration::from_secs(1));
+    clock.advance(Duration::from_secs(100));
+    assert_eq!(clock.now(), UNIX_EPOCH + Duration::from_secs(101));
 }
 
 #[tokio::test]
 async fn test_advance_to() {
     let clock = VirtualClock::from_epoch();
-    let advanceable_clock: &dyn AdvanceableSchedulerClock = &clock;
-    let scheduler_clock: &dyn SchedulerClock = &clock;
     let target = UNIX_EPOCH + Duration::from_secs(19);
-    advanceable_clock.advance_to(target);
-    assert_approx!(scheduler_clock.now(), target, EPSILON);
+    clock.advance_to(target);
+    assert_approx!(clock.now(), target, EPSILON);
     let target = UNIX_EPOCH + Duration::from_secs(235);
-    advanceable_clock.advance_to(target);
-    assert_approx!(scheduler_clock.now(), target, EPSILON);
+    clock.advance_to(target);
+    assert_approx!(clock.now(), target, EPSILON);
 }
 
 #[tokio::test]
 async fn test_idle_to_simple_no_arc() {
     let clock = VirtualClock::from_epoch();
     let target = UNIX_EPOCH + Duration::from_secs(5);
-    let scheduler_clock: &dyn SchedulerClock = &clock;
-    let advanceable_clock: &dyn AdvanceableSchedulerClock = &clock;
-    advanceable_clock.advance(Duration::from_secs(5));
-    scheduler_clock.idle_to(target).await;
-    let now = scheduler_clock.now();
+    clock.advance(Duration::from_secs(5));
+    clock.idle_to(target).await;
+    let now = clock.now();
     assert_approx!(now, target, EPSILON);
 }

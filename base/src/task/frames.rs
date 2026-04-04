@@ -47,9 +47,9 @@ pub struct TaskFrameContext<'a>(pub(crate) RestrictTaskFrameContext<'a>);
 
 macro_rules! instruct_method {
     ($name: ident, $variant: ident) => {
-        pub async fn $name(&self) {
+        pub fn $name(&self) {
             let hook = self.get_hook::<(), SchedulerHandle>().expect("The SchedulerHandle isn't present when its supposed to be");
-            hook.instruct(SchedulerHandleInstructions::$variant).await;
+            hook.instruct(SchedulerHandleInstructions::$variant);
         }
     };
 }

@@ -46,7 +46,7 @@ impl SchedulerClock for ProgressiveClock {
         tokio::time::sleep(duration).await;
     }
 
-    async fn tick(&self) {
-        self.0.notified().await
+    fn tick(&self) -> impl Future<Output = ()> + Send {
+        self.0.notified()
     }
 }

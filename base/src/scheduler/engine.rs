@@ -9,19 +9,21 @@ use std::time::SystemTime;
 
 #[async_trait]
 pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
-    async fn retrieve(&self) -> Vec<C::TaskIdentifier>;
+    fn init(&self) -> impl Future<Output = ()> + Send {
+        async move {}
+    }
+
+    fn retrieve(&self) -> impl Future<Output = Vec<C::TaskIdentifier>> + Send;
     
     fn is_empty(&self) -> bool;
 
-    async fn init(&self) {}
-
     fn clock(&self) -> &C::SchedulerClock;
 
-    async fn schedule(
+    fn schedule(
         &self,
         id: &C::TaskIdentifier,
         time: SystemTime,
-    ) -> Result<(), Box<dyn Error + Send + Sync>>;
+    ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send;
     
-    async fn clear(&self);
+    fn clear(&self) -> impl Future<Output = ()> + Send;
 }

@@ -54,17 +54,19 @@ impl SchedulerClock for VirtualClock {
         }
     }
 
-    async fn tick(&self) {
-        let res = self.ticks_buff.load(Ordering::Relaxed);
-        if res > 0 {
-            self.ticks_buff.fetch_sub(1, Ordering::Relaxed);
-            return;
+    fn tick(&self) -> impl Future<Output = ()> + Send {
+        async move {
+            let res = self.ticks_buff.load(Ordering::Relaxed);
+            if res > 0 {
+                self.ticks_buff.fetch_sub(1, Ordering::Relaxed);
+                return;
+            }
+            let prev = self.current_time.load(Ordering::Relaxed);
+            self.notify.notified().await;
+            let now = self.current_time.load(Ordering::Relaxed);
+            self.ticks_buff
+                .fetch_add((now - prev).saturating_sub(1), Ordering::Relaxed);   
         }
-        let prev = self.current_time.load(Ordering::Relaxed);
-        self.notify.notified().await;
-        let now = self.current_time.load(Ordering::Relaxed);
-        self.ticks_buff
-            .fetch_add((now - prev).saturating_sub(1), Ordering::Relaxed);
     }
 }
 

@@ -319,11 +319,11 @@ impl TaskHooksPromotion {
 pub(crate) struct TaskHookContainer(pub DashMap<(TypeId, usize), TaskHooksPromotion>);
 
 impl TaskHookContainer {
-    pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(
+    pub fn attach<E: TaskHookEvent, T: TaskHook<E>>(
         &self,
         ctx: &TaskHookContext<'_>,
         hook: Arc<T>,
-    ) {
+    ) -> impl Future<Output = ()> + Send {
         let hook_id = TypeId::of::<T>();
         let erased_hook: &'static dyn ErasedTaskHook =
             Box::leak(Box::new(ErasedTaskHookWrapper::<E>::new(hook.clone())));
@@ -332,8 +332,9 @@ impl TaskHookContainer {
             .or_insert(TaskHooksPromotion::Empty)
             .promote(hook_id, erased_hook);
 
-        self.emit::<OnHookAttach<E>>(ctx, &(hook.as_ref() as &dyn TaskHook<E>))
-            .await;
+        async move {
+            self.emit::<OnHookAttach<E>>(ctx, &(hook.as_ref() as &dyn TaskHook<E>)).await;
+        }
     }
 
     pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self, instance_id: usize) -> Option<Arc<T>> {

@@ -20,7 +20,7 @@ pub struct SchedulerHandle {
 }
 
 impl SchedulerHandle {
-    pub(crate) async fn instruct(&self, instruction: SchedulerHandleInstructions) {
+    pub(crate) fn instruct(&self, instruction: SchedulerHandleInstructions) {
         self.channel.0.push((self.id.clone(), instruction));
         self.channel.1.notify_waiters();
     }
@@ -29,17 +29,19 @@ impl SchedulerHandle {
 impl TaskHook<()> for SchedulerHandle {}
 
 #[inline(always)]
-pub async fn append_scheduler_handler<C: SchedulerConfig>(
+pub fn append_scheduler_handler<C: SchedulerConfig> (
     task: &ErasedTask<C::TaskError>,
     id: C::TaskIdentifier,
     channel: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
-) {
+) -> impl Future<Output = ()> + Send {
     let handle = SchedulerHandle {
         id: Arc::new(id),
         channel,
     };
 
-    task.attach_hook::<()>(Arc::new(handle)).await;
+    async move {
+        task.attach_hook::<()>(Arc::new(handle)).await;
+    }
 }
 
 #[inline(always)]
@@ -48,7 +50,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     dispatcher: &Arc<C::SchedulerTaskDispatcher>,
     store: &Arc<C::SchedulerTaskStore>,
     workers: &Arc<Vec<SchedulerWorker<C>>>,
-) -> impl Future<Output = ()> + 'static {
+) -> impl Future<Output = ()> + Send + 'static {
     let dispatcher = dispatcher.clone();
     let store = store.clone();
     let workers = workers.clone();

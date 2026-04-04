@@ -13,7 +13,9 @@ use std::ops::Deref;
 pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     type StoredTask: Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static;
 
-    async fn init(&self) {}
+    fn init(&self) -> impl Future<Output = ()> + Send {
+        async move {}
+    }
 
     fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask>;
 

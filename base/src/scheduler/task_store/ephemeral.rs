@@ -19,9 +19,7 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
 #[async_trait]
 impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
     type StoredTask = Arc<ErasedTask<C::TaskError>>;
-
-    async fn init(&self) {}
-
+    
     fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask> {
         self.0.get(idx).map(|x| x.value().clone())
     }
