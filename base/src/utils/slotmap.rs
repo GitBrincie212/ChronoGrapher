@@ -122,10 +122,10 @@ where
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        Self::with_shads_and_capacity(calculate_shards(), capacity)
+        Self::with_shards_and_capacity(calculate_shards(), capacity)
     }
 
-    pub fn with_shads_and_capacity(shard_count: usize, capacity: usize) -> Self {
+    pub fn with_shards_and_capacity(shard_count: usize, capacity: usize) -> Self {
         let base = capacity / shard_count;
         let remainder = capacity % shard_count;
 
