@@ -21,13 +21,13 @@ thiserror = "2.0.16"
 typed-builder = "0.23.0"
 tokio = { version = "1.47.1", features = ["time", "rt-multi-thread", "macros", "sync"] }
 fastrand = "2.3.0"
-dashmap = { version = "7.0.0-rc2" }
-time = { version = "0.3.47", features = ["std"] }
+dashmap = { version = "7.0.0-rc2", features = ["inline-more"] }
+time = "0.3.47"
 chrono = { version = "0.4.41", features = ["now"], optional = true }
 anyhow = { version = "1.0.101" , features = ["std"], optional = true }
 eyre = {version = "0.6.12", optional = true}
 uuid = { version = "1.18.1", features = ["v4"], optional = true }
-crossbeam = { version = "0.8.4", features = ["std"] }
+crossbeam = "0.8.4"
 haphazard = "0.1.8"
 
 [features]
@@ -36,4 +36,3 @@ anyhow = ["dep:anyhow"]
 eyre = ["dep:eyre"]
 uuid = ["dep:uuid"]
 chrono = ["dep:chrono"]
-# chrono = ["dep:chrono"]
