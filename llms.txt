@@ -1,8 +1,22 @@
 # ChronoGrapher
 
-> A unified job scheduling and workflow orchestration platform that brings together multiple programming languages (Rust, Python, TypeScript/JavaScript, Java) under a single, extensible API. Built with Rust for performance and durability, ChronoGrapher provides crash-resistant task scheduling with state persistence.
+> A unified job scheduling and workflow orchestration platform that brings together multiple programming languages
+(Rust, Python, TypeScript/JavaScript, Java) under a single, extensible API. Built with Rust for performance and durability,
+ChronoGrapher provides crash-resistant task scheduling with state persistence.
 
-ChronoGrapher solves the fragmentation problem in modern polyglot applications where each language requires its own scheduling ecosystem. Instead of managing multiple schedulers (Airflow for Python, BullMQ for Node.js, etc.), ChronoGrapher provides one unified solution that scales from single machines to distributed clusters.
+ChronoGrapher solves multiple problems including but not limited to:
+- **Fragmentation** In modern polyglot applications where each language requires its own scheduling ecosystem.
+  Instead of managing multiple schedulers for example Apache Airflow for Python, BullMQ for Node.js, etc...
+  ChronoGrapher provides a unified solution integrating seamlessly to each programming language's ecosystem.
+
+- **Developer Experience & Bloat** Many schedulers often times don't feel intuitive to work with, many complex systems
+  which often times overlap with each other, hacky workarounds required for some behavior, and outdated
+  documentation and infrastructure. ChronoGrapher ensures to deliver high quality documentation and extensible
+  infrastructure with a smaller, minimal but emergent feature set over a huge, complex and predefined set.
+
+- **Scalability** Other solutions are restricted to only one level, either bloated & complex but most scalable or barebones
+  but unscalable. ChronoGrapher aims to unify these levels, providing one framework which scales with you throughout by
+  embedding extensions to enhance the capabilities.
 
 Key features:
 - **Multi-language SDKs** with consistent APIs across Rust, Python, TypeScript/JavaScript, and Java
