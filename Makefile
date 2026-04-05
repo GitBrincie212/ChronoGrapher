@@ -10,6 +10,10 @@ build:
 	cargo build --all-features
 
 test:
-	cargo test --all-features
+	cd tests && cargo test --all-features && cd ..
 
-ci: fmt clippy build test
+bench:
+	cd benches && cargo bench && cd ..
+
+ci:
+	fmt clippy build test
