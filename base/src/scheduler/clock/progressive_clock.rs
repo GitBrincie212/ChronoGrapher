@@ -1,7 +1,6 @@
 use crate::scheduler::clock::SchedulerClock;
 #[allow(unused_imports)]
 use crate::scheduler::clock::VirtualClock;
-use async_trait::async_trait;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::Notify;
@@ -28,22 +27,16 @@ impl Default for ProgressiveClock {
     }
 }
 
-#[async_trait]
 impl SchedulerClock for ProgressiveClock {
     fn now(&self) -> SystemTime {
         SystemTime::now()
     }
 
-    async fn idle_to(&self, to: SystemTime) {
+    fn idle_to(&self, to: SystemTime) -> impl Future<Output = ()> + Send {
         let now = SystemTime::now();
-        let duration = match to.duration_since(now) {
-            Ok(duration) => duration,
-            Err(_) => {
-                return;
-            }
-        };
+        let duration = to.duration_since(now).unwrap_or(Duration::ZERO);
 
-        tokio::time::sleep(duration).await;
+        tokio::time::sleep(duration)
     }
 
     fn tick(&self) -> impl Future<Output = ()> + Send {

@@ -7,7 +7,7 @@ use std::ops::Deref;
 
 pub trait SchedulerTaskDispatcher<C: SchedulerConfig>: 'static + Send + Sync {
     fn init(&self) -> impl Future<Output = ()> + Send {
-        async move {}
+        std::future::ready(())
     }
 
     fn dispatch(

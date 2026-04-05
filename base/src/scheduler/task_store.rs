@@ -4,17 +4,15 @@ pub mod ephemeral;
 use crate::scheduler::SchedulerConfig;
 #[allow(unused_imports)]
 use crate::task::ErasedTask;
-use async_trait::async_trait;
 pub use ephemeral::*;
 use std::error::Error;
 use std::ops::Deref;
 
-#[async_trait]
 pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
     type StoredTask: Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static;
 
     fn init(&self) -> impl Future<Output = ()> + Send {
-        async move {}
+        std::future::ready(())
     }
 
     fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask>;

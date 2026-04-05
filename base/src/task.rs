@@ -62,40 +62,40 @@ impl<E: TaskError> ErasedTask<E> {
         self.trigger.as_ref()
     }
 
-    pub fn attach_hook<EV: TaskHookEvent>(
+    pub async fn attach_hook<EV: TaskHookEvent>(
         &self, hook: Arc<impl TaskHook<EV>>
-    ) -> impl Future<Output = ()> + Send {
+    ) {
         let ctx = TaskHookContext {
             depth: 0,
             instance_id: self.instance_id,
             frame: self.frame.erased(),
         };
 
-        async move { ctx.attach_hook(hook).await; }
+        ctx.attach_hook(hook).await;
     }
 
     pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
         TASKHOOK_REGISTRY.get::<EV, T>(self.instance_id)
     }
 
-    pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output = ()> + Send {
+    pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
         let ctx = TaskHookContext {
             instance_id: self.instance_id,
             depth: 0,
             frame: self.frame.erased(),
         };
 
-        async move { ctx.emit::<EV>(payload).await; }
+        ctx.emit::<EV>(payload).await;
     }
 
-    pub fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output = ()> + Send {
+    pub async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) {
         let ctx = TaskHookContext {
             instance_id: self.instance_id,
             depth: 0,
             frame: self.frame.erased(),
         };
 
-        async move { ctx.detach_hook::<EV, T>().await; }
+        ctx.detach_hook::<EV, T>().await;
     }
 }
 
@@ -124,37 +124,37 @@ impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
         &self.trigger
     }
 
-    pub fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output = ()> + Send {
+    pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
         let ctx = TaskHookContext {
             instance_id: self.instance_id,
             depth: 0,
             frame: &self.frame,
         };
 
-        async move { ctx.attach_hook(hook).await; }
+        ctx.attach_hook(hook).await;
     }
 
     pub fn get_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
         TASKHOOK_REGISTRY.get::<EV, T>(self.instance_id)
     }
 
-    pub fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output = ()> + Send {
+    pub async fn emit_hook_event<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
         let ctx = TaskHookContext {
             instance_id: self.instance_id,
             depth: 0,
             frame: &self.frame,
         };
 
-        async move { ctx.emit::<EV>(payload).await; }
+        ctx.emit::<EV>(payload).await;
     }
 
-    pub fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output = ()> + Send  {
+    pub async fn detach_hook<EV: TaskHookEvent, T: TaskHook<EV>>(&self) {
         let ctx = TaskHookContext {
             instance_id: self.instance_id,
             depth: 0,
             frame: &self.frame,
         };
 
-        async move { ctx.detach_hook::<EV, T>().await; }
+        ctx.detach_hook::<EV, T>().await;
     }
 }

@@ -41,7 +41,6 @@ impl VirtualClock {
     }
 }
 
-#[async_trait]
 impl SchedulerClock for VirtualClock {
     fn now(&self) -> SystemTime {
         let now = self.current_time.load(Ordering::Relaxed);
@@ -54,29 +53,22 @@ impl SchedulerClock for VirtualClock {
         }
     }
 
-    fn tick(&self) -> impl Future<Output = ()> + Send {
-        async move {
-            let res = self.ticks_buff.load(Ordering::Relaxed);
-            if res > 0 {
-                self.ticks_buff.fetch_sub(1, Ordering::Relaxed);
-                return;
-            }
-            let prev = self.current_time.load(Ordering::Relaxed);
-            self.notify.notified().await;
-            let now = self.current_time.load(Ordering::Relaxed);
-            self.ticks_buff
-                .fetch_add((now - prev).saturating_sub(1), Ordering::Relaxed);   
+    async fn tick(&self) {
+        let res = self.ticks_buff.load(Ordering::Relaxed);
+        if res > 0 {
+            self.ticks_buff.fetch_sub(1, Ordering::Relaxed);
+            return;
         }
+        let prev = self.current_time.load(Ordering::Relaxed);
+        self.notify.notified().await;
+        let now = self.current_time.load(Ordering::Relaxed);
+        self.ticks_buff
+            .fetch_add((now - prev).saturating_sub(1), Ordering::Relaxed);
     }
 }
 
 #[async_trait]
 impl AdvanceableSchedulerClock for VirtualClock {
-    fn advance(&self, duration: Duration) {
-        let now = <VirtualClock as SchedulerClock>::now(self);
-        <VirtualClock as AdvanceableSchedulerClock>::advance_to(self, now + duration)
-    }
-
     fn advance_to(&self, to: SystemTime) {
         let to_millis = to
             .duration_since(SystemTime::UNIX_EPOCH)

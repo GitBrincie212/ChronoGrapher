@@ -2,7 +2,6 @@ use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
 use crate::utils::hierarchical_timing_wheel::HierarchicalTimingWheel;
-use async_trait::async_trait;
 use crossbeam::queue::SegQueue;
 use std::error::Error;
 use std::sync::Arc;
@@ -65,9 +64,8 @@ where
     }
 }
 
-#[async_trait]
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
-    fn retrieve(&self) -> impl Future<Output = Vec<C::TaskIdentifier>> + Send {
+    fn retrieve(&self) -> impl Future<Output = Vec<C::TaskIdentifier>> {
         async move {
             loop {
                 if let Some(res) = self.get_result_queue.0.pop() {
@@ -91,17 +89,16 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
         id: &C::TaskIdentifier,
         time: SystemTime,
     ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send {
-        async move {
-            let now = self.clock.now();
-            self.command_batch.push(WheelCommand::Insert(
-                id.clone(),
-                time.duration_since(now).unwrap_or(Duration::ZERO),
-            ));
-            Ok(())
-        }
+        let now = self.clock.now();
+        self.command_batch.push(WheelCommand::Insert(
+            id.clone(),
+            time.duration_since(now).unwrap_or(Duration::ZERO),
+        ));
+        std::future::ready(Ok(()))
     }
 
     fn clear(&self) -> impl Future<Output = ()> + Send {
-        async move { self.command_batch.push(WheelCommand::Clear) }
+        self.command_batch.push(WheelCommand::Clear);
+        std::future::ready(())
     }
 }

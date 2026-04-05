@@ -1,7 +1,6 @@
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::ErasedTask;
-use async_trait::async_trait;
 use dashmap::DashMap;
 use std::error::Error;
 use std::sync::Arc;
@@ -16,7 +15,6 @@ impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     }
 }
 
-#[async_trait]
 impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C> {
     type StoredTask = Arc<ErasedTask<C::TaskError>>;
     

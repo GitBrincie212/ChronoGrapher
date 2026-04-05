@@ -39,9 +39,7 @@ pub fn append_scheduler_handler<C: SchedulerConfig> (
         channel,
     };
 
-    async move {
-        task.attach_hook::<()>(Arc::new(handle)).await;
-    }
+    task.attach_hook::<()>(Arc::new(handle))
 }
 
 #[inline(always)]

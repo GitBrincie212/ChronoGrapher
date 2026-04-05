@@ -158,115 +158,113 @@ impl<C: SchedulerConfig> Scheduler<C> {
         SchedulerInitConfig::builder()
     }
 
-    pub fn start(&self) -> impl Future<Output = ()> + Send {
-        async move {
-            let process_lock = self.process.read().await;
-            if process_lock.is_some() {
-                return;
-            }
-            drop(process_lock);
+    pub async fn start(&self) {
+        let process_lock = self.process.read().await;
+        if process_lock.is_some() {
+            return;
+        }
+        drop(process_lock);
 
-            let engine_clone = self.engine.clone();
-            let store_clone = self.store.clone();
-            let dispatcher_clone = self.dispatcher.clone();
+        let engine_clone = self.engine.clone();
+        let store_clone = self.store.clone();
+        let dispatcher_clone = self.dispatcher.clone();
 
-            join!(
-                self.store.init(),
-                self.dispatcher.init(),
-                self.engine.init()
-            );
+        join!(
+            self.store.init(),
+            self.dispatcher.init(),
+            self.engine.init()
+        );
 
-            let reschedule_queue =
-                Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
+        let reschedule_queue =
+            Arc::new((SegQueue::<ReschedulePayload<C>>::new(), Notify::new()));
 
-            for idx in 0..self.workers.len() {
-                let workers = self.workers.clone();
-                let store_clone = store_clone.clone();
-                let dispatcher_clone = dispatcher_clone.clone();
-                let engine_clone = engine_clone.clone();
-                let reschedule_queue_clone = reschedule_queue.clone();
-                let worker_len = workers.len();
-                tokio::spawn(async move {
-                    let mut pointing = idx;
-                    for _ in 0..worker_len {
-                        let mut should_continue = true;
-                        while let Some((id, work_type)) = workers[pointing].queue.pop()
-                            && should_continue {
-                            if let Some(task) = store_clone.get(&id) {
-                                should_continue = pointing == idx;
-                                match work_type {
-                                    SchedulerWork::Trigger => {
-                                        let trigger = task.trigger();
-                                        let now = engine_clone.clock().now();
+        for idx in 0..self.workers.len() {
+            let workers = self.workers.clone();
+            let store_clone = store_clone.clone();
+            let dispatcher_clone = dispatcher_clone.clone();
+            let engine_clone = engine_clone.clone();
+            let reschedule_queue_clone = reschedule_queue.clone();
+            let worker_len = workers.len();
+            tokio::spawn(async move {
+                let mut pointing = idx;
+                for _ in 0..worker_len {
+                    let mut should_continue = true;
+                    while let Some((id, work_type)) = workers[pointing].queue.pop()
+                        && should_continue {
+                        if let Some(task) = store_clone.get(&id) {
+                            should_continue = pointing == idx;
+                            match work_type {
+                                SchedulerWork::Trigger => {
+                                    let trigger = task.trigger();
+                                    let now = engine_clone.clock().now();
 
-                                        let time = match trigger.trigger(now).await {
-                                            Ok(time) => {
-                                                time
-                                            }
-                                            Err(err) => {
-                                                eprintln!("Computation error from TaskTrigger: {:?}", err);
-                                                store_clone.remove(&id);
-                                                continue;
-                                            }
-                                        };
-
-                                        match engine_clone.schedule(&id, time).await {
-                                            Ok(()) => {}
-                                            Err(err) => {
-                                                eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                                                store_clone.remove(&id);
-                                            }
+                                    let time = match trigger.trigger(now).await {
+                                        Ok(time) => {
+                                            time
                                         }
+                                        Err(err) => {
+                                            eprintln!("Computation error from TaskTrigger: {:?}", err);
+                                            store_clone.remove(&id);
+                                            continue;
+                                        }
+                                    };
 
-                                        continue;
+                                    match engine_clone.schedule(&id, time).await {
+                                        Ok(()) => {}
+                                        Err(err) => {
+                                            eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                                            store_clone.remove(&id);
+                                        }
                                     }
 
-                                    SchedulerWork::Dispatch => {
-                                        let result = dispatcher_clone.dispatch(&id, task).await;
-                                        reschedule_queue_clone.0.push((id, result.err()));
-                                        reschedule_queue_clone.1.notify_waiters();
-                                        continue;
-                                    }
+                                    continue;
+                                }
+
+                                SchedulerWork::Dispatch => {
+                                    let result = dispatcher_clone.dispatch(&id, task).await;
+                                    reschedule_queue_clone.0.push((id, result.err()));
+                                    reschedule_queue_clone.1.notify_waiters();
+                                    continue;
                                 }
                             }
                         }
-
-                        pointing = fastrand::usize(..worker_len);
                     }
 
-                    workers[idx].notify.notified().await;
-                });
-            }
+                    pointing = fastrand::usize(..worker_len);
+                }
 
-            let reschedule_loop = tokio::spawn(
-                reschedule_logic::<C>(
-                    &reschedule_queue,
-                    &self.workers
-                )
-            );
-
-            let main_loop = tokio::spawn(
-                main_loop_logic::<C>(
-                    &engine_clone,
-                    &self.workers
-                )
-            );
-
-            let scheduler_handle_instructions = tokio::spawn(
-                scheduler_handle_instructions_logic::<C>(
-                    &self.instruction_queue,
-                    &dispatcher_clone,
-                    &store_clone,
-                    &self.workers
-                ),
-            );
-
-            *self.process.write().await = Some((
-                scheduler_handle_instructions,
-                reschedule_loop,
-                main_loop
-            ));
+                workers[idx].notify.notified().await;
+            });
         }
+
+        let reschedule_loop = tokio::spawn(
+            reschedule_logic::<C>(
+                &reschedule_queue,
+                &self.workers
+            )
+        );
+
+        let main_loop = tokio::spawn(
+            main_loop_logic::<C>(
+                &engine_clone,
+                &self.workers
+            )
+        );
+
+        let scheduler_handle_instructions = tokio::spawn(
+            scheduler_handle_instructions_logic::<C>(
+                &self.instruction_queue,
+                &dispatcher_clone,
+                &store_clone,
+                &self.workers
+            ),
+        );
+
+        *self.process.write().await = Some((
+            scheduler_handle_instructions,
+            reschedule_loop,
+            main_loop
+        ));
     }
 
     pub async fn abort(&self) {

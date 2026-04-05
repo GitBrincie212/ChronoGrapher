@@ -3,14 +3,12 @@ pub mod default;
 pub use default::DefaultSchedulerEngine;
 
 use crate::scheduler::SchedulerConfig;
-use async_trait::async_trait;
 use std::error::Error;
 use std::time::SystemTime;
 
-#[async_trait]
 pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
     fn init(&self) -> impl Future<Output = ()> + Send {
-        async move {}
+        std::future::ready(())
     }
 
     fn retrieve(&self) -> impl Future<Output = Vec<C::TaskIdentifier>> + Send;

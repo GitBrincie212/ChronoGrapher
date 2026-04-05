@@ -26,24 +26,23 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C>
     ) -> impl Future<Output = Result<(), C::TaskError>> + Send {
         let notifier = Arc::new(Notify::new());
         self.0.insert(id.clone(), notifier.clone());
-        
+
         async move {
             tokio::select! {
                 result = task.run() => {
                     self.0.remove(id);
                     result
                 }
-
+    
                 _ = notifier.notified() => Ok(()),
             }
         }
     }
 
     fn cancel(&self, id: &C::TaskIdentifier) -> impl Future<Output = ()> + Send {
-        async move {
-            if let Some((_, tok)) = self.0.remove(id) {
-                tok.notify_one()
-            }   
+        if let Some((_, tok)) = self.0.remove(id) {
+            tok.notify_one()
         }
+        std::future::ready(())
     }
 }
