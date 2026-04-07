@@ -12,8 +12,6 @@ mod main_tokio;
 pub static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
 pub async fn benchmark() {
-    let mut last = COUNTER.load(Ordering::Relaxed);
-
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
