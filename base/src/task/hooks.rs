@@ -319,11 +319,11 @@ impl TaskHooksPromotion {
 pub(crate) struct TaskHookContainer(pub DashMap<(TypeId, usize), TaskHooksPromotion>);
 
 impl TaskHookContainer {
-    pub async fn attach<E: TaskHookEvent, T: TaskHook<E>>(
+    pub fn attach<E: TaskHookEvent, T: TaskHook<E>>(
         &self,
         ctx: &TaskHookContext<'_>,
         hook: Arc<T>,
-    ) {
+    ) -> impl Future<Output = ()> + Send {
         let hook_id = TypeId::of::<T>();
         let erased_hook: &'static dyn ErasedTaskHook =
             Box::leak(Box::new(ErasedTaskHookWrapper::<E>::new(hook.clone())));
@@ -332,8 +332,9 @@ impl TaskHookContainer {
             .or_insert(TaskHooksPromotion::Empty)
             .promote(hook_id, erased_hook);
 
-        self.emit::<OnHookAttach<E>>(ctx, &(hook.as_ref() as &dyn TaskHook<E>))
-            .await;
+        async move {
+            self.emit::<OnHookAttach<E>>(ctx, &(hook.as_ref() as &dyn TaskHook<E>)).await;
+        }
     }
 
     pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self, instance_id: usize) -> Option<Arc<T>> {
@@ -443,53 +444,55 @@ impl TaskHookEvent for () {
 }
 
 #[async_trait]
-pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
+pub trait TaskHook<E: TaskHookEvent>: Any + Send + Sync {
     async fn on_event(&self, _ctx: &TaskHookContext, _payload: &E::Payload<'_>) {}
 }
 
-pub trait NonObserverTaskHook: Send + Sync + 'static {}
+pub trait StaleTaskHook: Any + Send + Sync {}
+
+impl<T: TaskHook<()>> StaleTaskHook for T {}
+impl<T: Any + Send + Sync> TaskHook<()> for T {}
 
 #[async_trait]
-impl<T: NonObserverTaskHook> TaskHook<()> for T {}
-
-#[derive(Clone)]
-pub(crate) struct ErasedTaskHookWrapper<E: TaskHookEvent> {
-    hook: Arc<dyn TaskHook<E>>,
-    concrete: Arc<dyn Any + Send + Sync>,
-    _marker: PhantomData<E>,
-}
-
-impl<E: TaskHookEvent> ErasedTaskHookWrapper<E> {
-    pub fn new<T: TaskHook<E>>(hook: Arc<T>) -> Self {
-        Self {
-            hook: hook.clone(),
-            concrete: hook,
-            _marker: PhantomData,
-        }
-    }
+pub trait TaskHookErased: Send + Sync {
+    async fn call_erased(
+        &self,
+        ctx: &TaskHookContext,
+        payload: &dyn Any + Send + Sync,
+    );
 }
 
 #[async_trait]
-pub(crate) trait ErasedTaskHook: Send + Sync {
-    async fn on_emit<'a>(&self, ctx: &TaskHookContext, payload: &'a (dyn Send + Sync));
-    fn as_any(&self) -> Arc<dyn Any + Send + Sync>;
-}
-
-#[async_trait]
-impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
-    async fn on_emit<'a>(&self, ctx: &TaskHookContext, payload: &'a (dyn Send + Sync)) {
+impl<T, E> TaskHookErased for T
+where
+    T: TaskHook<E> + Send + Sync,
+    E: TaskHookEvent,
+{
+    async fn call_erased(
+        &self,
+        ctx: &TaskHookContext,
+        payload: &dyn Any + Send + Sync,
+    ) {
         let payload = unsafe {
-            &*(payload as *const (dyn Send + Sync) as *const &<E as TaskHookEvent>::Payload<'a>)
+            &*(payload as *const (dyn Any + Send + Sync) as *const <E as TaskHookEvent>::Payload<'_>)
         };
 
-        self.hook.on_event(ctx, payload).await;
-    }
-
-    fn as_any(&self) -> Arc<dyn Any + Send + Sync> {
-        // Return the original concrete hook, not the wrapper
-        self.concrete.clone()
+        self.on_event(ctx, *payload).await;
     }
 }
+
+/*
+#[async_trait]
+impl<E: TaskHookEvent> ErasedTaskHook for dyn TaskHook<E> {
+    async fn on_emit(&self, ctx: &TaskHookContext, payload: &(dyn Send + Sync)) {
+        let payload = unsafe {
+            &*(payload as *const (dyn Send + Sync) as *const &<E as TaskHookEvent>::Payload<'_>)
+        };
+
+        self.on_event(ctx, payload).await;
+    }
+}
+*/
 
 define_event!(OnTaskStart, ());
 

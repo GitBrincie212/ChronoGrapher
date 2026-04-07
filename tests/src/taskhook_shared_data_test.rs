@@ -21,8 +21,6 @@ impl AtomicCounter {
     }
 }
 
-impl NonObserverTaskHook for AtomicCounter {}
-
 #[tokio::test]
 async fn test_shared_returns_same_instance() {
     let result = Arc::new(AtomicUsize::new(0));
@@ -69,9 +67,6 @@ async fn test_shared_isolated_by_type() {
 
     struct IntCounter(AtomicUsize);
     struct StrCounter(AtomicUsize);
-
-    impl NonObserverTaskHook for IntCounter {}
-    impl NonObserverTaskHook for StrCounter {}
 
     struct TestFrame {
         result: Arc<AtomicUsize>,
@@ -223,8 +218,6 @@ async fn test_shared_custom_state_manager() {
         }
     }
 
-    impl NonObserverTaskHook for MyStateManager {}
-
     struct TestFrame {
         result: Arc<AtomicUsize>,
     }
@@ -266,8 +259,6 @@ async fn test_shared_with_marker() {
     let result = Arc::new(AtomicUsize::new(0));
 
     struct MyStateMarker;
-
-    impl NonObserverTaskHook for MyStateMarker {}
 
     struct TestFrame {
         result: Arc<AtomicUsize>,

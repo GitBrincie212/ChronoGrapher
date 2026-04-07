@@ -26,8 +26,6 @@ impl SchedulerHandle {
     }
 }
 
-impl TaskHook<()> for SchedulerHandle {}
-
 #[inline(always)]
 pub async fn append_scheduler_handler<C: SchedulerConfig>(
     task: &ErasedTask<C::TaskError>,

@@ -48,7 +48,7 @@ pub mod prelude {
     pub use crate::scheduler::DefaultEyreScheduler;
 
     // TaskHooks / TaskHookEvents
-    pub use crate::task::hooks::{NonObserverTaskHook, TaskHook, events::*};
+    pub use crate::task::hooks::{StaleTaskHook, TaskHook, events::*};
 
     // Utils / Misc
     pub use crate::task::TaskFrameBuilder;

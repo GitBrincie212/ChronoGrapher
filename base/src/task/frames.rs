@@ -30,7 +30,7 @@ pub use timeoutframe::*;
 
 use crate::errors::TaskError;
 use crate::scheduler::{SchedulerHandleInstructions, SchedulerHandle};
-use crate::task::{ErasedTask, NonObserverTaskHook, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
+use crate::task::{ErasedTask, StaleTaskHook, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -135,7 +135,7 @@ impl<'a> RestrictTaskFrameContext<'a> {
 
     pub async fn shared<H>(&self, creator: impl FnOnce() -> H) -> Arc<H>
     where
-        H: NonObserverTaskHook + Send + Sync + 'static,
+        H: StaleTaskHook + Send + Sync + 'static,
     {
         if let Some(hook) = self.get_hook::<(), H>() {
             hook
@@ -148,7 +148,7 @@ impl<'a> RestrictTaskFrameContext<'a> {
 
     pub fn get_shared<H>(&self) -> Option<Arc<H>>
     where
-        H: NonObserverTaskHook + Send + Sync + 'static,
+        H: StaleTaskHook + Send + Sync + 'static,
     {
         self.get_hook::<(), H>()
     }
