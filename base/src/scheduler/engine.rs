@@ -2,7 +2,7 @@ pub mod default;
 
 pub use default::DefaultSchedulerEngine;
 
-use crate::scheduler::SchedulerConfig;
+use crate::scheduler::{SchedulerConfig, SchedulerKey};
 use std::error::Error;
 use std::time::SystemTime;
 
@@ -11,7 +11,7 @@ pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
         std::future::ready(())
     }
 
-    fn retrieve(&self) -> impl Future<Output = Vec<C::TaskIdentifier>> + Send;
+    fn retrieve(&self) -> impl Future<Output = Vec<SchedulerKey<C>>> + Send;
     
     fn is_empty(&self) -> bool;
 
@@ -19,7 +19,7 @@ pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
 
     fn schedule(
         &self,
-        id: &C::TaskIdentifier,
+        id: &SchedulerKey<C>,
         time: SystemTime,
     ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send;
     

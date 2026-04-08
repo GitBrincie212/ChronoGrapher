@@ -2,7 +2,7 @@ use std::any::{type_name, Any};
 use std::sync::Arc;
 use crossbeam::queue::SegQueue;
 use tokio::sync::Notify;
-use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerConfig, SchedulerHandlePayload, SchedulerWorker};
+use crate::scheduler::{assign_to_trigger_worker, spawn_task, SchedulerConfig, SchedulerHandlePayload, SchedulerKey, SchedulerWorker};
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::{ErasedTask, TaskHook};
@@ -30,12 +30,12 @@ impl TaskHook<()> for SchedulerHandle {}
 
 #[inline(always)]
 pub fn append_scheduler_handler<C: SchedulerConfig> (
-    task: &ErasedTask<C::TaskError>,
-    id: C::TaskIdentifier,
+    key: SchedulerKey<C>,
+    task: &Arc<ErasedTask<C::TaskError>>,
     channel: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
 ) -> impl Future<Output = ()> + Send {
     let handle = SchedulerHandle {
-        id: Arc::new(id),
+        id: Arc::new(key),
         channel,
     };
 
@@ -56,10 +56,10 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
 
     async move {
         while let Some((id, instruction)) = instruct_queue.0.pop() {
-            let id = id.downcast_ref::<C::TaskIdentifier>().unwrap_or_else(|| {
+            let id = id.downcast_ref::<SchedulerKey<C>>().unwrap_or_else(|| {
                 panic!(
                     "Cannot downcast to TaskIdentifier of type {:?}",
-                    type_name::<C::TaskIdentifier>()
+                    type_name::<SchedulerKey<C>>()
                 )
             });
 

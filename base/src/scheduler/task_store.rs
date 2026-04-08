@@ -6,26 +6,27 @@ use crate::scheduler::SchedulerConfig;
 use crate::task::ErasedTask;
 pub use ephemeral::*;
 use std::error::Error;
-use std::ops::Deref;
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::sync::Arc;
 
 pub trait SchedulerTaskStore<C: SchedulerConfig>: 'static + Send + Sync {
-    type StoredTask: Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static;
+    type Key: Into<usize> + Debug + Hash + Eq + PartialEq + Clone + Send + Sync;
 
     fn init(&self) -> impl Future<Output = ()> + Send {
         std::future::ready(())
     }
 
-    fn get(&self, idx: &C::TaskIdentifier) -> Option<Self::StoredTask>;
+    fn get(&self, key: &Self::Key) -> Option<Arc<ErasedTask<C::TaskError>>>;
 
-    fn exists(&self, idx: &C::TaskIdentifier) -> bool;
+    fn exists(&self, key: &Self::Key) -> bool;
 
     fn store(
         &self,
-        id: &C::TaskIdentifier,
-        task: ErasedTask<C::TaskError>,
-    ) -> Result<(), Box<dyn Error + Send + Sync>>;
+        task: Arc<ErasedTask<C::TaskError>>,
+    ) -> Result<Self::Key, Box<dyn Error + Send + Sync>>;
 
-    fn remove(&self, idx: &C::TaskIdentifier);
+    fn remove(&self, key: &Self::Key);
 
     fn clear(&self);
 }

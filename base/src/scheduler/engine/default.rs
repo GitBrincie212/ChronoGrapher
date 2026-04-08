@@ -1,4 +1,4 @@
-use crate::scheduler::SchedulerConfig;
+use crate::scheduler::{SchedulerConfig, SchedulerKey};
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
 use crate::utils::hierarchical_timing_wheel::HierarchicalTimingWheel;
@@ -10,11 +10,11 @@ use std::time::{Duration, SystemTime};
 use tokio::sync::Notify;
 
 enum WheelCommand<C: SchedulerConfig> {
-    Insert(C::TaskIdentifier, Duration),
+    Insert(SchedulerKey<C>, Duration),
     Clear,
 }
 
-type ResultQueue<C> = (SegQueue<Vec<<C as SchedulerConfig>::TaskIdentifier>>, Notify, AtomicUsize);
+type ResultQueue<C> = (SegQueue<Vec<SchedulerKey<C>>>, Notify, AtomicUsize);
 
 pub struct DefaultSchedulerEngine<C: SchedulerConfig> {
     command_batch: Arc<SegQueue<WheelCommand<C>>>,
@@ -30,7 +30,7 @@ where
         let clock = Arc::new(C::SchedulerClock::default());
 
         let mut hierarchical_wheel =
-            HierarchicalTimingWheel::<C::TaskIdentifier>::default();
+            HierarchicalTimingWheel::<SchedulerKey<C>>::default();
 
         let command_batch = Arc::new(SegQueue::new());
         let get_result_queue = Arc::new((SegQueue::new(), Notify::new(), AtomicUsize::new(0)));
@@ -65,7 +65,7 @@ where
 }
 
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
-    fn retrieve(&self) -> impl Future<Output = Vec<C::TaskIdentifier>> {
+    fn retrieve(&self) -> impl Future<Output = Vec<SchedulerKey<C>>> {
         async move {
             loop {
                 if let Some(res) = self.get_result_queue.0.pop() {
@@ -86,7 +86,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
 
     fn schedule(
         &self,
-        id: &C::TaskIdentifier,
+        id: &SchedulerKey<C>,
         time: SystemTime,
     ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send {
         let now = self.clock.now();

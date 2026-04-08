@@ -79,7 +79,7 @@ const RANGES: [RangeType; 5] = [
     RangeType::Bounded(0.0..60.0),
     RangeType::Inclusive(0.0..=31.0)
 ];
-const TIME_FIELD: [&str; 5] = ["milliseconds", "seconds", "minutes", "hours", "days"];
+pub(crate) const TIME_FIELD: [&str; 5] = ["milliseconds", "seconds", "minutes", "hours", "days"];
 const SUFFIXES: [&str; 5] = ["ms", "s", "m", "h", "d"];
 
 fn search_suffixes<'a>(target: &str) -> Result<(&'a RangeType, usize), (usize, &'a str)> {
