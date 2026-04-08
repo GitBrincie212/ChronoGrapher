@@ -458,7 +458,7 @@ pub trait TaskHookErased: Send + Sync {
     async fn call_erased(
         &self,
         ctx: &TaskHookContext,
-        payload: &dyn Any + Send + Sync,
+        payload: &(dyn Any + Send + Sync),
     );
 }
 
@@ -471,7 +471,7 @@ where
     async fn call_erased(
         &self,
         ctx: &TaskHookContext,
-        payload: &dyn Any + Send + Sync,
+        payload: &(dyn Any + Send + Sync),
     ) {
         let payload = unsafe {
             &*(payload as *const (dyn Any + Send + Sync) as *const <E as TaskHookEvent>::Payload<'_>)

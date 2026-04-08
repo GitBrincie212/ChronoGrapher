@@ -31,7 +31,7 @@ pub enum SchedulerWork {
 }
 
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
-    pub queue: SegQueue<(C::, SchedulerWork)>,
+    pub queue: SegQueue<(usize, SchedulerWork)>,
     pub notify: Arc<Notify>,
 }
 
