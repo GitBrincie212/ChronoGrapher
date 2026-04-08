@@ -9,7 +9,6 @@ async-trait = "0.1.89"
 tokio = "1.50.0"
 tokio_schedule = "0.3.2"
 chrono = "0.4.44"
-dashmap = { version = "7.0.0-rc2", features = ["inline-more"] }
 
 [[bin]]
 name = "test"
@@ -18,7 +17,3 @@ path = "./src/test.rs"
 [[bin]]
 name = "test2"
 path = "./src/test2.rs"
-
-[[bin]]
-name = "slotmap"
-path = "./src/slotmap.rs"
