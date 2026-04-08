@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::ops::{Range, RangeInclusive};
 use strsim::levenshtein;
 use syn::{Expr, ExprLit, Lit};
@@ -62,24 +63,24 @@ impl RangeType {
     }
 }
 
-impl ToString for RangeType {
-    fn to_string(&self) -> String {
+impl Display for RangeType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RangeType::Bounded(range) => format!("{}..{}", range.start, range.end),
-            RangeType::Inclusive(range) => format!("{}..={}", range.start(), range.end()),
+            RangeType::Bounded(range) => f.write_fmt(format_args!("{}..{}", range.start, range.end)),
+            RangeType::Inclusive(range) => f.write_fmt(format_args!("{}..={}", range.start(), range.end())),
         }
     }
 }
 
-pub const RANGES: [RangeType; 5] = [
+const RANGES: [RangeType; 5] = [
     RangeType::Bounded(0.0..1000.0),
     RangeType::Bounded(0.0..60.0),
     RangeType::Bounded(0.0..60.0),
     RangeType::Bounded(0.0..60.0),
     RangeType::Inclusive(0.0..=31.0)
 ];
-pub const TIME_FIELD: [&str; 5] = ["milliseconds", "seconds", "minutes", "hours", "days"];
-pub const SUFFIXES: [&str; 5] = ["ms", "s", "m", "h", "d"];
+const TIME_FIELD: [&str; 5] = ["milliseconds", "seconds", "minutes", "hours", "days"];
+const SUFFIXES: [&str; 5] = ["ms", "s", "m", "h", "d"];
 
 fn search_suffixes<'a>(target: &str) -> Result<(&'a RangeType, usize), (usize, &'a str)> {
     let mut min_pair = (usize::MAX, "");
