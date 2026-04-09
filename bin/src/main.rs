@@ -1,17 +1,22 @@
-use crate::main_cg::benchmark_chronographer;
+use crate::main_cg::{chronographer, start_chronographer};
 use std::io::Write;
 use std::fs::OpenOptions;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::LazyLock;
 use std::time::Duration;
-use crate::main_tokio::benchmark_tokio_schedule;
 
 mod main_cg;
 mod main_tokio;
 
+pub const TASK_BATCH: usize = 1000;
+pub const EXEC_TIME: Duration = Duration::from_millis(10);
+
 pub static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-pub async fn benchmark() {
+#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
+async fn main() {
+    chronographer(TASK_BATCH, EXEC_TIME).await;
+    start_chronographer().await;
     let mut last = COUNTER.load(Ordering::Relaxed);
 
     let mut file = OpenOptions::new()
@@ -22,19 +27,19 @@ pub async fn benchmark() {
 
     writeln!(file, "time_sec,tasks_per_sec").unwrap();
 
-    for i in 0..=50 {
+    let mut i = 0usize;
+    loop {
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let delta = COUNTER.swap(0, Ordering::SeqCst);
+        let curr = COUNTER.load(Ordering::Relaxed);
+        let delta = curr.abs_diff(last);
 
-        println!("{}", i);
+        println!("{i}. {delta}");
         writeln!(file, "{:.2},{:.2}", i, delta).unwrap();
-    }
-}
+        i += 1;
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
-#[allow(clippy::empty_loop)]
-async fn main() {
-    benchmark_chronographer().await;
-    benchmark().await;
+        // chronographer(TASK_BATCH, EXEC_TIME).await;
+        tokio::time::sleep(Duration::from_secs_f64(0.1)).await;
+        last = COUNTER.load(Ordering::Relaxed);
+    }
 }

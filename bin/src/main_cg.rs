@@ -79,11 +79,10 @@ pub async fn benchmark_chronographer() {
     println!("STARTED {}", t.elapsed().as_secs_f64());
 }
  */
-
 use std::sync::atomic::Ordering;
+use std::sync::LazyLock;
 use std::time::Duration;
 use async_trait::async_trait;
-use tokio::task::yield_now;
 use chronographer::errors::TaskError;
 use chronographer::prelude::{DefaultSchedulerConfig, Scheduler, Task, TaskScheduleInterval};
 use chronographer::task::{TaskFrame, TaskFrameContext};
@@ -96,35 +95,31 @@ impl TaskFrame for MyTaskFrame {
     type Error = Box<dyn TaskError>;
 
     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
-        yield_now().await;
+        for _ in 0..100 {
+            std::hint::black_box(42);
+        }
+
         COUNTER.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }
 }
 
-pub async fn benchmark_chronographer() {
-    println!("LOADING TASKS");
-    let t = tokio::time::Instant::now();
-    let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
+static SCHEDULER: LazyLock<Scheduler<DefaultSchedulerConfig<Box<dyn TaskError>>>> =
+    LazyLock::new(|| Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default());
 
-    const EXEC_TIMES: usize = 6;
-    const TASKS_ALLOCATED: usize = 450_000;
-
-    let spread_millis = 1000.0 / ((TASKS_ALLOCATED * EXEC_TIMES) as f64);
-
-    let mut millis = 0f64;
-    for _ in 0..TASKS_ALLOCATED {
-        millis = (millis + spread_millis).rem_euclid(1000.0);
-
+pub async fn chronographer(tasks: usize, exec: Duration) {
+    for _ in 0..tasks {
         let task = Task::new(
-            TaskScheduleInterval::duration(Duration::from_millis(millis.round() as u64)),
+            TaskScheduleInterval::duration(exec),
             MyTaskFrame
         );
 
-        let _ = scheduler.schedule(task).await;
+        let _ = SCHEDULER.schedule(task).await;
     }
+}
 
-    scheduler.start().await;
-
-    println!("STARTED {}", t.elapsed().as_secs_f64());
+pub async fn start_chronographer() {
+    println!("LOADING SCHEDULER");
+    SCHEDULER.start().await;
+    println!("STARTING");
 }
