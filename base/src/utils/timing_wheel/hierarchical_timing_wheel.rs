@@ -1,21 +1,21 @@
 use crate::utils::ByteWheel;
 use std::time::Duration;
 
-pub struct HierarchicalTimingWheel<T: 'static + Send> {
-    level1: ByteWheel<T>,
-    level2: ByteWheel<T>,
-    level3: ByteWheel<T>,
-    level4: ByteWheel<T>,
-    level5: ByteWheel<T>,
+struct Entry<T> {
+    value: T,
+    precomputed: [u8; 5],
+    level: u8
 }
 
-const END_RANGE0: u128 = 256u128;
-const END_RANGE1: u128 = 256u128.pow(2);
-const END_RANGE2: u128 = 256u128.pow(3);
-const END_RANGE3: u128 = 256u128.pow(4);
-const END_RANGE4: u128 = 256u128.pow(5);
+pub struct HierarchicalTimingWheel<T> {
+    level1: ByteWheel<Entry<T>>,
+    level2: ByteWheel<Entry<T>>,
+    level3: ByteWheel<Entry<T>>,
+    level4: ByteWheel<Entry<T>>,
+    level5: ByteWheel<Entry<T>>,
+}
 
-impl<T: 'static + Send> Default for HierarchicalTimingWheel<T> {
+impl<T> Default for HierarchicalTimingWheel<T> {
     fn default() -> Self {
         Self {
             level1: ByteWheel::default(),
@@ -27,64 +27,77 @@ impl<T: 'static + Send> Default for HierarchicalTimingWheel<T> {
     }
 }
 
-impl<T: 'static + Send> HierarchicalTimingWheel<T> {
+impl<T> HierarchicalTimingWheel<T> {
     pub fn insert(&mut self, value: T, delay: Duration) {
         let millis = delay.as_millis();
+        let slots = [
+            (millis & 0xFF) as u8,
+            ((millis >> 8) & 0xFF) as u8,
+            ((millis >> 16) & 0xFF) as u8,
+            ((millis >> 24) & 0xFF) as u8,
+            ((millis >> 32) & 0xFF) as u8,
+        ];
+        let mut level = 0;
 
-        let (target, level_index) = match millis {
-            0..END_RANGE0 => (&mut self.level1, 0),
-            END_RANGE0..END_RANGE1 => (&mut self.level2, 1),
-            END_RANGE1..END_RANGE2 => (&mut self.level3, 2),
-            END_RANGE2..END_RANGE3 => (&mut self.level4, 3),
-            END_RANGE3..END_RANGE4 => (&mut self.level5, 4),
-            _ => panic!("value out of supported range"),
-        };
-
-        let shift: u8 = level_index * 8;
-        let slot = ((millis >> shift) & 0xFF) as u8;
-
-        target.insert(slot, value);
-    }
-
-    /*
-    pub async fn skip(&self, delay: Duration) {
-        let mut millis = delay.as_millis();
-
-        // TODO: Heap-allocation cost from Arc<T> might be slightly cheaper for reading than mpsc channels but not 100% sure
-        for level in [&self.level1, &self.level2, &self.level3, &self.level4] {
-            for shard in level {
-                let wrapped = (millis & 31) as u8;
-                millis = millis >> 6;
-                if millis == 0 {
-                    return;
-                }
-
-                shard
-                    .send(WheelShardCommand::Skip(wrapped, self.skip_tx.clone()))
-                    .await
-                    .expect("Cannot send message to corresponding shard");
+        for i in (0..5).rev() {
+            if slots[i] != 0 {
+                level = i;
+                break;
             }
         }
+
+        let target = match level {
+            0 => &mut self.level1,
+            1 => &mut self.level2,
+            2 => &mut self.level3,
+            3 => &mut self.level4,
+            4 => &mut self.level5,
+            _ => unreachable!(),
+        };
+
+        let current = target.current() as u8;
+        let slot = current.wrapping_add(slots[level]);
+
+        target.insert(slot, Entry {
+            value,
+            precomputed: slots,
+            level: level as u8,
+        });
     }
-    */
 
     pub fn tick(&mut self) -> Vec<T> {
         let mut results = Vec::new();
 
-        for shard in [
-            &mut self.level1,
-            &mut self.level2,
-            &mut self.level3,
-            &mut self.level4,
-            &mut self.level5,
-        ]
-            .into_iter()
-        {
-            let (result, curr) = shard.tick();
+        let (expired, cursor0) = self.level1.tick();
+        results.extend(expired.into_iter().map(|x| x.value));
 
-            results.extend(result);
-            if curr != 0 {
-                break;
+        if cursor0 == 0 {
+            let mut levels = [
+                &mut self.level1,
+                &mut self.level2,
+                &mut self.level3,
+                &mut self.level4,
+                &mut self.level5,
+            ];
+
+            for idx in 1..5 {
+                let level = &mut levels[idx];
+                let (expired, cursor) = level.tick();
+                for mut entry in expired {
+                    entry.level -= 1;
+
+                    let next_level = entry.level as usize;
+                    let target = &mut levels[next_level];
+
+                    let current = target.current() as u8;
+                    let slot = current.wrapping_add(entry.precomputed[next_level]);
+
+                    target.insert(slot, entry);
+                }
+
+                if cursor != 0 {
+                    break;
+                }
             }
         }
 
