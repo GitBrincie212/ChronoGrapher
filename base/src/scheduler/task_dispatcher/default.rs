@@ -5,8 +5,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 use dashmap::DashMap;
 use tokio::sync::Notify;
-#[allow(unused_imports)]
-use crate::scheduler::Scheduler;
 
 pub struct DefaultTaskDispatcher<C: SchedulerConfig>(
     DashMap<SchedulerKey<C>, Arc<Notify>>
