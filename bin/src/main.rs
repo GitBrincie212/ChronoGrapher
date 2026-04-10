@@ -7,6 +7,7 @@ use std::time::Duration;
 
 mod main_cg;
 mod main_tokio;
+mod main_pure;
 
 pub const TASK_BATCH: usize = 1_000;
 pub const EXEC_TIME: Duration = Duration::from_millis(2);
