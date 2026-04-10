@@ -183,57 +183,53 @@ impl<C: SchedulerConfig> Scheduler<C> {
                 loop {
                     let mut pointing = idx;
                     for _ in 0..worker_len {
-                        let mut should_continue = true;
                         while let Some((key, work_type)) = workers[pointing].queue.pop()
-                            && should_continue {
-                            println!("{:?}", work_type);
-                            if let Some(task) = store_clone.get(&key) {
-                                should_continue = pointing == idx;
-                                match work_type {
-                                    SchedulerWork::Trigger => {
-                                        let trigger = task.trigger();
-                                        let now = engine_clone.clock().now();
+                            && let Some(task) = store_clone.get(&key)
+                        {
+                            match work_type {
+                                SchedulerWork::Trigger => {
+                                    let trigger = task.trigger();
+                                    let now = engine_clone.clock().now();
 
-                                        let time = match trigger.trigger(now).await {
-                                            Ok(time) => {
-                                                time
-                                            }
-
-                                            Err(err) => {
-                                                eprintln!("Computation error from TaskTrigger: {:?}", err);
-                                                store_clone.remove(&key);
-                                                continue;
-                                            }
-                                        };
-
-                                        match engine_clone.schedule(&key, time).await {
-                                            Ok(()) => {}
-                                            Err(err) => {
-                                                eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                                                store_clone.remove(&key);
-                                            }
+                                    let time = match trigger.trigger(now).await {
+                                        Ok(time) => {
+                                            time
                                         }
 
-                                        continue;
+                                        Err(err) => {
+                                            eprintln!("Computation error from TaskTrigger: {:?}", err);
+                                            store_clone.remove(&key);
+                                            continue;
+                                        }
+                                    };
+
+                                    match engine_clone.schedule(&key, time).await {
+                                        Ok(()) => {}
+                                        Err(err) => {
+                                            eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                                            store_clone.remove(&key);
+                                        }
                                     }
 
-                                    SchedulerWork::Dispatch => {
-                                        let result = dispatcher_clone.dispatch(&key, task).await;
-                                        match result {
-                                            Ok(()) => {
-                                                workers[pointing].spawn_trigger(key.clone())
-                                            }
+                                    continue;
+                                }
 
-                                            Err(err) => {
-                                                eprintln!(
-                                                    "Scheduler engine received an error for Task with identifier ({:?}):\n\t {:?}",
-                                                    key, err
-                                                );
-                                            }
+                                SchedulerWork::Dispatch => {
+                                    let result = dispatcher_clone.dispatch(&key, task).await;
+                                    match result {
+                                        Ok(()) => {
+                                            workers[pointing].spawn_trigger(key.clone())
                                         }
 
-                                        continue;
+                                        Err(err) => {
+                                            eprintln!(
+                                                "Scheduler engine received an error for Task with identifier ({:?}):\n\t {:?}",
+                                                key, err
+                                            );
+                                        }
                                     }
+
+                                    continue;
                                 }
                             }
                         }
