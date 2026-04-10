@@ -8,8 +8,8 @@ use std::time::Duration;
 mod main_cg;
 mod main_tokio;
 
-pub const TASK_BATCH: usize = 1000;
-pub const EXEC_TIME: Duration = Duration::from_millis(10);
+pub const TASK_BATCH: usize = 1_000;
+pub const EXEC_TIME: Duration = Duration::from_millis(2);
 
 pub static COUNTER: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
@@ -38,7 +38,7 @@ async fn main() {
         writeln!(file, "{:.2},{:.2}", i, delta).unwrap();
         i += 1;
 
-        // chronographer(TASK_BATCH, EXEC_TIME).await;
+        chronographer(TASK_BATCH, EXEC_TIME).await;
         tokio::time::sleep(Duration::from_secs_f64(0.1)).await;
         last = COUNTER.load(Ordering::Relaxed);
     }
