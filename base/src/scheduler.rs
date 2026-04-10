@@ -80,15 +80,28 @@ impl<E: TaskError> SchedulerConfig for DefaultSchedulerConfig<E> {
     type SchedulerClock = ProgressiveClock;
 }
 
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum FailoverPolicy {
+    Keep,
+
+    #[default]
+    Terminate,
+    Deallocate,
+    ShutdownScheduler
+}
+
 #[derive(TypedBuilder)]
-#[builder(build_method(into = Scheduler<T>))]
-pub struct SchedulerInitConfig<T: SchedulerConfig> {
-    dispatcher: T::SchedulerTaskDispatcher,
-    store: T::SchedulerTaskStore,
-    engine: T::SchedulerEngine,
+#[builder(build_method(into = Scheduler<C>))]
+pub struct SchedulerInitConfig<C: SchedulerConfig> {
+    dispatcher: C::SchedulerTaskDispatcher,
+    store: C::SchedulerTaskStore,
+    engine: C::SchedulerEngine,
 
     #[builder(default = 64)]
     workers: usize,
+
+    #[builder(default = FailoverPolicy::default())]
+    failover_policy: FailoverPolicy
 }
 
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
@@ -108,9 +121,10 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for Scheduler<C> {
             engine: Arc::new(config.engine),
             store: Arc::new(config.store),
             dispatcher: Arc::new(config.dispatcher),
-            process: RwLock::new(None),
+            process: Arc::new(RwLock::new(Vec::new())),
             workers: Arc::new(workers),
             instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
+            failover_policy: config.failover_policy,
         }
     }
 }
@@ -119,9 +133,10 @@ pub struct Scheduler<C: SchedulerConfig> {
     store: Arc<C::SchedulerTaskStore>,
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
-    process: RwLock<Option<(JoinHandle<()>, JoinHandle<()>)>>,
+    process: Arc<RwLock<Vec<JoinHandle<()>>>>,
     workers: Arc<Vec<SchedulerWorker<C>>>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
+    failover_policy: FailoverPolicy,
 }
 
 impl<C> Default for Scheduler<C>
@@ -143,6 +158,36 @@ where
 }
 
 #[inline(always)]
+async fn apply_failover<C: SchedulerConfig>(
+    failover_policy: FailoverPolicy,
+    key: &SchedulerKey<C>,
+    worker: &SchedulerWorker<C>,
+    work: SchedulerWork,
+    store: &Arc<C::SchedulerTaskStore>,
+    process: &Arc<RwLock<Vec<JoinHandle<()>>>>,
+) {
+    match failover_policy {
+        FailoverPolicy::Keep => {
+            worker.queue.push((key.clone(), work))
+        }
+
+        FailoverPolicy::Terminate => {}
+
+        FailoverPolicy::Deallocate => {
+            store.remove(&key)
+        },
+
+        FailoverPolicy::ShutdownScheduler => {
+            let mut lock = process.write().await;
+            let drained = lock.drain(..);
+            for handle in drained {
+                handle.abort();
+            }
+        }
+    }
+}
+
+#[inline(always)]
 fn spawn_task<C: SchedulerConfig>(
     key: SchedulerKey<C>,
     dispatch_workers: &Vec<SchedulerWorker<C>>
@@ -157,11 +202,9 @@ impl<C: SchedulerConfig> Scheduler<C> {
     }
 
     pub async fn start(&self) {
-        let process_lock = self.process.read().await;
-        if process_lock.is_some() {
+        if self.has_started().await {
             return;
         }
-        drop(process_lock);
 
         let engine_clone = self.engine.clone();
         let store_clone = self.store.clone();
@@ -173,13 +216,16 @@ impl<C: SchedulerConfig> Scheduler<C> {
             self.engine.init()
         );
 
+        let mut lock = self.process.write().await;
         for idx in 0..self.workers.len() {
             let workers = self.workers.clone();
             let store_clone = store_clone.clone();
             let dispatcher_clone = dispatcher_clone.clone();
             let engine_clone = engine_clone.clone();
             let worker_len = workers.len();
-            tokio::spawn(async move {
+            let policy = self.failover_policy.clone();
+            let processes = self.process.clone();
+            let handle = tokio::spawn(async move {
                 loop {
                     let mut pointing = idx;
                     for _ in 0..worker_len {
@@ -198,7 +244,10 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
                                         Err(err) => {
                                             eprintln!("Computation error from TaskTrigger: {:?}", err);
-                                            store_clone.remove(&key);
+                                            apply_failover::<C>(
+                                                policy, &key, &workers[pointing], work_type,
+                                                &store_clone, &processes
+                                            ).await;
                                             continue;
                                         }
                                     };
@@ -207,7 +256,10 @@ impl<C: SchedulerConfig> Scheduler<C> {
                                         Ok(()) => {}
                                         Err(err) => {
                                             eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                                            store_clone.remove(&key);
+                                            apply_failover::<C>(
+                                                policy, &key, &workers[pointing], work_type,
+                                                &store_clone, &processes
+                                            ).await;
                                         }
                                     }
 
@@ -226,6 +278,10 @@ impl<C: SchedulerConfig> Scheduler<C> {
                                                 "Scheduler engine received an error for Task with identifier ({:?}):\n\t {:?}",
                                                 key, err
                                             );
+                                            apply_failover::<C>(
+                                                policy, &key, &workers[pointing], work_type,
+                                                &store_clone, &processes
+                                            ).await;
                                         }
                                     }
 
@@ -240,35 +296,32 @@ impl<C: SchedulerConfig> Scheduler<C> {
                     workers[idx].notify.notified().await;
                 }
             });
+
+            lock.push(handle);
         }
 
-        let main_loop = tokio::spawn(
+        lock.push(tokio::spawn(
             main_loop_logic::<C>(
                 &engine_clone,
                 &self.workers
             )
-        );
+        ));
 
-        let scheduler_handle_instructions = tokio::spawn(
+        lock.push(tokio::spawn(
             scheduler_handle_instructions_logic::<C>(
                 &self.instruction_queue,
                 &dispatcher_clone,
                 &store_clone,
                 &self.workers
             ),
-        );
-
-        *self.process.write().await = Some((
-            scheduler_handle_instructions,
-            main_loop
         ));
     }
 
     pub async fn abort(&self) {
-        let process = self.process.write().await.take();
-        if let Some((p1, p2)) = process {
-            p1.abort();
-            p2.abort();
+        let mut lock = self.process.write().await;
+        let handles = lock.drain(..);
+        for handle in handles {
+            handle.abort();
         }
     }
 
@@ -276,22 +329,19 @@ impl<C: SchedulerConfig> Scheduler<C> {
         self.store.clear();
     }
 
-    pub fn schedule(
+    pub async fn schedule(
         &self,
         task: Task<impl TaskFrame<Error = C::TaskError>, impl TaskTrigger>,
-    ) -> impl Future<Output = Result<SchedulerKey<C>, Box<dyn Error + Send + Sync>>> + Send {
+    ) -> Result<SchedulerKey<C>, Box<dyn Error + Send + Sync>> {
         let erased = Arc::new(task.into_erased());
+        let key = self.store.store(erased.clone())?;
+        append_scheduler_handler::<C>(key.clone(), &erased, self.instruction_queue.clone()).await;
+        assign_to_trigger_worker::<C>(key.clone(), self.workers.as_ref());
 
-        async move {
-            let key = self.store.store(erased.clone())?;
-            append_scheduler_handler::<C>(key.clone(), &erased, self.instruction_queue.clone()).await;
-            assign_to_trigger_worker::<C>(key.clone(), self.workers.as_ref());
-
-            Ok(key)
-        }
+        Ok(key)
     }
 
-    pub fn cancel(&self, key: &SchedulerKey<C>) {
+    pub fn remove(&self, key: &SchedulerKey<C>) {
         self.store.remove(key);
     }
 
@@ -300,6 +350,6 @@ impl<C: SchedulerConfig> Scheduler<C> {
     }
 
     pub async fn has_started(&self) -> bool {
-        self.process.read().await.is_some()
+        !self.process.read().await.is_empty()
     }
 }
