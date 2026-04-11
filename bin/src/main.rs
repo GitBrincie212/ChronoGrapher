@@ -1,13 +1,13 @@
 use crate::main_cg::{chronographer, start_chronographer};
-use std::io::Write;
 use std::fs::OpenOptions;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::io::Write;
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 mod main_cg;
-mod main_tokio;
 mod main_pure;
+mod main_tokio;
 
 pub const TASK_BATCH: usize = 1_000;
 pub const EXEC_TIME: Duration = Duration::from_millis(2);

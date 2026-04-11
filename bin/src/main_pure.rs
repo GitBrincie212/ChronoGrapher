@@ -1,6 +1,6 @@
+use crate::COUNTER;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use crate::COUNTER;
 
 pub async fn pure_tokio(tasks: usize, exec: Duration) {
     for _ in 0..tasks {

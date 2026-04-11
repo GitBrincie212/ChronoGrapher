@@ -79,14 +79,14 @@ pub async fn benchmark_chronographer() {
     println!("STARTED {}", t.elapsed().as_secs_f64());
 }
  */
-use std::sync::atomic::Ordering;
-use std::sync::LazyLock;
-use std::time::Duration;
+use crate::COUNTER;
 use async_trait::async_trait;
 use chronographer::errors::TaskError;
 use chronographer::prelude::{DefaultSchedulerConfig, Scheduler, Task, TaskScheduleInterval};
 use chronographer::task::{TaskFrame, TaskFrameContext};
-use crate::COUNTER;
+use std::sync::LazyLock;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 struct MyTaskFrame;
 
@@ -109,10 +109,7 @@ static SCHEDULER: LazyLock<Scheduler<DefaultSchedulerConfig<Box<dyn TaskError>>>
 
 pub async fn chronographer(tasks: usize, exec: Duration) {
     for _ in 0..tasks {
-        let task = Task::new(
-            TaskScheduleInterval::duration(exec),
-            MyTaskFrame
-        );
+        let task = Task::new(TaskScheduleInterval::duration(exec), MyTaskFrame);
 
         let _ = SCHEDULER.schedule(task).await;
     }
