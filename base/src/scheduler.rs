@@ -26,6 +26,7 @@ pub(crate) use crate::scheduler::utils::*;
 pub type SchedulerKey<C> = <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::Key;
 
 #[derive(Debug)]
+#[repr(u8)]
 pub enum SchedulerWork {
     Trigger,
     Dispatch
@@ -196,6 +197,88 @@ fn spawn_task<C: SchedulerConfig>(
     dispatch_workers[idx].spawn_dispatch(key);
 }
 
+#[inline(always)]
+async fn start_worker_process<C: SchedulerConfig>(
+    workers: Arc<Vec<SchedulerWorker<C>>>,
+    idx: usize,
+    worker_len: usize,
+    store_clone: Arc<C::SchedulerTaskStore>,
+    engine_clone: Arc<C::SchedulerEngine>,
+    dispatcher_clone: Arc<C::SchedulerTaskDispatcher>,
+    policy: FailoverPolicy,
+    processes: Arc<RwLock<Vec<JoinHandle<()>>>>,
+) {
+    loop {
+        let mut pointing = idx;
+        for _ in 0..worker_len {
+            while let Some((key, work_type)) = workers[pointing].queue.pop()
+                && let Some(task) = store_clone.get(&key)
+            {
+                match work_type {
+                    SchedulerWork::Trigger => {
+                        let trigger = task.trigger();
+                        let now = engine_clone.clock().now();
+
+                        let time = match trigger.trigger(now).await {
+                            Ok(time) => {
+                                time
+                            }
+
+                            Err(err) => {
+                                eprintln!("Computation error from TaskTrigger: {:?}", err);
+                                apply_failover::<C>(
+                                    policy, &key, &workers[pointing], work_type,
+                                    &store_clone, &processes
+                                ).await;
+                                continue;
+                            }
+                        };
+
+                        match engine_clone.schedule(&key, time).await {
+                            Ok(()) => {}
+                            Err(err) => {
+                                eprintln!("Schedule error from SchedulerEngine: {:?}", err);
+                                apply_failover::<C>(
+                                    policy, &key, &workers[pointing], work_type,
+                                    &store_clone, &processes
+                                ).await;
+                            }
+                        }
+
+                        continue;
+                    }
+
+                    SchedulerWork::Dispatch => {
+                        let result = dispatcher_clone.dispatch(&key, task).await;
+                        match result {
+                            Ok(()) => {
+                                workers[pointing].spawn_trigger(key.clone())
+                            }
+
+                            Err(err) => {
+                                eprintln!(
+                                    "Scheduler engine received an error for Task with identifier ({:?}):\n\t {:?}",
+                                    key, err
+                                );
+                                apply_failover::<C>(
+                                    policy, &key, &workers[pointing], work_type,
+                                    &store_clone, &processes
+                                ).await;
+                            }
+                        }
+
+                        continue;
+                    }
+                }
+            }
+
+            pointing = fastrand::usize(..worker_len);
+        }
+
+        workers[idx].notify.notified().await;
+    }
+}
+
 impl<C: SchedulerConfig> Scheduler<C> {
     pub fn builder() -> SchedulerInitConfigBuilder<C> {
         SchedulerInitConfig::builder()
@@ -218,84 +301,16 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
         let mut lock = self.process.write().await;
         for idx in 0..self.workers.len() {
-            let workers = self.workers.clone();
-            let store_clone = store_clone.clone();
-            let dispatcher_clone = dispatcher_clone.clone();
-            let engine_clone = engine_clone.clone();
-            let worker_len = workers.len();
-            let policy = self.failover_policy;
-            let processes = self.process.clone();
-            let handle = tokio::spawn(async move {
-                loop {
-                    let mut pointing = idx;
-                    for _ in 0..worker_len {
-                        while let Some((key, work_type)) = workers[pointing].queue.pop()
-                            && let Some(task) = store_clone.get(&key)
-                        {
-                            match work_type {
-                                SchedulerWork::Trigger => {
-                                    let trigger = task.trigger();
-                                    let now = engine_clone.clock().now();
-
-                                    let time = match trigger.trigger(now).await {
-                                        Ok(time) => {
-                                            time
-                                        }
-
-                                        Err(err) => {
-                                            eprintln!("Computation error from TaskTrigger: {:?}", err);
-                                            apply_failover::<C>(
-                                                policy, &key, &workers[pointing], work_type,
-                                                &store_clone, &processes
-                                            ).await;
-                                            continue;
-                                        }
-                                    };
-
-                                    match engine_clone.schedule(&key, time).await {
-                                        Ok(()) => {}
-                                        Err(err) => {
-                                            eprintln!("Schedule error from SchedulerEngine: {:?}", err);
-                                            apply_failover::<C>(
-                                                policy, &key, &workers[pointing], work_type,
-                                                &store_clone, &processes
-                                            ).await;
-                                        }
-                                    }
-
-                                    continue;
-                                }
-
-                                SchedulerWork::Dispatch => {
-                                    let result = dispatcher_clone.dispatch(&key, task).await;
-                                    match result {
-                                        Ok(()) => {
-                                            workers[pointing].spawn_trigger(key.clone())
-                                        }
-
-                                        Err(err) => {
-                                            eprintln!(
-                                                "Scheduler engine received an error for Task with identifier ({:?}):\n\t {:?}",
-                                                key, err
-                                            );
-                                            apply_failover::<C>(
-                                                policy, &key, &workers[pointing], work_type,
-                                                &store_clone, &processes
-                                            ).await;
-                                        }
-                                    }
-
-                                    continue;
-                                }
-                            }
-                        }
-
-                        pointing = fastrand::usize(..worker_len);
-                    }
-
-                    workers[idx].notify.notified().await;
-                }
-            });
+            let handle = tokio::spawn(start_worker_process(
+                self.workers.clone(),
+                idx,
+                self.workers.len(),
+                self.store.clone(),
+                self.engine.clone(),
+                self.dispatcher.clone(),
+                self.failover_policy,
+                self.process.clone()
+            ));
 
             lock.push(handle);
         }
