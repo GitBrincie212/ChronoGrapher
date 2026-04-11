@@ -1,4 +1,4 @@
-///! A standalone module containing only the [`TaskScheduleInterval`] scheduling primitive
+//! A standalone module containing only the [`TaskScheduleInterval`] scheduling primitive
 
 use std::error::Error;
 use std::fmt::Debug;
@@ -24,9 +24,9 @@ use crate::task::TaskTrigger;
 /// - [`TaskScheduleInterval::from_secs`] - Constructs it via a ``u64`` number (as seconds)
 /// - [`TaskScheduleInterval::from_secs_f64`] - Constructs it via a float number (as seconds), **may panic**.
 /// - [`TaskScheduleInterval::from`] - Supports unsigned integers up to ``u64`` and even ``f32`` or ``f64``,
-/// (for float numbers it **may panic**).
+///   (for float numbers it **may panic**).
 /// - [`TaskScheduleInterval::timedelta`] - Gated behind the ``chrono`` feature, but supports the construction
-/// via ``TimeDelta``.
+///   via ``TimeDelta``.
 ///
 /// There exists the [every!](chronographer::prelude::every) macro for creating easily [`TaskScheduleInterval`] with a short and
 /// readable duration-based syntax, the macro is gated behind the ``macros`` feature and lives in the
@@ -312,7 +312,7 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::from_secs_f64`] - A simpler constructor for floating point second-based intervals.
     /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
     /// - [IntervalSecondsOutOfRange](StandardCoreErrorsCG::IntervalSecondsOutOfRange) - The error
-    /// when the argument doesn't map to a positive duration.
+    ///   when the argument doesn't map to a positive duration.
     pub fn from_secs_f64(interval: f64) -> Result<Self, StandardCoreErrorsCG> {
         if interval.is_sign_negative() || !interval.is_finite() {
             return Err(StandardCoreErrorsCG::IntervalSecondsOutOfRange)
@@ -322,9 +322,9 @@ impl TaskScheduleInterval {
     }
 }
 
-impl Into<Duration> for TaskScheduleInterval {
-    fn into(self) -> Duration {
-        self.0
+impl From<TaskScheduleInterval> for Duration {
+    fn from(value: TaskScheduleInterval) -> Self {
+        value.0
     }
 }
 

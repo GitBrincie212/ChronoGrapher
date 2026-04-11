@@ -36,7 +36,7 @@ fn validate_ast_node(node: &AstNode, field_pos: usize) -> Result<(), CronExpress
 
     match &node.kind {
         AstTreeNode::Exact(value) => {
-            if !range.contains(&value) {
+            if !range.contains(value) {
                 return Err(CronExpressionParserErrors::ValueOutOfRange {
                     value: *value,
                     field: field_name.to_string(),

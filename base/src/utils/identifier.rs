@@ -15,7 +15,7 @@ use std::time::SystemTime;
 /// defined via their configuration.
 ///
 /// > **Note:** It should be mentioned, identifiers are held internally in some cases in the "Task Land",
-/// but never exposed directly (as to prevent leaking abstractions)
+/// > but never exposed directly (as to prevent leaking abstractions)
 ///
 /// # Semantics
 /// Implementors must provide a way to generate unique identifier for task via the

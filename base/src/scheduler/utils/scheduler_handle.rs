@@ -69,11 +69,11 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
                 }
 
                 SchedulerHandleInstructions::Halt => {
-                    dispatcher.cancel(&id).await;
+                    dispatcher.cancel(id).await;
                 }
 
                 SchedulerHandleInstructions::Block => {
-                    store.remove(&id);
+                    store.remove(id);
                 }
 
                 SchedulerHandleInstructions::Execute => {

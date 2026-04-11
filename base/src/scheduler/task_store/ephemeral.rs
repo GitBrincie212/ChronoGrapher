@@ -6,6 +6,9 @@ use std::sync::Arc;
 use crossbeam::utils::CachePadded;
 use slotmap::{new_key_type, SlotMap};
 
+type CachePaddedLock<T> = CachePadded<parking_lot::RwLock<T>>;
+type SlotMapShard<T> = CachePaddedLock<SlotMap<SlotTaskKey, Arc<ErasedTask<T>>>>;
+
 new_key_type! {struct SlotTaskKey;}
 
 #[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
@@ -14,15 +17,15 @@ pub struct TaskKey {
     inner: SlotTaskKey,
 }
 
-impl Into<usize> for TaskKey {
-    fn into(self) -> usize {
-        self.inner.0.as_ffi() as usize
+impl From<TaskKey> for usize {
+    fn from(value: TaskKey) -> Self {
+        value.inner.0.as_ffi() as usize
     }
 }
 
 #[repr(transparent)]
 pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig>(
-    Box<[CachePadded<parking_lot::RwLock<SlotMap<SlotTaskKey, Arc<ErasedTask<C::TaskError>>>>>]>
+    Box<[SlotMapShard<C::TaskError>]>
 );
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {

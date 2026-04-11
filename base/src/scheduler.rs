@@ -174,7 +174,7 @@ async fn apply_failover<C: SchedulerConfig>(
         FailoverPolicy::Terminate => {}
 
         FailoverPolicy::Deallocate => {
-            store.remove(&key)
+            store.remove(key)
         },
 
         FailoverPolicy::ShutdownScheduler => {
@@ -190,7 +190,7 @@ async fn apply_failover<C: SchedulerConfig>(
 #[inline(always)]
 fn spawn_task<C: SchedulerConfig>(
     key: SchedulerKey<C>,
-    dispatch_workers: &Vec<SchedulerWorker<C>>
+    dispatch_workers: &[SchedulerWorker<C>]
 ) {
     let idx = key.clone().into() & (dispatch_workers.len() - 1);
     dispatch_workers[idx].spawn_dispatch(key);
@@ -223,7 +223,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
             let dispatcher_clone = dispatcher_clone.clone();
             let engine_clone = engine_clone.clone();
             let worker_len = workers.len();
-            let policy = self.failover_policy.clone();
+            let policy = self.failover_policy;
             let processes = self.process.clone();
             let handle = tokio::spawn(async move {
                 loop {

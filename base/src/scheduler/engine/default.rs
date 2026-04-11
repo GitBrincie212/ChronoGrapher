@@ -65,14 +65,12 @@ where
 }
 
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
-    fn retrieve(&self) -> impl Future<Output = Vec<SchedulerKey<C>>> {
-        async move {
-            loop {
-                if let Some(res) = self.get_result_queue.0.pop() {
-                    return res;
-                }
-                self.get_result_queue.1.notified().await;
+    async fn retrieve(&self) -> Vec<SchedulerKey<C>> {
+        loop {
+            if let Some(res) = self.get_result_queue.0.pop() {
+                return res;
             }
+            self.get_result_queue.1.notified().await;
         }
     }
 

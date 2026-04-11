@@ -1,4 +1,4 @@
-///! A standalone module containing only the [`TaskScheduleImmediate`] scheduling primitive
+//! A standalone module containing only the [`TaskScheduleImmediate`] scheduling primitive
 
 use std::error::Error;
 use std::time::SystemTime;

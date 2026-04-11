@@ -57,8 +57,8 @@ enum RangeType {
 impl RangeType {
     fn contains(&self, num: &f64) -> bool {
         match self {
-            RangeType::Bounded(range) => range.contains(&num) && *num != 0.0,
-            RangeType::Inclusive(range) => range.contains(&num) && *num != 0.0,
+            RangeType::Bounded(range) => range.contains(num) && *num != 0.0,
+            RangeType::Inclusive(range) => range.contains(num) && *num != 0.0,
         }
     }
 }
@@ -90,7 +90,7 @@ fn search_suffixes<'a>(target: &str) -> Result<(&'a RangeType, usize), (usize, &
             return Ok((range, idx));
         }
 
-        let dist = levenshtein(&target, suffix);
+        let dist = levenshtein(target, suffix);
         if min_pair.0 > dist {
             min_pair = (dist, *suffix);
         }
@@ -143,7 +143,7 @@ impl Parse for TimeLiteral {
                         lit_span,
                         format!(
                             "Exceeded expected range of {} for \"{}\" time field, got \"{num}\"",
-                            range.to_string(),
+                            range,
                             TIME_FIELD[pos]
                         )
                     ))
@@ -165,7 +165,7 @@ impl Parse for TimeLiteral {
             },
 
             Err((dist, expected)) => {
-                let msg = if suffix == "" {
+                let msg = if suffix.is_empty() {
                     "Missing time unit suffix (expected one of: ms, s, m, h, d)".to_string()
                 } else if dist < 2 {
                     format!("Unexpected suffix \"{}\", did you mean \"{}\"", suffix, expected)

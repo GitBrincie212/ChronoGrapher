@@ -105,7 +105,7 @@ impl TaskFrame for MyTaskFrame {
 }
 
 static SCHEDULER: LazyLock<Scheduler<DefaultSchedulerConfig<Box<dyn TaskError>>>> =
-    LazyLock::new(|| Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default());
+    LazyLock::new(Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default);
 
 pub async fn chronographer(tasks: usize, exec: Duration) {
     for _ in 0..tasks {
