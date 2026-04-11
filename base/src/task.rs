@@ -42,16 +42,18 @@ impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2
 }
 
 impl<E: TaskError> ErasedTask<E> {
-    pub fn run(&self) -> impl Future<Output = Result<(), E>> + Send {
+    pub async fn run(&self) -> Result<(), E> {
         let ctx = TaskFrameContext(RestrictTaskFrameContext::new(self));
-        async move {
-            ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
-            let result: Result<(), E> = self.frame.erased_execute(&ctx).await;
-            let err = result.as_ref().err().map(|x| x as &dyn TaskError);
-            ctx.emit::<OnTaskEnd>(&err).await;
+        ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
 
-            result
-        }
+        let result = self.frame.erased_execute(&ctx).await;
+        let err = match &result {
+            Ok(_) => None,
+            Err(e) => Some(e as &dyn TaskError),
+        };
+
+        ctx.emit::<OnTaskEnd>(&err).await;
+        result
     }
 
     pub fn frame(&self) -> &dyn DynTaskFrame<E> {

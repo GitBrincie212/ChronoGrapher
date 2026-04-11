@@ -9,7 +9,7 @@
 #[derive(Clone)]
 pub struct ByteWheel<T> {
     slots: [Vec<T>; 256],
-    current: usize,
+    current: u8,
 }
 
 impl<T> Default for ByteWheel<T> {
@@ -23,11 +23,11 @@ impl<T> Default for ByteWheel<T> {
 
 impl<T> ByteWheel<T> {
     pub fn current(&self) -> usize {
-        self.current
+        self.current as usize
     }
 
     pub fn skip(&mut self, to: u8) {
-        self.current = (to as usize) & 255; // Same as using modulo but faster
+        self.current = to;
     }
 
     pub fn insert(&mut self, pos: u8, value: T) {
@@ -35,11 +35,11 @@ impl<T> ByteWheel<T> {
         self.slots[index].push(value);
     }
 
-    pub fn tick(&mut self) -> (Vec<T>, usize) {
-        self.current = (self.current + 1) & 255; // Same as wrapping_add but faster
+    pub fn tick(&mut self) -> (Vec<T>, bool) {
+        self.current = self.current.wrapping_add(1); // Same as wrapping_add but faster
         let mut expired = Vec::new();
-        std::mem::swap(&mut expired, &mut self.slots[self.current]);
-        (expired, self.current)
+        std::mem::swap(&mut expired, &mut self.slots[self.current as usize]);
+        (expired, self.current == 0)
     }
 
     pub fn clear(&mut self) {

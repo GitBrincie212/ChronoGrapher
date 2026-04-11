@@ -68,10 +68,10 @@ impl<T> HierarchicalTimingWheel<T> {
     pub fn tick(&mut self) -> Vec<T> {
         let mut results = Vec::new();
 
-        let (expired, cursor0) = self.level1.tick();
+        let (expired, wrapped0) = self.level1.tick();
         results.extend(expired.into_iter().map(|x| x.value));
 
-        if cursor0 == 0 {
+        if wrapped0 {
             let mut levels = [
                 &mut self.level1,
                 &mut self.level2,
@@ -82,7 +82,7 @@ impl<T> HierarchicalTimingWheel<T> {
 
             for idx in 1..5 {
                 let level = &mut levels[idx];
-                let (expired, cursor) = level.tick();
+                let (expired, wrapped) = level.tick();
                 for mut entry in expired {
                     entry.level -= 1;
 
@@ -95,7 +95,7 @@ impl<T> HierarchicalTimingWheel<T> {
                     target.insert(slot, entry);
                 }
 
-                if cursor != 0 {
+                if !wrapped {
                     break;
                 }
             }
