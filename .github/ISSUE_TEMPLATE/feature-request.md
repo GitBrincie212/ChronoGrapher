@@ -1,40 +1,32 @@
 ---
-name: Architecture Issue
-about: Something that has to do with the current architecture of the project
-title: "[ARCH] My Title For An Architecture Problem / Suggestion"
-labels: 'Architectural'
+name: Feature Request
+about: A suggestion for a new feature, change or even integration (mostly QoL)
+title: "[QoL] My Title For A Feature Request"
+labels: 'Enhancement'
 assignees: ''
 
 ---
 
 > IMPORTANT: Do NOT remove headers (unless marked optional) and follow rigorously the structure outlined. It should be
-mentioned this should focus on deep redesign of existing fundamental systems, for any addition more basic, consider using
-the "Feature Request Issue" template instead. **(REMOVE ME)**
+mentioned this should focus on *what* should be added, not deep redesign of existing systems. For fundamental system changes, 
+use the "Architecture Issue" template instead. **(REMOVE ME)**
 
 ## High-Level Overview
-Briefly describe the architectural problem / idea in a clear concise tone. Aim to introduce the issue at hand, where
-it resides and some of the proposals. This should act as a summary of the entire issue to get an idea of what to do,
-the main talking points will be below. The summary should be short around 3-5 lines MAX but clearly describe intent,
-this message has the ideal length.
+Briefly describe the feature, what does it do, how would it behave, its properties and if it would integrate with any
+other system (outside or inside ChronoGrapher).
 
-## Current Behavior / Design
-Explain deeply how the system works currently in the relevant area of the problem. The most important points are:
-- Key components involved in the system (subsequently in the problem).
-- The execution flow of the system related to the problem, what steps it takes, its algorithm(s)... etc.
-
-## Problem Description
-Explain the various limiting factors introduced by the current system, what breaks down, what is incorrect and generally
-everything in-between? Elaborate on the various areas it impacts (could be ergonomics, throughput, memory... etc.),
-focus writing detailed explanation.
+## Problem Frame
+Explain the problem with the current way of doing things, which area(s) does the problem impact, for example ergonomics, 
+extensibility / flexibility... etc.
 
 ## Constraints
-List the various constraints the system must have, this can be simplicity in its use, high throughput, low memory... etc.
+List the various constraints the feature must have, this can be simplicity in its use, high throughput, low memory... etc.
 By introducing constraints a solution will emerge faster, ideally this should be in a bullet list in the form of:
 - **Constraint A**: Description about this constraint...
 - **Constraint B**: Description about this constraint...
 - **Constraint C**: Description about this constraint...
 
-## Proposed Direction(s) (OPTIONAL)
+## Proposed Direction(s)
 Propose what solutions you've come up (if any). The idea is to break apart each solution(s) into multiple paragraphs
 while diving into the details of how each solution works. Providing both a high-level overview and then going deeper
 to the implementation details (though do not focus there).
