@@ -32,6 +32,7 @@ use crate::errors::TaskError;
 use crate::scheduler::{SchedulerHandleInstructions, SchedulerHandle};
 use crate::task::{ErasedTask, NonObserverTaskHook, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
 use async_trait::async_trait;
+use std::any::Any;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -66,14 +67,15 @@ impl<'a> TaskFrameContext<'a> {
     pub async fn erased_subdivide(
         &self,
         frame: &'a dyn ErasedTaskFrame,
+        args: &(dyn Any + Send + Sync + 'static)
     ) -> Result<(), Box<dyn TaskError>> {
         let child_ctx = self.subdivided_ctx(frame);
-        frame.erased_execute(&child_ctx).await
+        frame.erased_execute(&child_ctx, args).await
     }
 
-    pub async fn subdivide<T: TaskFrame>(&self, frame: &'a T) -> Result<(), T::Error> {
+    pub async fn subdivide<T: TaskFrame>(&self, frame: &'a T, args: &T::Args) -> Result<(), T::Error> {
         let child_ctx = self.subdivided_ctx(frame);
-        frame.execute(&child_ctx).await
+        frame.execute(&child_ctx, args).await
     }
 
     instruct_method!(instruct_reschedule, Reschedule);
@@ -165,20 +167,20 @@ impl<'a> Deref for TaskFrameContext<'a> {
 #[async_trait]
 pub trait TaskFrame: 'static + Send + Sync + Sized {
     type Error: TaskError;
-
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error>;
+    type Args: Send + Sync + 'static;
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error>;
 }
 
 #[async_trait]
-pub trait DynTaskFrame<E: TaskError>: 'static + Send + Sync {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), E>;
+pub trait DynTaskFrame<E: TaskError, A: Send + Sync + 'static>: 'static + Send + Sync {
+    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &A) -> Result<(), E>;
     fn erased(&self) -> &dyn ErasedTaskFrame;
 }
 
 #[async_trait]
-impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error> for T {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), T::Error> {
-        self.execute(ctx).await
+impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error, T::Args> for T {
+    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &T::Args) -> Result<(), T::Error> {
+        self.execute(ctx, args).await
     }
 
     fn erased(&self) -> &dyn ErasedTaskFrame {
@@ -188,13 +190,14 @@ impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error> for T {
 
 #[async_trait]
 pub trait ErasedTaskFrame: 'static + Send + Sync {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>>;
+    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &(dyn Any + Send + Sync)) -> Result<(), Box<dyn TaskError>>;
 }
 
 #[async_trait]
 impl<T: TaskFrame<Error: Into<T::Error>>> ErasedTaskFrame for T {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>> {
-        self.execute(ctx)
+    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &(dyn Any + Send + Sync)) -> Result<(), Box<dyn TaskError>> {
+        
+        self.execute(ctx, args.downcast_ref::<T::Args>().expect("args type mismatch"))
             .await
             .map_err(|x| Box::new(x) as Box<dyn TaskError>)
     }

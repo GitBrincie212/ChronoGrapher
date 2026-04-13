@@ -23,8 +23,9 @@ where
     E: TaskError,
 {
     type Error = E;
+    type Args = ();
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
         self.0(ctx).await
     }
 }

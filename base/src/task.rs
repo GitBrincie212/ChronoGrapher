@@ -23,7 +23,7 @@ use std::sync::atomic::AtomicUsize;
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E>>, Box<dyn TaskTrigger>>;
+pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>, Box<dyn TaskTrigger>>;
 
 pub struct Task<T1, T2> {
     frame: T1,
@@ -46,7 +46,7 @@ impl<E: TaskError> ErasedTask<E> {
         let ctx = TaskFrameContext(RestrictTaskFrameContext::new(self));
         ctx.emit::<OnTaskStart>(&()).await; // skipcq: RS-E1015
 
-        let result = self.frame.erased_execute(&ctx).await;
+        let result = self.frame.erased_execute(&ctx, &()).await;
         let err = match &result {
             Ok(_) => None,
             Err(e) => Some(e as &dyn TaskError),
@@ -56,7 +56,7 @@ impl<E: TaskError> ErasedTask<E> {
         result
     }
 
-    pub fn frame(&self) -> &dyn DynTaskFrame<E> {
+    pub fn frame(&self) -> &dyn DynTaskFrame<E, ()> {
         self.frame.as_ref()
     }
 
@@ -101,7 +101,10 @@ impl<E: TaskError> ErasedTask<E> {
     }
 }
 
-impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2> {
+impl<T1: TaskFrame, T2: TaskTrigger> Task<T1, T2>
+ where
+    T1: TaskFrame<Args = ()>
+ {
     pub fn new(trigger: T2, frame: T1) -> Self {
         Self {
             frame,

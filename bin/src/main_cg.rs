@@ -93,8 +93,9 @@ struct MyTaskFrame;
 #[async_trait]
 impl TaskFrame for MyTaskFrame {
     type Error = Box<dyn TaskError>;
+    type Args = ();
 
-    async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
         for _ in 0..100 {
             std::hint::black_box(42);
         }

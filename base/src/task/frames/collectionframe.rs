@@ -177,7 +177,7 @@ impl<P: CollectionExecPolicy<CollectionTaskError> + Send + Sync + 'static> Colle
                 child_ctx
                     .emit::<OnChildTaskFrameStart>(&(idx, frame.as_ref()))
                     .await;
-                let result = child_ctx.erased_subdivide(frame.as_ref()).await;
+                let result = child_ctx.erased_subdivide(frame.as_ref(), &()).await;
                 match result {
                     Ok(()) => child_ctx.emit::<OnChildTaskFrameEnd>(&None).await,
                     Err(ref err) => {
@@ -337,7 +337,7 @@ impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
         self.ctx
             .emit::<OnChildTaskFrameStart>(&(idx, taskframe))
             .await;
-        let result = self.ctx.erased_subdivide(taskframe).await;
+        let result = self.ctx.erased_subdivide(taskframe, &()).await;
         match result {
             Ok(()) => {
                 self.ctx.emit::<OnChildTaskFrameEnd>(&None).await;
@@ -373,8 +373,8 @@ impl<'a, T: CollectionExecStrategy> Deref for CollectionTaskFrameHandle<'a, T> {
 #[async_trait]
 impl<T: CollectionExecStrategy> TaskFrame for CollectionTaskFrame<T> {
     type Error = CollectionTaskError;
-
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    type Args = (); 
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let handle = CollectionTaskFrameHandle {
             collection: self,
             ctx,

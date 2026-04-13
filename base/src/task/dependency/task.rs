@@ -56,7 +56,7 @@ pub struct TaskDependencyBuilder<T1: TaskFrame, T2: TaskTrigger> {
     resolve_behavior: Arc<dyn TaskResolvent>,
 }
 
-impl<T1: TaskFrame, T2: TaskTrigger> TaskDependencyBuilder<T1, T2> {
+impl<T1: TaskFrame<Args = ()>, T2: TaskTrigger> TaskDependencyBuilder<T1, T2> {
     fn new(task: &'static Task<T1, T2>) -> Self {
         Self {
             task,
@@ -122,11 +122,11 @@ pub struct TaskDependency {
 }
 
 impl TaskDependency {
-    pub async fn new<T1: TaskFrame, T2: TaskTrigger>(task: &'static Task<T1, T2>) -> Self {
+    pub async fn new<T1: TaskFrame<Args = ()>, T2: TaskTrigger>(task: &'static Task<T1, T2>) -> Self {
         TaskDependencyBuilder::<T1, T2>::new(task).build().await
     }
 
-    pub fn builder<T1: TaskFrame, T2: TaskTrigger>(
+    pub fn builder<T1: TaskFrame<Args = ()>, T2: TaskTrigger>(
         task: &'static Task<T1, T2>,
     ) -> TaskDependencyBuilder<T1, T2> {
         TaskDependencyBuilder::<T1, T2>::new(task)

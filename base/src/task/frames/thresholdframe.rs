@@ -91,14 +91,16 @@ impl<T: TaskFrame> ThresholdTaskFrame<T> {
 #[async_trait]
 impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
     type Error = T::Error;
+    type Args = T::Args;
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let mut total = self.count.load(Ordering::Relaxed);
         if total == self.threshold.get() {
             return self.threshold_reach_behaviour.results(&ctx.0).await;
         }
 
-        let res = ctx.subdivide(&self.frame).await;
+        let res = ctx.subdivide(&self.frame, args).await;
         if self
             .threshold_logic
             .counts(res.as_ref().err(), &ctx.0)

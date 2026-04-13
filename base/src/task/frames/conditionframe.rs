@@ -71,11 +71,11 @@ pub struct ConditionalFrame<T, T2> {
 #[allow(type_alias_bounds)]
 pub type NonFallbackCFCBuilder<T: TaskFrame> = ConditionalFrameConfigBuilder<
     T,
-    NoOperationTaskFrame<T::Error>,
-    ((NoOperationTaskFrame<T::Error>,), (), (), ()),
+    NoOperationTaskFrame<T::Error, T::Args>,
+    ((NoOperationTaskFrame<T::Error, T::Args>,), (), (), ()),
 >;
 
-impl<T: TaskFrame> ConditionalFrame<T, NoOperationTaskFrame<T::Error>> {
+impl<T: TaskFrame> ConditionalFrame<T, NoOperationTaskFrame<T::Error, T::Args>> {
     pub fn builder() -> NonFallbackCFCBuilder<T> {
         ConditionalFrameConfig::builder().fallback(NoOperationTaskFrame::default())
     }
@@ -88,22 +88,23 @@ impl<T: TaskFrame, T2: TaskFrame> ConditionalFrame<T, T2> {
 }
 
 #[async_trait]
-impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
+impl<T: TaskFrame, F: TaskFrame<Args = T::Args>> TaskFrame for ConditionalFrame<T, F> {
     type Error = ConditionalTaskFrameError<T::Error, F::Error>;
+    type Args = T::Args;
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let result = self.predicate.execute(&ctx.0).await;
 
         if result {
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
             return ctx
-                .subdivide(&self.frame)
+                .subdivide(&self.frame, args)
                 .await
                 .map_err(ConditionalTaskFrameError::PrimaryFailed);
         }
 
         ctx.emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
-        let result = ctx.subdivide(&self.fallback).await;
+        let result = ctx.subdivide(&self.fallback, args).await;
         if self.error_on_false && result.is_ok() {
             return Err(ConditionalTaskFrameError::TaskConditionFail);
         }

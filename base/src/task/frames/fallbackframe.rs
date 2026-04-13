@@ -15,14 +15,18 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
 }
 
 #[async_trait]
-impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
+impl<T: TaskFrame, T2: TaskFrame<Args = (T::Args, T::Error)>> TaskFrame for FallbackTaskFrame<T, T2> 
+    where T::Args: Clone
+{
     type Error = T2::Error;
+    type Args = T::Args;
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
-        match ctx.subdivide(&self.0).await {
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
+        match ctx.subdivide(&self.0, args).await {
             Err(err) => {
                 ctx.emit::<OnFallbackEvent>(&(&err as &dyn TaskError)).await;
-                ctx.subdivide(&self.1).await
+                let secondary_args = (args.clone(), err);
+                ctx.subdivide(&self.1, &secondary_args).await
             }
 
             Ok(()) => Ok(()),

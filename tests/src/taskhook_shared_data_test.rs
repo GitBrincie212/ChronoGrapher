@@ -34,8 +34,9 @@ async fn test_shared_returns_same_instance() {
     #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
+        type Args = ();
 
-        async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+        async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
             let counter1 = ctx.shared(|| AtomicCounter::new(0)).await;
             let counter2 = ctx.shared(|| AtomicCounter::new(999)).await; // creator ignored
 
@@ -80,8 +81,9 @@ async fn test_shared_isolated_by_type() {
     #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
+        type Args = ();
 
-        async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+        async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
             let int_counter = ctx.shared(|| IntCounter(AtomicUsize::new(42))).await;
             let str_counter = ctx.shared(|| StrCounter(AtomicUsize::new(100))).await;
 
@@ -126,8 +128,9 @@ async fn test_get_shared_none_if_missing() {
     #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
+        type Args = ();
 
-        async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+        async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
             let counter = ctx.get_shared::<AtomicCounter>();
 
             if counter.is_none() {
@@ -163,8 +166,9 @@ async fn test_get_shared_some_if_exists() {
     #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
+        type Args = ();
 
-        async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+        async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
             ctx.shared(|| AtomicCounter::new(42)).await;
 
             let counter = ctx.get_shared::<AtomicCounter>();
@@ -232,8 +236,9 @@ async fn test_shared_custom_state_manager() {
     #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
+        type Args = ();
 
-        async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+        async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
             let state = ctx.shared(|| MyStateManager::new(10, 20)).await;
 
             state.write_x(100);
@@ -276,8 +281,9 @@ async fn test_shared_with_marker() {
     #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
+        type Args = ();
 
-        async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+        async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
             ctx.shared(|| MyStateMarker).await;
 
             if ctx.get_shared::<MyStateMarker>().is_some() {
@@ -310,8 +316,8 @@ async fn test_shared_scoped_to_task_context() {
     #[async_trait]
     impl TaskFrame for WorkerTask {
         type Error = Box<dyn TaskError>;
-
-        async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+        type Args = ();
+        async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
             let counter = ctx.shared(|| AtomicCounter::new(0)).await;
             let value = counter.fetch_add(1, Ordering::SeqCst) + 1;
 
@@ -349,8 +355,8 @@ async fn test_shared_scoped_to_task_context() {
     #[async_trait]
     impl TaskFrame for SupervisorTask {
         type Error = Box<dyn TaskError>;
-
-        async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+        type Args = ();
+        async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
             let worker1 = WorkerTask {
                 worker_id: 3,
                 result: self.result.clone(),
@@ -362,9 +368,9 @@ async fn test_shared_scoped_to_task_context() {
             };
 
             println!("SupervisorTask subdividing worker3");
-            ctx.subdivide(&worker1).await?;
+            ctx.subdivide(&worker1, args).await?;
             println!("SupervisorTask subdividing worker4");
-            ctx.subdivide(&worker2).await?;
+            ctx.subdivide(&worker2, args).await?;
 
             Ok(())
         }

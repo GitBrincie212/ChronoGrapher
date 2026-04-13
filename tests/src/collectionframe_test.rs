@@ -25,8 +25,9 @@ struct CountingFrame {
 #[async_trait]
 impl TaskFrame for CountingFrame {
     type Error = TestCollectionError;
+    type Args = ();
 
-    async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
         self.counter.fetch_add(1, Ordering::SeqCst);
         if self.should_fail {
             Err(TestCollectionError("frame failed"))

@@ -445,10 +445,13 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`FallbackTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`TaskFrame`] - The trait that ``fallback`` must implement.
-    pub fn with_fallback<T2: TaskFrame + 'static>(
+    pub fn with_fallback<T2: TaskFrame<Args = (T::Args, T::Error)> + 'static>(
         self,
         fallback: T2,
-    ) -> TaskFrameBuilder<FallbackTaskFrame<T, T2>> {
+    ) -> TaskFrameBuilder<FallbackTaskFrame<T, T2>>
+    where
+        T::Args: Clone,
+    {
         TaskFrameBuilder(FallbackTaskFrame::new(self.0, fallback))
     }
 
@@ -458,10 +461,10 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// evaluated asynchronously to determine whether the inner task should run. Note that the predicate is not a direct
     /// boolean value but rather a logic wrapper (implementing [`ConditionalFramePredicate`]) that gets checked at runtime.
     ///
-    /// If the predicate returns `true`, the inner task is unconditionally executed, however if it returns `false`, in the context 
+    /// If the predicate returns `true`, the inner task is unconditionally executed, however if it returns `false`, in the context
     /// of this method, it acts as a no-operation and returns a success by default upon a falsey value.
     ///
-    /// If a fallback behaiviour needs to be configured to execute as a backup when the predicate returns false, then 
+    /// If a fallback behaiviour needs to be configured to execute as a backup when the predicate returns false, then
     /// [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) is the better choice.
     ///
     /// # Arguments
@@ -511,7 +514,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     pub fn with_condition(
         self,
         predicate: impl ConditionalFramePredicate + 'static,
-    ) -> TaskFrameBuilder<ConditionalFrame<T, NoOperationTaskFrame<T::Error>>> {
+    ) -> TaskFrameBuilder<ConditionalFrame<T, NoOperationTaskFrame<T::Error, T::Args>>> {
         let condition = ConditionalFrame::builder()
             .predicate(predicate)
             .frame(self.0)
@@ -526,14 +529,14 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// evaluated asynchronously to determine whether the inner task should run. Note that the predicate is not a direct
     /// boolean value but rather a logic wrapper (implementing [`ConditionalFramePredicate`]) that gets checked at runtime.
     ///
-    /// If the predicate returns ``true``, the inner task is unconditionally executed, however if it returns ``false``, in the context 
+    /// If the predicate returns ``true``, the inner task is unconditionally executed, however if it returns ``false``, in the context
     /// of this method, it executes a ``fallback`` [`TaskFrame`] defined in the arguments and returns a success by default upon a falsey value.
     ///
-    /// If an error is desired to be returned and without a fallback [`TaskFrame`] executing on top, then 
+    /// If an error is desired to be returned and without a fallback [`TaskFrame`] executing on top, then
     /// [`with_condition`](TaskFrameBuilder::with_condition) is the better choice.
     ///
     /// # Arguments
-    /// There are two arguments the method requires, the first is ``fallback`` which is a type implementing [`TaskFrame`] parameter specifying the alternative/secondary 
+    /// There are two arguments the method requires, the first is ``fallback`` which is a type implementing [`TaskFrame`] parameter specifying the alternative/secondary
     /// task to execute if the conditional predicate evaluates to false.
     ///
     /// The second is the ``predicate`` is a type implementing [`ConditionalFramePredicate`] parameter containing the logic to evaluate.
@@ -590,7 +593,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
     /// - [`with_condition`](TaskFrameBuilder::with_condition) - Wrapper that simply aborts/skips on false condition.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
-    pub fn with_fallback_condition<T2: TaskFrame + 'static>(
+    pub fn with_fallback_condition<T2: TaskFrame<Args = T::Args> + 'static>(
         self,
         fallback: T2,
         predicate: impl ConditionalFramePredicate + 'static,
@@ -670,7 +673,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// Method wraps the inner [`TaskFrame`] in a [`DependencyTaskFrame`] waiting for multiple dependencies to be resolved before execution.
     ///
-    /// This wrapper allows the execution of the inner task to be deferred until multiple defined condition or dependencies are met. It polls 
+    /// This wrapper allows the execution of the inner task to be deferred until multiple defined condition or dependencies are met. It polls
     /// the provided [`FrameDependencies`](FrameDependency) asynchronously until all indicate that they've been resolved,
     /// only then allowing the primary inner task to execute.
     ///

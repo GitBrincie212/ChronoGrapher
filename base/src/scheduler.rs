@@ -346,7 +346,7 @@ impl<C: SchedulerConfig> Scheduler<C> {
 
     pub async fn schedule(
         &self,
-        task: Task<impl TaskFrame<Error = C::TaskError>, impl TaskTrigger>,
+        task: Task<impl TaskFrame<Error = C::TaskError, Args = ()>, impl TaskTrigger>,
     ) -> Result<SchedulerKey<C>, Box<dyn Error + Send + Sync>> {
         let erased = Arc::new(task.into_erased());
         let key = self.store.store(erased.clone())?;
