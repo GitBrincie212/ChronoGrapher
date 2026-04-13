@@ -15,8 +15,6 @@ pub use trigger::*;
 pub use schedule::*;
 
 use crate::errors::TaskError;
-#[allow(unused_imports)]
-use crate::scheduler::Scheduler;
 use std::fmt::Debug;
 use std::sync::{Arc, LazyLock};
 use std::sync::atomic::AtomicUsize;

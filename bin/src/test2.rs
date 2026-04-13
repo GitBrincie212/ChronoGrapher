@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chronographer::prelude::*;
-use chronographer::scheduler::{DefaultSchedulerConfig, Scheduler};
+use chronographer::scheduler::{DefaultSchedulerConfig, LiveScheduler, Scheduler};
 use chronographer::task::TaskHookContext;
 
 pub struct MyCoolTaskHook;
@@ -29,7 +29,8 @@ impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
 
 #[tokio::main]
 async fn main() {
-    let scheduler = Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
+    let scheduler =
+        LiveScheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
     let exec_frame = DynamicTaskFrame::new(|_ctx| async {
         println!("Trying primary task...");

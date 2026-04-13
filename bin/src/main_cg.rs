@@ -87,6 +87,7 @@ use chronographer::task::{TaskFrame, TaskFrameContext};
 use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use chronographer::scheduler::LiveScheduler;
 
 struct MyTaskFrame;
 
@@ -104,8 +105,8 @@ impl TaskFrame for MyTaskFrame {
     }
 }
 
-static SCHEDULER: LazyLock<Scheduler<DefaultSchedulerConfig<Box<dyn TaskError>>>> =
-    LazyLock::new(Scheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default);
+static SCHEDULER: LazyLock<LiveScheduler<DefaultSchedulerConfig<Box<dyn TaskError>>>> =
+    LazyLock::new(LiveScheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default);
 
 pub async fn chronographer(tasks: usize, exec: Duration) {
     for _ in 0..tasks {

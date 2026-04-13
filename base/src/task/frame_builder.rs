@@ -90,7 +90,7 @@ use std::time::Duration;
 /// #     }
 /// # }
 ///
-/// // `MyFrame` and `BackupFrame` are two types that implement `TaskFrame`.
+/// // `MyFrame` and `BackupFrame` are two impls that implement `TaskFrame`.
 ///
 /// const DELAY_PER_RETRY: Duration = Duration::from_secs(1);
 /// # type WorkflowType = FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>, BackupFrame>;

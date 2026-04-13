@@ -29,11 +29,11 @@ pub use thresholdframe::*;
 pub use timeoutframe::*;
 
 use crate::errors::TaskError;
-use crate::scheduler::{SchedulerHandleInstructions, SchedulerHandle};
 use crate::task::{ErasedTask, NonObserverTaskHook, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
+use crate::scheduler::utils::{SchedulerHandleInstructions, SchedulerHandle};
 
 #[derive(Clone)]
 pub struct RestrictTaskFrameContext<'a> {

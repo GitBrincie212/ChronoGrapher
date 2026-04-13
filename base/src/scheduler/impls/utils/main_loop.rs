@@ -1,6 +1,8 @@
 use std::sync::Arc;
-use crate::scheduler::{spawn_task, SchedulerConfig, SchedulerWorker};
+use crate::scheduler::SchedulerConfig;
 use crate::scheduler::engine::SchedulerEngine;
+use crate::scheduler::impls::live::SchedulerWorker;
+use crate::scheduler::impls::utils::spawn_task;
 
 #[inline(always)]
 pub fn main_loop_logic<C: SchedulerConfig>(
