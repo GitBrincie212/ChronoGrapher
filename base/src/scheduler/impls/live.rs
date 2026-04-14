@@ -2,7 +2,7 @@ use std::error::Error;
 use std::sync::Arc;
 use crossbeam::queue::SegQueue;
 use tokio::join;
-use tokio::sync::{Notify, RwLock};
+use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 use crate::errors::TaskError;
@@ -73,7 +73,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
             engine: Arc::new(config.engine),
             store: Arc::new(config.store),
             dispatcher: Arc::new(config.dispatcher),
-            process: Arc::new(RwLock::new(Vec::new())),
+            process: Arc::new(parking_lot::RwLock::new(Vec::new())),
             workers: Arc::new(workers),
             instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
             failover_policy: config.failover_policy,
@@ -85,7 +85,7 @@ pub struct LiveScheduler<C: SchedulerConfig> {
     store: Arc<C::SchedulerTaskStore>,
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
-    process: Arc<RwLock<Vec<JoinHandle<()>>>>,
+    process: Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
     workers: Arc<Vec<SchedulerWorker<C>>>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     failover_policy: FailoverPolicy,
@@ -116,7 +116,7 @@ async fn apply_failover<C: SchedulerConfig>(
     worker: &SchedulerWorker<C>,
     work: SchedulerWork,
     store: &Arc<C::SchedulerTaskStore>,
-    process: &Arc<RwLock<Vec<JoinHandle<()>>>>,
+    process: &Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
 ) {
     match failover_policy {
         FailoverPolicy::Keep => {
@@ -130,7 +130,7 @@ async fn apply_failover<C: SchedulerConfig>(
         },
 
         FailoverPolicy::ShutdownScheduler => {
-            let mut lock = process.write().await;
+            let mut lock = process.write();
             let drained = lock.drain(..);
             for handle in drained {
                 handle.abort();
@@ -148,7 +148,7 @@ async fn start_worker_process<C: SchedulerConfig>(
     engine_clone: Arc<C::SchedulerEngine>,
     dispatcher_clone: Arc<C::SchedulerTaskDispatcher>,
     policy: FailoverPolicy,
-    processes: Arc<RwLock<Vec<JoinHandle<()>>>>,
+    processes: Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
 ) {
     loop {
         let mut pointing = idx;
@@ -245,7 +245,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
             self.engine.init()
         );
 
-        let mut lock = self.process.write().await;
+        let mut lock = self.process.write();
         for idx in 0..self.workers.len() {
             let handle = tokio::spawn(start_worker_process(
                 self.workers.clone(),
@@ -278,12 +278,15 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         ));
     }
 
-    async fn abort(&self) {
-        let mut lock = self.process.write().await;
+    fn abort(&self) -> impl Future<Output = ()> + Send {
+        let mut lock = self.process.write();
+
         let handles = lock.drain(..);
         for handle in handles {
             handle.abort();
         }
+
+        std::future::ready(())
     }
 
     fn clear(&self) -> impl Future<Output = ()> + Send {
@@ -310,7 +313,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         std::future::ready(self.store.exists(key))
     }
 
-    async fn has_started(&self) -> bool {
-        !self.process.read().await.is_empty()
+    fn has_started(&self)  -> impl Future<Output = bool> + Send {
+        std::future::ready(!self.process.read().is_empty())
     }
 }

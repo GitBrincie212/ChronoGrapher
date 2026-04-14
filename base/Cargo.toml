@@ -29,7 +29,7 @@ eyre = {version = "0.6.12", optional = true}
 uuid = { version = "1.18.1", features = ["v4"], optional = true }
 crossbeam = "0.8.4"
 slotmap = "1.1.1"
-parking_lot = "0.12.5"
+parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
 
 [features]
 default = []
