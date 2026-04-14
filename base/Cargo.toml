@@ -26,7 +26,6 @@ time = "0.3.47"
 chrono = { version = "0.4.41", features = ["now"], optional = true }
 anyhow = { version = "1.0.101" , features = ["std"], optional = true }
 eyre = {version = "0.6.12", optional = true}
-uuid = { version = "1.18.1", features = ["v4"], optional = true }
 crossbeam = "0.8.4"
 slotmap = "1.1.1"
 parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
@@ -35,5 +34,4 @@ parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
 default = []
 anyhow = ["dep:anyhow"]
 eyre = ["dep:eyre"]
-uuid = ["dep:uuid"]
 chrono = ["dep:chrono"]
