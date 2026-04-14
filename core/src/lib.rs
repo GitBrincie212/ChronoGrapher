@@ -49,9 +49,11 @@ pub mod prelude {
 
     // Schedulers
     pub use crate::scheduler::DefaultScheduler;
+    pub use crate::scheduler::LiveScheduler;
     pub use crate::scheduler::DefaultSchedulerConfig;
     pub use crate::scheduler::Scheduler;
     pub use crate::scheduler::SchedulerConfig;
+    pub use crate::scheduler::FailoverPolicy;
 
     #[cfg(feature = "anyhow")]
     pub use crate::scheduler::DefaultAnyhowScheduler;
