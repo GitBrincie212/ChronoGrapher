@@ -5,8 +5,11 @@ use std::fmt::Debug;
 use std::ops::Add;
 use std::time::{Duration, SystemTime};
 use async_trait::async_trait;
-use crate::errors::StandardCoreErrorsCG;
+use crate::errors::IntervalSecondsOutOfRange;
 use crate::task::TaskTrigger;
+
+#[cfg(feature = "chrono")]
+use crate::errors::IntervalTimeDeltaOutOfRange;
 
 /// [`TaskScheduleInterval`] is a [`TaskTrigger`] used to execute a [Task](crate::task::Task) in an
 /// interval basis (based on the current time).
@@ -120,16 +123,15 @@ impl TaskScheduleInterval {
     /// the [`chrono::TimeDelta`] argument and on failure an error message (specifically one described below).
     ///
     /// # Error(s)
-    /// The method may return an [IntervalTimedeltaOutOfRange](StandardCoreErrorsCG::IntervalTimedeltaOutOfRange)
-    /// if the [`chrono::TimeDelta`] maps to a negative duration.
+    /// The method may return an [`IntervalTimeDeltaOutOfRange`] if the [`chrono::TimeDelta`] maps to a negative duration.
     ///
     /// # Example(s)
     /// ```rust
     /// use chronographer_base::task::TaskScheduleInterval;
     /// use std::time::Duration;
-    /// # use chronographer_base::errors::StandardCoreErrorsCG;
+    /// # use chronographer_base::errors::IntervalTimeDeltaOutOfRange;
     ///
-    /// # fn main() -> Result<(), StandardCoreErrorsCG> {
+    /// # fn main() -> Result<(), IntervalTimeDeltaOutOfRange> {
     /// let time1 = chrono::TimeDelta::seconds(42);
     /// let time2 = chrono::TimeDelta::days(-2);
     ///
@@ -137,10 +139,10 @@ impl TaskScheduleInterval {
     /// let interval2 = TaskScheduleInterval::timedelta(time2);
     ///
     /// let success: Duration = interval1.unwrap().into();
-    /// let err: StandardCoreErrorsCG = interval2.unwrap_err();
+    /// let err: IntervalTimeDeltaOutOfRange = interval2.unwrap_err();
     ///
     /// assert_eq!(success, Duration::from_secs(42));
-    /// assert_eq!(err, StandardCoreErrorsCG::IntervalTimedeltaOutOfRange);
+    /// assert_eq!(err, IntervalTimeDeltaOutOfRange);
     /// # Ok(())
     /// # }
     /// ```
@@ -152,14 +154,11 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::from_secs_f64`] - A simpler constructor for floating point second-based intervals.
     /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
     /// - [`chrono::TimeDelta`] - The value used to construct the [`TaskScheduleInterval`] instance.
-    /// - [IntervalTimedeltaOutOfRange](StandardCoreErrorsCG::IntervalTimedeltaOutOfRange) -
-    /// The error when the argument doesn't map to a positive duration.
+    /// - [`IntervalTimeDeltaOutOfRange`] - The error when the argument doesn't map to a positive duration.
     pub fn timedelta(
         interval: chrono::TimeDelta,
-    ) -> Result<Self, StandardCoreErrorsCG> {
-        Ok(Self(interval.to_std().map_err(|_| {
-            StandardCoreErrorsCG::IntervalTimedeltaOutOfRange
-        })?))
+    ) -> Result<Self, IntervalTimeDeltaOutOfRange> {
+        Ok(Self(interval.to_std().map_err(|_| { IntervalTimeDeltaOutOfRange })?))
     }
 
     /// A constructor for [`TaskScheduleInterval`] via a [`time::Duration`].
@@ -175,9 +174,9 @@ impl TaskScheduleInterval {
     /// ```rust
     /// use chronographer_base::task::TaskScheduleInterval;
     /// use std::time::Duration;
-    /// # use chronographer_base::errors::StandardCoreErrorsCG;
+    /// # use chronographer_base::errors::IntervalSecondsOutOfRange;
     ///
-    /// # fn main() -> Result<(), StandardCoreErrorsCG> {
+    /// # fn main() -> Result<(), IntervalSecondsOutOfRange> {
     /// let dur = time::Duration::seconds(34);
     /// let interval = TaskScheduleInterval::time_duration(dur);
     /// let interval_dur: Duration = interval.into();
@@ -193,9 +192,9 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::from_secs`] - A simpler constructor for integer second-based intervals.
     /// - [`TaskScheduleInterval::from_secs_f64`] - A simpler constructor for floating point second-based intervals.
     /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
-    pub fn time_duration(interval: time::Duration) -> Result<Self, StandardCoreErrorsCG> {
+    pub fn time_duration(interval: time::Duration) -> Result<Self, IntervalSecondsOutOfRange> {
         if interval.is_negative() || interval.is_zero()  {
-            return Err(StandardCoreErrorsCG::IntervalSecondsOutOfRange)
+            return Err(IntervalSecondsOutOfRange)
         }
 
         Ok(Self(Duration::try_from(interval).unwrap()))
@@ -214,9 +213,9 @@ impl TaskScheduleInterval {
     /// ```rust
     /// use chronographer_base::task::TaskScheduleInterval;
     /// use std::time::Duration;
-    /// # use chronographer_base::errors::StandardCoreErrorsCG;
+    /// # use chronographer_base::errors::IntervalSecondsOutOfRange;
     ///
-    /// # fn main() -> Result<(), StandardCoreErrorsCG> {
+    /// # fn main() -> Result<(), IntervalSecondsOutOfRange> {
     /// let dur = Duration::from_secs(34);
     /// let interval = TaskScheduleInterval::duration(dur);
     /// let interval_dur: Duration = interval.into();
@@ -251,9 +250,9 @@ impl TaskScheduleInterval {
     /// # Example(s)
     /// ```rust
     /// use chronographer_base::task::TaskScheduleInterval;
-    /// # use chronographer_base::errors::StandardCoreErrorsCG;
+    /// # use chronographer_base::errors::IntervalSecondsOutOfRange;
     ///
-    /// # fn main() -> Result<(), StandardCoreErrorsCG> {
+    /// # fn main() -> Result<(), IntervalSecondsOutOfRange> {
     /// let interval = TaskScheduleInterval::from_secs(12);
     /// let interval_dur: Duration = interval.into();
     ///
@@ -285,18 +284,18 @@ impl TaskScheduleInterval {
     ///
     /// # Returns
     /// A result which on success returns the newly constructed [`TaskScheduleInterval`] from the ``f64``
-    /// seconds argument. For failure, it returns a [IntervalSecondsOutOfRange](StandardCoreErrorsCG::IntervalSecondsOutOfRange)
+    /// seconds argument. For failure, it returns a [`IntervalSecondsOutOfRange`]
     ///
     /// # Error(s)
-    /// The method may return an [IntervalSecondsOutOfRange](StandardCoreErrorsCG::IntervalSecondsOutOfRange)
+    /// The method may return an [`IntervalSecondsOutOfRange`]
     /// if the ``f64`` number maps to a negative duration.
     ///
     /// # Example(s)
     /// ```rust
     /// use chronographer_base::task::TaskScheduleInterval;
-    /// # use chronographer_base::errors::StandardCoreErrorsCG;
+    /// # use chronographer_base::errors::IntervalSecondsOutOfRange;
     ///
-    /// # fn main() -> Result<(), StandardCoreErrorsCG> {
+    /// # fn main() -> Result<(), IntervalSecondsOutOfRange> {
     /// let interval = TaskScheduleInterval::from_secs(12);
     /// let interval_dur: Duration = interval.into();
     ///
@@ -311,11 +310,11 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::from_secs`] - A simpler constructor for integer second-based intervals.
     /// - [`TaskScheduleInterval::from_secs_f64`] - A simpler constructor for floating point second-based intervals.
     /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
-    /// - [IntervalSecondsOutOfRange](StandardCoreErrorsCG::IntervalSecondsOutOfRange) - The error
+    /// - [`IntervalSecondsOutOfRange`] - The error
     ///   when the argument doesn't map to a positive duration.
-    pub fn from_secs_f64(interval: f64) -> Result<Self, StandardCoreErrorsCG> {
+    pub fn from_secs_f64(interval: f64) -> Result<Self, IntervalSecondsOutOfRange> {
         if interval.is_sign_negative() || !interval.is_finite() {
-            return Err(StandardCoreErrorsCG::IntervalSecondsOutOfRange)
+            return Err(IntervalSecondsOutOfRange)
         }
 
         Ok(Self(Duration::from_secs_f64(interval)))
@@ -351,7 +350,7 @@ integer_from_impl!(u32);
 integer_from_impl!(u64);
 
 impl TryFrom<f64> for TaskScheduleInterval {
-    type Error = StandardCoreErrorsCG;
+    type Error = IntervalSecondsOutOfRange;
 
     fn try_from(value: f64) -> Result<Self, Self::Error> {
         TaskScheduleInterval::from_secs_f64(value)
@@ -359,7 +358,7 @@ impl TryFrom<f64> for TaskScheduleInterval {
 }
 
 impl TryFrom<f32> for TaskScheduleInterval {
-    type Error = StandardCoreErrorsCG;
+    type Error = IntervalSecondsOutOfRange;
 
     fn try_from(value: f32) -> Result<Self, Self::Error> {
         TaskScheduleInterval::from_secs_f64(value as f64)

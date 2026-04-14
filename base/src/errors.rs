@@ -180,31 +180,23 @@ pub enum CronExpressionLexerErrors {
     EmptyField,
 }
 
+#[derive(Error, Debug, PartialEq, Eq)]
+#[error("Task frame index `{index}` is out of bounds for `{src}` with task frame size `{size}` element(s)")]
+pub struct TaskSelectionIndexOutOfBounds {
+    pub index: usize,
+    pub src: String,
+    pub size: usize
+}
 
 #[derive(Error, Debug, PartialEq, Eq)]
-pub enum StandardCoreErrorsCG {
-    #[error(
-        "Task frame index `{0}` is out of bounds for `{1}` with task frame size `{2}` element(s)"
-    )]
-    TaskIndexOutOfBounds(usize, String, usize),
+#[error("Dependencies have not been resolved (errored due to the use of 'DependentFailBehavior')")]
+pub struct TaskDependenciesUnresolved;
 
-    #[error(
-        "ConditionalTaskFrame returned false with error_on_false set to true, as such this error returns"
-    )]
-    TaskConditionFail,
+#[cfg(feature = "chrono")]
+#[derive(Error, Debug, PartialEq, Eq)]
+#[error("TimeDelta supplied is out of range (expected a positive TimeDelta value )")]
+pub struct IntervalTimeDeltaOutOfRange;
 
-    #[error("Dependencies have not been resolved")]
-    TaskDependenciesUnresolved,
-
-    #[error("Invalid CRON expression (parsing failed); Number of fields not in known format")]
-    InvalidCronExpression,
-
-    #[error("Timedelta supplied is out of range")]
-    IntervalTimedeltaOutOfRange,
-
-    #[error("Floating-based seconds supplied is out of range")]
-    IntervalSecondsOutOfRange,
-
-    #[error("The current SchedulerEngine does not support scheduler instructions")]
-    SchedulerInstructionsUnsupported,
-}
+#[derive(Error, Debug, PartialEq, Eq)]
+#[error("Floating-based seconds supplied is out of range")]
+pub struct IntervalSecondsOutOfRange;

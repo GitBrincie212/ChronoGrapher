@@ -1,5 +1,5 @@
 use crate::task::TaskHookEvent;
-use crate::errors::{StandardCoreErrorsCG, TaskError};
+use crate::errors::{TaskError, TaskSelectionIndexOutOfBounds};
 use crate::task::{ErasedTaskFrame, RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
 use crate::utils::macros::{define_event, define_event_group};
 use async_trait::async_trait;
@@ -244,11 +244,11 @@ impl<S: SelectFrameAccessor> CollectionExecStrategy for SelectionExecStrategy<S>
         if handle.get(idx).is_none() {
             return Err(CollectionTaskError::new(
                 idx,
-                Box::new(StandardCoreErrorsCG::TaskIndexOutOfBounds(
-                    idx,
-                    "SelectionExecStrategy".to_owned(),
-                    handle.length(),
-                )) as Box<dyn TaskError>,
+                Box::new(TaskSelectionIndexOutOfBounds {
+                    index: idx,
+                    src: String::from("SelectionExecStrategy"),
+                    size: handle.length(),
+                }) as Box<dyn TaskError>,
             ));
         };
 
@@ -327,11 +327,11 @@ pub struct CollectionTaskFrameHandle<'a, T: CollectionExecStrategy> {
 impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
     pub async fn execute(&self, idx: usize) -> Result<(), Box<dyn TaskError>> {
         let Some(taskframe) = self.collection.taskframes.get(idx).map(Arc::as_ref) else {
-            return Err(Box::new(StandardCoreErrorsCG::TaskIndexOutOfBounds(
-                idx,
-                "CollectionTaskFrameHandle::execute".to_owned(),
-                self.length(),
-            )) as Box<dyn TaskError>);
+            return Err(Box::new(TaskSelectionIndexOutOfBounds {
+                index: idx,
+                src: String::from("CollectionTaskFrameHandle::execute"),
+                size: self.length(),
+            }) as Box<dyn TaskError>);
         };
 
         self.ctx

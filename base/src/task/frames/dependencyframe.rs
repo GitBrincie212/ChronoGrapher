@@ -1,5 +1,5 @@
 use crate::utils::macros::define_event;
-use crate::errors::{DependencyTaskFrameError, StandardCoreErrorsCG, TaskError};
+use crate::errors::{DependencyTaskFrameError, TaskDependenciesUnresolved, TaskError};
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
 use crate::task::{Arc, TaskFrame};
@@ -18,7 +18,7 @@ pub struct DependentFailureOnFail;
 #[async_trait]
 impl DependentFailBehavior for DependentFailureOnFail {
     async fn execute(&self) -> Result<(), Box<dyn TaskError>> {
-        Err(Box::new(StandardCoreErrorsCG::TaskDependenciesUnresolved))
+        Err(Box::new(TaskDependenciesUnresolved))
     }
 }
 

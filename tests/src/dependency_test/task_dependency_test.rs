@@ -1,11 +1,20 @@
+use std::fmt::{Debug, Display, Formatter};
 use async_trait::async_trait;
-use chronographer::errors::{StandardCoreErrorsCG, TaskError};
+use chronographer::errors::TaskError;
 use chronographer::prelude::*;
-use chronographer::task::dependency::TaskDependency;
-use chronographer::task::{OnTaskEnd, Task, TaskFrame, TaskFrameContext, TaskScheduleImmediate};
+use chronographer::task::{TaskFrame, TaskFrameContext, TaskScheduleImmediate};
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct StubError;
+
+impl Display for StubError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
 
 struct SimpleTaskFrame {
     should_succeed: Arc<AtomicBool>,
@@ -19,7 +28,7 @@ impl TaskFrame for SimpleTaskFrame {
         if self.should_succeed.load(Ordering::SeqCst) {
             Ok(())
         } else {
-            Err(Box::new(StandardCoreErrorsCG::TaskDependenciesUnresolved))
+            Err(Box::new(StubError))
         }
     }
 }
@@ -103,7 +112,7 @@ async fn test_task_dependency_failure_only() {
     );
 
     let err_result: Option<Box<dyn TaskError>> =
-        Some(Box::new(StandardCoreErrorsCG::TaskDependenciesUnresolved));
+        Some(Box::new(StubError));
     task.emit_hook_event::<OnTaskEnd>(&err_result.as_ref().map(|x| x.as_ref()))
         .await;
 

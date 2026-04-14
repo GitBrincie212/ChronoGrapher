@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use chronographer::errors::StandardCoreErrorsCG;
+use chronographer::errors::TaskDependenciesUnresolved;
 use chronographer::prelude::*;
 use chronographer::task::{TaskFrame, TaskFrameContext, TaskHookContext, TaskScheduleImmediate};
 
@@ -43,7 +43,7 @@ impl TaskFrame for SimpleTaskFrame {
         if self.should_succeed.load(Ordering::SeqCst) {
             Ok(())
         } else {
-            Err(Box::new(StandardCoreErrorsCG::TaskDependenciesUnresolved))
+            Err(Box::new(TaskDependenciesUnresolved))
         }
     }
 }
