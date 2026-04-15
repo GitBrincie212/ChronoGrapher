@@ -1,6 +1,4 @@
-mod collectionframe_test;
-mod dependency_test;
-mod taskhook_shared_data_test;
-mod taskhook_test;
-mod virtual_clock_test;
-mod macro_tests;
+#![cfg(test)]
+mod macros;
+mod schedule;
+mod task;
