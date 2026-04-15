@@ -1,5 +1,5 @@
 <h1 align="center">ChronoGrapher</h1>
-<img src="./assets/Chronographer Banner.png" alt="Chronographer Banner" />
+<img src="./assets/Chronographer Logo.png" alt="Chronographer Banner" />
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">One Unified Workflow Orchestrator, Unlimited Power</h1>
