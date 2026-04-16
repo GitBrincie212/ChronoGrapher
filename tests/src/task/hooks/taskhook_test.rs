@@ -9,8 +9,6 @@ use chronographer::task::{TaskFrame, TaskFrameContext, TaskHookContext, TaskSche
 type OnTaskStartPayload<'a> = <OnTaskStart as TaskHookEvent>::Payload<'a>;
 type OnTaskEndPayload<'a> = <OnTaskEnd as TaskHookEvent>::Payload<'a>;
 
-const REF_UNIT: &() = &();
-
 struct OnStartCountingHook {
     count: Arc<AtomicUsize>,
 }
@@ -77,7 +75,7 @@ async fn test_attach_and_trigger_hooks() {
     task.attach_hook::<OnTaskStart>(hook_start).await;
     task.attach_hook::<OnTaskEnd>(hook_end).await;
 
-    task.emit_hook_event::<OnTaskStart>(REF_UNIT).await;
+    task.emit_hook_event::<OnTaskStart>(&()).await;
     assert_eq!(
         on_start_count.load(Ordering::SeqCst),
         1,

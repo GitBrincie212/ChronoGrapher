@@ -42,9 +42,12 @@ mod macros {
                     _ctx: &TaskFrameContext,
                     _args: &Self::Args,
                 ) -> impl Future<Output = Result<(), Self::Error>> + Send {
+                    let counter = self.counter.clone();
+                    let should_fail = self.should_fail;
+
                     async move {
-                        self.counter.fetch_add(1, Ordering::SeqCst);
-                        if self.should_fail {
+                        counter.fetch_add(1, Ordering::SeqCst);
+                        if should_fail {
                             Err($err("frame failed"))
                         } else {
                             Ok(())
