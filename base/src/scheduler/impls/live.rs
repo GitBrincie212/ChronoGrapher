@@ -293,10 +293,14 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         std::future::ready(self.store.clear())
     }
 
-    async fn schedule(
+    async fn schedule<T1, T2>(
         &self,
-        task: Task<impl TaskFrame<Error= C::TaskError>, impl TaskTrigger>,
-    ) -> Result<Self::Handle, Box<dyn Error + Send + Sync>> {
+        task: Task<T1, T2>,
+    ) -> Result<Self::Handle, Box<dyn Error + Send + Sync>>
+    where
+        T1: TaskFrame<Args = (), Error = C::TaskError>,
+        T2: TaskTrigger
+    {
         let erased = Arc::new(task.into_erased());
         let key = self.store.store(erased.clone())?;
         append_scheduler_handler::<C>(key.clone(), &erased, self.instruction_queue.clone()).await;

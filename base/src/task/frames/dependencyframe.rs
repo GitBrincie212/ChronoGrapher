@@ -72,8 +72,9 @@ impl<T: TaskFrame> DependencyTaskFrame<T> {
 
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     type Error = DependencyTaskFrameError<T::Error>;
+    type Args = T::Args;
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let mut js = tokio::task::JoinSet::new();
 
         for dep in &self.dependencies {
@@ -109,6 +110,6 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
                 .map_err(DependencyTaskFrameError::DependenciesInvalidated);
         }
 
-        self.frame.execute(&ctx).await.map_err(DependencyTaskFrameError::Inner)
+        self.frame.execute(&ctx, args).await.map_err(DependencyTaskFrameError::Inner)
     }
 }

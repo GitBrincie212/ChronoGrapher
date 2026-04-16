@@ -445,7 +445,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`FallbackTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`TaskFrame`] - The trait that ``fallback`` must implement.
-    pub fn with_fallback<T2: TaskFrame + 'static>(
+    pub fn with_fallback<T2: TaskFrame<Args = T::Error>>(
         self,
         fallback: T2,
     ) -> TaskFrameBuilder<FallbackTaskFrame<T, T2>> {
@@ -511,7 +511,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     pub fn with_condition(
         self,
         predicate: impl ConditionalFramePredicate + 'static,
-    ) -> TaskFrameBuilder<ConditionalFrame<T, NoOperationTaskFrame<T::Error>>> {
+    ) -> TaskFrameBuilder<ConditionalFrame<T, NoOperationTaskFrame<T::Error, impl Send + Sync + 'static>>> {
         let condition = ConditionalFrame::builder()
             .predicate(predicate)
             .frame(self.0)

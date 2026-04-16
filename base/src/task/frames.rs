@@ -121,36 +121,37 @@ impl Deref for TaskFrameContext {
 
 pub trait TaskFrame: 'static + Send + Sync + Sized {
     type Error: TaskError;
+    type Args: Send + Sync + 'static;
 
-    fn execute(&self, ctx: &TaskFrameContext) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
 #[async_trait]
-pub trait DynTaskFrame<E: TaskError>: 'static + Send + Sync {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), E>;
-    fn erased(&self) -> &dyn ErasedTaskFrame;
+pub trait DynTaskFrame<E: TaskError, Args: Send + Sync + 'static>: 'static + Send + Sync {
+    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &Args) -> Result<(), E>;
+    fn erased(&self) -> &dyn ErasedTaskFrame<Args>;
 }
 
 #[async_trait]
-impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error> for T {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), T::Error> {
-        self.execute(ctx).await
+impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error, T::Args> for T {
+    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &T::Args) -> Result<(), T::Error> {
+        self.execute(ctx, args).await
     }
 
-    fn erased(&self) -> &dyn ErasedTaskFrame {
+    fn erased(&self) -> &dyn ErasedTaskFrame<T::Args> {
         self
     }
 }
 
 #[async_trait]
-pub trait ErasedTaskFrame: 'static + Send + Sync {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>>;
+pub trait ErasedTaskFrame<Args: Send + Sync + 'static>: 'static + Send + Sync {
+    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &Args) -> Result<(), Box<dyn TaskError>>;
 }
 
 #[async_trait]
-impl<T: TaskFrame<Error: Into<T::Error>>> ErasedTaskFrame for T {
-    async fn erased_execute(&self, ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>> {
-        self.execute(ctx)
+impl<T: TaskFrame<Error: Into<T::Error>>> ErasedTaskFrame<T::Args> for T {
+    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &T::Args) -> Result<(), Box<dyn TaskError>> {
+        self.execute(ctx, args)
             .await
             .map_err(|x| Box::new(x) as Box<dyn TaskError>)
     }

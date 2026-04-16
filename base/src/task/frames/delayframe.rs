@@ -23,8 +23,9 @@ impl<T: TaskFrame> DelayTaskFrame<T> {
 
 impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
     type Error = T::Error;
+    type Args = T::Args;
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         ctx.emit::<OnDelayStart>(&self.delay).await;
 
         let deadline = Instant::now() + self.delay;
@@ -32,6 +33,6 @@ impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
 
         ctx.emit::<OnDelayEnd>(&self.delay).await;
 
-        self.frame.execute(ctx).await
+        self.frame.execute(ctx, args).await
     }
 }

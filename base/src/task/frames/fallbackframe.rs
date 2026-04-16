@@ -13,14 +13,19 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
     }
 }
 
-impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
+impl<T, T2> TaskFrame for FallbackTaskFrame<T, T2>
+where
+    T: TaskFrame,
+    T2: TaskFrame<Args = T::Error>
+{
     type Error = T2::Error;
+    type Args = T::Args;
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
-        match self.0.execute(ctx).await {
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
+        match self.0.execute(ctx, args).await {
             Err(err) => {
                 ctx.emit::<OnFallbackEvent>(&(&err as &dyn TaskError)).await;
-                self.1.execute(ctx).await
+                self.1.execute(ctx, &err).await
             }
 
             Ok(()) => Ok(()),

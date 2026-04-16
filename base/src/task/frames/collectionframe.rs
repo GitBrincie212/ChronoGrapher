@@ -168,7 +168,7 @@ impl<P: CollectionExecPolicy<CollectionTaskError> + Send + Sync + 'static> Colle
             let ctx = *handle.ctx;
             js.spawn(async move {
                 ctx.emit::<OnChildTaskFrameStart>(&(idx, frame.as_ref())).await;
-                let result = frame.erased_execute(&ctx).await;
+                let result = frame.erased_execute(&ctx, &()).await;
                 match result {
                     Ok(()) => ctx.emit::<OnChildTaskFrameEnd>(&None).await,
                     Err(ref err) => {
@@ -250,7 +250,7 @@ impl<S: SelectFrameAccessor> CollectionExecStrategy for SelectionExecStrategy<S>
     }
 }
 
-define_event!(OnChildTaskFrameStart, (usize, &'a dyn ErasedTaskFrame));
+define_event!(OnChildTaskFrameStart, (usize, &'a dyn ErasedTaskFrame<()>));
 define_event!(OnChildTaskFrameEnd, Option<&'a dyn TaskError>);
 
 define_event_group!(
@@ -260,12 +260,12 @@ define_event_group!(
 );
 
 pub struct CollectionTaskFrame<T: CollectionExecStrategy> {
-    taskframes: Vec<Arc<dyn ErasedTaskFrame>>,
+    taskframes: Vec<Arc<dyn ErasedTaskFrame<()>>>,
     strategy: T,
 }
 
 impl<T: CollectionExecStrategy> CollectionTaskFrame<T> {
-    pub fn new(taskframes: Vec<Arc<dyn ErasedTaskFrame>>, strategy: T) -> Self {
+    pub fn new(taskframes: Vec<Arc<dyn ErasedTaskFrame<()>>>, strategy: T) -> Self {
         Self {
             taskframes,
             strategy,
@@ -276,13 +276,13 @@ impl<T: CollectionExecStrategy> CollectionTaskFrame<T> {
         &self.strategy
     }
 
-    pub fn taskframes(&self) -> &[Arc<dyn ErasedTaskFrame>] {
+    pub fn taskframes(&self) -> &[Arc<dyn ErasedTaskFrame<()>>] {
         &self.taskframes
     }
 }
 
 impl CollectionTaskFrame<SequentialExecStrategy<GroupedTaskFramesQuitOnFailure>> {
-    pub fn sequential(taskframes: Vec<Arc<dyn ErasedTaskFrame>>) -> Self {
+    pub fn sequential(taskframes: Vec<Arc<dyn ErasedTaskFrame<()>>>) -> Self {
         Self {
             taskframes,
             strategy: SequentialExecStrategy::default(),
@@ -293,7 +293,7 @@ impl CollectionTaskFrame<SequentialExecStrategy<GroupedTaskFramesQuitOnFailure>>
 impl<P: CollectionExecPolicy<CollectionTaskError> + Send + Sync + 'static>
     CollectionTaskFrame<ParallelExecStrategy<P>>
 {
-    pub fn parallel(taskframes: Vec<Arc<dyn ErasedTaskFrame>>, policy: P) -> Self {
+    pub fn parallel(taskframes: Vec<Arc<dyn ErasedTaskFrame<()>>>, policy: P) -> Self {
         Self {
             taskframes,
             strategy: ParallelExecStrategy::new(policy),
@@ -302,7 +302,7 @@ impl<P: CollectionExecPolicy<CollectionTaskError> + Send + Sync + 'static>
 }
 
 impl<S: SelectFrameAccessor> CollectionTaskFrame<SelectionExecStrategy<S>> {
-    pub fn selection(taskframes: Vec<Arc<dyn ErasedTaskFrame>>, accessor: S) -> Self {
+    pub fn selection(taskframes: Vec<Arc<dyn ErasedTaskFrame<()>>>, accessor: S) -> Self {
         Self {
             taskframes,
             strategy: SelectionExecStrategy::new(accessor),
@@ -328,7 +328,7 @@ impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
         self.ctx
             .emit::<OnChildTaskFrameStart>(&(idx, taskframe))
             .await;
-        let result = taskframe.erased_execute(self.ctx).await;
+        let result = taskframe.erased_execute(self.ctx, &()).await;
         match result {
             Ok(()) => {
                 self.ctx.emit::<OnChildTaskFrameEnd>(&None).await;
@@ -344,7 +344,7 @@ impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
         }
     }
 
-    pub fn get(&self, idx: usize) -> Option<&dyn ErasedTaskFrame> {
+    pub fn get(&self, idx: usize) -> Option<&dyn ErasedTaskFrame<()>> {
         self.collection.taskframes.get(idx).map(Arc::as_ref)
     }
 
@@ -363,8 +363,9 @@ impl<'a, T: CollectionExecStrategy> Deref for CollectionTaskFrameHandle<'a, T> {
 
 impl<T: CollectionExecStrategy> TaskFrame for CollectionTaskFrame<T> {
     type Error = CollectionTaskError;
+    type Args = ();
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
         let handle = CollectionTaskFrameHandle {
             collection: self,
             ctx,

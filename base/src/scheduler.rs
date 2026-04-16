@@ -67,10 +67,13 @@ pub trait Scheduler<C: SchedulerConfig>: Sync + Send + 'static {
 
     fn exists(&self, key: &Self::Handle) -> impl Future<Output = bool> + Send;
 
-    fn schedule(
+    fn schedule<T1, T2>(
         &self,
-        task: Task<impl TaskFrame<Error= C::TaskError>, impl TaskTrigger>,
-    ) -> impl Future<Output = Result<Self::Handle, Box<dyn Error + Send + Sync>>>;
+        task: Task<T1, T2>,
+    ) -> impl Future<Output = Result<Self::Handle, Box<dyn Error + Send + Sync>>>
+    where
+        T1: TaskFrame<Args = (), Error = C::TaskError>,
+        T2: TaskTrigger;
 
     fn remove(&self, key: &Self::Handle) -> impl Future<Output = ()> + Send;
 

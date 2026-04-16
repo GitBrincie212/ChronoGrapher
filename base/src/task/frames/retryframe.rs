@@ -170,13 +170,15 @@ impl<T: TaskFrame> RetriableTaskFrame<T> {
 
 impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
     type Error = T::Error;
+    type Args = T::Args;
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let mut error: Result<(), T::Error> = Ok(());
+
         for retry in 0u32..=self.retries.get() {
             ctx.emit::<OnRetryAttemptStart>(&retry).await;
 
-            error = self.frame.execute(&ctx).await;
+            error = self.frame.execute(&ctx, &args).await;
             let erased_err = error.as_ref().map_err(|x| x as &dyn TaskError).err();
 
             ctx.emit::<OnRetryAttemptEnd>(&(retry, erased_err)).await;
