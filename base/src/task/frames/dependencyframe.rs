@@ -70,7 +70,6 @@ impl<T: TaskFrame> DependencyTaskFrame<T> {
     }
 }
 
-#[async_trait]
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     type Error = DependencyTaskFrameError<T::Error>;
 
@@ -110,8 +109,6 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
                 .map_err(DependencyTaskFrameError::DependenciesInvalidated);
         }
 
-        ctx.subdivide(&self.frame)
-            .await
-            .map_err(DependencyTaskFrameError::Inner)
+        self.frame.execute(&ctx).await.map_err(DependencyTaskFrameError::Inner)
     }
 }

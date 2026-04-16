@@ -22,7 +22,6 @@ struct CountingFrame {
     should_fail: bool,
 }
 
-#[async_trait]
 impl TaskFrame for CountingFrame {
     type Error = TestCollectionError;
 
@@ -40,7 +39,7 @@ struct FixedSelectAccessor(usize);
 
 #[async_trait]
 impl SelectFrameAccessor for FixedSelectAccessor {
-    async fn select(&self, _ctx: &RestrictTaskFrameContext<'_>) -> usize {
+    async fn select(&self, _ctx: &RestrictTaskFrameContext) -> usize {
         self.0
     }
 }

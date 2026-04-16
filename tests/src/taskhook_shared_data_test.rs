@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use chronographer::prelude::*;
 use chronographer::task::TaskScheduleImmediate;
 use chronographer::task::{TaskFrame, TaskFrameContext};
@@ -31,7 +30,6 @@ async fn test_shared_returns_same_instance() {
         result: Arc<AtomicUsize>,
     }
 
-    #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
 
@@ -77,7 +75,6 @@ async fn test_shared_isolated_by_type() {
         result: Arc<AtomicUsize>,
     }
 
-    #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
 
@@ -123,7 +120,6 @@ async fn test_get_shared_none_if_missing() {
         result: Arc<AtomicUsize>,
     }
 
-    #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
 
@@ -160,7 +156,6 @@ async fn test_get_shared_some_if_exists() {
         result: Arc<AtomicUsize>,
     }
 
-    #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
 
@@ -229,7 +224,6 @@ async fn test_shared_custom_state_manager() {
         result: Arc<AtomicUsize>,
     }
 
-    #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
 
@@ -273,7 +267,6 @@ async fn test_shared_with_marker() {
         result: Arc<AtomicUsize>,
     }
 
-    #[async_trait]
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
 
@@ -307,7 +300,6 @@ async fn test_shared_scoped_to_task_context() {
         result: Arc<AtomicUsize>,
     }
 
-    #[async_trait]
     impl TaskFrame for WorkerTask {
         type Error = Box<dyn TaskError>;
 
@@ -346,7 +338,6 @@ async fn test_shared_scoped_to_task_context() {
         result: Arc<AtomicUsize>,
     }
 
-    #[async_trait]
     impl TaskFrame for SupervisorTask {
         type Error = Box<dyn TaskError>;
 
@@ -362,9 +353,9 @@ async fn test_shared_scoped_to_task_context() {
             };
 
             println!("SupervisorTask subdividing worker3");
-            ctx.subdivide(&worker1).await?;
+            worker1.execute(ctx).await?;
             println!("SupervisorTask subdividing worker4");
-            ctx.subdivide(&worker2).await?;
+            worker2.execute(ctx).await?;
 
             Ok(())
         }

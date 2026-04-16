@@ -321,14 +321,14 @@ pub(crate) struct TaskHookContainer(pub DashMap<(TypeId, usize), TaskHooksPromot
 impl TaskHookContainer {
     pub fn attach<E: TaskHookEvent, T: TaskHook<E>>(
         &self,
-        ctx: &TaskHookContext<'_>,
+        ctx: &TaskHookContext,
         hook: Arc<T>,
     ) -> impl Future<Output = ()> + Send {
         let hook_id = TypeId::of::<T>();
         let erased_hook: &'static dyn ErasedTaskHook =
             Box::leak(Box::new(ErasedTaskHookWrapper::<E>::new(hook.clone())));
 
-        self.0.entry((TypeId::of::<E>(), ctx.instance_id))
+        self.0.entry((TypeId::of::<E>(), ctx.0))
             .or_insert(TaskHooksPromotion::Empty)
             .promote(hook_id, erased_hook);
 
@@ -345,8 +345,8 @@ impl TaskHookContainer {
         entry.as_any().downcast::<T>().ok()
     }
 
-    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskHookContext<'_>) {
-        let Some(mut event_category) = self.0.get_mut(&(TypeId::of::<E>(), ctx.instance_id)) else {
+    pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskHookContext) {
+        let Some(mut event_category) = self.0.get_mut(&(TypeId::of::<E>(), ctx.0)) else {
             return;
         };
 
@@ -376,10 +376,10 @@ impl TaskHookContainer {
 
     pub async fn emit<E: TaskHookEvent>(
         &self,
-        ctx: &TaskHookContext<'_>,
+        ctx: &TaskHookContext,
         payload: &E::Payload<'_>,
     ) {
-        if let Some(entry) = self.0.get(&(TypeId::of::<E>(), ctx.instance_id)) {
+        if let Some(entry) = self.0.get(&(TypeId::of::<E>(), ctx.0)) {
             let val = entry.value();
             match val {
                 TaskHooksPromotion::Empty => {}
@@ -528,22 +528,11 @@ pub trait TaskHookLifecycleEvents<'a, E: TaskHookEvent>:
 impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<'a, E> for OnHookAttach<E> {}
 impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<'a, E> for OnHookDetach<E> {}
 
-#[derive(Clone)]
-pub struct TaskHookContext<'a> {
-    pub(crate) depth: u64,
-    pub(crate) instance_id: usize,
-    pub(crate) frame: &'a dyn ErasedTaskFrame,
-}
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct TaskHookContext(pub(crate) usize);
 
-impl<'a> TaskHookContext<'a> {
-    pub fn depth(&self) -> u64 {
-        self.depth
-    }
-
-    pub fn frame(&self) -> &dyn ErasedTaskFrame {
-        self.frame
-    }
-
+impl TaskHookContext {
     pub async fn emit<E: TaskHookEvent>(&self, payload: &E::Payload<'_>) {
         TASKHOOK_REGISTRY.emit::<E>(self, payload).await;
     }
@@ -557,6 +546,6 @@ impl<'a> TaskHookContext<'a> {
     }
 
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
-        TASKHOOK_REGISTRY.get::<E, T>(self.instance_id)
+        TASKHOOK_REGISTRY.get::<E, T>(self.0)
     }
 }

@@ -88,7 +88,6 @@ impl<T: TaskFrame> ThresholdTaskFrame<T> {
     }
 }
 
-#[async_trait]
 impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
     type Error = T::Error;
 
@@ -98,7 +97,7 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
             return self.threshold_reach_behaviour.results(&ctx.0).await;
         }
 
-        let res = ctx.subdivide(&self.frame).await;
+        let res = self.frame.execute(ctx).await;
         if self
             .threshold_logic
             .counts(res.as_ref().err(), &ctx.0)
@@ -108,9 +107,11 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
             total += 1;
         }
 
+        /* TODO: Find a way to track if this is the root TaskFrame
         if total == self.threshold.get() && ctx.depth == 0 {
             ctx.instruct_block();
         }
+         */
 
         res
     }

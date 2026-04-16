@@ -35,15 +35,13 @@ use std::ops::Deref;
 use std::sync::Arc;
 use crate::scheduler::utils::{SchedulerHandleInstructions, SchedulerHandle};
 
-#[derive(Clone)]
-pub struct RestrictTaskFrameContext<'a> {
-    pub(crate) instance_id: usize,
-    pub(crate) depth: u64,
-    pub(crate) frame: &'a dyn ErasedTaskFrame,
-}
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct RestrictTaskFrameContext(usize);
 
-#[derive(Clone)]
-pub struct TaskFrameContext<'a>(pub(crate) RestrictTaskFrameContext<'a>);
+#[derive(Clone, Copy)]
+#[repr(transparent)]
+pub struct TaskFrameContext(pub(crate) RestrictTaskFrameContext);
 
 macro_rules! instruct_method {
     ($name: ident, $variant: ident) => {
@@ -54,83 +52,42 @@ macro_rules! instruct_method {
     };
 }
 
-impl<'a> TaskFrameContext<'a> {
-    pub(crate) fn subdivided_ctx(&self, frame: &'a dyn ErasedTaskFrame) -> Self {
-        Self(RestrictTaskFrameContext {
-            instance_id: self.instance_id,
-            frame,
-            depth: self.0.depth + 1,
-        })
-    }
-
-    pub async fn erased_subdivide(
-        &self,
-        frame: &'a dyn ErasedTaskFrame,
-    ) -> Result<(), Box<dyn TaskError>> {
-        let child_ctx = self.subdivided_ctx(frame);
-        frame.erased_execute(&child_ctx).await
-    }
-
-    pub async fn subdivide<T: TaskFrame>(&self, frame: &'a T) -> Result<(), T::Error> {
-        let child_ctx = self.subdivided_ctx(frame);
-        frame.execute(&child_ctx).await
-    }
-
+impl TaskFrameContext {
     instruct_method!(instruct_reschedule, Reschedule);
     instruct_method!(instruct_block, Block);
     instruct_method!(instruct_halt, Halt);
     instruct_method!(instruct_execute, Execute);
 
-    pub fn as_restricted(&self) -> &RestrictTaskFrameContext<'a> {
+    pub fn as_restricted(&self) -> &RestrictTaskFrameContext {
         &self.0
     }
 }
 
-impl<'a> RestrictTaskFrameContext<'a> {
-    pub(crate) fn new(task: &'a ErasedTask<impl TaskError>) -> Self {
-        Self {
-            instance_id: task.instance_id,
-            depth: 0,
-            frame: task.frame.as_ref().erased(),
-        }
-    }
-
-    pub fn frame(&self) -> &dyn ErasedTaskFrame {
-        self.frame
+impl RestrictTaskFrameContext {
+    pub(crate) fn new(task: &ErasedTask<impl TaskError>) -> Self {
+        Self(task.instance_id)
     }
 
     pub async fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) {
-        let ctx = TaskHookContext {
-            instance_id: self.instance_id,
-            depth: self.depth,
-            frame: self.frame,
-        };
+        let ctx = TaskHookContext(self.0);
 
         ctx.emit::<EV>(payload).await;
     }
 
     pub async fn attach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self, hook: Arc<TH>) {
-        let ctx = TaskHookContext {
-            instance_id: self.instance_id,
-            depth: self.depth,
-            frame: self.frame,
-        };
+        let ctx = TaskHookContext(self.0);
 
         ctx.attach_hook::<EV, TH>(hook).await;
     }
 
     pub async fn detach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) {
-        let ctx = TaskHookContext {
-            instance_id: self.instance_id,
-            depth: self.depth,
-            frame: self.frame,
-        };
+        let ctx = TaskHookContext(self.0);
 
         ctx.detach_hook::<EV, TH>().await;
     }
 
     pub fn get_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) -> Option<Arc<TH>> {
-        TASKHOOK_REGISTRY.get::<EV, TH>(self.instance_id)
+        TASKHOOK_REGISTRY.get::<EV, TH>(self.0)
     }
 
     pub async fn shared<H>(&self, creator: impl FnOnce() -> H) -> Arc<H>
@@ -154,19 +111,18 @@ impl<'a> RestrictTaskFrameContext<'a> {
     }
 }
 
-impl<'a> Deref for TaskFrameContext<'a> {
-    type Target = RestrictTaskFrameContext<'a>;
+impl Deref for TaskFrameContext {
+    type Target = RestrictTaskFrameContext;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-#[async_trait]
 pub trait TaskFrame: 'static + Send + Sync + Sized {
     type Error: TaskError;
 
-    async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error>;
+    fn execute(&self, ctx: &TaskFrameContext) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
 #[async_trait]

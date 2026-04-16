@@ -91,7 +91,6 @@ use chronographer::scheduler::LiveScheduler;
 
 struct MyTaskFrame;
 
-#[async_trait]
 impl TaskFrame for MyTaskFrame {
     type Error = Box<dyn TaskError>;
 

@@ -2,7 +2,6 @@ use crate::utils::macros::define_event;
 use crate::errors::TaskError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
-use async_trait::async_trait;
 
 define_event!(OnFallbackEvent, &'a dyn TaskError);
 
@@ -14,15 +13,14 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
     }
 }
 
-#[async_trait]
 impl<T: TaskFrame, T2: TaskFrame> TaskFrame for FallbackTaskFrame<T, T2> {
     type Error = T2::Error;
 
     async fn execute(&self, ctx: &TaskFrameContext) -> Result<(), Self::Error> {
-        match ctx.subdivide(&self.0).await {
+        match self.0.execute(ctx).await {
             Err(err) => {
                 ctx.emit::<OnFallbackEvent>(&(&err as &dyn TaskError)).await;
-                ctx.subdivide(&self.1).await
+                self.1.execute(ctx).await
             }
 
             Ok(()) => Ok(()),

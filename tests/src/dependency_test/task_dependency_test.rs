@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Display, Formatter};
-use async_trait::async_trait;
 use chronographer::errors::TaskError;
 use chronographer::prelude::*;
 use chronographer::task::{TaskFrame, TaskFrameContext, TaskScheduleImmediate};
@@ -20,7 +19,6 @@ struct SimpleTaskFrame {
     should_succeed: Arc<AtomicBool>,
 }
 
-#[async_trait]
 impl TaskFrame for SimpleTaskFrame {
     type Error = Box<dyn TaskError>;
 

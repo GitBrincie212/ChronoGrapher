@@ -164,24 +164,15 @@ impl<P: CollectionExecPolicy<CollectionTaskError> + Send + Sync + 'static> Colle
 
         let mut js = tokio::task::JoinSet::new();
         for idx in 0..handle.length() {
-            let instance_id = handle.ctx.0.instance_id;
             let frame = handle.collection.taskframes[idx].clone();
-            let depth = handle.ctx.0.depth + 1;
+            let ctx = *handle.ctx;
             js.spawn(async move {
-                let child_ctx = TaskFrameContext(RestrictTaskFrameContext {
-                    instance_id,
-                    depth,
-                    frame: frame.as_ref(),
-                });
-
-                child_ctx
-                    .emit::<OnChildTaskFrameStart>(&(idx, frame.as_ref()))
-                    .await;
-                let result = child_ctx.erased_subdivide(frame.as_ref()).await;
+                ctx.emit::<OnChildTaskFrameStart>(&(idx, frame.as_ref())).await;
+                let result = frame.erased_execute(&ctx).await;
                 match result {
-                    Ok(()) => child_ctx.emit::<OnChildTaskFrameEnd>(&None).await,
+                    Ok(()) => ctx.emit::<OnChildTaskFrameEnd>(&None).await,
                     Err(ref err) => {
-                        child_ctx
+                        ctx
                             .emit::<OnChildTaskFrameEnd>(&Some(err.as_ref()))
                             .await
                     }
@@ -210,16 +201,16 @@ impl<P: CollectionExecPolicy<CollectionTaskError> + Send + Sync + 'static> Colle
 
 #[async_trait]
 pub trait SelectFrameAccessor: Send + Sync + 'static {
-    async fn select(&self, ctx: &RestrictTaskFrameContext<'_>) -> usize;
+    async fn select(&self, ctx: &RestrictTaskFrameContext) -> usize;
 }
 
 #[async_trait]
 impl<F, Fut> SelectFrameAccessor for F
 where
-    F: Fn(&RestrictTaskFrameContext<'_>) -> Fut + Send + Sync + 'static,
+    F: Fn(&RestrictTaskFrameContext) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = usize> + Send,
 {
-    async fn select(&self, ctx: &RestrictTaskFrameContext<'_>) -> usize {
+    async fn select(&self, ctx: &RestrictTaskFrameContext) -> usize {
         self(ctx).await
     }
 }
@@ -321,7 +312,7 @@ impl<S: SelectFrameAccessor> CollectionTaskFrame<SelectionExecStrategy<S>> {
 
 pub struct CollectionTaskFrameHandle<'a, T: CollectionExecStrategy> {
     collection: &'a CollectionTaskFrame<T>,
-    ctx: &'a TaskFrameContext<'a>,
+    ctx: &'a TaskFrameContext,
 }
 
 impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
@@ -337,7 +328,7 @@ impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
         self.ctx
             .emit::<OnChildTaskFrameStart>(&(idx, taskframe))
             .await;
-        let result = self.ctx.erased_subdivide(taskframe).await;
+        let result = taskframe.erased_execute(self.ctx).await;
         match result {
             Ok(()) => {
                 self.ctx.emit::<OnChildTaskFrameEnd>(&None).await;
@@ -363,14 +354,13 @@ impl<'a, T: CollectionExecStrategy> CollectionTaskFrameHandle<'a, T> {
 }
 
 impl<'a, T: CollectionExecStrategy> Deref for CollectionTaskFrameHandle<'a, T> {
-    type Target = RestrictTaskFrameContext<'a>;
+    type Target = RestrictTaskFrameContext;
 
     fn deref(&self) -> &Self::Target {
         &self.ctx.0
     }
 }
 
-#[async_trait]
 impl<T: CollectionExecStrategy> TaskFrame for CollectionTaskFrame<T> {
     type Error = CollectionTaskError;
 

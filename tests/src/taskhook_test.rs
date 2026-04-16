@@ -35,7 +35,6 @@ struct SimpleTaskFrame {
     should_succeed: Arc<AtomicBool>,
 }
 
-#[async_trait]
 impl TaskFrame for SimpleTaskFrame {
     type Error = Box<dyn TaskError>;
 

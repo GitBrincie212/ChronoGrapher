@@ -1,6 +1,5 @@
 use crate::errors::TaskError;
 use crate::task::{TaskFrame, TaskFrameContext};
-use async_trait::async_trait;
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -20,7 +19,6 @@ impl<E: TaskError> Clone for NoOperationTaskFrame<E> {
 
 impl<E: TaskError> Copy for NoOperationTaskFrame<E> {}
 
-#[async_trait]
 impl<E: TaskError> TaskFrame for NoOperationTaskFrame<E> {
     type Error = E;
 

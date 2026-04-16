@@ -1,7 +1,6 @@
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
 use crate::utils::macros::{define_event, define_event_group};
-use async_trait::async_trait;
 use std::time::Duration;
 use tokio::time::Instant;
 
@@ -22,7 +21,6 @@ impl<T: TaskFrame> DelayTaskFrame<T> {
     }
 }
 
-#[async_trait]
 impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
     type Error = T::Error;
 
@@ -34,6 +32,6 @@ impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
 
         ctx.emit::<OnDelayEnd>(&self.delay).await;
 
-        ctx.subdivide(&self.frame).await
+        self.frame.execute(ctx).await
     }
 }

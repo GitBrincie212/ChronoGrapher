@@ -1,6 +1,5 @@
 use crate::errors::TaskError;
 use crate::task::{TaskFrame, TaskFrameContext};
-use async_trait::async_trait;
 
 pub struct DynamicTaskFrame<T>(T);
 
@@ -15,7 +14,6 @@ where
     }
 }
 
-#[async_trait]
 impl<T, F, E> TaskFrame for DynamicTaskFrame<T>
 where
     T: (Fn(&TaskFrameContext) -> F) + Send + Sync + 'static,
