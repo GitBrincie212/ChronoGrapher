@@ -60,6 +60,28 @@ fn failing_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn chronographer::task::Era
 }
 
 #[tokio::test]
+async fn sequential_quit_on_first_frame_returns_indexed_error() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame = CollectionTaskFrame::new(
+        vec![
+            failing_frame(&counter),
+            ok_frame(&counter),
+            ok_frame(&counter),
+        ],
+        SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
+    );
+    let task = Task::new(TaskScheduleImmediate, frame);
+    let err = task
+        .into_erased()
+        .run()
+        .await
+        .expect_err("Sequential starategy should stop on failure");
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+    assert_eq!(err.index(), 0);
+}
+
+#[tokio::test]
 async fn sequential_quit_on_failure_returns_indexed_error() {
     let counter = Arc::new(AtomicUsize::new(0));
 
@@ -103,6 +125,30 @@ async fn sequential_silent_runs_all_frames() {
         .expect("silent should suppress failures");
 
     assert_eq!(counter.load(Ordering::SeqCst), 3);
+}
+
+#[tokio::test]
+async fn sequential_fails_on_first_error() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame = CollectionTaskFrame::new(
+        vec![
+            failing_frame(&counter),
+            failing_frame(&counter),
+            failing_frame(&counter),
+        ],
+        SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
+    );
+
+    let task = Task::new(TaskScheduleImmediate, frame);
+    let err = task
+        .into_erased()
+        .run()
+        .await
+        .expect_err("Should fails on all tasks");
+
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+    assert_eq!(err.index(), 0);
 }
 
 #[tokio::test]
@@ -163,4 +209,21 @@ async fn selection_exec_out_of_bounds_returns_error() {
 
     assert_eq!(counter.load(Ordering::SeqCst), 0);
     assert_eq!(err.index(), 99);
+}
+
+// NOTE: This test may be changed in the future since the behavior of an empty
+// array of task frames may change
+#[tokio::test]
+async fn empty_tasks_exec_test() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame =
+        CollectionTaskFrame::new(vec![], SelectionExecStrategy::new(FixedSelectAccessor(0)));
+
+    let task = Task::new(TaskScheduleImmediate, frame);
+    task.into_erased()
+        .run()
+        .await
+        .expect_err("Running no tasks should suceed");
+    assert_eq!(counter.load(Ordering::SeqCst), 0);
 }
