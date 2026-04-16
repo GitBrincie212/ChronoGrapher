@@ -1,10 +1,8 @@
-use std::{fmt, marker::PhantomData};
-
-use async_trait::async_trait;
 use chronographer::{
     errors::TaskError,
     task::{Task, TaskFrame, TaskFrameContext, TaskScheduleImmediate},
 };
+use std::{fmt, marker::PhantomData};
 
 #[derive(thiserror::Error, Debug)]
 enum DummyError {
@@ -35,11 +33,15 @@ impl Clone for MyTaskFrame {
 
 impl Copy for MyTaskFrame {}
 
-#[async_trait]
 impl TaskFrame for MyTaskFrame {
     type Error = DummyError;
+    type Args = ();
 
-    async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(
+        &self,
+        _ctx: &TaskFrameContext,
+        _args: &Self::Args,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 }

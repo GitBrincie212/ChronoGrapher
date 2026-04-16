@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
 use chronographer::errors::TaskError;
 use chronographer::prelude::*;
 use chronographer::task::{TaskFrame, TaskFrameContext, TaskScheduleImmediate};
+use std::fmt::{Debug, Display, Formatter};
 use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,8 +21,13 @@ struct SimpleTaskFrame {
 
 impl TaskFrame for SimpleTaskFrame {
     type Error = Box<dyn TaskError>;
+    type Args = ();
 
-    async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(
+        &self,
+        _ctx: &TaskFrameContext,
+        _args: &Self::Args,
+    ) -> Result<(), Self::Error> {
         if self.should_succeed.load(Ordering::SeqCst) {
             Ok(())
         } else {
@@ -109,8 +114,7 @@ async fn test_task_dependency_failure_only() {
         "Task dependency should not be resolved after task succeeds (failure only)"
     );
 
-    let err_result: Option<Box<dyn TaskError>> =
-        Some(Box::new(StubError));
+    let err_result: Option<Box<dyn TaskError>> = Some(Box::new(StubError));
     task.emit_hook_event::<OnTaskEnd>(&err_result.as_ref().map(|x| x.as_ref()))
         .await;
 

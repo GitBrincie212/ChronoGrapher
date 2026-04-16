@@ -8,6 +8,8 @@ use chronographer::task::{
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use crate::impl_counting_frame;
+
 #[derive(Debug)]
 struct TestCollectionError(&'static str);
 
@@ -17,24 +19,7 @@ impl std::fmt::Display for TestCollectionError {
     }
 }
 
-struct CountingFrame {
-    counter: Arc<AtomicUsize>,
-    should_fail: bool,
-}
-
-impl TaskFrame for CountingFrame {
-    type Error = TestCollectionError;
-    type Args = ();
-
-    async fn execute(&self, _ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
-        self.counter.fetch_add(1, Ordering::SeqCst);
-        if self.should_fail {
-            Err(TestCollectionError("frame failed"))
-        } else {
-            Ok(())
-        }
-    }
-}
+impl_counting_frame!(TestCollectionError);
 
 struct FixedSelectAccessor(usize);
 
@@ -43,20 +28,6 @@ impl SelectFrameAccessor for FixedSelectAccessor {
     async fn select(&self, _ctx: &RestrictTaskFrameContext) -> usize {
         self.0
     }
-}
-
-fn ok_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn chronographer::task::ErasedTaskFrame<()>> {
-    Arc::new(CountingFrame {
-        counter: counter.clone(),
-        should_fail: false,
-    })
-}
-
-fn failing_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn chronographer::task::ErasedTaskFrame<()>> {
-    Arc::new(CountingFrame {
-        counter: counter.clone(),
-        should_fail: true,
-    })
 }
 
 #[tokio::test]
