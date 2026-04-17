@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chronographer = {path = "../core"}
+chronographer = { path = "../core" }
 async-trait = "0.1.89"
-tokio = "1.50.0"
+tokio = { version = "1.52.0", features = ["full", "test-util"] }
 trybuild = "1.0"
 thiserror = "2.0.18"
+
+[dev-dependencies]
+paste = "1.0.15"

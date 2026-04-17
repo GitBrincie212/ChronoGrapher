@@ -1,4 +1,5 @@
 mod collectionframe_test;
+mod delay_taskframe_test;
 mod dynamic_taskframe_test;
 mod noop_operation_taskframe_test;
 
