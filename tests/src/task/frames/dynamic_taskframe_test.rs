@@ -24,7 +24,7 @@ impl_counting_frame!(DummyError);
 
 #[tokio::test]
 async fn frame_execution_returns_ok() {
-    let frame = DynamicTaskFrame::new(move |_ctx: &TaskFrameContext, _args| async move {
+    let frame = DynamicTaskFrame::new(move |_ctx: &TaskFrameContext, _args: &()| async move {
         Ok::<_, DummyError>(())
     });
     let task = Task::new(TaskScheduleImmediate, frame);
@@ -37,7 +37,7 @@ async fn frame_execution_returns_ok() {
 async fn frame_execution_increments_counter() {
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_clone = Arc::clone(&counter);
-    let frame = DynamicTaskFrame::new(move |_ctx: &TaskFrameContext, _argrs| {
+    let frame = DynamicTaskFrame::new(move |_ctx: &TaskFrameContext, _args: &()| {
         let counter = counter_clone.clone();
         async move {
             counter.fetch_add(1, Ordering::SeqCst);
@@ -53,7 +53,7 @@ async fn frame_execution_increments_counter() {
 
 #[tokio::test]
 async fn frame_execution_returns_error() {
-    let frame = DynamicTaskFrame::new(|_ctx: &TaskFrameContext, _args| async move {
+    let frame = DynamicTaskFrame::new(|_ctx: &TaskFrameContext, _args: &()| async move {
         Err(DummyError("intentional failure"))
     });
     let task = Task::new(TaskScheduleImmediate, frame);
