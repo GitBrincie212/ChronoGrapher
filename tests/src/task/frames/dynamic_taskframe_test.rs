@@ -12,7 +12,7 @@ use crate::impl_counting_frame;
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub struct DummyError(&'static str);
+struct DummyError(&'static str);
 
 impl Display for DummyError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
