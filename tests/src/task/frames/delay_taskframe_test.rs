@@ -139,29 +139,3 @@ async fn task_execution_returns_ok() {
     let exec = task.into_erased().run().await;
     assert!(exec.is_ok());
 }
-
-// #[tokio::test]
-// async fn delay_execute_as_expected() {
-//     let counter = Arc::new(AtomicUsize::new(0));
-//
-//     let frame = CountingFrame {
-//         counter,
-//         should_fail: false,
-//     };
-//
-//     let task_frame = DelayTaskFrame::new(frame, MINIMAL);
-//     let task = Task::new(TaskScheduleImmediate, task_frame);
-//
-//     let start = Instant::now();
-//     task.into_erased().run().await.unwrap();
-//     let elapsed = start.elapsed();
-//     let range = in_range_of!(15, ms);
-//
-//     println!("{elapsed:?}");
-//     assert!(
-//         range.contains(&elapsed),
-//         "Execution took {:?}, expected nearby {:?}",
-//         elapsed,
-//         range
-//     );
-// }
