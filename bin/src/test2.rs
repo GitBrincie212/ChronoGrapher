@@ -32,7 +32,7 @@ async fn main() {
     let scheduler =
         LiveScheduler::<DefaultSchedulerConfig<Box<dyn TaskError>>>::default();
 
-    let exec_frame = DynamicTaskFrame::new(|_ctx| async {
+    let exec_frame = DynamicTaskFrame::new(|_ctx, _| async {
         println!("Trying primary task...");
         //sleep(Duration::from_secs_f64(1.234)).await;
         Err(Box::new(std::io::Error::other("uh oh")) as Box<dyn TaskError>)

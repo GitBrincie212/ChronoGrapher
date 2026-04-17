@@ -24,8 +24,9 @@ struct CountingFrame {
 
 impl TaskFrame for CountingFrame {
     type Error = TestCollectionError;
+    type Args = ();
 
-    async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    async fn execute(&self, _ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         self.counter.fetch_add(1, Ordering::SeqCst);
         if self.should_fail {
             Err(TestCollectionError("frame failed"))
@@ -44,14 +45,14 @@ impl SelectFrameAccessor for FixedSelectAccessor {
     }
 }
 
-fn ok_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn chronographer::task::ErasedTaskFrame> {
+fn ok_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn chronographer::task::ErasedTaskFrame<()>> {
     Arc::new(CountingFrame {
         counter: counter.clone(),
         should_fail: false,
     })
 }
 
-fn failing_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn chronographer::task::ErasedTaskFrame> {
+fn failing_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn chronographer::task::ErasedTaskFrame<()>> {
     Arc::new(CountingFrame {
         counter: counter.clone(),
         should_fail: true,
