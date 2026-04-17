@@ -26,7 +26,7 @@ pub enum MyErrors {
 
 #[task(interval(2s))]
 #[workflow(retry(3, 2s))]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // [!code highlight]
     let res = reqwest::get("https://httpbin.org/status/200,429,500,403").await?;
 
@@ -58,61 +58,55 @@ in our case we can wire one like so:
 // [!code ++]
 #[taskframe]
 // [!code ++]
-async fn MyFallbackTaskFrame(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn MyFallbackTaskFrame(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
     // [!code ++]
-    if let Some(error) = ctx.get_shared::<SharedFallbackError<MyErrors>>().await {
-        // [!code ++]
-        // In real-world scenarios you handle these errors more gracefully
-        // [!code ++]
-        return match error.0 {
-            // [!code ++]
-            // We can safely ignore, as its just too many requests and not an actual error
-            // [!code ++]
-            MyErrors::TooManyRequests => Ok(()),
-            // [!code ++]
-
-            // [!code ++]
-            // Server errors are an error worth addressing
-            // [!code ++]
-            MyErrors::ServerError => {
-                // [!code ++]
-                println!("Handling Server-Related Error Via Fallback");
-                // [!code ++]
-                // <...Handling Process...>
-                // [!code ++]
-                Ok(())
-            // [!code ++]
-            },
-            // [!code ++]
-
-            // [!code ++]
-            MyErrors::ForbiddenAccessError => {
-                // [!code ++]
-                println!("Handling Forbidden Access Error Via Fallback");
-                // [!code ++]
-                // <...Different Handling Process...>
-                // [!code ++]
-                Ok(())
-            // [!code ++]
-            },
-            // [!code ++]
-
-            // [!code ++]
-            // An error which we can't handle, leak it through
-            // [!code ++]
-            err => {
-                // [!code ++]
-                println!("Cannot Handle This Error Via Fallback");
-                // [!code ++]
-                Err(err)
-            // [!code ++]
-            }
-        // [!code ++]
-        };
+    // In real-world scenarios you handle these errors more gracefully
     // [!code ++]
+    match error {
+        // [!code ++]
+        // We can safely ignore, as its just too many requests and not an actual error
+        // [!code ++]
+        &MyErrors::TooManyRequests => Ok(()),
+        // [!code ++]
+
+        // [!code ++]
+        // Server errors are an error worth addressing
+        // [!code ++]
+        &MyErrors::ServerError => {
+            // [!code ++]
+            println!("Handling Server-Related Error Via Fallback");
+            // [!code ++]
+            // <...Handling Process...>
+            // [!code ++]
+            Ok(())
+            // [!code ++]
+        },
+        // [!code ++]
+
+        // [!code ++]
+        &MyErrors::ForbiddenAccessError => {
+            // [!code ++]
+            println!("Handling Forbidden Access Error Via Fallback");
+            // [!code ++]
+            // <...Different Handling Process...>
+            // [!code ++]
+            Ok(())
+            // [!code ++]
+        },
+            // [!code ++]
+
+        // [!code ++]
+        // An error which we can't handle, leak it through
+        // [!code ++]
+        err => {
+            // [!code ++]
+            println!("Cannot Handle This Error Via Fallback");
+            // [!code ++]
+            Err(err.clone()) // We have to clone the value or use an Arc<T> if expensive
+            // [!code ++]
+        }
+        // [!code ++]
     }
-    // [!code ++]
-    Ok(())
 // [!code ++]
 }
 
@@ -122,7 +116,7 @@ async fn MyFallbackTaskFrame(ctx: &TaskContext) -> Result<(), MyErrors> {
     fallback(MyFallbackTaskFrame),
     retry(3, 2s)
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <...>
 }
 ```
@@ -162,7 +156,7 @@ Try to move the fallback below the retry like so:
     retry(3, 2s),
     fallback(MyFallbackTaskFrame)
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <...>
 }
 ```

@@ -34,7 +34,7 @@ pub enum MyErrors {
 }
 
 #[task(interval(2s))]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     let res = reqwest::get("https://httpbin.org/status/200,429,500").await?;
 
     // For demonstration purposes
@@ -101,7 +101,7 @@ To fix this we can add retries, which re-attempt requests once we hit an error:
 #[task(interval(2s))]
 // [!code ++]
 #[workflow(retry(3))]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -146,7 +146,7 @@ happen immediately. To fix this, we can declare a delay per retry like so:
 #[task(interval(2s))]
 // [!code ++]
 #[workflow(retry(3, 2s))]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```

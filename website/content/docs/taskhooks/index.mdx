@@ -25,7 +25,7 @@ two different tasks, each doing their own part in the entirety of the system.
 use chronographer::prelude;
 
 #[task(interval(2s))]
-async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 1's Actions");
     Ok(())
 }
@@ -35,7 +35,7 @@ async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
     retry(3, 1s),
     timeout(5s)
 )]
-async fn task2(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn task2(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 2's Actions");
     Ok(())
 }
@@ -62,7 +62,7 @@ cron, this is the only way of dealing with monitoring.
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 #[task(interval(2s))]
-async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     write_start_to_log("task1");
     println!("Simulating Task 1's Actions");
     write_end_to_log("task1");
@@ -74,7 +74,7 @@ async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
     retry(3, 1s),
     timeout(5s)
 )]
-async fn task2(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn task2(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     write_start_to_log("task2");
     println!("Simulating Task 2's Actions");
     write_end_to_log("task2");
@@ -107,7 +107,7 @@ we will introduce fixed events which we can listen to like so:
     task_start = logger_for_start,
     task_end = logger_for_end
 )]
-async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 1's Actions");
     Ok(())
 }
@@ -122,7 +122,7 @@ async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
     task_end = logger_for_end,
     timeout = some_other_listener
 )]
-async fn task2(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn task2(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 2's Actions");
     Ok(())
 }

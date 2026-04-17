@@ -38,7 +38,7 @@ Reverting back our example from before (without timeouts, fallbacks and delays),
     retry(3, linear(1s, 500ms, 2s))
     //  OPTIONAL ARGUMENT      ^^^^
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <...>
 }
 ```
@@ -59,7 +59,7 @@ towards non-constant delay, for API requests however, it's more idiomatic to use
     retry(3, exponential(2, 5s))
     //  OPTIONAL ARGUMENT   ^^
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -77,7 +77,7 @@ All of our backoff strategies act deterministically, with ``jitter`` however, we
 #[workflow(
     retry(3, jitter(full, exponential(2, 5s)))
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -94,7 +94,7 @@ or lower. To fix this, we can modify our example to use **Equal Jitter** like so
 #[workflow(
     retry(3, jitter(equal, exponential(2, 5s)))
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -110,7 +110,7 @@ If we want better randomization for our delays, we can turn to **Decorrelated Ji
     retry(3, jitter(decorrelated(20s), exponential(2, 5s)))
     // OPTIONAL ARGUMENT        ^^^^^
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -129,7 +129,7 @@ impl RetryBackoffStrategy for MyBackoffStrategy {
 #[workflow(
     retry(3, custom(MyBackoffStrategy)))
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -170,7 +170,7 @@ To see this in action, lets modify our example like so:
 #[workflow(
     retry(3, when = ![MyErrors::ForbiddenAccessError])
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -222,7 +222,7 @@ The above example can be written with a whitelist as:
         MyErrors::OtherHttpStatus(..)
     ])
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -289,7 +289,7 @@ Modifying our example, we can write the same whitelist as:
         }
     })
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
@@ -315,7 +315,7 @@ impl RetryErrorFilter<MyErrors> {
 
 #[task(interval(2s))]
 #[workflow(retry(3, when = custom(MyErrorFilter))]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //
 }
 ```
