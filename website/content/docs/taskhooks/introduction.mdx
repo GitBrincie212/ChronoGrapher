@@ -92,7 +92,7 @@ To achieve this we can change our code in the following way:
     MyCoolTaskHook: [OnTaskStart, OnTaskEnd]
 // [!code ++]
 })]
-async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 1's Actions");
     Ok(())
 }
@@ -108,7 +108,7 @@ async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
     MyCoolTaskHook: [OnTaskStart, OnTaskEnd]
 // [!code ++]
 })]
-async fn task2(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn task2(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 2's Actions");
     Ok(())
 }
@@ -137,7 +137,7 @@ Try to change task2 to throw an error and notice what the ``TaskHook`` prints.
         ```rust title="src/main.rs" lineNumbers=28
         #[task(interval(2s))]
         #[hooks(MyCoolTaskHook)]
-        async fn task1(ctx: &TaskContext) -> Result<(), TaskError> {
+        async fn task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
         // ...
     }
         ```

@@ -24,7 +24,7 @@ Back in our previous script, we add the following:
     fallback(MyFallbackTaskFrame),
     retry(3, 2s)
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <...>
 }
 ```
@@ -87,7 +87,7 @@ This only takes effect in business logic, another permutation is:
     retry(3, 2s),
     timeout(5s),
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <...>
 }
 ```
@@ -129,7 +129,7 @@ We can use ``delay`` to achieve our goals. Like so:
     delay(500ms),
     retry(3, 2s),
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <...>
 }
 ```

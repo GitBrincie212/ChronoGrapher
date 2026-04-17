@@ -42,7 +42,7 @@ static REQWEST_CLIENT: OnceLock<Client> = OnceLock::new();
 #[workflow(
   retry(5, exponential(2), when = [])
 ])
-async fn api_request_task(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn api_request_task(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     let client = REQWEST_CLIENT.get_or_init(|| Client::new());
     let res = client.get("https://httpbin.org/status/200,404,500").send()
         .await

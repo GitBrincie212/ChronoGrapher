@@ -44,7 +44,7 @@ pub enum MyErrors {
 }
 
 #[task(interval(3s))]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // [!code ++]
     let res = reqwest::get("https://httpbin.org/status/200,429,500").await?;
 
@@ -141,7 +141,7 @@ use tokio::time::{sleep, Duration};
 // <...>
 
 #[task(interval(2s))]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // [!code ++]
     let mut final_res: Result<(), MyErrors> = Ok(());
     // [!code ++]
@@ -226,7 +226,7 @@ use thiserror::Error;
     // [!code ++]
     fallback = other_task_fallback
 )]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     let res = reqwest::get("https://httpbin.org/status/200,429,500").await?;
 
     // For demonstration purposes
@@ -276,7 +276,7 @@ Some of these include using ChronoGrapher's ``retries``, ``fallback`` and how wo
 ```rust title="src/main.rs" lineNumbers
 #[task(interval(2s))]
 #[workflow(retry(5, 2s))]
-async fn APIRequestTask(ctx: &TaskContext) -> Result<(), MyErrors> {
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <...>
 }
 ```
