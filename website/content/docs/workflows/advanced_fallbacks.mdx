@@ -6,65 +6,168 @@ description: Learn how to better handle errors in complex workflows
 In the previous chapter, we have discussed advanced usage regarding ``retry`` such as Backoff Strategies and Error Filtering.
 While in the topic of errors, we must mention the fact we ran into a couple of issues with our fallback.
 
-# Advanced Fallbacks
-Currently, with simple fallbacks (where we declared only one fallback), everything is restricted to one ``TaskFrame``.
-However, life shouldn't be hard, as such **Multi-Fallbacks** come in the full picture.
-
-Consider this example:
+# Monolithic Fallbacks
+Currently, with simple fallbacks (where we declared only one fallback), everything is restricted to one ``TaskFrame`` as
+demonstrated below in this example:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
 #[derive(Debug)]
-struct ServerError;
-
-#[derive(Debug)]
-struct ResourceNotFound404;
-
-#[derive(Debug)]
-struct ResourceNotFound;
+enum MyErrors {
+    ServerError,
+    ResourceNotFound404,
+    SomeOtherError
+    // ...
+}
 
 #[taskframe]
-async fn my_task_fallback(ctx: &TaskContext) -> Result<(), TaskError> {
-    if let Some(err) = ctx.get_shared::<TaskError>() {
-        match err {
-            other => Err(other)
-        }
+async fn my_task_fallback(ctx: &TaskFrameContext, err: &MyErrors) -> Result<(), MyErrors> {
+    match err {
+        ServerError => { /* <...> */ },
+        ResourceNotFound404 => { /* <...> */ },
+        SomeOtherError => { /* <...> */ },
+
+        // <...>
+    
+        other => Err(other.clone())
     }
-    panic!("my_task_fallback isn't used as a fallback");
 }
 
 #[task(interval(6s))]
 #[workflow(
     fallback(my_task_fallback)
 )]
-async fn my_task(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 ```
 </RenderProgrammingLanguageBased>
 
-With simple fallbacks, the fallback has to manage every different error that comes from our business logic (and workflow,
-though for simplicity not included).
+With simple fallbacks, the fallback has to manage every different error that comes from our business logic / workflow.
 
-While one can make a monolithic function that tries to manage all errors, depending on the action performed by the business logic,
-different ways are required to handle the "same looking error".
+While one can make a monolithic function that tries to manage all errors, different Tasks may need ultimately a different
+handler even for handling the "same looking error".
 
-This is where the **Multi-Fallbacks** idea comes in play, instead of one, we can split the monolithic fallback to multiple
+# Multi-Fallbacks
+
+This is where the Multi-Fallbacks idea comes in play, instead of one, we can split the monolithic fallback to multiple
 smaller, single-purpose and reusable fallbacks.
 
+The idea is if a fallback cannot manage an error, it regurgitates the error to its next fallback peer for it to handle, and so on.
 To achieve this let's rewrite our example like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
 #[taskframe]
-async fn my_task_error1_fallback(ctx: &TaskContext) -> Result<(), TaskError> {
-    // ...
+async fn server_error_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    match error {
+        &ServerError => { /* ... */ }
+        err => Err(err.clone())
+    }
 }
+
+#[taskframe]
+async fn resource_not_found404_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    match error {
+        &ResourceNotFound404 => { /* ... */ }
+        err => Err(err.clone())
+    }
+}
+
+#[taskframe]
+async fn some_other_error_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    match error {
+        &SomeOtherError => { /* ... */ }
+        err => Err(err.clone())
+    }
+}
+
+// Add more TaskFrames for handling errors.
 
 #[task(interval(6s))]
 #[workflow(
-    fallback(my_task_fallback)
+    fallback(server_error_fallback, resource_not_found404_fallback, some_other_error_fallback)
 )]
-async fn my_task(ctx: &TaskContext) -> Result<(), TaskError> {
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 ```
 </RenderProgrammingLanguageBased>
+
+This pattern scales better than the monolithic fallback as you can keep adding smaller TaskFrames for handling fallbacks
+and even use different workflows per fallback TaskFrame.
+
+<Callout type={"idea"} title={"Optimizing Multi-Fallbacks"}>
+    Depending on the circumstances, if your workflow executes very often and ``Arc<T>`` is not enough due to its clone
+    costs, one optimization that comes to mind is restructuring the order of the fallback TaskFrames.
+
+    If for example we expect more often ``resource_not_found404_fallback`` to execute, then we can place it first as opposed,
+    to ``server_error_fallback`` whereas the more rare the errors, the further down the chain they go.
+</Callout>
+
+However, for simple workflows where there aren't many permutations of a fallback, it may be best to avoid Multi-Fallbacks
+and stick to the simple monolithic fallback approach.
+
+Another benefit for Monolithic Fallbacks is their performance, instead of passing the value along a series of functions,
+the error handling happens in one place.
+
+One can strike a middle ground based approach by having each fallback TaskFrame manage its own group of
+closely related errors, reducing the number of multiple of fallbacks at once.
+
+<Callout type={"warn"} title={"Fallbacks Must Return the Same Error Type"}>
+    Its considered an anti-pattern to modify an error in-between the fallbacks prematurely without
+    a good reason, as it makes debugging issues more difficult
+</Callout>
+
+To transform into the middle ground based approach, we can modify our code like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+// <...>
+
+#[taskframe]
+async fn resource_not_found_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    match error {
+        &ResourceNotFound404 | &ResourceNotFound => { /* ... */ }
+        err => Err(err.clone())
+    }
+}
+
+// <...>
+
+#[task(interval(6s))]
+#[workflow(
+    fallback(server_error_fallback, resource_not_found404_fallback, some_other_error_fallback)
+)]
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+Now smaller single-purpose Multi-Fallbacks and group-based Multi-Fallbacks can work together, no need to stick to one
+approach as these are closer to structure philosophies than to features.
+
+---
+
+In summary, prefer the use of **Monolithic Fallbacks** when there aren't many permutations a fallback can have (both for
+performance and simplicity). Use **Multi-Fallbacks** when either of these holds true:
+- You need multiple workflows per fallback (for example one has a retry while the other a timeout).
+- You want reusability of those smaller fallbacks.
+
+The entire flow of Multi-Fallback can be explained through this diagram:
+<ThemeBasedImage
+    light={"/diagram-light-5.svg"} dark={"/diagram-dark-5.svg"}
+    width={1200} height={1200}
+    alt={"Flow diagram for Multi-Fallback"}
+/>
+
+Where we have ``fallback(TaskFrame1, TaskFrame2, TaskFrame3)``, once the fallback kicks in action, ``TaskFrame1`` executes,
+if it succeeds then return back to the workflow success, otherwise continue with ``TaskFrame2``.
+
+If that fails then ``TaskFrame3`` and if all of them fail then return back to the entire workflow the error that caused this
+(usually its an anti pattern to modify the error in-between fallback TaskFrames).
+
+In the next chapter we will explore diverge from advanced patterns and explain new workflow primitives, specifically ``condition``
+and ``threshold`` as well as the difference between conditions and fallbacks.
+
+> TL;DR. Multi-Fallbacks allow for better scalability compared to monolithic fallbacks, with a slight tradeoff in performance
+and more code (for simple cases), one can have a middle ground approach by making each fallback manage a group of errors
+at once as opposed to one error type.
