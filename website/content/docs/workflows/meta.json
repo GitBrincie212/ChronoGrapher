@@ -7,7 +7,7 @@
     "time_in_workflows",
     "advanced_retries",
     "advanced_fallbacks",
-    "advanced_primitives",
+    "conditions_and_thresholds",
     "summary_and_practical_patterns"
   ]
 }
