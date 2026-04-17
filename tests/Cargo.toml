@@ -12,3 +12,6 @@ thiserror = "2.0.18"
 
 [dev-dependencies]
 paste = "1.0.15"
+tokio = "1.50.0"
+trybuild = "1.0"
+thiserror = "2.0.18"
