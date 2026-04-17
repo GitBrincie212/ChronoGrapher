@@ -1,0 +1,312 @@
+---
+title: Conditionals & Thresholds
+description: Learn about conditionals and thresholds
+---
+
+In our previous chapters we explained advanced retries and fallbacks in order, we will take a step aside and explore
+new workflow primitives which allow us to handle conditions and thresholds.
+
+# Conditioning Our Workflow
+Lets step aside and explore a different example to learn why use conditions in the first place:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+async fn predicate(_ctx: TaskFrameContext) -> bool {
+    // <... Black Box Area ...>
+
+    true
+}
+
+#[task(interval(2s))]
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+}
+```
+</RenderProgrammingLanguageBased>
+
+Suppose we have some outside function that returns a boolean value, let's call it ``predicate``. In our Task we want the
+predicate to influence the Task, however both of these sources are black boxes and thus cannot be modified.
+
+The idea is the ``predicate`` runs before our logic, if it returns true, the Task proceeds normally
+but if false then we exit the Task returning a value (either success or an error) based on what we configured.
+
+This is where ``condition`` can help:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+async fn predicate(ctx: &TaskFrameContext) -> bool {
+    // <... Black Box Area ...>
+
+    true
+}
+
+#[task(interval(2s))]
+// [!code ++]
+#[workflow(condition(predicate))]
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+Try switching the value to ``false`` and notice how our Task never runs.
+
+Conditionals can help with managing if our Task should run based on outside data, for example
+[Human In The Loop](https://www.ibm.com/think/topics/human-in-the-loop), APIs and anything in between.
+
+## Configuring The Falsey Behavior
+In our simple example, our predicate always returns success when our Task doesn't run, however we may need to control
+this behavior as well, for that we can configure the ``falsey_behavior`` like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=10
+#[task(interval(2s))]
+// [!code highlight]
+#[workflow(condition(predicate, falsey_behavior = error))]
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+By default, its ``success``, however for our case in ``error`` when the predicate fails, it will fire a special error defined
+in ChronoGrapher to let us know the predicate returned false.
+
+However, we can also control if it throws an error or succeeds from outside data via ``custom(...)``:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=10
+#[task(interval(2s))]
+// [!code highlight]
+#[workflow(
+    // [!code highlight]
+    condition(predicate, falsey_behavior = custom(|_| {
+        // [!code highlight]
+        // <... Black Box Area ...>
+        // [!code highlight]
+
+        // [!code highlight]
+        MyErrors::ServerError
+    // [!code highlight]
+    }))
+// [!code highlight]
+)]
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+Now what if we want to execute a secondary TaskFrame when the predicate returns false? One idea would be to stack a fallback
+on top of the condition to catch the error (from the falsey behavior).
+
+However, the fallback acts globally on top of all errors and doesn't have context whenever or not this error came from
+the conditional or from part of the Task itself without analysis.
+
+## Executing A Secondary TaskFrame On False
+To simplify things this is why condition has ``secondary`` used to configure a secondary TaskFrame to run if the predicate
+returns false:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=10
+#[taskframe]
+async fn my_secondary_taskframe(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+}
+
+#[task(interval(2s))]
+// [!code highlight]
+#[workflow(
+    // [!code highlight]
+    condition(
+        // [!code highlight]
+        predicate,
+        // [!code highlight]
+        secondary = my_secondary_taskframe,
+        // [!code highlight]
+        falsey_behavior = error
+    // [!code highlight]
+    )
+)]
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+<Callout type={"warning"} title={"Fallbacks Vs Conditionals"}>
+    Even if ``my_secondary_taskframe`` succeeds it will still return an error under this configuration and specifically
+    the error defined from ``falsey_behavior`` however if ``my_secondary_taskframe`` fails then it returns its own error back
+    and not from ``falsey_behavior``.
+</Callout>
+
+Now our secondary TaskFrame can run its own workflow when the predicate returns false without analysis on whenever or not
+the error originates from the condition or the Task logic itself.
+
+<Callout type={"warning"} title={"Fallbacks Vs Conditionals"}>
+    The main difference comes down to their semantics and how they run, when using a fallback the primary TaskFrame **ALWAYS**
+    runs and if the primary fails then the secondary TaskFrame. Use a fallback for error handling.
+
+    Meanwhile, condition runs the primary TaskFrame **OR** the secondary TaskFrame based on an outside predicate function.
+    Use a condition for anything conditional outside of the workflow.
+</Callout>
+
+# Setting Thresholds In Our Workflow
+With conditions aside, in some cases a part of the workflow logic may want to execute a specific number of times before
+fully skipping this workflow. While this can be emulated with conditionals there is a special ``threshold`` primitive for
+just that.
+
+Here is a simple example where this can be useful:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=10
+#[taskframe]
+async fn special_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    println!("Special fallback triggered");
+    Ok(())
+}
+
+// fallback1 and fallback2 are typical fallbacks which we won't focus on
+#[task(interval(2s))]
+#[workflow(fallback(fallback1, fallback2, special_fallback))]
+async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    Err(MyErrors::ServerError)
+}
+```
+</RenderProgrammingLanguageBased>
+
+In this example we set up multiple fallbacks, but with the addition of a "special" fallback. While it is rare for it
+to fire, the chances are never zero.
+
+This "special" fallback acts as a nuclear switch, very expensive to perform but completely resolves all errors. The way
+it solves these errors isn't something to consider and should be noted the form this is presented isn't only as a
+"special fallback" but can be something else.
+
+In this case let's use a threshold of 10 runs:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=24
+#[taskframe]
+#[workflow(threshold(10))]
+async fn special_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    println!("Special fallback triggered");
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+This threshold monitors the number of times the ``special_fallback`` has run regardless of what result it returns up to
+10 runs, once this exceeds the threshold it simply skips it.
+
+## What Happens After Reaching Our Threshold
+Though we have a problem, skipping in our scenario means returning success which as we discussed in the previous chapters.
+It is considered an antipattern, for this reason ``reach_behavior`` exists to dictate what happens to return after the threshold
+exceeds.
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=24
+#[taskframe]
+#[workflow(threshold(10, reach_behavior = error))]
+async fn special_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    println!("Special fallback triggered");
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+However, we can improve correctness more by returning the same error back when ``special_fallback`` doesn't work since
+``error`` returns a special error defined by ChronoGrapher, to solve this, lets use ``custom`` to achieve this:
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=24
+#[taskframe]
+// [!code highlight]
+#[workflow(
+    // [!code highlight]
+    threshold(
+        // [!code highlight]
+        10,
+        // [!code highlight]
+        reach_behavior = custom(|error: &MyErrors| Err(error))
+    // [!code highlight]
+    )
+// [!code highlight]
+)]
+async fn special_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    println!("Special fallback triggered");
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+## How To Count Towards The Threshold
+Our custom threshold reach behavior accepts arguments in which case it is our error which we swiftly return back to propagate.
+However, the cherry on top will be managing when we count towards the threshold which is where ``count_behavior`` comes in play.
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=24
+#[taskframe]
+// [!code highlight]
+#[workflow(
+    // [!code highlight]
+    threshold(
+        // [!code highlight]
+        10,
+        // [!code highlight]
+        reach_behavior = custom(|error: &MyErrors| Err(error)),
+        // [!code highlight]
+        count_behavior = successes
+    // [!code highlight]
+    )
+// [!code highlight]
+)]
+async fn special_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+    // <... Black Box Area ...>
+
+    println!("Special fallback triggered");
+    Ok(())
+}
+```
+</RenderProgrammingLanguageBased>
+
+By default, it counts all types of runs including successes and failures of any shape, with ``successes`` we explicitly tell
+the threshold to count successes **ONLY**, alternatively we can use ``failures`` for the opposite effect.
+
+We can also use ``consecutive_successes`` to count consecutive successes towards the threshold and reset the counter
+if a failure is encountered, similarly there is ``consecutive_failures`` for the opposite effect.
+
+We could also use ``custom(...)`` to count towards the threshold differently. However, we will leave this as is, but
+the same logic applies over there as well.
+
+To summarize we configured our ``special_fallback`` to never run again once it has reached 10 non-consecutive
+successful runs, any run after this threshold will not be counted and ultimately skipping it with our error from the
+fallback chain intact.
+
+---
+
+Ultimately, use ``condition`` for conditional logic that depends on an outside predicate. You can define if it should
+return an error or success (by default it succeeds). You can further customize with a secondary TaskFrame to run if the
+predicate returns false.
+
+The main difference between a condition and a fallback is a fallback always executes the primary TaskFrame then the
+secondary but in a conditional either has to execute (not possible for both to run one after the other).
+
+ChronoGrapher also contains a ``threshold`` workflow primitive for limiting the number of times a workflow part runs in
+our code. This can be useful for scenarios where part of the logic is rare but needs to run few times.
+
+We can configure in the threshold how each run is counted towards the threshold and even what happens after the threshold
+is reached, should it just skip with success? Should it output an error? Up to you to choose.
+
+> TL;DR. Conditions host a predicate that dictates whenever we run our primary TaskFrame or not (optionally a secondary),
+it's useful for outside data to influence our workflow. Thresholds count the number of times a Task runs based on how the
+counting logic is configured, thresholds can also be configured to output success/failure when the threshold is reached.
