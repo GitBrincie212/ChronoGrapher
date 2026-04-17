@@ -3,6 +3,7 @@ mod delay_taskframe_test;
 mod dynamic_taskframe_test;
 mod fallback_taskframe_test;
 mod noop_operation_taskframe_test;
+mod timeout_taskframe_test;
 
 #[macro_use]
 mod macros {
