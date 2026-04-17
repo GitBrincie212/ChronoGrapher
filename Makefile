@@ -1,4 +1,4 @@
-.PHONY: fmt clippy build test ci
+.PHONY: fmt clippy build test bench ci
 
 fmt:
 	cargo fmt --all -- --check
@@ -10,10 +10,9 @@ build:
 	cargo build --all-features
 
 test:
-	cd tests && cargo test --all-features && cd ..
+	cd tests && cargo test --all-features
 
 bench:
-	cd benches && cargo bench && cd ..
+	cd benches && cargo bench
 
-ci:
-	fmt clippy build test
+ci: fmt clippy build test
