@@ -12,7 +12,6 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::time::Instant;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 struct DummyError(&'static str);
 
