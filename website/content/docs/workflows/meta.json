@@ -8,7 +8,6 @@
     "advanced_retries",
     "advanced_fallbacks",
     "conditions_and_thresholds",
-    "dependencies",
-    "summary_and_practical_patterns"
+    "dependencies"
   ]
 }
