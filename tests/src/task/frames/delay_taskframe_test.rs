@@ -139,3 +139,54 @@ async fn task_execution_returns_ok() {
     let exec = task.into_erased().run().await;
     assert!(exec.is_ok());
 }
+
+#[tokio::test(start_paused = true)]
+async fn task_execution_with_delay_and_failing_frame_returns_error() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame = CountingFrame {
+        counter: counter.clone(),
+        should_fail: true,
+    };
+
+    let delay = Duration::from_millis(15);
+    let task_frame = DelayTaskFrame::new(frame, delay);
+    let task = Task::new(TaskScheduleImmediate, task_frame);
+
+    let handle = tokio::spawn(async move {
+        task.into_erased().run().await
+    });
+
+    tokio::task::yield_now().await;
+    tokio::time::advance(delay).await;
+
+    let exec = handle.await.unwrap();
+    assert!(exec.is_err(), "Error from inner frame should propagate even after delay");
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        1,
+        "Inner frame should have been called once before failing"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn zero_duration_delay_executes_immediately() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame = CountingFrame {
+        counter: counter.clone(),
+        should_fail: false,
+    };
+
+    let task_frame = DelayTaskFrame::new(frame, Duration::ZERO);
+    let task = Task::new(TaskScheduleImmediate, task_frame);
+
+    let handle = tokio::spawn(async move { task.into_erased().run().await });
+
+    tokio::task::yield_now().await;
+    tokio::time::advance(Duration::ZERO).await;
+
+    let exec = handle.await.unwrap();
+    assert!(exec.is_ok(), "Zero duration delay should still execute successfully");
+    assert_eq!(counter.load(Ordering::SeqCst), 1);
+}

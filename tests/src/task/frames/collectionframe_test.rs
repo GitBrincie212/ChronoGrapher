@@ -198,3 +198,83 @@ async fn empty_tasks_exec_test() {
         .expect_err("Running no tasks should suceed");
     assert_eq!(counter.load(Ordering::SeqCst), 0);
 }
+
+#[tokio::test]
+async fn parallel_all_fail_returns_error() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame = CollectionTaskFrame::new(
+        vec![
+            failing_frame(&counter),
+            failing_frame(&counter),
+            failing_frame(&counter),
+        ],
+        ParallelExecStrategy::new(GroupedTaskFramesQuitOnFailure),
+    );
+
+    let task = Task::new(TaskScheduleImmediate, frame);
+    task.into_erased()
+        .run()
+        .await
+        .expect_err("When all parallel frames fail with QuitOnFailure, the collection should return an error");
+
+    assert!(counter.load(Ordering::SeqCst) >= 1);
+}
+
+#[tokio::test]
+async fn parallel_quit_on_failure_returns_error_on_first_fail() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame = CollectionTaskFrame::new(
+        vec![
+            failing_frame(&counter),
+            ok_frame(&counter),
+            ok_frame(&counter),
+        ],
+        ParallelExecStrategy::new(GroupedTaskFramesQuitOnFailure),
+    );
+
+    let task = Task::new(TaskScheduleImmediate, frame);
+    task.into_erased()
+        .run()
+        .await
+        .expect_err("QuitOnFailure should return error when any frame fails");
+
+    assert!(counter.load(Ordering::SeqCst) >= 1);
+}
+
+#[tokio::test]
+async fn selection_exec_selects_failing_frame_returns_error() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame = CollectionTaskFrame::new(
+        vec![ok_frame(&counter), failing_frame(&counter), ok_frame(&counter)],
+        SelectionExecStrategy::new(FixedSelectAccessor(1)),
+    );
+
+    let task = Task::new(TaskScheduleImmediate, frame);
+    task.into_erased()
+        .run()
+        .await
+        .expect_err("Selecting a failing frame should propagate the error");
+
+    assert_eq!(counter.load(Ordering::SeqCst), 1, "Only the selected frame should have run");
+}
+
+#[tokio::test]
+async fn empty_sequential_collection_returns_ok() {
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let frame = CollectionTaskFrame::new(
+        vec![],
+        SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
+    );
+
+    let task = Task::new(TaskScheduleImmediate, frame);
+    task.into_erased()
+        .run()
+        .await
+        .expect("Empty sequential collection should succeed with no frames to run");
+
+    assert_eq!(counter.load(Ordering::SeqCst), 0);
+}

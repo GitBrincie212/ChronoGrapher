@@ -36,6 +36,10 @@ fn failing_deps(num: usize) -> Vec<Arc<dyn FrameDependency>> {
         .collect()
 }
 
+fn mixed_deps(ok: usize, failing: usize) -> Vec<Arc<dyn FrameDependency>> {
+    ok_deps(ok).into_iter().chain(failing_deps(failing)).collect()
+}
+
 #[tokio::test]
 async fn returns_ok_when_all_deps_resolved() {
     let counter = Arc::new(AtomicUsize::new(0));
@@ -68,5 +72,71 @@ async fn returns_error_when_dep_unresolved() {
         counter.load(Ordering::SeqCst),
         0,
         "inner frame should not have been called"
+    );
+}
+
+#[tokio::test]
+async fn no_deps_returns_ok() {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let frame = DependencyTaskFrame::builder()
+        .frame(CountingFrame {
+            counter: counter.clone(),
+            should_fail: false,
+        })
+        .dependencies(ok_deps(0))
+        .build();
+    let task = Task::new(TaskScheduleImmediate, frame);
+    let result = task.into_erased().run().await;
+    assert!(result.is_ok());
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        1,
+        "inner frame should have been called"
+    );
+}
+
+#[tokio::test]
+async fn stop_on_first_failing_dep() {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let frame = DependencyTaskFrame::builder()
+        .frame(CountingFrame {
+            counter: counter.clone(),
+            should_fail: false,
+        })
+        .dependencies(mixed_deps(2, 1))
+        .build();
+    let task = Task::new(TaskScheduleImmediate, frame);
+    let result = task.into_erased().run().await;
+    assert!(
+        result.is_err(),
+        "Should fail when at least one dependency is unresolved"
+    );
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        0,
+        "Inner frame should not have been called when deps fail"
+    );
+}
+
+#[tokio::test]
+async fn inner_frame_fails_when_all_deps_resolve() {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let frame = DependencyTaskFrame::builder()
+        .frame(CountingFrame {
+            counter: counter.clone(),
+            should_fail: true,
+        })
+        .dependencies(ok_deps(2))
+        .build();
+    let task = Task::new(TaskScheduleImmediate, frame);
+    let result = task.into_erased().run().await;
+    assert!(
+        result.is_err(),
+        "Should propagate inner frame error even when all deps resolve"
+    );
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        1,
+        "Inner frame should have been called and failed"
     );
 }

@@ -91,6 +91,68 @@ async fn threshold_count_failing_frames() {
     );
 }
 
+#[tokio::test]
+async fn threshold_of_one_reached_after_single_run() {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let frame = CollectionTaskFrame::new(
+        vec![ok_frame(&counter)],
+        SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
+    );
+
+    let threshold = NonZero::new(1).unwrap();
+
+    let frame = ThresholdTaskFrame::builder()
+        .threshold_logic(Box::new(ThresholdSuccessesCountLogic))
+        .frame(frame)
+        .threshold_reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
+        .threshold(threshold)
+        .build();
+
+    let task = Task::new(TaskScheduleImmediate, frame);
+    let erased = task.into_erased();
+
+    erased.run().await.unwrap();
+
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        1,
+        "A threshold of 1 should be reached after exactly one successful run"
+    );
+}
+
+#[tokio::test]
+async fn sub_threshold_runs_do_not_trigger_reach_behaviour() {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let frame = CollectionTaskFrame::new(
+        vec![ok_frame(&counter)],
+        SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
+    );
+
+    let threshold = NonZero::new(5).unwrap();
+
+    let frame = ThresholdTaskFrame::builder()
+        .threshold_logic(Box::new(ThresholdSuccessesCountLogic))
+        .frame(frame)
+        .threshold_reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
+        .threshold(threshold)
+        .build();
+
+    let task = Task::new(TaskScheduleImmediate, frame);
+    let erased = task.into_erased();
+
+    // Run only 3 times out of required 5
+    for _ in 0..3 {
+        erased.run().await.unwrap();
+    }
+
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        3,
+        "Only 3 runs should have occurred, threshold not yet reached"
+    );
+}
+
+
 // TODO: Add this this test when `ThresholdErrorReachBehaviour` is implemented
 //
 // #[tokio::test]
