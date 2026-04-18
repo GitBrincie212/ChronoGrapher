@@ -106,7 +106,7 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
         {
             self.count.fetch_add(1, Ordering::SeqCst);
             total += 1;
-            // NOTE: Feel free to remove the below stmt when the warning will be removed
+            // TODO: Feel free to remove the below stmt when the warning will be removed
             // (unused_assignments) or that allows are allowed in inner blocks
             let _ = total;
         }
