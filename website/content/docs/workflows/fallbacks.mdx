@@ -120,11 +120,15 @@ async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <...>
 }
 ```
-</RenderProgrammingLanguageBased>
-When a fallback is executed. ChronoGrapher stores the error that ``APIRequestTask`` threw, this way the fallback can
-access it via ``get_shared``, this method is a part of a bigger API which is explained in later chapters.
+<Callout type={"idea"} title={"The Clone For Our Error"}>
+    Its often an anti-pattern to throw different errors from the fallback, usually its best to throw the same error but
+    since we borrow it, we can't simply throw it back easily and hence we need to clone.
 
-Now when our code runs, in a realistic environment we may see:
+    If your error type is expensive to clone then consider the usage of ``Arc<T>``.
+</Callout>
+</RenderProgrammingLanguageBased>
+When a fallback is executed, it executes our Task logic primarily, then if it fails, we share the error with
+the fallback to resolve. Now when our code runs, in a realistic environment we may see:
 ```zsh title="terminal"
 # 1st run of Task (after 2 total seconds)
 (Attempt: 0/3) Website responded with 403
@@ -136,6 +140,7 @@ Handling Forbidden Access Error Via Fallback
 
 # <...>
 ```
+
 Try to lower the number of retries to see it in effect.
 
 > It should be noted: In real systems, fallbacks usually perform more graceful handling
