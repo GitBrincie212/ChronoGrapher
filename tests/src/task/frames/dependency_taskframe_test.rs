@@ -12,7 +12,6 @@ use std::sync::atomic::Ordering;
 
 use crate::impl_counting_frame;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 struct DummyError(&'static str);
 
