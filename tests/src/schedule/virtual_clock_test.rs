@@ -2,7 +2,7 @@ use chronographer::scheduler::clock::{AdvanceableSchedulerClock, SchedulerClock,
 use std::time::{Duration, UNIX_EPOCH};
 
 // A small value to avoid floating precision errors
-pub const EPSILON: Duration = Duration::from_millis(1);
+const EPSILON: Duration = Duration::from_millis(1);
 
 macro_rules! assert_approx {
     ($left:expr, $right:expr, $epsilon:expr) => {{

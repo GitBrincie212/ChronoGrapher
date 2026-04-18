@@ -202,22 +202,22 @@ async fn test_shared_custom_state_manager() {
     }
 
     impl MyStateManager {
-        pub fn new(x: usize, y: usize) -> Self {
+        fn new(x: usize, y: usize) -> Self {
             Self {
                 x: AtomicUsize::new(x),
                 y: AtomicUsize::new(y),
             }
         }
 
-        pub fn write_x(&self, new: usize) {
+        fn write_x(&self, new: usize) {
             self.x.store(new, Ordering::SeqCst);
         }
 
-        pub fn write_y(&self, new: usize) {
+        fn write_y(&self, new: usize) {
             self.y.store(new, Ordering::SeqCst);
         }
 
-        pub fn get_sum(&self) -> usize {
+        fn get_sum(&self) -> usize {
             self.x.load(Ordering::SeqCst) + self.y.load(Ordering::SeqCst)
         }
     }
