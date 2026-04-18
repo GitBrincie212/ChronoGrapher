@@ -18,6 +18,7 @@ hard to notice this in production and highly dangerous. To solve this, use ``tim
 Back in our previous script, we add the following:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
+#[task(interval(1s))]
 #[workflow(
     // [!code ++]
     timeout(5s),
@@ -68,10 +69,28 @@ Scheduler engine received an error for Task with identifier (...):
     </Callout>
 </RenderProgrammingLanguageBased>
 
+Timeouts can also be calculated dynamically via a custom function, each time the timeout is about to start the function
+is invoked to calculate the corresponding duration:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(1s))]
+#[workflow(
+    // [!code highlight]
+    timeout(custom = |_| Duration::from_secs(5)),
+    fallback(MyFallbackTaskFrame),
+    retry(3, 2s)
+)]
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <...>
+}
+```
+</RenderProgrammingLanguageBased>
+
 Try switching the order! You can control where the timeout takes effect in. For our above example, it takes effect in
 the entire workflow whereas in:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
+#[task(interval(1s))]
 #[workflow(
     fallback(myfallback),
     retry(3, 2s),
@@ -82,6 +101,7 @@ the entire workflow whereas in:
 This only takes effect in business logic, another permutation is:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
+#[task(interval(1s))]
 #[workflow(
     fallback(myfallback),
     retry(3, 2s),
@@ -94,19 +114,6 @@ async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 </RenderProgrammingLanguageBased>
 Where once the business logic takes more than 5 seconds, a retry is automatically issued. The fallback may catch
 the timeout error (if the retry logic didn't resolve it).
-
-<Callout type={"error"} title={"Workflow Definitions Affect Error Structure"}>
-    When changing the workflow definition of a Task (or TaskFrame), the underlying error representation also changes.
-    One should always be careful of fallbacks, as in our previous example we used the type ``SharedFallbackError<MyErrors>``.
-
-    Even for primitives such as ``retry`` or ``fallback`` which have errors originating from their nested ``TaskFrames``,
-    they still wrap the error in a new type ``RetriableTaskFrameError`` and ``FallbackTaskFrameError`` respectively.
-
-    The reason for this has to do with debugging and detailed error introspection. By wrapping via new types,
-    users handling the error know how the workflow reacted to the error.
-
-    However this will be explained in-depth in the next chapter.
-</Callout>
 
 Generally, use timeouts when you want to limit the execution time of a workflow part (prevents hanging). It is advised
 therefore to run multiple times the workflow and see the average time, then use that.
@@ -123,6 +130,7 @@ by a specified duration.
 We can use ``delay`` to achieve our goals. Like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
+#[task(interval(1s))]
 #[workflow(
     timeout(6s),
     fallback(myfallback),
@@ -135,21 +143,35 @@ async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 ```
 </RenderProgrammingLanguageBased>
 
-> Do note from our previous callout, even if delay doesn't error on its own, it still includes a ``DelayTaskFrameError<...>``.
-
 In our case we apply the ``delay`` in the retry logic that encapsulates the business logic, and we delay it by ``500ms``.
+Just like ``timeout``, we can also use a custom function to calculate dynamically the delay:
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(1s))]
+#[workflow(
+    timeout(6s),
+    fallback(myfallback),
+    delay(custom = |_| Duration::from_secs(1)),
+    retry(3, 2s),
+)]
+async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // <...>
+}
+```
+</RenderProgrammingLanguageBased>
 
 Generally ``delay`` is less of a common workflow primitive to use. Its use is only for delaying certain workflow
-parts by a constant duration.
+parts by a certain duration.
 
 To wrap things up, ``timeout`` should be used to enforce a time limit for the runtime of a workflow part. Depending
 on the circumstance, it is better to lay it on top of the workflow to enforce a global execution limit.
 
 Or alternatively, if a part requires a time limit, it is better to lay it on top of that part and not at the complete top.
-As far as it goes for ``delay``, it is used only for delaying some parts by a specified constant duration.
+As far as it goes for ``delay``, it is used only for delaying some parts by a specified constant or dynamically computed duration.
 
 In the next chapter, we will discuss more in-depth about error handling and various best practices about it.
 
 > TL;DR. ``timeout`` is used for enforcing a time limit for part of our workflow (or the entire thing). Layer it on
 top of the workflow to enforce a global time limit, Layer it on a specific part to enforce a time limit only there.
-``delay`` is less common but used for delaying by a constant time some workflow parts.
+``delay`` is less common but used for delaying some workflow parts by a constant or dynamically computed duration.
