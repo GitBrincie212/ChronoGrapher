@@ -40,10 +40,10 @@ pub struct DependencyTaskFrameConfig<T: TaskFrame> {
     dependencies: Vec<Arc<dyn FrameDependency>>,
 
     #[builder(
-        default = Arc::new(DependentFailureOnFail),
-        setter(transform = |ts: impl DependentFailBehavior + 'static| Arc::new(ts) as Arc<dyn DependentFailBehavior>)
+        default = Box::new(DependentFailureOnFail),
+        setter(transform = |ts: impl DependentFailBehavior + 'static| Box::new(ts) as Box<dyn DependentFailBehavior>)
     )]
-    dependent_behaviour: Arc<dyn DependentFailBehavior>,
+    dependent_behaviour: Box<dyn DependentFailBehavior>,
 }
 
 impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T> {
@@ -61,7 +61,7 @@ define_event!(OnDependencyValidation, (Arc<dyn FrameDependency>, bool));
 pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,
     dependencies: Vec<Arc<dyn FrameDependency>>,
-    dependent_behaviour: Arc<dyn DependentFailBehavior>,
+    dependent_behaviour: Box<dyn DependentFailBehavior>,
 }
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {

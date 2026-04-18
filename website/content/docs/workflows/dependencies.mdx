@@ -1,0 +1,259 @@
+---
+title: Dependencies Between Everything
+description: Learn about dependencies and how they work
+---
+
+In our chapter series we have described error handling via retries, fallbacks (monolithic and multi-fallbacks) and
+various different workflow primitives. But we left out one important workflow primitive for last.
+
+We never had the opportunity to depend on state or anything outside for our workflow, the only close thing is by emulating
+it with a custom predicate function via the ``condition``. However, it isn't a clean solution.
+
+# Simple Dependency Management
+Hence, ChronoGrapher provides us the ability to declare dependencies via ``dependency``. One of the common things to depend
+on are different Tasks so let's see this in action with an example:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(1s))]
+async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+
+#[task(interval(4s))]
+#[workflow(
+    // [!code highlight]
+    dependency(MyTask1)
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+<Callout type="info" title="When Are Dependencies Checked?">
+    Dependencies are evaluated **immediately before** the workflow part executes. If your Task has an interval schedule,
+    dependencies are checked at each scheduled time (assuming it reaches the dependency part).
+
+    If dependencies aren't resolved, the workflow part is skipped (or errors, depending on configuration)
+    and the check repeats at the next time it reaches the dependency part via its schedule.
+</Callout>
+
+# Changing How Task Dependencies Are Resolved
+``MyTask1`` as a dependency can only be resolved when it runs at least once (regardless of whenever it failed or succeeded).
+Though what happens if we want to require the Task to run at least 3 times regardless of result? We can achieve this via:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+#[task(interval(4s))]
+#[workflow(
+    // [!code highlight]
+    dependency(MyTask1(any = 3))
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+We can also count only failures via ``failures`` or only successes via ``successes``. Just like threshold there is a
+consecutive variant via ``consecutive_failures`` and ``consecutive_successes``.
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+#[task(interval(4s))]
+#[workflow(
+    // [!code highlight]
+    // or "successes = 3", same follows with consecutive variants
+    // [!code highlight]
+    dependency(MyTask1(failures = 3))
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+We can also provide a custom implementation for counting failures/successes via a ``custom`` like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+#[task(interval(4s))]
+#[workflow(
+    // [!code highlight]
+    dependency(
+        // [!code highlight]
+        MyTask1(custom = |err| err.is_some())
+    // [!code highlight]
+    )
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+# Multiple Dependencies Via Boolean Operations
+In our demonstrations however, you may notice we used only one Task, what if we want to depend on two or more?
+Unlike other workflow orchestrators (which mostly model via DAGs), ChronoGrapher allows us to express the dependencies
+via pure boolean operations as demonstrated below:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=4
+#[task(interval(1s))]
+async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+
+// [!code ++]
+#[task(interval(2s))]
+// [!code ++]
+async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // [!code ++]
+    // ...
+// [!code ++]
+}
+
+#[task(interval(4s))]
+#[workflow(
+    // [!code highlight]
+    dependency(MyTask1 && MyTask2)
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+However, we are not restricted to simple boolean logic, we can have all kinds of boolean operators including OR,
+NOT and XOR and various complex boolean expressions like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+#[task(interval(4s))]
+#[workflow(
+    // [!code highlight]
+    dependency(!MyTask5 && (MyTask1 || MyTask2 ^ MyTask4))
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+# Dependency Unresolving Behavior
+We can also customize just like our previous workflow primitives what happens when our dependency isn't resolved via:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+#[task(interval(4s))]
+#[workflow(
+    // [!code highlight]
+    dependency(
+        // [!code highlight]
+        !MyTask5 && (MyTask1 || MyTask2 ^ MyTask4),
+        // [!code highlight]
+        fail
+    // [!code highlight]
+    )
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+Now instead of just skipping this workflow part with success, it errors out with a ChronoGrapher specified error, we can
+of course customize the logic to either succeed or error out via ``custom(...)``:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+#[task(interval(4s))]
+#[workflow(
+    dependency(
+        !MyTask5 && (MyTask1 || MyTask2 ^ MyTask4),
+        // [!code highlight]
+        custom(|_| Err(MyErrors::ServerError))
+    )
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+# Different Dependency Types
+Though, what happens when we may need outside state to influence our Task's dependencies, for this scenario there are two
+ways to achieve this. The most simple is via a ``flag(...)`` dependency:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+static MY_FLAG: AtomicBool = AtomicBool::new(false);
+
+#[task(interval(4s))]
+#[workflow(
+    dependency(
+        // [!code highlight]
+        flag(MY_FLAG),
+        // [!code --]
+        custom(|_| Err(MyErrors::ServerError))
+    )
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+The second way is via ``dynamic(...)`` dependency. Its a function that is being evaluated every time we try to resolve the
+dependency:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+#[task(interval(4s))]
+#[workflow(
+    dependency(
+        // [!code highlight]
+        // You can do more complex than just returning always false
+        // [!code highlight]
+        dynamic(|| false),
+    )
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+# Complex & Mixed Dependency Management
+You can even mix and match different dependency types with boolean operations, for example:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=14
+#[task(interval(4s))]
+#[workflow(
+    dependency(
+        // [!code highlight]
+        dynamic(|| check_ready()) && MyTask1(successes = 3) || flag(EMERGENCY_MODE),
+    )
+)]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // ...
+}
+```
+</RenderProgrammingLanguageBased>
+
+---
+
+Dependencies are a powerful mechanism which ChronoGrapher provides, you can depend on Tasks to run at least N times
+either successful, failed, consecutive successful, consecutive failed or any kind of runs.
+
+You can depend on multiple dependencies via boolean operations (AND, OR, NOT, XOR), when dependencies aren't resolved by
+default, they are skipped, however this can also be configured to fail or with custom logic.
+
+Apart from depending on just Tasks, there are various other dependencies such as ``flag(...)`` for a simple boolean styled
+dependency and ``dynamic(...)`` for runtime-based dependencies via a closure / function.
+
+You can mix and match multiple dependencies with boolean operations for more complex dependency management. In the next
+and final chapter of this series we will finish with summarizing and explaining various patterns.
+
+Our complex dependency can be summarized by this graph:
+<ThemeBasedImage
+    light={"/diagram-light-6.svg"} dark={"/diagram-dark-6.svg"}
+    width={1200} height={1200}
+    alt={"Flow diagram for our complex dependency"}
+/>
+
+> TL;DR. The dependency workflow primitive allows defining explicit dependencies between multiple sources (tasks, booleans &
+runtime logic), with boolean operations we can form complex dependency relations. Only when the entire dependency is resolved
+does the workflow part run.
