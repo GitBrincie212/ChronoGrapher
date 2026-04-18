@@ -352,7 +352,7 @@ export function ChronoGrapherWireComponent() {
             "to-fd-background-100p to-80% rounded-lg **:pointer-events-none **:select-none"
           }
         >
-          <div className="w-full h-full *:p-8 *:lg:p-10 *:2xl:p-16 mask-b-from-20% from-white to-transparent">
+          <div className="w-full h-full *:p-6 *:lg:p-8 *:2xl:p-14 mask-b-from-20% from-white to-transparent saturate-75">
             <Image
               src={
                 useFumadocsTheme() === "light"
@@ -363,7 +363,7 @@ export function ChronoGrapherWireComponent() {
               fill
             />
           </div>
-          <div className="z-10 absolute opacity-80 w-full h-full mix-blend-overlay *:p-8 *:lg:p-10 *:2xl:p-16 mask-b-from-20% from-white to-transparent">
+          <div className="z-10 absolute opacity-30 w-full h-full mix-blend-overlay *:p-6 *:lg:p-8 *:2xl:p-14 mask-b-from-20% from-white to-transparent">
             <Image
               src={
                 useFumadocsTheme() === "light"
@@ -374,8 +374,8 @@ export function ChronoGrapherWireComponent() {
               fill
             />
           </div>
-          <div className="z-20 absolute blur-lg opacity-60 w-full h-full *:p-8 *:lg:p-10 *:2xl:p-16 mask-b-from-20% from-white to-transparent saturate-200">
-            <Image
+          <div className="z-20 absolute blur-lg opacity-60 w-full h-full *:p-6 *:lg:p-8 *:2xl:p-14 mask-b-from-20% from-white to-transparent saturate-200">
+            <Image className={"animate-pulse"}
               src={
                 useFumadocsTheme() === "light"
                   ? ChronoGrapherDark
