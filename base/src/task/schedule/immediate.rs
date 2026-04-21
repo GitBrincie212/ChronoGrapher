@@ -3,9 +3,9 @@
 use std::error::Error;
 use std::time::SystemTime;
 use async_trait::async_trait;
-use crate::task::TaskTrigger;
+use crate::task::TaskSchedule;
 
-/// [`TaskScheduleImmediate`] is a [`TaskTrigger`] used to immediately execute a [Task](crate::task::Task) up front,
+/// [`TaskScheduleImmediate`] is a [`TaskSchedule`] used to immediately execute a [Task](crate::task::Task) up front,
 /// without calculating a future time.
 ///
 /// # Scheduling Semantics
@@ -21,7 +21,7 @@ use crate::task::TaskTrigger;
 /// or alternatively via [`Default`] trait using the [`TaskScheduleImmediate::default`] constructor.
 ///
 /// # Trait Implementation(s)
-/// Apart from [`TaskScheduleImmediate`] implementing the [`TaskTrigger`] trait, it implements as well:
+/// Apart from [`TaskScheduleImmediate`] implementing the [`TaskSchedule`] trait, it implements as well:
 /// - [`Debug`]
 /// - [`Clone`]
 /// - [`Copy`]
@@ -29,37 +29,35 @@ use crate::task::TaskTrigger;
 ///
 /// # Example(s)
 /// ```rust
-/// use chronographer::task::{TaskScheduleImmediate, TaskTrigger};
+/// use chronographer::task::{TaskScheduleImmediate, TaskSchedule};
 /// use std::time::SystemTime;
 /// # use std::error::Error;
-/// # use chronographer::task::trigger::schedule::TaskSchedule;
+/// # use chronographer::task::schedule::schedule::TaskSchedule;
 ///
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 /// let instance = TaskScheduleImmediate; // or via TaskScheduleImmediate::default()
 /// let now = SystemTime::now();
-///
-/// // Both schedule and trigger methods return the same result
-/// let future_time = instance.trigger(now).await?;
+/// let future_time = instance.schedule(now).await?;
 ///
 /// assert_eq!(future_time, now);
 /// # Ok(())
 /// # }
 /// ```
-/// In the example above, we create an instance of [`TaskScheduleImmediate`], compute its time via ``trigger``
+/// In the example above, we create an instance of [`TaskScheduleImmediate`], compute its time via ``schedule``
 /// method and assert that ``future_time`` is the current time (for demonstrative purposes).
 ///
 /// # See Also
 /// - [`TaskSchedule`] - The direct implementor of this trait.
-/// - [`TaskTrigger`] - The general trait which is implemented under the hood.
+/// - [`TaskSchedule`] - The general trait which is implemented under the hood.
 /// - [`Task`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TaskScheduleImmediate;
 
 #[async_trait]
-impl TaskTrigger for TaskScheduleImmediate {
-    async fn trigger(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+impl TaskSchedule for TaskScheduleImmediate {
+    async fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         Ok(time)
     }
 }

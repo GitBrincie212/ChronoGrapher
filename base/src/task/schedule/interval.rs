@@ -6,12 +6,12 @@ use std::ops::Add;
 use std::time::{Duration, SystemTime};
 use async_trait::async_trait;
 use crate::errors::IntervalSecondsOutOfRange;
-use crate::task::TaskTrigger;
+use crate::task::TaskSchedule;
 
 #[cfg(feature = "chrono")]
 use crate::errors::IntervalTimeDeltaOutOfRange;
 
-/// [`TaskScheduleInterval`] is a [`TaskTrigger`] used to execute a [Task](crate::task::Task) in an
+/// [`TaskScheduleInterval`] is a [`TaskSchedule`] used to execute a [Task](crate::task::Task) in an
 /// interval basis (based on the current time).
 ///
 /// # Scheduling Semantics
@@ -36,7 +36,7 @@ use crate::errors::IntervalTimeDeltaOutOfRange;
 /// procedural macros crate.
 ///
 /// # Trait Implementation(s)
-/// Apart from [`TaskScheduleInterval`] implementing the [`TaskTrigger`] trait, it implements as well:
+/// Apart from [`TaskScheduleInterval`] implementing the [`TaskSchedule`] trait, it implements as well:
 /// - [`Debug`]
 /// - [`Clone`]
 /// - [`Copy`]
@@ -44,7 +44,7 @@ use crate::errors::IntervalTimeDeltaOutOfRange;
 /// # Example(s)
 /// Basic usage of [`TaskScheduleInterval`]:
 /// ```rust
-/// use chronographer::task::{TaskScheduleInterval, TaskTrigger};
+/// use chronographer::task::{TaskScheduleInterval, TaskSchedule};
 /// use std::time::{SystemTime, Duration};
 /// # use std::error::Error;
 ///
@@ -52,9 +52,7 @@ use crate::errors::IntervalTimeDeltaOutOfRange;
 /// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 /// let instance = TaskScheduleInterval::from_secs(1);
 /// let now = SystemTime::now();
-///
-/// // Both schedule and trigger methods return the same result
-/// let new_time = instance.trigger(now).await?;
+/// let new_time = instance.schedule(now).await?;
 ///
 /// // new_time == now + 1 second.
 /// # let a = new_time;
@@ -66,12 +64,12 @@ use crate::errors::IntervalTimeDeltaOutOfRange;
 /// # Ok(())
 /// # }
 /// ```
-/// In the example above, we create an instance of [`TaskScheduleInterval`], compute its time via ``trigger``
+/// In the example above, we create an instance of [`TaskScheduleInterval`], compute its time via ``schedule``
 /// method, the result is ``new_time`` is approximately equal to ``now + 1 second`` (within a small tolerance).
 ///
 /// Using the [every!](chronographer::prelude::every) macro:
 /// ```rust
-/// use chronographer::task::{TaskScheduleInterval, TaskTrigger};
+/// use chronographer::task::{TaskScheduleInterval, TaskSchedule};
 /// use std::time::{SystemTime, Duration};
 /// # use std::error::Error;
 ///
@@ -104,7 +102,7 @@ use crate::errors::IntervalTimeDeltaOutOfRange;
 /// - [`TaskScheduleInterval::from_secs`] - A simple constructor for integer second-based intervals.
 /// - [`TaskScheduleInterval::from_secs_f64`] - A simple constructor for floating point second-based intervals.
 /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
-/// - [`TaskTrigger`] - The direct implementor of this trait.
+/// - [`TaskSchedule`] - The direct implementor of this trait.
 /// - [`Task`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 #[derive(Debug, Clone, Copy)]
@@ -328,8 +326,8 @@ impl From<TaskScheduleInterval> for Duration {
 }
 
 #[async_trait]
-impl TaskTrigger for TaskScheduleInterval {
-    async fn trigger(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+impl TaskSchedule for TaskScheduleInterval {
+    async fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         Ok(time.add(self.0))
     }
 }

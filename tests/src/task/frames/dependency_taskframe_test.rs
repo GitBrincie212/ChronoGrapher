@@ -2,26 +2,11 @@ use chronographer::prelude::DynamicDependency;
 use chronographer::prelude::FrameDependency;
 use chronographer::task::DependencyTaskFrame;
 use chronographer::task::Task;
-use chronographer::task::TaskFrame;
-use chronographer::task::TaskFrameContext;
 use chronographer::task::TaskScheduleImmediate;
-use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-
-use crate::impl_counting_frame;
-
-#[derive(Debug)]
-struct DummyError(&'static str);
-
-impl Display for DummyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "dependency error")
-    }
-}
-
-impl_counting_frame!(DummyError);
+use crate::task::frames::CountingFrame;
 
 fn ok_deps(num: usize) -> Vec<Arc<dyn FrameDependency>> {
     (0..num)

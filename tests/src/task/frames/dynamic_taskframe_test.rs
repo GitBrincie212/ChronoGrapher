@@ -1,5 +1,3 @@
-use chronographer::task::TaskFrame;
-use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -8,24 +6,10 @@ use chronographer::{
     task::{Task, TaskFrameContext, TaskScheduleImmediate},
 };
 
-use crate::impl_counting_frame;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-struct DummyError(&'static str);
-
-impl Display for DummyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "error")
-    }
-}
-
-impl_counting_frame!(DummyError);
-
 #[tokio::test]
 async fn frame_execution_returns_ok() {
     let frame = DynamicTaskFrame::new(move |_ctx: &TaskFrameContext, _args: &()| async move {
-        Ok::<_, DummyError>(())
+        Ok::<_, String>(())
     });
     let task = Task::new(TaskScheduleImmediate, frame);
     let exec = task.into_erased().run().await;
@@ -41,7 +25,7 @@ async fn frame_execution_increments_counter() {
         let counter = counter_clone.clone();
         async move {
             counter.fetch_add(1, Ordering::SeqCst);
-            Ok::<_, DummyError>(())
+            Ok::<_, String>(())
         }
     });
     let task = Task::new(TaskScheduleImmediate, frame);
@@ -54,7 +38,7 @@ async fn frame_execution_increments_counter() {
 #[tokio::test]
 async fn frame_execution_returns_error() {
     let frame = DynamicTaskFrame::new(|_ctx: &TaskFrameContext, _args: &()| async move {
-        Err(DummyError("intentional failure"))
+        Err("intentional failure".to_string())
     });
     let task = Task::new(TaskScheduleImmediate, frame);
     let exec = task.into_erased().run().await;
@@ -65,7 +49,7 @@ async fn frame_execution_returns_error() {
 #[tokio::test]
 async fn frame_execution_error_contains_message() {
     let frame = DynamicTaskFrame::new(|_ctx: &TaskFrameContext, _args: &()| async move {
-        Err(DummyError("specific error content"))
+        Err("specific error content".to_string())
     });
     let task = Task::new(TaskScheduleImmediate, frame);
     let exec = task.into_erased().run().await;
@@ -86,7 +70,7 @@ async fn frame_closure_captures_state_across_multiple_runs() {
         let c = counter_clone.clone();
         async move {
             c.fetch_add(1, Ordering::SeqCst);
-            Ok::<_, DummyError>(())
+            Ok::<_, String>(())
         }
     });
     let task = Task::new(TaskScheduleImmediate, frame);

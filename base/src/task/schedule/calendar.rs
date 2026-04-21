@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::time::SystemTime;
 use async_trait::async_trait;
-use crate::task::TaskTrigger;
+use crate::task::TaskSchedule;
 
 pub trait TaskCalendarField: Send + Sync {
     fn evaluate(&self, date_fields: &mut [u32], idx: usize);
@@ -269,9 +269,9 @@ impl<
     Minute: TaskCalendarField + 'static,
     Second: TaskCalendarField + 'static,
     Millisecond: TaskCalendarField + 'static,
-> TaskTrigger for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
+> TaskSchedule for TaskScheduleCalendar<Year, Month, Day, Hour, Minute, Second, Millisecond>
 {
-    async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+    async fn schedule(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         let time = time::UtcDateTime::from(now);
         let mut fields: [&dyn TaskCalendarField; 7] = [
             &self.millisecond,

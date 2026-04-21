@@ -16,7 +16,7 @@ use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use crate::task::{Task, TaskFrame, TaskTrigger};
+use crate::task::{Task, TaskFrame, TaskSchedule};
 
 pub type SchedulerKey<C> = <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::Key;
 
@@ -73,7 +73,7 @@ pub trait Scheduler<C: SchedulerConfig>: Sync + Send + 'static {
     ) -> impl Future<Output = Result<Self::Handle, Box<dyn Error + Send + Sync>>>
     where
         T1: TaskFrame<Args = (), Error = C::TaskError>,
-        T2: TaskTrigger;
+        T2: TaskSchedule;
 
     fn remove(&self, key: &Self::Handle) -> impl Future<Output = ()> + Send;
 

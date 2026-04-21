@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 use async_trait::async_trait;
 use time::UtcDateTime;
-use crate::task::TaskTrigger;
+use crate::task::TaskSchedule;
 
 const RANGES: [RangeInclusive<u32>; 7] = [
     0..=59,
@@ -318,7 +318,7 @@ impl CronField {
     }
 }
 
-/// [`TaskScheduleCron`] is a [`TaskTrigger`] used to execute a [Task](crate::task::Task) based on
+/// [`TaskScheduleCron`] is a [`TaskSchedule`] used to execute a [Task](crate::task::Task) based on
 /// a CRON expression (The [Quartz CRON syntax](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html)).
 ///
 /// # Scheduling Semantics
@@ -352,7 +352,7 @@ impl CronField {
 /// constructors or macros).
 ///
 /// # Trait Implementation(s)
-/// Apart from [`TaskScheduleCron`] implementing the [`TaskTrigger`] trait and [`FromStr`], it implements as well:
+/// Apart from [`TaskScheduleCron`] implementing the [`TaskSchedule`] trait and [`FromStr`], it implements as well:
 /// - [`Debug`]
 /// - [`Clone`]
 /// - [`PartialEq`]
@@ -361,7 +361,7 @@ impl CronField {
 /// # Example(s)
 /// Using the [`TaskScheduleCron::from_str`] constructor for dynamic-based CRON expressions
 /// ```rust
-/// use chronographer::prelude::{TaskScheduleCron, TaskTrigger};
+/// use chronographer::prelude::{TaskScheduleCron, TaskSchedule};
 /// use std::time::{SystemTime, Duration};
 /// # use std::error::Error;
 ///
@@ -380,7 +380,7 @@ impl CronField {
 ///
 /// Using the ``cron!`` macro for static-based CRON expressions
 /// ```rust
-/// use chronographer::prelude::{cron, TaskScheduleCron, TaskTrigger};
+/// use chronographer::prelude::{cron, TaskScheduleCron, TaskSchedule};
 /// use std::time::{SystemTime, Duration};
 /// # use std::error::Error;
 ///
@@ -403,7 +403,7 @@ impl CronField {
 /// # See Also
 /// - [`TaskScheduleCron::from_str`] - A constructor for dynamic CRON based expressions
 /// - [cron!](chronographer::prelude::cron) - A macro with a readable syntax for defining a CRON expression.
-/// - [`TaskTrigger`] - The direct implementor of this trait.
+/// - [`TaskSchedule`] - The direct implementor of this trait.
 /// - [`Task`](crate::task::Task) - The main container which the schedule is hosted on.
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 #[derive(Clone, Eq, PartialEq)]
@@ -722,8 +722,8 @@ impl FromStr for TaskScheduleCron {
 }
 
 #[async_trait]
-impl TaskTrigger for TaskScheduleCron {
-    async fn trigger(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+impl TaskSchedule for TaskScheduleCron {
+    async fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
         Ok(
             self.next_time_from(time)
                 .ok_or("No valid scheduling time found")?

@@ -6,12 +6,11 @@ pub mod frame_builder; // skipcq: RS-D1001
 
 pub mod hooks; // skipcq: RS-D1001
 
-pub mod trigger; // skipcq: RS-D1001
+pub mod schedule; // skipcq: RS-D1001
 
 pub use frame_builder::*;
 pub use frames::*;
 pub use hooks::*;
-pub use trigger::*;
 pub use schedule::*;
 
 use crate::errors::TaskError;
@@ -21,7 +20,7 @@ use std::sync::atomic::AtomicUsize;
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>, Box<dyn TaskTrigger>>;
+pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>, Box<dyn TaskSchedule>>;
 
 pub struct Task<T1, T2> {
     frame: T1,
@@ -29,7 +28,7 @@ pub struct Task<T1, T2> {
     instance_id: usize
 }
 
-impl<T1: TaskFrame + Default, T2: TaskTrigger + Default> Default for Task<T1, T2> {
+impl<T1: TaskFrame + Default, T2: TaskSchedule + Default> Default for Task<T1, T2> {
     fn default() -> Self {
         Self {
             frame: T1::default(),
@@ -82,12 +81,12 @@ impl<E: TaskError> ErasedTask<E> {
         self.frame.as_ref()
     }
 
-    pub fn trigger(&self) -> &dyn TaskTrigger  {
+    pub fn schedule(&self) -> &dyn TaskSchedule  {
         self.trigger.as_ref()
     }
 }
 
-impl<T1: TaskFrame<Args = ()>, T2: TaskTrigger> Task<T1, T2> {
+impl<T1: TaskFrame<Args = ()>, T2: TaskSchedule> Task<T1, T2> {
     pub fn new(trigger: T2, frame: T1) -> Self {
         Self {
             frame,

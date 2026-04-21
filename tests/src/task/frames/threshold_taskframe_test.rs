@@ -3,32 +3,16 @@ use chronographer::task::GroupedTaskFramesQuitOnFailure;
 use chronographer::task::GroupedTaskFramesSilent;
 use chronographer::task::SequentialExecStrategy;
 use chronographer::task::Task;
-use chronographer::task::TaskFrame;
-use chronographer::task::TaskFrameContext;
 use chronographer::task::TaskScheduleImmediate;
 use chronographer::task::ThresholdErrorsCountLogic;
 use chronographer::task::ThresholdSuccessReachBehaviour;
 use chronographer::task::ThresholdSuccessesCountLogic;
 use chronographer::task::ThresholdTaskFrame;
-use std::fmt::Display;
 use std::num::NonZero;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-
-use crate::impl_counting_frame;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-struct DummyError(&'static str);
-
-impl Display for DummyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "threshold error")
-    }
-}
-
-impl_counting_frame!(DummyError);
+use crate::task::frames::{failing_frame, ok_frame};
 
 macro_rules! run_until_threshold {
     ($threshold:expr, $var:ident) => {
@@ -54,6 +38,7 @@ async fn threshold_execute_and_count_all_frames() {
         .threshold_reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
         .threshold(threshold)
         .build();
+
     let task = Task::new(TaskScheduleImmediate, frame);
     let erased = task.into_erased();
     run_until_threshold!(5, erased);
@@ -80,6 +65,7 @@ async fn threshold_count_failing_frames() {
         .threshold_reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
         .threshold(threshold)
         .build();
+
     let task = Task::new(TaskScheduleImmediate, frame);
     let erased = task.into_erased();
 

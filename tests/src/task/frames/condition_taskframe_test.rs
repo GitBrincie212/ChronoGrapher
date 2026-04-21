@@ -3,25 +3,11 @@ use chronographer::task::ConditionalFrame;
 use chronographer::task::RestrictTaskFrameContext;
 use chronographer::task::Task;
 use chronographer::task::TaskFrame;
-use chronographer::task::TaskFrameContext;
 use chronographer::task::TaskScheduleImmediate;
-use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-
-use crate::impl_counting_frame;
-
-#[derive(Debug)]
-struct DummyError(&'static str);
-
-impl Display for DummyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "condition error")
-    }
-}
-
-impl_counting_frame!(DummyError);
+use crate::task::frames::CountingFrame;
 
 #[tokio::test]
 async fn truthy_condition_returns_ok() {
@@ -32,7 +18,7 @@ async fn truthy_condition_returns_ok() {
         let c = counter_clone.clone();
         async move {
             c.fetch_add(1, Ordering::SeqCst);
-            Ok::<_, DummyError>(())
+            Ok::<_, String>(())
         }
     });
 

@@ -1,3 +1,7 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use chronographer::task::{ErasedTaskFrame, TaskFrame, TaskFrameContext};
+
 mod collectionframe_test;
 mod condition_taskframe_test;
 mod delay_taskframe_test;
@@ -8,59 +12,46 @@ mod noop_operation_taskframe_test;
 mod threshold_taskframe_test;
 mod timeout_taskframe_test;
 
-#[macro_use]
-mod macros {
-    #[macro_export]
-    macro_rules! impl_counting_frame {
-        ($err:ident) => {
-            #[allow(dead_code)]
-            fn ok_frame(
-                counter: &Arc<AtomicUsize>,
-            ) -> Arc<dyn chronographer::task::ErasedTaskFrame<()>> {
-                Arc::new(CountingFrame {
-                    counter: counter.clone(),
-                    should_fail: false,
-                })
-            }
+fn ok_frame(
+    counter: &Arc<AtomicUsize>,
+) -> Arc<dyn ErasedTaskFrame<()>> {
+    Arc::new(CountingFrame {
+        counter: counter.clone(),
+        should_fail: false,
+    })
+}
 
-            #[allow(dead_code)]
-            fn failing_frame(
-                counter: &Arc<AtomicUsize>,
-            ) -> Arc<dyn chronographer::task::ErasedTaskFrame<()>> {
-                Arc::new(CountingFrame {
-                    counter: counter.clone(),
-                    should_fail: true,
-                })
-            }
+fn failing_frame(
+    counter: &Arc<AtomicUsize>,
+) -> Arc<dyn ErasedTaskFrame<()>> {
+    Arc::new(CountingFrame {
+        counter: counter.clone(),
+        should_fail: true,
+    })
+}
 
-            #[allow(dead_code)]
-            struct CountingFrame {
-                counter: Arc<AtomicUsize>,
-                should_fail: bool,
-            }
+struct CountingFrame {
+    counter: Arc<AtomicUsize>,
+    should_fail: bool,
+}
 
-            impl TaskFrame for CountingFrame {
-                type Error = $err;
-                type Args = ();
+impl TaskFrame for CountingFrame {
+    type Error = String;
+    type Args = ();
 
-                fn execute(
-                    &self,
-                    _ctx: &TaskFrameContext,
-                    _args: &Self::Args,
-                ) -> impl Future<Output = Result<(), Self::Error>> + Send {
-                    let counter = self.counter.clone();
-                    let should_fail = self.should_fail;
+    async fn execute(
+        &self,
+        _ctx: &TaskFrameContext,
+        _args: &Self::Args,
+    ) -> Result<(), Self::Error> {
+        let counter = self.counter.clone();
+        let should_fail = self.should_fail;
 
-                    async move {
-                        counter.fetch_add(1, Ordering::SeqCst);
-                        if should_fail {
-                            Err($err("frame failed"))
-                        } else {
-                            Ok(())
-                        }
-                    }
-                }
-            }
-        };
+        counter.fetch_add(1, Ordering::SeqCst);
+        if should_fail {
+            return Err("TaskFrame Failed".to_owned());
+        }
+
+        Ok(())
     }
 }

@@ -1,56 +1,94 @@
-pub mod schedule; // skipcq: RS-D1001
+//! This module contains various implementations of scheduling primitives via [`TaskSchedule`](crate::task::TaskSchedule).
+//!
+//! When it comes to most use cases, the built-in scheduling primitives are most used. However, depending
+//! on your needs, you may implement the [`TaskSchedule`](crate::task::TaskSchedule) trait for a custom schedule.
+//!
+//! # Exports
+//! - [`TaskScheduleImmediate`] - A primitive which schedules to execute immediately.
+//! - [`TaskScheduleInterval`] - A primitive which schedules per-interval basis.
+//! - [`TaskScheduleCron`] - A primitive which schedules based on a CRON expression.
+//! - [`CronField`] - A field used internally for [`TaskScheduleCron`]
+//! - [`TaskScheduleCalendar`] - A primitive which schedules via a human-readable calendar object.
+//! - [`TaskCalendarField`] - A field of [`TaskScheduleCalendar`] which allows complex scheduling.
+//!
+//! # Example(s)
+//! TODO: Expand upon the Example(s) once you are finished with documenting the other primitives
+//!
+//! Implementing your own custom schedule? Best refer to [`TaskSchedule`](crate::task::TaskSchedule) documentation
+//!
+//! # See Also
+//! - [`TaskScheduleImmediate`] - A primitive which schedules to execute immediately.
+//! - [`TaskScheduleInterval`] - A primitive which schedules per-interval basis.
+//! - [`TaskScheduleCron`] - A primitive which schedules based on a CRON expression.
+//! - [`CronField`] - A field used internally for [`TaskScheduleCron`]
+//! - [`TaskScheduleCalendar`] - A primitive which schedules via a human-readable calendar object.
+//! - [`TaskCalendarField`] - A field of [`TaskScheduleCalendar`] which allows complex scheduling.
+//! - [`TaskSchedule`](crate::task::TaskSchedule) - The trait for managing scheduling / trigger logic.
 
-use async_trait::async_trait;
+mod calendar; // skipcq: RS-D1001
+mod cron; // skipcq: RS-D1001
+mod immediate;
+mod interval; // skipcq: RS-D1001
+
+pub mod cron_lexer; // skipcq: RS-D1001
+pub mod cron_parser; // skipcq: RS-D1001
+
 use std::error::Error;
 use std::time::SystemTime;
+use async_trait::async_trait;
 
-/// [`TaskTrigger`] is the main mechanism in which [`Tasks`](crate::task::Task) schedule a future time (based on
+pub use calendar::*;
+pub use cron::*;
+pub use immediate::*;
+pub use interval::*;
+
+/// [`TaskSchedule`] is the main mechanism in which [`Tasks`](crate::task::Task) schedule a future time (based on
 /// a current one) to run, this time is handed to the "[`Scheduler`](crate::scheduler::Scheduler) Side"
 /// for it to organize.
 ///
-/// [`TaskTrigger`] may immediately hand out the future time (in this case, best use [`TaskSchedule`](schedule::TaskSchedule)
+/// [`TaskSchedule`] may immediately hand out the future time (in this case, best use [`TaskSchedule`](schedule::TaskSchedule)
 /// or notify at any other time the "Scheduler Side" about its future time to schedule to.
 ///
 /// # Semantics
-/// There is only one required method for the [`TaskTrigger`], that being [`TaskTrigger::trigger`].
+/// There is only one required method for the [`TaskSchedule`], that being [`TaskSchedule::schedule`].
 ///
 /// When implementing, users are required to use the [async_trait](async_trait) macro on top of their
-/// implementation, then implement [`TaskTrigger::trigger`].
+/// implementation, then implement [`TaskSchedule::schedule`].
 ///
 /// # Required Subtrait(s)
-/// On its own [`TaskTrigger`] does not require any significant traits, it does however need ``'static``
+/// On its own [`TaskSchedule`] does not require any significant traits, it does however need ``'static``
 /// lifetime and ``Send + Sync`` auto traits.
 ///
 /// # Implementation(s)
-/// While [`TaskTrigger`] by itself has no direct implementations, there are indirect implementations
+/// While [`TaskSchedule`] by itself has no direct implementations, there are indirect implementations
 /// which utilize [`TaskSchedule`](schedule::TaskSchedule).
 ///
 /// # Object Safety / Dynamic Dispatching
-/// [`TaskTrigger`] **IS** object safe / dynamic dispatchable without any restrictions.
+/// [`TaskSchedule`] **IS** object safe / dynamic dispatchable without any restrictions.
 ///
 ///
 /// # Blanket Implementation(s)
-/// Any [`TaskSchedule`](schedule::TaskSchedule) automatically implements [`TaskTrigger`].
+/// Any [`TaskSchedule`](schedule::TaskSchedule) automatically implements [`TaskSchedule`].
 ///
-/// It wraps the sync nature of [`TaskSchedule`](schedule::TaskSchedule) to the async world of [`TaskTrigger`], managing the
+/// It wraps the sync nature of [`TaskSchedule`](schedule::TaskSchedule) to the async world of [`TaskSchedule`], managing the
 /// trigger notifier and executing the [`TaskSchedule`](schedule::TaskSchedule).
 ///
 /// # Example(s)
 /// ```
 /// use std::time::{SystemTime, Duration};
 /// use std::error::Error;
-/// use chronographer::task::TaskTrigger;
+/// use chronographer::task::TaskSchedule;
 /// use tokio::time::sleep;
 /// use async_trait::async_trait;
 ///
 /// struct DeferredEveryFiveSeconds;
 ///
 /// #[async_trait]
-/// impl TaskTrigger for DeferredEveryFiveSeconds {
+/// impl TaskSchedule for DeferredEveryFiveSeconds {
 ///     // By default init() returns Ok(()) every time. You can specify your own logic
-///     // if needed, by implementing the init(...) method from TaskTrigger
+///     // if needed, by implementing the init(...) method from TaskSchedule
 ///
-///     async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+///     async fn schedule(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
 ///         sleep(Duration::from_secs(2)).await; // Simulated delay
 ///         Ok(now + Duration::from_secs(5))
 ///     }
@@ -63,10 +101,10 @@ use std::time::SystemTime;
 /// let now = SystemTime::now();
 /// let instant = tokio::time::Instant::now();
 ///
-/// let future_time = instance.trigger(now).await?;
+/// let future_time = instance.schedule(now).await?;
 /// let elapsed = instant.elapsed().as_secs_f64();
 ///
-/// // Checks the time the trigger took (the 10ms is for accounting some variability)
+/// // Checks the time the schedule took (the 10ms is for accounting some variability)
 /// assert!((elapsed - 2f64) <= 0.010, "Expected ~2s, got {}s", elapsed);
 ///
 /// // Checks for the returned value if it's actually correct
@@ -85,8 +123,8 @@ use std::time::SystemTime;
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
 #[async_trait]
-pub trait TaskTrigger: 'static + Send + Sync {
-    /// The only required method of [`TaskTrigger`], it hosts the actual logic of waiting,
+pub trait TaskSchedule: 'static + Send + Sync {
+    /// The only required method of [`TaskSchedule`], it hosts the actual logic of waiting,
     /// monitoring and calculation co-exist to return a new future time based on a current.
     ///
     /// # Semantics
@@ -120,13 +158,13 @@ pub trait TaskTrigger: 'static + Send + Sync {
     /// defined in the trait, the semantic implication of the error is it happened during triggering.
     ///
     /// # Example(s)
-    /// For a complete example on how to implement this method, it is best to view [`TaskTrigger`].
+    /// For a complete example on how to implement this method, it is best to view [`TaskSchedule`].
     ///
     /// # See Also
-    /// - [`TaskTrigger`] - The main trait that holds this method
+    /// - [`TaskSchedule`] - The main trait that holds this method
     /// - [TaskSchedule](schedule::TaskSchedule) - An alias from this trait for more immediate mathematical computation.
     /// - [`Tasks`](crate::task::Task) - The main container which the schedule is hosted on.
     /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
     /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
-    async fn trigger(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>>;
+    async fn schedule(&self, now: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>>;
 }

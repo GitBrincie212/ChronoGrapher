@@ -1,25 +1,12 @@
-use crate::impl_counting_frame;
+use crate::task::frames::CountingFrame;
 use chronographer::task::FallbackTaskFrame;
 use chronographer::task::Task;
 use chronographer::task::TaskFrame;
 use chronographer::task::TaskFrameContext;
 use chronographer::task::TaskScheduleImmediate;
-use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-struct DummyError(&'static str);
-
-impl Display for DummyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "fallback error")
-    }
-}
-
-impl_counting_frame!(DummyError);
 
 // This frame is used as fallback
 // Decrement by one counter, opposite ass CountingFrame
@@ -29,8 +16,8 @@ struct FallbackCountingFrame {
 }
 
 impl TaskFrame for FallbackCountingFrame {
-    type Error = DummyError;
-    type Args = DummyError;
+    type Error = String;
+    type Args = String;
 
     async fn execute(
         &self,
@@ -41,7 +28,7 @@ impl TaskFrame for FallbackCountingFrame {
         println!("Fallback hit");
         self.counter.fetch_sub(1, Ordering::SeqCst);
         if self.should_fail {
-            return Err(DummyError("Fallback failed"));
+            return Err("Fallback failed".to_string());
         }
         Ok(())
     }

@@ -12,7 +12,7 @@ use crate::scheduler::engine::SchedulerEngine;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::scheduler::impls::utils::*;
-use crate::task::{Task, TaskFrame, TaskTrigger};
+use crate::task::{Task, TaskFrame, TaskSchedule};
 
 pub type DefaultScheduler<E> = LiveScheduler<DefaultSchedulerConfig<E>>;
 
@@ -158,10 +158,10 @@ async fn start_worker_process<C: SchedulerConfig>(
             {
                 match work_type {
                     SchedulerWork::Trigger => {
-                        let trigger = task.trigger();
+                        let schedule = task.schedule();
                         let now = engine_clone.clock().now();
 
-                        let time = match trigger.trigger(now).await {
+                        let time = match schedule.schedule(now).await {
                             Ok(time) => {
                                 time
                             }
@@ -299,7 +299,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
     ) -> Result<Self::Handle, Box<dyn Error + Send + Sync>>
     where
         T1: TaskFrame<Args = (), Error = C::TaskError>,
-        T2: TaskTrigger
+        T2: TaskSchedule
     {
         let erased = Arc::new(task.into_erased());
         let key = self.store.store(erased.clone())?;

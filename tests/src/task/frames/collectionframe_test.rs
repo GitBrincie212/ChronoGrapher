@@ -3,23 +3,11 @@ use chronographer::prelude::*;
 use chronographer::task::{
     CollectionTaskFrame, GroupedTaskFramesQuitOnFailure, GroupedTaskFramesQuitOnSuccess,
     GroupedTaskFramesSilent, ParallelExecStrategy, SelectFrameAccessor, SelectionExecStrategy,
-    SequentialExecStrategy, TaskFrame, TaskFrameContext, TaskScheduleImmediate,
+    SequentialExecStrategy, TaskScheduleImmediate,
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-
-use crate::impl_counting_frame;
-
-#[derive(Debug)]
-struct TestCollectionError(&'static str);
-
-impl std::fmt::Display for TestCollectionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0)
-    }
-}
-
-impl_counting_frame!(TestCollectionError);
+use crate::task::frames::{failing_frame, ok_frame};
 
 struct FixedSelectAccessor(usize);
 

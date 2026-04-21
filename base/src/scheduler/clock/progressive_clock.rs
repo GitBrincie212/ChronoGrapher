@@ -1,6 +1,4 @@
 use crate::scheduler::clock::SchedulerClock;
-#[allow(unused_imports)]
-use crate::scheduler::clock::VirtualClock;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::Notify;

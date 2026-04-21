@@ -1,28 +1,13 @@
 use chronographer::prelude::DynamicTaskFrame;
 use chronographer::task::Task;
-use chronographer::task::TaskFrame;
 use chronographer::task::TaskFrameContext;
 use chronographer::task::TaskScheduleImmediate;
 use chronographer::task::TimeoutTaskFrame;
-use std::fmt::Display;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-
-use crate::impl_counting_frame;
-
-#[allow(dead_code)]
-#[derive(Debug)]
-struct DummyError(&'static str);
-
-impl Display for DummyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "timeout error")
-    }
-}
-
-impl_counting_frame!(DummyError);
+use crate::task::frames::CountingFrame;
 
 const TIGHT_DURATION: Duration = Duration::from_millis(50);
 const LARGE_DURATION: Duration = Duration::from_secs(1);
@@ -49,8 +34,8 @@ async fn task_finishing_after_timeout_returns_error() {
         let counter_clone = counter.clone();
         async move {
             counter_clone.fetch_add(1, Ordering::SeqCst);
-            let _ = tokio::time::sleep(tokio::time::Duration::from_millis(51)).await;
-            Ok::<_, DummyError>(())
+            let _ = tokio::time::sleep(Duration::from_millis(51)).await;
+            Ok::<_, String>(())
         }
     });
     let frame = TimeoutTaskFrame::new(frame, TIGHT_DURATION);
@@ -87,7 +72,7 @@ async fn task_returning_error_before_timeout_returns_error() {
 async fn zero_duration_timeout_returns_error() {
     let frame = DynamicTaskFrame::new(|_ctx: &TaskFrameContext, _args| async move {
         tokio::time::sleep(Duration::from_millis(50)).await;
-        Ok::<_, DummyError>(())
+        Ok::<_, String>(())
     });
     let frame = TimeoutTaskFrame::new(frame, Duration::from_nanos(0));
     let task = Task::new(TaskScheduleImmediate, frame);

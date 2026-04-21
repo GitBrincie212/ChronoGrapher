@@ -1,11 +1,10 @@
-#![allow(unused)]
 // A function passed in test is still seen as unused.
 use chronographer::prelude::*;
 use std::time::{Duration, SystemTime};
 
 async fn simulate_duration(interval: TaskScheduleInterval) -> Duration {
     let now = SystemTime::now();
-    let next = interval.trigger(now).await.unwrap();
+    let next = interval.schedule(now).await.unwrap();
 
     next.duration_since(now).unwrap()
 }

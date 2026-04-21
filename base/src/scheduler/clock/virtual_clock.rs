@@ -4,9 +4,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::Notify;
 
-#[allow(unused_imports)]
-use crate::scheduler::clock::ProgressiveClock;
-
 #[derive(Default)]
 pub struct VirtualClock {
     current_time: AtomicU64,
