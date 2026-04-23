@@ -1,0 +1,185 @@
+---
+title: Basics Of Tasks & Scheduling
+description: Learn what are Tasks, their internals and scheduling primitives
+---
+
+We have discussed in the previous chapter how to set up a "Hello World" script. However, we finished the chapter without
+explaining how the system behind this works and what truly are <Highlight color={"info"}>Tasks</Highlight>.
+
+# What Is A Task 101
+In layman terms, it can best be described:
+> A ``Task`` is an object that is composed of an async function (the body) and a schedule, the function runs based
+on a schedule and both are defined / controlled by us.
+
+This allows for Tasks with different schedules but the same function or vice versa. However, what is a schedule exactly?
+
+It is also an async function that runs but unlike our Task's body (the previous function), the shape of it is different.
+The Task's body doesn't return anything back whereas schedules do return back a time.
+
+Should also be mentioned the arguments of the Task's body require a context and are unrestricted whereas the schedule
+has only one argument that being the current time.
+
+# Scheduling Primitives
+Fortunately ChronoGrapher provides us with various scheduling primitives to work with, in fact we have been using one
+this entire time in our Task without knowing:
+
+## Interval-Based Scheduling
+Lets return to our example to see it more clearly:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+// <...>
+
+// Define our singleton Task to run
+// [!code focus]
+#[task(schedule = interval(2s))]
+async fn MyTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    println!("Hello ChronoGrapher!");
+    Ok(())
+}
+
+// <...>
+```
+
+The ``interval`` allows us to schedule per-interval basis, it requires a ``Duration`` (or a duration literal) for how frequently
+it should execute the Task.
+
+<Callout title={"Duration Literals"} type={"info"}>
+    Duration literals act as a syntax sugar for defining a ``Duration`` object. They aren't required and in fact our example
+    can be translated into a less pretty form:
+    ```rust
+    #[task(schedule = interval(Duration::from_secs(2)))]
+    ```
+</Callout>
+The structure of an duration literal requires a number and the unit of time used as a suffix, in our case ``s`` is for seconds
+with the value of 2, which translates to *"an interval of 2 seconds"*.
+
+However we aren't restricted to just seconds nor even having to use one duration literal. We can freely use other units:
+- ``ms`` for Milliseconds
+- ``m`` for Minutes
+- ``h`` for Hours
+- ``d`` for Days
+
+We can also use decimals for higher precision like so:
+```rust
+#[task(schedule = interval(0.1m))]
+```
+
+And for multiple duration literals, we simply separate them with a comma or space (yes, we can also use decimals here
+though they are required to be last):
+```rust
+#[task(schedule = interval(1m, 5s))] // or: interval(1m 5s)
+```
+
+This reads as *"an interval every 1 minute and 5 seconds"*.
+</RenderProgrammingLanguageBased>
+
+## Immediate Scheduling
+While not a common scheduling primitive, it is worth a mention as its job is to schedule a Task to immediately execute.
+It has no other options / configurations and can be written like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(schedule = immediate)]
+```
+</RenderProgrammingLanguageBased>
+
+## Exact Scheduling
+Up next, we have "exact" schedules, these execute on a time specified exactly. This can be as simple as providing the hour,
+minute and millisecond to being full precise about the day, month and year as well:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(schedule = exact(10:00 AM))]
+```
+
+Which is where ``exact`` scheduling primitive comes in, it allows us to specify a time and have our Task execute exactly on that time.
+In our example we only specify the hour, and the minute to execute but not the millisecond nor year, month, day.
+
+By not specifying the scheduling primitive will infer that it can be any value (except for milliseconds which infers it
+as zero milliseconds).
+
+For the full format for the scheduling primitive it works as demonstrated below:
+```csharp
+[DAY]/[MONTH]/[YEAR] [HOUR]:[MINUTE]:[SECONDS]:[MILLIS] [AM | PM]
+// For the day/month/year you can also use: [DAY]-[MONTH]-[YEAR]
+```
+Of course everything must be an integer (decimals aren't supported) and must be in the unit's supported range.
+
+When specifying either ``AM`` or ``PM``, the primitive assumes you are inferring to a 12 hour-based time.
+If not then its 24 hour-based time.
+
+<Callout type={"info"} title={"Omitting Higher-Value Fields"}>
+    There may be cases where you want to omit fields, for example the hour field and only specify minutes and seconds.
+    You can use ``??`` to just do that:
+
+    <RenderProgrammingLanguageBased target_name={"Rust"}>
+        ```rust title="src/main.rs" lineNumbers
+        #[task(schedule = exact(12:??:00))]
+        ```
+    </RenderProgrammingLanguageBased>
+</Callout>
+</RenderProgrammingLanguageBased>
+
+## Cron-Based Scheduling
+The last three scheduling primitives are very simple on their own but lack expression, which is where cron expressions can
+be handy. They allow us to specify more complex schedules with a simple series of operators.
+
+Almost everything we can do with the previous primitives can be achieved via cron expressions. Note the cron expression syntax
+is based off [Quartz CRON](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html),
+thus it is highly recommended to learn from there the syntax.
+
+Replicating our exact primitive example from above is as simple as:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(schedule = cron(0 0 10 * * ?))]
+```
+</RenderProgrammingLanguageBased>
+
+For our interval primitive example on the top, we can do something similar such as:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(schedule = cron(*/2 * * * ? *))]
+```
+</RenderProgrammingLanguageBased>
+
+And generally we can do much more complex things than just intervals and exacts.
+
+## Calendar-Based Scheduling
+While cron is great and acts more as a familiar tool to use, it isn't human-readable, doesn't support milliseconds and
+has its own limitations which make it a limiting force for expressiveness.
+
+For this reason ChronoGrapher provides another tool called the ``calendar`` scheduling primitive tailor-made specifically
+for its environment. The idea is for high control for every time field in a human-readable way.
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+Its syntax is more JSON-like with each time field being a key mapped to a value, however its more powerful as it allows
+various shortcuts which are explained below.
+
+An example for how the calendar works is:
+```rust title="src/main.rs" lineNumbers
+#[task(schedule = calendar({
+    day: FRI, // On a friday (can also use a number)
+    hour: 0, // Exactly 12 AM as hour (24 hour-based)
+    minute: +2, // Every 2 minutes
+    second: *,
+    millisecond: 0..=800 // Between 0th and 800th millisecond
+}))]
+```
+</RenderProgrammingLanguageBased>
+
+In our example we build a calendar-based schedule to execute the Task every Friday starting from 12:00 AM, every 2 minutes
+til 1:00 AM (non-inclusive), every second while its between the 0th and 800th millisecond.
+
+It's recommended to read ChronoGrapher's API documentation to learn more how to use the calendar scheduling primitive.
+
+---
+
+In summary a <Highlight color={"info"}>Tasks</Highlight> consists of its body which is an async function and a schedule.
+Both can be replaced in a plug-and-play fashion to produce different Tasks.
+
+ChronoGrapher provides 5 distinct scheduling primitives each suited for their own use case with the most simple and
+least interesting being ``immediate`` then ``interval`` with ``exact`` then ``cron`` and finally at the top the ``calendar``.
+
+In the next chapters we will dive into the body of a Task, the various challenges, how to construct workflows and what
+ChronoGrapher offers to make the developer's life a lot easier.
+
+> TL;DR. A Task consists of an async function and a schedule both being replacable. We saw how ChronoGrapher provides to us
+5 various scheduling primitives to make our lifes easier from most simple but least flexible to most flexible but slightly complex.

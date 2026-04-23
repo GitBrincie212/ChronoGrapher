@@ -2,6 +2,7 @@
   "pages": [
     "index",
     "installation",
+    "tasks",
     "workflows",
     "taskhooks",
     "contributing"
