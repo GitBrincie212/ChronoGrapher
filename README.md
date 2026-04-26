@@ -22,8 +22,7 @@ ChronoGrapher is the **Job Scheduler And Workflow Orchestration Platform** that 
 5. **Adaptive Crash-Resistant Durability:** Never lose task progress and state, with its revolutionary persistence 
   model. Guaranteeing high durability and low overhead in performance, developers should never worry about failures.
 
-**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust (≥ 1.92v)
-(other languages look similar):
+**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust (≥ 1.92v). Other languages look similar):
 ```rust
 use chronographer::prelude::*;
 
