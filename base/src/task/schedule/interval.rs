@@ -248,6 +248,7 @@ impl TaskScheduleInterval {
     /// # Example(s)
     /// ```rust
     /// use chronographer_base::task::TaskScheduleInterval;
+    /// use std::time::Duration;
     /// # use chronographer_base::errors::IntervalSecondsOutOfRange;
     ///
     /// # fn main() -> Result<(), IntervalSecondsOutOfRange> {
@@ -291,6 +292,7 @@ impl TaskScheduleInterval {
     /// # Example(s)
     /// ```rust
     /// use chronographer_base::task::TaskScheduleInterval;
+    /// use std::time::Duration;
     /// # use chronographer_base::errors::IntervalSecondsOutOfRange;
     ///
     /// # fn main() -> Result<(), IntervalSecondsOutOfRange> {
