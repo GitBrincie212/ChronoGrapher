@@ -30,6 +30,9 @@ crossbeam = "0.8.4"
 slotmap = "1.1.1"
 parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
 
+[dev-dependencies]
+chronographer = {path = "../core"}
+
 [features]
 default = []
 anyhow = ["dep:anyhow"]

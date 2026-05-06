@@ -363,9 +363,10 @@ impl CronField {
 /// ```rust
 /// use chronographer::prelude::{TaskScheduleCron, TaskSchedule};
 /// use std::time::{SystemTime, Duration};
+/// use std::str::FromStr;
 /// # use std::error::Error;
 ///
-/// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+/// # fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 /// let expr1 = TaskScheduleCron::from_str("* * * * * *")?; // Every second
 /// let expr2 = TaskScheduleCron::from_str("0 0 12 * * ?")?; // Every day at 12:00 PM
 /// let expr3 = TaskScheduleCron::from_str("0 0/5 14 * * ?")?; // Every 5 minutes from 2:00 PM - 2:55 PM
@@ -380,11 +381,12 @@ impl CronField {
 ///
 /// Using the ``cron!`` macro for static-based CRON expressions
 /// ```rust
-/// use chronographer::prelude::{cron, TaskScheduleCron, TaskSchedule};
+/// use chronographer::prelude::{TaskScheduleCron, TaskSchedule};
+/// use chronographer::cron;
 /// use std::time::{SystemTime, Duration};
 /// # use std::error::Error;
 ///
-/// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+/// # fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 /// let expr1 = cron!("* * * * * *"); // Every second
 /// let expr2 = cron!("0 0 12 * * ?"); // Every day at 12:00 PM
 /// let expr3 = cron!("0 0/5 14 * * ?"); // Every 5 minutes from 2:00 PM - 2:55 PM

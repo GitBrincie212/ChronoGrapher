@@ -70,6 +70,7 @@ use crate::errors::IntervalTimeDeltaOutOfRange;
 /// Using the [every!](chronographer::prelude::every) macro:
 /// ```rust
 /// use chronographer::task::{TaskScheduleInterval, TaskSchedule};
+/// use chronographer::every;
 /// use std::time::{SystemTime, Duration};
 /// # use std::error::Error;
 ///

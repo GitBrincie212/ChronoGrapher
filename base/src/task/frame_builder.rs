@@ -22,17 +22,17 @@ use std::time::Duration;
 /// The wrapping order matters: methods called **later** produce the **outermost** layer. For example:
 ///
 /// For example ``TaskFrameBuilder::new(my_frame).with_retry(...).with_timeout(...)`` where "my_frame" is
-/// your [`TaskFrame`] (lets call its type "MyFrame") produces as a type:
+/// your [`TaskFrame`] (lets call its type "MyTaskFrame") produces as a type:
 ///
-/// > ``TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>``
+/// > ``TimeoutTaskFrame<RetriableTaskFrame<MyTaskFrame>>``
 ///
-/// Because "with_retry" wraps "MyFrame" first, then "with_timeout" wraps the result. In contrast, using
+/// Because "with_retry" wraps "MyTaskFrame" first, then "with_timeout" wraps the result. In contrast, using
 /// `TaskFrameBuilder::new(my_frame).with_timeout(...).with_retry(...)` produces:
 ///
-/// > `RetriableTaskFrame<TimeoutTaskFrame<MyFrame>>`
+/// > `RetriableTaskFrame<TimeoutTaskFrame<MyTaskFrame>>`
 ///
-/// Here, "with_timeout" wraps "MyFrame" first, and "with_retry" becomes the outer layer. Think of
-/// it like function composition where `outer(inner(MyFrame))`. The last call is always the outermost
+/// Here, "with_timeout" wraps "MyTaskFrame" first, and "with_retry" becomes the outer layer. Think of
+/// it like function composition where `outer(inner(MyTaskFrame))`. The last call is always the outermost
 /// wrapper.
 ///
 /// # Method(s)
@@ -65,50 +65,46 @@ use std::time::Duration;
 /// use std::time::Duration;
 /// use chronographer::task::TaskFrameBuilder;
 /// # use chronographer::task::{TaskFrame, TaskFrameContext, FallbackTaskFrame, TimeoutTaskFrame, RetriableTaskFrame};
+/// # use chronographer::errors::TimeoutTaskFrameError;
 /// # use async_trait::async_trait;
 /// # use std::any::{Any, TypeId};
-///
-/// # struct MyFrame;
+/// # struct MyTaskFrame;
 /// #
-/// # #[async_trait]
-/// # impl TaskFrame for MyFrame {
+/// # impl TaskFrame for MyTaskFrame {
 /// #     type Error = String;
+/// #     type Args = ();
 /// #
-/// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+/// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
 /// #         Ok(())
 /// #     }
 /// # }
-/// #
+///
 /// # struct BackupFrame;
 /// #
-/// # #[async_trait]
 /// # impl TaskFrame for BackupFrame {
 /// #     type Error = String;
+/// #     type Args = TimeoutTaskFrameError<String>;
 /// #
-/// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+/// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
 /// #         Ok(())
 /// #     }
 /// # }
+/// // `MyTaskFrame` and `BackupFrame` are two impls that implement `TaskFrame`.
 ///
-/// // `MyFrame` and `BackupFrame` are two impls that implement `TaskFrame`.
-///
-/// const DELAY_PER_RETRY: Duration = Duration::from_secs(1);
-/// # type WorkflowType = FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>, BackupFrame>;
-/// # type WorkflowPermut1 = FallbackTaskFrame<RetriableTaskFrame<TimeoutTaskFrame<MyFrame>>, BackupFrame>;
-/// # type WorkflowPermut2 = TimeoutTaskFrame<FallbackTaskFrame<RetriableTaskFrame<MyFrame>, BackupFrame>>;
-///
-/// let composed = TaskFrameBuilder::new(MyFrame)
-///     .with_retry(NonZeroU32::new(3).unwrap(), DELAY_PER_RETRY) // Failure? Retry 3 times with 1s delay
-///     .with_timeout(Duration::from_secs(30)) // Exceeded 30 seconds, terminate and error out with timeout?
+/// let composed = TaskFrameBuilder::new(MyTaskFrame)
+///     .with_retry(NonZeroU32::new(3).unwrap(), Duration::from_secs(1)) // Failure? Retry 3 times with 1s delay
+///     .with_timeout(Duration::from_secs(30)) // Exceeded 30 seconds? terminate and error out with timeout
 ///     .with_fallback(BackupFrame) // Received a timeout or another error? Run "BackupFrame"
 ///     .build();
 ///
-/// # assert_eq!(composed.type_id(), TypeId::of::<WorkflowType>());
-/// # assert_ne!(composed.type_id(), TypeId::of::<WorkflowPermut1>(), "Unexpected matching workflow types");
-/// # assert_ne!(composed.type_id(), TypeId::of::<WorkflowPermut2>(), "Unexpected matching workflow types");
+/// # assert_eq!(
+/// #     composed.type_id(),
+/// #     TypeId::of::<FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyTaskFrame>>, BackupFrame>>(),
+/// #     "TaskFrame types do not match"
+/// # );
 /// ```
 /// With the workflow created, `composed` is now the type:
-/// > ``FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyFrame>>, BackupFrame>``
+/// > ``FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyTaskFrame>>, BackupFrame>``
 ///
 /// all from this builder, without the complexity of manually creating this type
 ///
@@ -141,24 +137,25 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// ```
     /// use chronographer::task::TaskFrameBuilder;
     /// # use chronographer::task::{TaskFrame, TaskFrameContext};
-    /// # use async_trait::async_trait;
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
     ///
-    /// // Wrap `MyFrame` in a builder, then immediately extract it unchanged.
-    /// let frame: MyFrame = TaskFrameBuilder::new(MyFrame).build();
+    /// // Wrap `MyTaskFrame` in a builder, then immediately extract it unchanged.
+    /// let builder: TaskFrameBuilder<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame);
+    /// let frame: MyTaskFrame = builder.build();
     /// ```
     /// When called without any `with_*` methods, [`build`](TaskFrameBuilder::build) returns
-    /// the original frame as-is. In practice, you would chain one or more wrappers before building for more complex workflows as per requirements.
+    /// the original frame as-is. In practice, you would chain one or more wrappers before building
+    /// for more complex workflows as per requirements.
     ///
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
@@ -186,23 +183,21 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # Example(s)
     /// ```
     /// use std::num::NonZeroU32;
-    /// use chronographer::task::TaskFrameBuilder;
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, RetriableTaskFrame};
-    /// # use async_trait::async_trait;
+    /// use chronographer::task::{TaskFrameBuilder, RetriableTaskFrame};
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
+    /// # struct MyTaskFrame;
     /// #
-    /// # struct MyFrame;
-    /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
     ///
     /// let retries = NonZeroU32::new(3).unwrap();
-    /// let builder = TaskFrameBuilder::new(MyFrame)
+    /// let composed: RetriableTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
     ///     .with_instant_retry(retries) // Retries up to 3 times on failure
     ///     .build();
     /// ```
@@ -239,19 +234,19 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chrono_grapher::task::{TaskFrameBuilder, NonZeroU32, Duration};
+    /// use chronographer::task::{TaskFrameBuilder, RetriableTaskFrame};
+    /// use std::num::NonZeroU32;
     /// use std::time::Duration;
     ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, RetriableTaskFrame};
-    /// # use async_trait::async_trait;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
@@ -259,8 +254,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// let retries = NonZeroU32::new(3).unwrap();
     /// let delay_per_retry = Duration::from_secs(1);
     ///
-    /// let task = TaskFrameBuilder::new(MyFrame)
-    ///     .with_retry(retries, delay_per_retry)
+    /// let task: RetriableTaskFrame<_> = TaskFrameBuilder::new(MyTaskFrame)
+    ///     .with_retry(retries, delay_per_retry) // On failure, retry MyTaskFrame every 3 seconds
     ///     .build();
     /// ```
     ///
@@ -306,18 +301,17 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// ```
     /// use std::num::NonZeroU32;
     /// use std::time::Duration;
-    /// use chronographer::task::{TaskFrameBuilder, ConstantBackoffStrategy};
+    /// use chronographer::task::{TaskFrameBuilder, ConstantBackoffStrategy, RetriableTaskFrame};
     ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, RetriableTaskFrame};
-    /// # use async_trait::async_trait;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
@@ -325,8 +319,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// let retries = NonZeroU32::new(3).unwrap();
     /// let strategy = ConstantBackoffStrategy::new(Duration::from_secs(1));
     ///
-    /// let task = TaskFrameBuilder::new(MyFrame)
-    ///     .with_backoff_retry(retries, strategy)
+    /// let task: RetriableTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    ///     .with_backoff_retry(retries, strategy) // On failure, retry MyTaskFrame based on our strategy
     ///     .build();
     /// ```
     ///
@@ -366,23 +360,22 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # Examples
     /// ```
     /// use std::time::Duration;
-    /// use chronographer::task::TaskFrameBuilder;
+    /// use chronographer::task::{TaskFrameBuilder, TimeoutTaskFrame};
     ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, TimeoutTaskFrame};
-    /// # use async_trait::async_trait;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
     ///
-    /// let task = TaskFrameBuilder::new(MyFrame)
+    /// let task: TimeoutTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
     ///     .with_timeout(Duration::from_secs(30)) // Give the inner task up to 30 seconds to finish
     ///     .build();
     /// ```
@@ -409,35 +402,34 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::TaskFrameBuilder;
+    /// use chronographer::task::{TaskFrameBuilder, FallbackTaskFrame};
     ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, FallbackTaskFrame};
-    /// # use async_trait::async_trait;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
-    /// #         Err("Primary task failed".to_string())
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
+    /// #         Ok(())
     /// #     }
     /// # }
     /// #
     /// # struct BackupFrame;
     /// #
-    /// # #[async_trait]
     /// # impl TaskFrame for BackupFrame {
     /// #     type Error = String;
+    /// #     type Args = String;
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
     ///
-    /// let task = TaskFrameBuilder::new(MyFrame)
-    ///     .with_fallback(BackupFrame) // Run BackupFrame if MyFrame fails
+    /// let task: FallbackTaskFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    ///     .with_fallback(BackupFrame) // Run BackupFrame if MyTaskFrame fails
     ///     .build();
     /// ```
     ///
@@ -472,18 +464,18 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::TaskFrameBuilder;
+    /// use chronographer::task::{TaskFrameBuilder, ConditionalFrame};
     ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, ConditionalFramePredicate, RestrictTaskFrameContext};
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext, RetriableTaskFrame, RestrictTaskFrameContext, ConditionalFramePredicate};
     /// # use async_trait::async_trait;
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
@@ -493,12 +485,12 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # #[async_trait]
     /// # impl ConditionalFramePredicate for CheckCondition {
     /// #     async fn execute(&self, _ctx: &RestrictTaskFrameContext) -> bool {
-    /// #         true
+    /// #         false
     /// #     }
     /// # }
     ///
-    /// let task = TaskFrameBuilder::new(MyFrame)
-    ///     .with_condition(CheckCondition) // Execute MyFrame only if the predicate executes to true
+    /// let task: ConditionalFrame<MyTaskFrame, _> = TaskFrameBuilder::new(MyTaskFrame)
+    ///     .with_condition(CheckCondition) // Execute MyTaskFrame only if the predicate executes to true
     ///     .build();
     /// ```
     ///
@@ -543,29 +535,29 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::TaskFrameBuilder;
+    /// use chronographer::task::{TaskFrameBuilder, ConditionalFrame};
     ///
     /// # use chronographer::task::{TaskFrame, TaskFrameContext, ConditionalFramePredicate, RestrictTaskFrameContext};
     /// # use async_trait::async_trait;
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
-    /// #
+    ///
     /// # struct BackupFrame;
     /// #
-    /// # #[async_trait]
     /// # impl TaskFrame for BackupFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
@@ -579,8 +571,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #     }
     /// # }
     ///
-    /// let task = TaskFrameBuilder::new(MyFrame)
-    ///     .with_fallback_condition(BackupFrame, CheckCondition) // Runs MyFrame if true, BackupFrame if false
+    /// let task: ConditionalFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    ///     .with_fallback_condition(BackupFrame, CheckCondition) // Runs MyTaskFrame if true, BackupFrame if false
     ///     .build();
     /// ```
     ///
@@ -620,19 +612,19 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::TaskFrameBuilder;
+    /// use chronographer::task::{TaskFrameBuilder, DependencyTaskFrame, dependency::FlagDependency};
     /// use std::sync::atomic::AtomicBool;
     /// use std::sync::Arc;
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, FlagDependency};
-    /// # use async_trait::async_trait;
+    ///
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
@@ -641,8 +633,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// let atomic_flag = Arc::new(AtomicBool::new(false));
     /// let flag_dep = FlagDependency::new(atomic_flag.clone());
     ///
-    /// let task = TaskFrameBuilder::new(MyFrame)
-    ///     .with_dependency(flag_dep) // MyFrame will only execute when the flag resolves to true
+    /// let task: DependencyTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    ///     .with_dependency(flag_dep) // MyTaskFrame will only execute when the flag resolves to true
     ///     .build();
     /// ```
     ///
@@ -684,20 +676,20 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::TaskFrameBuilder;
+    /// use chronographer::task::{TaskFrameBuilder, DependencyTaskFrame};
+    /// use chronographer::task::dependency::{FlagDependency, FrameDependency};
     /// use std::sync::atomic::AtomicBool;
     /// use std::sync::Arc;
     /// # use std::sync::atomic::Ordering;
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, FlagDependency, FrameDependency};
-    /// # use async_trait::async_trait;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
@@ -708,7 +700,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// let dep1 = Arc::new(FlagDependency::new(atomic_flag1.clone())) as Arc<dyn FrameDependency>;
     /// let dep2 = Arc::new(FlagDependency::new(atomic_flag2.clone())) as Arc<dyn FrameDependency>;
     ///
-    /// let task = TaskFrameBuilder::new(MyFrame)
+    /// let task: DependencyTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
     ///     .with_dependencies(vec![dep1, dep2]) // Executes when both dependencies resolve
     ///     .build();
     /// ```
@@ -741,29 +733,31 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::TaskFrameBuilder;
+    /// use std::num::NonZeroU32;
+    /// use chronographer::task::{TaskFrameBuilder, RetriableTaskFrame, TimeoutTaskFrame};
     /// use std::time::Duration;
     ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext, TimeoutTaskFrame};
-    /// # use async_trait::async_trait;
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
     /// #
-    /// # struct MyFrame;
+    /// # struct MyTaskFrame;
     /// #
-    /// # #[async_trait]
-    /// # impl TaskFrame for MyFrame {
+    /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Args = ();
     /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext) -> Result<(), Self::Error> {
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
     /// #         Ok(())
     /// #     }
     /// # }
+    /// type FinalWorkflow = RetriableTaskFrame<TimeoutTaskFrame<MyTaskFrame>>;
     ///
-    /// let base_frame = MyFrame;
-    ///
+    /// # fn main() {
     /// // Using the builder to wrap it in a timeout and then extracting it
-    /// let built_frame: TimeoutTaskFrame<MyFrame> = TaskFrameBuilder::new(base_frame)
+    /// let built_frame: FinalWorkflow = TaskFrameBuilder::new(MyTaskFrame)
     ///     .with_timeout(Duration::from_secs(5))
+    ///     .with_instant_retry(NonZeroU32::new(3).unwrap())
     ///     .build(); // <- Returns the fully composed frame, discarding the builder
+    /// # }
     /// ```
     ///
     /// # See Also

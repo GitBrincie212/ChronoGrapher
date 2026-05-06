@@ -32,7 +32,6 @@ use crate::task::TaskSchedule;
 /// use chronographer::task::{TaskScheduleImmediate, TaskSchedule};
 /// use std::time::SystemTime;
 /// # use std::error::Error;
-/// # use chronographer::task::schedule::schedule::TaskSchedule;
 ///
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
