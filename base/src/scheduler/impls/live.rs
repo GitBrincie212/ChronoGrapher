@@ -1,5 +1,7 @@
 use std::error::Error;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
+use crossbeam::deque::{Injector, Steal, Stealer, Worker};
 use crossbeam::queue::SegQueue;
 use tokio::join;
 use tokio::sync::Notify;
@@ -24,21 +26,26 @@ pub enum SchedulerWork {
 }
 
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
-    pub queue: SegQueue<(SchedulerKey<C>, SchedulerWork)>,
+    pub ingress: SegQueue<(SchedulerKey<C>, SchedulerWork)>,
+    pub queue: parking_lot::Mutex<Option<Worker<(SchedulerKey<C>, SchedulerWork)>>>,
+    pub stealer: Stealer<(SchedulerKey<C>, SchedulerWork)>,
     pub notify: Arc<Notify>,
+    pub pending: std::sync::atomic::AtomicUsize,
 }
 
 impl<C: SchedulerConfig> SchedulerWorker<C> {
     #[inline(always)]
-    pub(crate) fn spawn_dispatch(&self, identifier: SchedulerKey<C>) {
-        self.queue.push((identifier, SchedulerWork::Dispatch));
-        self.notify.notify_one();
-    }
+    fn new(notify: Arc<Notify>) -> Self {
+        let queue = Worker::new_fifo();
+        let stealer = queue.stealer();
 
-    #[inline(always)]
-    pub(crate) fn spawn_trigger(&self, identifier: SchedulerKey<C>) {
-        self.queue.push((identifier, SchedulerWork::Trigger));
-        self.notify.notify_one();
+        Self {
+            ingress: SegQueue::new(),
+            queue: parking_lot::Mutex::new(Some(queue)),
+            stealer,
+            notify,
+            pending: std::sync::atomic::AtomicUsize::new(0),
+        }
     }
 }
 
@@ -62,10 +69,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
         let notifier = Arc::new(Notify::new());
 
         for _ in 0..config.workers {
-            let worker = SchedulerWorker::<C> {
-                queue: SegQueue::new(),
-                notify: notifier.clone(),
-            };
+            let worker = SchedulerWorker::<C>::new(notifier.clone());
             workers.push(worker);
         }
 
@@ -75,6 +79,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
             dispatcher: Arc::new(config.dispatcher),
             process: Arc::new(parking_lot::RwLock::new(Vec::new())),
             workers: Arc::new(workers),
+            global_queue: Arc::new(Injector::new()),
             instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
             failover_policy: config.failover_policy,
         }
@@ -87,6 +92,7 @@ pub struct LiveScheduler<C: SchedulerConfig> {
     engine: Arc<C::SchedulerEngine>,
     process: Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
     workers: Arc<Vec<SchedulerWorker<C>>>,
+    global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     failover_policy: FailoverPolicy,
 }
@@ -113,14 +119,14 @@ where
 async fn apply_failover<C: SchedulerConfig>(
     failover_policy: FailoverPolicy,
     key: &SchedulerKey<C>,
-    worker: &SchedulerWorker<C>,
+    global_queue: &Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
     work: SchedulerWork,
     store: &Arc<C::SchedulerTaskStore>,
     process: &Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
 ) {
     match failover_policy {
         FailoverPolicy::Keep => {
-            worker.queue.push((key.clone(), work))
+            global_queue.push((key.clone(), work));
         }
 
         FailoverPolicy::Terminate => {}
@@ -142,6 +148,7 @@ async fn apply_failover<C: SchedulerConfig>(
 #[inline(always)]
 async fn start_worker_process<C: SchedulerConfig>(
     workers: Arc<Vec<SchedulerWorker<C>>>,
+    global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
     idx: usize,
     worker_len: usize,
     store_clone: Arc<C::SchedulerTaskStore>,
@@ -150,26 +157,30 @@ async fn start_worker_process<C: SchedulerConfig>(
     policy: FailoverPolicy,
     processes: Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
 ) {
+    let local_worker = {
+        let mut lock = workers[idx].queue.lock();
+        lock.take().expect("worker queue was already taken")
+    };
+
     loop {
-        let mut pointing = idx;
-        for _ in 0..worker_len {
-            while let Some((key, work_type)) = workers[pointing].queue.pop()
-                && let Some(task) = store_clone.get(&key)
-            {
+        while let Some(work) = workers[idx].ingress.pop() {
+            local_worker.push(work);
+        }
+
+        while let Some((key, work_type)) = local_worker.pop() {
+            if let Some(task) = store_clone.get(&key) {
                 match work_type {
                     SchedulerWork::Trigger => {
                         let schedule = task.schedule();
                         let now = engine_clone.clock().now();
 
                         let time = match schedule.schedule(now).await {
-                            Ok(time) => {
-                                time
-                            }
+                            Ok(time) => time,
 
                             Err(err) => {
                                 eprintln!("Computation error from TaskTrigger: {:?}", err);
                                 apply_failover::<C>(
-                                    policy, &key, &workers[pointing], work_type,
+                                    policy, &key, &global_queue, work_type,
                                     &store_clone, &processes
                                 ).await;
                                 continue;
@@ -178,23 +189,22 @@ async fn start_worker_process<C: SchedulerConfig>(
 
                         match engine_clone.schedule(&key, time).await {
                             Ok(()) => {}
+
                             Err(err) => {
                                 eprintln!("Schedule error from SchedulerEngine: {:?}", err);
                                 apply_failover::<C>(
-                                    policy, &key, &workers[pointing], work_type,
+                                    policy, &key, &global_queue, work_type,
                                     &store_clone, &processes
                                 ).await;
                             }
                         }
-
-                        continue;
                     }
 
                     SchedulerWork::Dispatch => {
                         let result = dispatcher_clone.dispatch(&key, task).await;
                         match result {
                             Ok(()) => {
-                                workers[pointing].spawn_trigger(key.clone())
+                                local_worker.push((key, SchedulerWork::Trigger));
                             }
 
                             Err(err) => {
@@ -203,23 +213,63 @@ async fn start_worker_process<C: SchedulerConfig>(
                                     key, err
                                 );
                                 apply_failover::<C>(
-                                    policy, &key, &workers[pointing], work_type,
+                                    policy, &key, &global_queue, work_type,
                                     &store_clone, &processes
                                 ).await;
                             }
                         }
-
-                        continue;
                     }
                 }
             }
-
-            pointing = fastrand::usize(..worker_len);
         }
 
-        workers[idx].notify.notified().await;
+        let mut found_work = false;
+        let steal_attempts = worker_len.min(4);
+        for _ in 0..steal_attempts {
+            let victim = fastrand::usize(..worker_len);
+            if victim == idx {
+                continue;
+            }
+
+            match workers[victim].stealer.steal_batch_and_pop(&local_worker) {
+                Steal::Success(work) => {
+                    local_worker.push(work);
+                    found_work = true;
+                    break;
+                }
+                Steal::Retry | Steal::Empty => {}
+            }
+        }
+
+        if found_work {
+            continue;
+        }
+
+        loop {
+            match global_queue.steal_batch_and_pop(&local_worker) {
+                Steal::Success(work) => {
+                    local_worker.push(work);
+                    found_work = true;
+                    break;
+                }
+                Steal::Retry => continue,
+                Steal::Empty => break,
+            }
+        }
+
+        if found_work {
+            continue;
+        }
+
+        let notified = workers[idx].notify.notified();
+        if workers[idx].pending.swap(0, Ordering::Relaxed) > 0 {
+            continue;
+        }
+        notified.await;
     }
 }
+
+
 
 impl<C: SchedulerConfig> LiveScheduler<C> {
     pub fn builder() -> SchedulerInitConfigBuilder<C> {
@@ -249,6 +299,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         for idx in 0..self.workers.len() {
             let handle = tokio::spawn(start_worker_process(
                 self.workers.clone(),
+                self.global_queue.clone(),
                 idx,
                 self.workers.len(),
                 self.store.clone(),
@@ -304,7 +355,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         let erased = Arc::new(task.into_erased());
         let key = self.store.store(erased.clone())?;
         append_scheduler_handler::<C>(key.clone(), &erased, self.instruction_queue.clone()).await;
-        assign_to_trigger_worker::<C>(key.clone(), self.workers.as_ref());
+        assign_to_trigger_worker::<C>(key.clone(), &self.workers);
 
         Ok(key)
     }

@@ -1,8 +1,10 @@
 use std::any::{type_name, Any};
 use std::sync::Arc;
+use crossbeam::deque::Injector;
 use crossbeam::queue::SegQueue;
 use tokio::sync::Notify;
 use crate::scheduler::{SchedulerConfig, SchedulerHandlePayload, SchedulerKey};
+use crate::scheduler::impls::live::SchedulerWork;
 use crate::scheduler::impls::utils::{assign_to_trigger_worker, spawn_task};
 use crate::scheduler::live::SchedulerWorker;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
@@ -67,7 +69,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
 
             match instruction {
                 SchedulerHandleInstructions::Reschedule => {
-                    assign_to_trigger_worker::<C>(id.clone(), workers.as_ref());
+                    assign_to_trigger_worker::<C>(id.clone(), &workers);
                 }
 
                 SchedulerHandleInstructions::Halt => {
@@ -79,7 +81,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
                 }
 
                 SchedulerHandleInstructions::Execute => {
-                    spawn_task::<C>(id.clone(), workers.as_ref());
+                    spawn_task::<C>(id.clone(), &workers);
                 }
             }
         }
