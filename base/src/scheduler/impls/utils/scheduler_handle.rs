@@ -1,15 +1,15 @@
-use std::any::{type_name, Any};
-use std::sync::Arc;
-use crossbeam::deque::Injector;
-use crossbeam::queue::SegQueue;
-use tokio::sync::Notify;
-use crate::scheduler::{SchedulerConfig, SchedulerHandlePayload, SchedulerKey};
 use crate::scheduler::impls::live::SchedulerWork;
 use crate::scheduler::impls::utils::{assign_to_trigger_worker, spawn_task};
 use crate::scheduler::live::SchedulerWorker;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
+use crate::scheduler::{SchedulerConfig, SchedulerHandlePayload, SchedulerKey};
 use crate::task::{ErasedTask, TaskHook};
+use crossbeam::deque::Injector;
+use crossbeam::queue::SegQueue;
+use std::any::{Any, type_name};
+use std::sync::Arc;
+use tokio::sync::Notify;
 
 pub enum SchedulerHandleInstructions {
     Reschedule, // Forces the Task to reschedule (instances may still run)
@@ -33,7 +33,7 @@ impl SchedulerHandle {
 impl TaskHook<()> for SchedulerHandle {}
 
 #[inline(always)]
-pub fn append_scheduler_handler<C: SchedulerConfig> (
+pub fn append_scheduler_handler<C: SchedulerConfig>(
     key: SchedulerKey<C>,
     task: &Arc<ErasedTask<C::TaskError>>,
     channel: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,

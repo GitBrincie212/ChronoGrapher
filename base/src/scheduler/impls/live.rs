@@ -1,20 +1,23 @@
+use crate::errors::TaskError;
+use crate::scheduler::clock::SchedulerClock;
+use crate::scheduler::engine::SchedulerEngine;
+use crate::scheduler::impls::utils::*;
+use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
+use crate::scheduler::task_store::SchedulerTaskStore;
+use crate::scheduler::{
+    DefaultSchedulerConfig, FailoverPolicy, Scheduler, SchedulerConfig, SchedulerHandlePayload,
+    SchedulerKey,
+};
+use crate::task::{Task, TaskFrame, TaskSchedule};
+use crossbeam::deque::{Injector, Steal, Stealer, Worker};
+use crossbeam::queue::SegQueue;
 use std::error::Error;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use crossbeam::deque::{Injector, Steal, Stealer, Worker};
-use crossbeam::queue::SegQueue;
 use tokio::join;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
-use crate::errors::TaskError;
-use crate::scheduler::{DefaultSchedulerConfig, FailoverPolicy, Scheduler, SchedulerConfig, SchedulerHandlePayload, SchedulerKey};
-use crate::scheduler::clock::SchedulerClock;
-use crate::scheduler::engine::SchedulerEngine;
-use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
-use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::scheduler::impls::utils::*;
-use crate::task::{Task, TaskFrame, TaskSchedule};
 
 pub type DefaultScheduler<E> = LiveScheduler<DefaultSchedulerConfig<E>>;
 
@@ -22,7 +25,7 @@ pub type DefaultScheduler<E> = LiveScheduler<DefaultSchedulerConfig<E>>;
 #[repr(u8)]
 pub enum SchedulerWork {
     Trigger,
-    Dispatch
+    Dispatch,
 }
 
 pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
@@ -60,7 +63,7 @@ pub struct SchedulerInitConfig<C: SchedulerConfig> {
     workers: usize,
 
     #[builder(default = FailoverPolicy::default())]
-    failover_policy: FailoverPolicy
+    failover_policy: FailoverPolicy,
 }
 
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
@@ -100,11 +103,11 @@ pub struct LiveScheduler<C: SchedulerConfig> {
 impl<C> Default for LiveScheduler<C>
 where
     C: SchedulerConfig<
-        SchedulerTaskStore: Default,
-        SchedulerTaskDispatcher: Default,
-        SchedulerEngine: Default,
-        TaskError: TaskError,
-    >,
+            SchedulerTaskStore: Default,
+            SchedulerTaskDispatcher: Default,
+            SchedulerEngine: Default,
+            TaskError: TaskError,
+        >,
 {
     fn default() -> Self {
         Self::builder()
@@ -131,9 +134,7 @@ async fn apply_failover<C: SchedulerConfig>(
 
         FailoverPolicy::Terminate => {}
 
-        FailoverPolicy::Deallocate => {
-            store.remove(key)
-        },
+        FailoverPolicy::Deallocate => store.remove(key),
 
         FailoverPolicy::ShutdownScheduler => {
             let mut lock = process.write();
@@ -180,9 +181,14 @@ async fn start_worker_process<C: SchedulerConfig>(
                             Err(err) => {
                                 eprintln!("Computation error from TaskTrigger: {:?}", err);
                                 apply_failover::<C>(
-                                    policy, &key, &global_queue, work_type,
-                                    &store_clone, &processes
-                                ).await;
+                                    policy,
+                                    &key,
+                                    &global_queue,
+                                    work_type,
+                                    &store_clone,
+                                    &processes,
+                                )
+                                .await;
                                 continue;
                             }
                         };
@@ -193,9 +199,14 @@ async fn start_worker_process<C: SchedulerConfig>(
                             Err(err) => {
                                 eprintln!("Schedule error from SchedulerEngine: {:?}", err);
                                 apply_failover::<C>(
-                                    policy, &key, &global_queue, work_type,
-                                    &store_clone, &processes
-                                ).await;
+                                    policy,
+                                    &key,
+                                    &global_queue,
+                                    work_type,
+                                    &store_clone,
+                                    &processes,
+                                )
+                                .await;
                             }
                         }
                     }
@@ -213,9 +224,14 @@ async fn start_worker_process<C: SchedulerConfig>(
                                     key, err
                                 );
                                 apply_failover::<C>(
-                                    policy, &key, &global_queue, work_type,
-                                    &store_clone, &processes
-                                ).await;
+                                    policy,
+                                    &key,
+                                    &global_queue,
+                                    work_type,
+                                    &store_clone,
+                                    &processes,
+                                )
+                                .await;
                             }
                         }
                     }
@@ -269,8 +285,6 @@ async fn start_worker_process<C: SchedulerConfig>(
     }
 }
 
-
-
 impl<C: SchedulerConfig> LiveScheduler<C> {
     pub fn builder() -> SchedulerInitConfigBuilder<C> {
         SchedulerInitConfig::builder()
@@ -306,27 +320,23 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
                 self.engine.clone(),
                 self.dispatcher.clone(),
                 self.failover_policy,
-                self.process.clone()
+                self.process.clone(),
             ));
 
             lock.push(handle);
         }
 
-        lock.push(tokio::spawn(
-            main_loop_logic::<C>(
-                &engine_clone,
-                &self.workers
-            )
-        ));
+        lock.push(tokio::spawn(main_loop_logic::<C>(
+            &engine_clone,
+            &self.workers,
+        )));
 
-        lock.push(tokio::spawn(
-            scheduler_handle_instructions_logic::<C>(
-                &self.instruction_queue,
-                &dispatcher_clone,
-                &store_clone,
-                &self.workers
-            ),
-        ));
+        lock.push(tokio::spawn(scheduler_handle_instructions_logic::<C>(
+            &self.instruction_queue,
+            &dispatcher_clone,
+            &store_clone,
+            &self.workers,
+        )));
     }
 
     fn abort(&self) -> impl Future<Output = ()> + Send {
@@ -350,7 +360,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
     ) -> Result<Self::Handle, Box<dyn Error + Send + Sync>>
     where
         T1: TaskFrame<Args = (), Error = C::TaskError>,
-        T2: TaskSchedule
+        T2: TaskSchedule,
     {
         let erased = Arc::new(task.into_erased());
         let key = self.store.store(erased.clone())?;
@@ -368,7 +378,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         std::future::ready(self.store.exists(key))
     }
 
-    fn has_started(&self)  -> impl Future<Output = bool> + Send {
+    fn has_started(&self) -> impl Future<Output = bool> + Send {
         std::future::ready(!self.process.read().is_empty())
     }
 }
