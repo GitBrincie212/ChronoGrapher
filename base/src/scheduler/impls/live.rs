@@ -13,7 +13,6 @@ use crossbeam::deque::{Injector, Steal, Stealer, Worker};
 use crossbeam::queue::SegQueue;
 use std::error::Error;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 use tokio::join;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
@@ -33,7 +32,6 @@ pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
     pub queue: parking_lot::Mutex<Option<Worker<(SchedulerKey<C>, SchedulerWork)>>>,
     pub stealer: Stealer<(SchedulerKey<C>, SchedulerWork)>,
     pub notify: Arc<Notify>,
-    pub pending: std::sync::atomic::AtomicUsize,
 }
 
 impl<C: SchedulerConfig> SchedulerWorker<C> {
@@ -47,7 +45,6 @@ impl<C: SchedulerConfig> SchedulerWorker<C> {
             queue: parking_lot::Mutex::new(Some(queue)),
             stealer,
             notify,
-            pending: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 }
@@ -277,11 +274,7 @@ async fn start_worker_process<C: SchedulerConfig>(
             continue;
         }
 
-        let notified = workers[idx].notify.notified();
-        if workers[idx].pending.swap(0, Ordering::Relaxed) > 0 {
-            continue;
-        }
-        notified.await;
+        workers[idx].notify.notified().await;
     }
 }
 
@@ -339,6 +332,10 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         )));
     }
 
+    fn has_started(&self) -> impl Future<Output = bool> + Send {
+        std::future::ready(!self.process.read().is_empty())
+    }
+
     fn abort(&self) -> impl Future<Output = ()> + Send {
         let mut lock = self.process.write();
 
@@ -350,8 +347,8 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         std::future::ready(())
     }
 
-    fn clear(&self) -> impl Future<Output = ()> + Send {
-        std::future::ready(self.store.clear())
+    fn exists(&self, key: &SchedulerKey<C>) -> impl Future<Output = bool> + Send {
+        std::future::ready(self.store.exists(key))
     }
 
     async fn schedule<T1, T2>(
@@ -374,11 +371,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         std::future::ready(self.store.remove(key))
     }
 
-    fn exists(&self, key: &SchedulerKey<C>) -> impl Future<Output = bool> + Send {
-        std::future::ready(self.store.exists(key))
-    }
-
-    fn has_started(&self) -> impl Future<Output = bool> + Send {
-        std::future::ready(!self.process.read().is_empty())
+    fn clear(&self) -> impl Future<Output = ()> + Send {
+        std::future::ready(self.store.clear())
     }
 }

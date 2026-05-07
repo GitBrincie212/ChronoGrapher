@@ -17,18 +17,12 @@ pub fn assign_to_trigger_worker<C: SchedulerConfig>(
 ) {
     let idx = fastrand::usize(..workers.len());
     workers[idx].ingress.push((id, SchedulerWork::Trigger));
-    let prev = workers[idx].pending.fetch_add(1, Ordering::Relaxed);
-    if prev == 0 {
-        workers[idx].notify.notify_one();
-    }
+    workers[idx].notify.notify_one();
 }
 
 #[inline(always)]
 fn spawn_task<C: SchedulerConfig>(key: SchedulerKey<C>, workers: &Arc<Vec<SchedulerWorker<C>>>) {
     let idx = fastrand::usize(..workers.len());
     workers[idx].ingress.push((key, SchedulerWork::Dispatch));
-    let prev = workers[idx].pending.fetch_add(1, Ordering::Relaxed);
-    if prev == 0 {
-        workers[idx].notify.notify_one();
-    }
+    workers[idx].notify.notify_one();
 }
