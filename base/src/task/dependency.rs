@@ -1,59 +1,159 @@
-pub mod dynamic; // skipcq: RS-D1001
-pub mod flag; // skipcq: RS-D1001
-pub mod logical; // skipcq: RS-D1001
-pub mod task; // skipcq: RS-D1001
-
-pub use dynamic::*;
-pub use flag::*;
-pub use logical::*;
-pub use task::*;
-
+use std::ops::{BitAnd, BitOr, Not};
+use std::pin::Pin;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use async_trait::async_trait;
-use std::ops::Deref;
+use crate::task::{OnTaskEnd, Task, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent, TaskSchedule};
 
-#[allow(unused_imports)]
-use crate::task::DependencyTaskFrame;
-
-#[async_trait]
-pub trait FrameDependency: Send + Sync + 'static {
-    async fn is_resolved(&self) -> bool;
-
-    async fn disable(&self);
-
-    async fn enable(&self);
-
-    async fn is_enabled(&self) -> bool;
+enum DependencyInner {
+    Flag(Arc<AtomicBool>),
+    External(Box<dyn Fn() -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>),
+    LogicalAnd(Box<DependencyInner>, Box<DependencyInner>),
+    LogicalOr(Box<DependencyInner>, Box<DependencyInner>),
+    LogicalNot(Box<DependencyInner>)
 }
 
-#[async_trait]
-impl<D> FrameDependency for D
-where
-    D: Deref + ?Sized + Send + Sync + 'static,
-    D::Target: FrameDependency,
-{
-    async fn is_resolved(&self) -> bool {
-        self.deref().is_resolved().await
-    }
-
-    async fn disable(&self) {
-        self.deref().disable().await
-    }
-
-    async fn enable(&self) {
-        self.deref().enable().await
-    }
-
-    async fn is_enabled(&self) -> bool {
-        self.deref().is_enabled().await
+impl DependencyInner {
+    fn is_resolved(&self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+        match self {
+            DependencyInner::Flag(flag) => Box::pin(std::future::ready(flag.load(Ordering::Relaxed))),
+            DependencyInner::External(func) => func(),
+            DependencyInner::LogicalAnd(dep1, dep2) => {
+                Box::pin(async move { dep1.is_resolved().await && dep2.is_resolved().await })
+            }
+            DependencyInner::LogicalOr(dep1, dep2) => {
+                Box::pin(async move { dep1.is_resolved().await || dep2.is_resolved().await })
+            }
+            DependencyInner::LogicalNot(dep1) => {
+                Box::pin(async move { !dep1.is_resolved().await })
+            }
+        }
     }
 }
 
-#[async_trait]
-pub trait ResolvableFrameDependency: FrameDependency {
-    async fn resolve(&self);
+pub struct FrameDependency {
+    inner: DependencyInner,
+    disabled: AtomicBool
 }
 
-#[async_trait]
-pub trait UnresolvableFrameDependency: FrameDependency {
-    async fn unresolve(&self);
+macro_rules! impl_monitor_based_dependency {
+    (($flag: ident, $countdown: ident, $payload: ident, $task: expr, $value: expr) -> $body: block) => {{
+        struct DependencyTaskMonitor(Arc<AtomicBool>, AtomicU16);
+
+        #[async_trait]
+        impl TaskHook<OnTaskEnd> for DependencyTaskMonitor {
+            async fn on_event(&self, _ctx: &TaskHookContext, payload: &<OnTaskEnd as TaskHookEvent>::Payload<'_>) {
+                let $payload = payload;
+                let $flag = &self.0;
+                let $countdown = &self.1;
+                $body
+            }
+        }
+
+        let flag = Arc::new(AtomicBool::new(false));
+        let monitor = DependencyTaskMonitor(flag.clone(), AtomicU16::new($value));
+        $task.attach_hook(Arc::new(monitor)).await;
+
+        FrameDependency {
+            inner: DependencyInner::Flag(flag),
+            disabled: AtomicBool::new(false)
+        }
+    }};
+}
+
+impl FrameDependency {
+    pub async fn runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: u16) -> FrameDependency {
+        impl_monitor_based_dependency!((flag, countdown, _payload, task, value) -> {
+            let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;
+            if res == 0 {
+                flag.store(true, Ordering::Relaxed);
+            }
+        })
+    }
+
+    pub async fn successful_runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: u16) -> FrameDependency {
+        impl_monitor_based_dependency!((flag, countdown, payload, task, value) -> {
+            if payload.is_some() {
+                return;
+            }
+
+            let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;
+            if res == 0 {
+                flag.store(true, Ordering::Relaxed);
+            }
+        })
+    }
+
+    pub async fn failed_runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: u16) -> FrameDependency {
+        impl_monitor_based_dependency!((flag, countdown, payload, task, value) -> {
+            if payload.is_none() {
+                return;
+            }
+
+            let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;
+            if res == 0 {
+                flag.store(true, Ordering::Relaxed);
+            }
+        })
+    }
+
+    pub fn external(value: impl Fn() -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync + 'static) -> FrameDependency {
+        FrameDependency {
+            inner: DependencyInner::External(Box::new(value)),
+            disabled: AtomicBool::new(false)
+        }
+    }
+
+    pub fn disable(&self) {
+        self.disabled.store(true, Ordering::Relaxed);
+    }
+
+    pub fn enable(&self) {
+        self.disabled.store(false, Ordering::Relaxed);
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.disabled.load(Ordering::Relaxed)
+    }
+
+    pub async fn is_resolved(&self) -> bool {
+        if self.is_disabled() {
+            return false;
+        }
+
+        self.inner.is_resolved().await
+    }
+}
+
+impl BitAnd for FrameDependency {
+    type Output = FrameDependency;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        FrameDependency {
+            inner: DependencyInner::LogicalAnd(Box::new(self.inner), Box::new(rhs.inner)),
+            disabled: AtomicBool::new(false)
+        }
+    }
+}
+
+impl BitOr for FrameDependency {
+    type Output = FrameDependency;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        FrameDependency {
+            inner: DependencyInner::LogicalOr(Box::new(self.inner), Box::new(rhs.inner)),
+            disabled: AtomicBool::new(false)
+        }
+    }
+}
+
+impl Not for FrameDependency {
+    type Output = FrameDependency;
+
+    fn not(self) -> Self::Output {
+        FrameDependency {
+            inner: DependencyInner::LogicalNot(Box::new(self.inner)),
+            disabled: AtomicBool::new(false)
+        }
+    }
 }

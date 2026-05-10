@@ -2,7 +2,7 @@ use crate::utils::macros::define_event;
 use crate::errors::{DependencyTaskFrameError, TaskDependenciesUnresolved, TaskError};
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
-use crate::task::{Arc, TaskFrame};
+use crate::task::TaskFrame;
 use crate::task::{Debug, TaskFrameContext};
 use async_trait::async_trait;
 use typed_builder::TypedBuilder;
@@ -37,7 +37,7 @@ impl DependentFailBehavior for DependentSuccessOnFail {
 pub struct DependencyTaskFrameConfig<T: TaskFrame> {
     frame: T,
 
-    dependencies: Vec<Arc<dyn FrameDependency>>,
+    dependency: FrameDependency,
 
     #[builder(
         default = Box::new(DependentFailureOnFail),
@@ -50,17 +50,17 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
     fn from(config: DependencyTaskFrameConfig<T>) -> Self {
         Self {
             frame: config.frame,
-            dependencies: config.dependencies,
+            dependency: config.dependency,
             dependent_behaviour: config.dependent_behaviour,
         }
     }
 }
 
-define_event!(OnDependencyValidation, (Arc<dyn FrameDependency>, bool));
+define_event!(OnDependencyValidation, (&'a FrameDependency, bool));
 
 pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,
-    dependencies: Vec<Arc<dyn FrameDependency>>,
+    dependency: FrameDependency,
     dependent_behaviour: Box<dyn DependentFailBehavior>,
 }
 
@@ -75,33 +75,9 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     type Args = T::Args;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
-        let mut js = tokio::task::JoinSet::new();
+        let is_resolved = self.dependency.is_resolved().await;
 
-        for dep in &self.dependencies {
-            let dep = dep.clone();
-            js.spawn(async move { (dep.is_resolved().await, dep) });
-        }
-
-        let mut is_resolved = true;
-        while let Some(result) = js.join_next().await {
-            match result {
-                Ok((res, dep)) => {
-                    ctx.emit::<OnDependencyValidation>(&(dep, res)).await;
-                    if !res {
-                        is_resolved = false;
-                        js.abort_all();
-                        break;
-                    }
-                }
-
-                Err(_) => {
-                    is_resolved = false;
-                    js.abort_all();
-                    break;
-                }
-            }
-        }
-
+        ctx.emit::<OnDependencyValidation>(&(&self.dependency, is_resolved)).await;
         if !is_resolved {
             return self
                 .dependent_behaviour

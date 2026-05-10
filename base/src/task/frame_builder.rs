@@ -9,7 +9,6 @@ use crate::task::{
     NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
 };
 use std::num::NonZeroU32;
-use std::sync::Arc;
 use std::time::Duration;
 
 /// [`TaskFrameBuilder`] is a composable builder for constructing [`TaskFrame`] workflows, it wraps
@@ -43,8 +42,7 @@ use std::time::Duration;
 /// - [`with_fallback`](TaskFrameBuilder::with_fallback) - Wraps with [`FallbackTaskFrame`], executing a secondary frame if the primary fails.
 /// - [`with_condition`](TaskFrameBuilder::with_condition) - Wraps with [`ConditionalFrame`], only executing if the predicate is true (no-op otherwise).
 /// - [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) - Wraps with [`ConditionalFrame`], executing a fallback frame when the predicate is false.
-/// - [`with_dependency`](TaskFrameBuilder::with_dependency) - Wraps with [`DependencyTaskFrame`], waiting for a single dependency before executing.
-/// - [`with_dependencies`](TaskFrameBuilder::with_dependencies) - Wraps with [`DependencyTaskFrame`], waiting for multiple dependencies before executing.
+/// - [`with_dependency`](TaskFrameBuilder::with_dependency) - Wraps with [`DependencyTaskFrame`], waiting for a dependency to be resolved before executing.
 /// - [`build`](TaskFrameBuilder::build) - Consumes the builder and returns the fully composed frame.
 ///
 /// # Constructor(s)
@@ -602,8 +600,6 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// is met. It polls the provided [`FrameDependency`] asynchronously until it indicates that it has been resolved,
     /// only then allowing the primary inner task to execute.
     ///
-    /// If one desires to specify multiple dependencies instead of only one, then [`with_dependencies`](TaskFrameBuilder::with_dependencies) is the method for this requirement.
-    ///
     /// # Arguments
     /// The method requires one argument, that being ``dependency`` is a type implementing the [`FrameDependency`] trait that guards the inner task's execution.
     ///
@@ -641,82 +637,15 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`DependencyTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
-    /// - [`FrameDependency`] - The core trait that defines the required dependency.
+    /// - [`FrameDependency`] - The core struct that defines the required dependency.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_dependency(
         self,
-        dependency: impl FrameDependency + 'static,
+        dependency: FrameDependency,
     ) -> TaskFrameBuilder<DependencyTaskFrame<T>> {
         let dependent: DependencyTaskFrame<T> = DependencyTaskFrame::builder()
             .frame(self.0)
-            .dependencies(vec![Arc::new(dependency)])
-            .build();
-
-        TaskFrameBuilder(dependent)
-    }
-
-    /// Method wraps the inner [`TaskFrame`] in a [`DependencyTaskFrame`] waiting for multiple dependencies to be resolved before execution.
-    ///
-    /// This behaves exactly like [`with_dependency`](TaskFrameBuilder::with_dependency), but it takes a collection of [`FrameDependency`] instances.
-    /// The inner task will only begin execution once **all** the provided dependencies have been successfully resolved.
-    ///
-    /// Method wraps the inner [`TaskFrame`] in a [`DependencyTaskFrame`] waiting for multiple dependencies to be resolved before execution.
-    ///
-    /// This wrapper allows the execution of the inner task to be deferred until multiple defined condition or dependencies are met. It polls 
-    /// the provided [`FrameDependencies`](FrameDependency) asynchronously until all indicate that they've been resolved,
-    /// only then allowing the primary inner task to execute.
-    ///
-    /// If one desires to specify only one dependency instead of multiple, then [`with_dependency`](TaskFrameBuilder::with_dependency) is the method for this requirement.
-    ///
-    /// # Arguments
-    /// The method accepts one argument, that being ``dependencies`` is a ``Vec`` of elements implementing the [`FrameDependency`] trait, acting as multiple guards for the inner task's execution.
-    ///
-    /// # Returns
-    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a multi-dependency execution gate.
-    ///
-    /// # Examples
-    /// ```
-    /// use chronographer::task::{TaskFrameBuilder, DependencyTaskFrame};
-    /// use chronographer::task::dependency::{FlagDependency, FrameDependency};
-    /// use std::sync::atomic::AtomicBool;
-    /// use std::sync::Arc;
-    /// # use std::sync::atomic::Ordering;
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
-    /// #
-    /// # struct MyTaskFrame;
-    /// #
-    /// # impl TaskFrame for MyTaskFrame {
-    /// #     type Error = String;
-    /// #     type Args = ();
-    /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-    /// #         Ok(())
-    /// #     }
-    /// # }
-    ///
-    /// let atomic_flag1 = Arc::new(AtomicBool::new(false));
-    /// let atomic_flag2 = Arc::new(AtomicBool::new(false));
-    ///
-    /// let dep1 = Arc::new(FlagDependency::new(atomic_flag1.clone())) as Arc<dyn FrameDependency>;
-    /// let dep2 = Arc::new(FlagDependency::new(atomic_flag2.clone())) as Arc<dyn FrameDependency>;
-    ///
-    /// let task: DependencyTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
-    ///     .with_dependencies(vec![dep1, dep2]) // Executes when both dependencies resolve
-    ///     .build();
-    /// ```
-    ///
-    /// # See Also
-    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
-    /// - [`DependencyTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
-    /// - [`FrameDependency`] - The core trait that defines the required dependency.
-    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
-    pub fn with_dependencies(
-        self,
-        dependencies: Vec<Arc<dyn FrameDependency>>,
-    ) -> TaskFrameBuilder<DependencyTaskFrame<T>> {
-        let dependent: DependencyTaskFrame<T> = DependencyTaskFrame::builder()
-            .frame(self.0)
-            .dependencies(dependencies)
+            .dependency(dependency)
             .build();
 
         TaskFrameBuilder(dependent)
