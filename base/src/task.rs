@@ -24,7 +24,7 @@ pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>, Box<dyn TaskSchedule
 
 pub struct Task<T1, T2> {
     frame: T1,
-    trigger: T2,
+    schedule: T2,
     instance_id: usize
 }
 
@@ -32,7 +32,7 @@ impl<T1: TaskFrame + Default, T2: TaskSchedule + Default> Default for Task<T1, T
     fn default() -> Self {
         Self {
             frame: T1::default(),
-            trigger: T2::default(),
+            schedule: T2::default(),
             instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         }
     }
@@ -82,23 +82,31 @@ impl<E: TaskError> ErasedTask<E> {
     }
 
     pub fn schedule(&self) -> &dyn TaskSchedule  {
-        self.trigger.as_ref()
+        self.schedule.as_ref()
     }
 }
 
 impl<T1: TaskFrame<Args = ()>, T2: TaskSchedule> Task<T1, T2> {
-    pub fn new(trigger: T2, frame: T1) -> Self {
+    pub fn new(schedule: T2, frame: T1) -> Self {
         Self {
             frame,
-            trigger,
+            schedule,
             instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         }
+    }
+
+    pub fn frame(&self) -> &T1 {
+        &self.frame
+    }
+
+    pub fn schedule(&self) -> &T2  {
+        &self.schedule
     }
 
     pub fn into_erased(self) -> ErasedTask<T1::Error> {
         ErasedTask {
             frame: Box::new(self.frame),
-            trigger: Box::new(self.trigger),
+            schedule: Box::new(self.schedule),
             instance_id: self.instance_id
         }
     }

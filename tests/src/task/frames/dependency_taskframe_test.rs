@@ -1,4 +1,3 @@
-use chronographer::prelude::DynamicDependency;
 use chronographer::prelude::FrameDependency;
 use chronographer::task::DependencyTaskFrame;
 use chronographer::task::Task;
@@ -8,20 +7,12 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use crate::task::frames::CountingFrame;
 
-fn ok_deps(num: usize) -> Vec<Arc<dyn FrameDependency>> {
-    (0..num)
-        .map(|_| Arc::new(DynamicDependency::new(|| async { true })) as Arc<dyn FrameDependency>)
-        .collect()
+fn ok_dependency() -> FrameDependency {
+    FrameDependency::external(|| async { true })
 }
 
-fn failing_deps(num: usize) -> Vec<Arc<dyn FrameDependency>> {
-    (0..num)
-        .map(|_| Arc::new(DynamicDependency::new(|| async { false })) as Arc<dyn FrameDependency>)
-        .collect()
-}
-
-fn mixed_deps(ok: usize, failing: usize) -> Vec<Arc<dyn FrameDependency>> {
-    ok_deps(ok).into_iter().chain(failing_deps(failing)).collect()
+fn failing_dependency() -> FrameDependency {
+    FrameDependency::external(|| async { false })
 }
 
 #[tokio::test]
@@ -32,7 +23,7 @@ async fn returns_ok_when_all_deps_resolved() {
             counter: counter.clone(),
             should_fail: false,
         })
-        .dependencies(ok_deps(3))
+        .dependency(ok_dependency() & ok_dependency() & ok_dependency())
         .build();
     let task = Task::new(TaskScheduleImmediate, frame);
     task.into_erased().run().await.unwrap();
@@ -47,7 +38,7 @@ async fn returns_error_when_dep_unresolved() {
             counter: counter.clone(),
             should_fail: false,
         })
-        .dependencies(failing_deps(1))
+        .dependency(failing_dependency())
         .build();
     let task = Task::new(TaskScheduleImmediate, frame);
     let result = task.into_erased().run().await;
@@ -60,26 +51,6 @@ async fn returns_error_when_dep_unresolved() {
 }
 
 #[tokio::test]
-async fn no_deps_returns_ok() {
-    let counter = Arc::new(AtomicUsize::new(0));
-    let frame = DependencyTaskFrame::builder()
-        .frame(CountingFrame {
-            counter: counter.clone(),
-            should_fail: false,
-        })
-        .dependencies(ok_deps(0))
-        .build();
-    let task = Task::new(TaskScheduleImmediate, frame);
-    let result = task.into_erased().run().await;
-    assert!(result.is_ok());
-    assert_eq!(
-        counter.load(Ordering::SeqCst),
-        1,
-        "inner frame should have been called"
-    );
-}
-
-#[tokio::test]
 async fn stop_on_first_failing_dep() {
     let counter = Arc::new(AtomicUsize::new(0));
     let frame = DependencyTaskFrame::builder()
@@ -87,7 +58,7 @@ async fn stop_on_first_failing_dep() {
             counter: counter.clone(),
             should_fail: false,
         })
-        .dependencies(mixed_deps(2, 1))
+        .dependency(ok_dependency() & ok_dependency() & failing_dependency())
         .build();
     let task = Task::new(TaskScheduleImmediate, frame);
     let result = task.into_erased().run().await;
@@ -110,7 +81,7 @@ async fn inner_frame_fails_when_all_deps_resolve() {
             counter: counter.clone(),
             should_fail: true,
         })
-        .dependencies(ok_deps(2))
+        .dependency(ok_dependency() & ok_dependency())
         .build();
     let task = Task::new(TaskScheduleImmediate, frame);
     let result = task.into_erased().run().await;

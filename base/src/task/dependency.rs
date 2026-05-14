@@ -1,3 +1,4 @@
+use std::num::NonZeroU16;
 use std::ops::{BitAnd, BitOr, Not};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -5,9 +6,11 @@ use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use async_trait::async_trait;
 use crate::task::{OnTaskEnd, Task, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent, TaskSchedule};
 
+type ExternalFn = Box<dyn Fn() -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>;
+
 enum DependencyInner {
     Flag(Arc<AtomicBool>),
-    External(Box<dyn Fn() -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>),
+    External(ExternalFn),
     LogicalAnd(Box<DependencyInner>, Box<DependencyInner>),
     LogicalOr(Box<DependencyInner>, Box<DependencyInner>),
     LogicalNot(Box<DependencyInner>)
@@ -51,7 +54,7 @@ macro_rules! impl_monitor_based_dependency {
         }
 
         let flag = Arc::new(AtomicBool::new(false));
-        let monitor = DependencyTaskMonitor(flag.clone(), AtomicU16::new($value));
+        let monitor = DependencyTaskMonitor(flag.clone(), AtomicU16::new($value.get()));
         $task.attach_hook(Arc::new(monitor)).await;
 
         FrameDependency {
@@ -62,7 +65,7 @@ macro_rules! impl_monitor_based_dependency {
 }
 
 impl FrameDependency {
-    pub async fn runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: u16) -> FrameDependency {
+    pub async fn runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: NonZeroU16) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, _payload, task, value) -> {
             let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;
             if res == 0 {
@@ -71,7 +74,7 @@ impl FrameDependency {
         })
     }
 
-    pub async fn successful_runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: u16) -> FrameDependency {
+    pub async fn successful_runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: NonZeroU16) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, payload, task, value) -> {
             if payload.is_some() {
                 return;
@@ -84,7 +87,7 @@ impl FrameDependency {
         })
     }
 
-    pub async fn failed_runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: u16) -> FrameDependency {
+    pub async fn failed_runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: NonZeroU16) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, payload, task, value) -> {
             if payload.is_none() {
                 return;
@@ -97,10 +100,19 @@ impl FrameDependency {
         })
     }
 
-    pub fn external(value: impl Fn() -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync + 'static) -> FrameDependency {
+    pub fn external<F: Future<Output = bool> + Send>(
+        value: impl Fn() -> F + Send + Sync + 'static
+    ) -> FrameDependency {
+        let value = Arc::new(value);
+
         FrameDependency {
-            inner: DependencyInner::External(Box::new(value)),
-            disabled: AtomicBool::new(false)
+            inner: DependencyInner::External(Box::new(move || {
+                let value = Arc::clone(&value);
+
+                Box::pin(async move { value().await })
+            })),
+            
+            disabled: AtomicBool::new(false),
         }
     }
 
