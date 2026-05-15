@@ -155,44 +155,6 @@ const PROGRAMMING_LANGUAGES: ProgrammingLang[] = [
   },
   {
     disabled: true,
-    name: "C",
-    icon: () => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="1em"
-        height="1em"
-        viewBox="0 0 24 24"
-      >
-        <path
-          fill="currentColor"
-          fillRule="evenodd"
-          d="M11.199.914a1.5 1.5 0 0 1 1.602 0l8.5 5.369A1.5 1.5 0 0 1 22 7.55v8.898a1.5 1.5 0 0 1-.699 1.268l-8.5 5.368a1.5 1.5 0 0 1-1.602 0l-8.5-5.368A1.5 1.5 0 0 1 2 16.449V7.55a1.5 1.5 0 0 1 .699-1.268zm1.722 14.096a3.14 3.14 0 0 0 1.583-1.08l2.746 1.57a6.283 6.283 0 1 1 0-7l-2.746 1.57a3.142 3.142 0 1 0-1.583 4.94"
-          clipRule="evenodd"
-        />
-      </svg>
-    ),
-  },
-  {
-    disabled: true,
-    name: "C++",
-    icon: () => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="1em"
-        height="1em"
-        viewBox="0 0 24 24"
-      >
-        <path
-          fill="currentColor"
-          fillRule="evenodd"
-          d="M12.801.914a1.5 1.5 0 0 0-1.602 0l-8.5 5.369A1.5 1.5 0 0 0 2 7.55v8.898c0 .514.264.993.699 1.268l8.5 5.368a1.5 1.5 0 0 0 1.602 0l8.5-5.368A1.5 1.5 0 0 0 22 16.449V7.55a1.5 1.5 0 0 0-.699-1.268zm.703 13.015a3.141 3.141 0 1 1 0-3.86L16.25 8.5a6.283 6.283 0 1 0 0 7zM14.75 11.5v-.75h1v.75h.75v1h-.75v.75h-1v-.75H14v-1zm3.5 1.75v-.75h-.75v-1h.75v-.75h1v.75H20v1h-.75v.75z"
-          clipRule="evenodd"
-        />
-      </svg>
-    ),
-  },
-  {
-    disabled: true,
     name: "Ruby",
     icon: () => (
       <svg
