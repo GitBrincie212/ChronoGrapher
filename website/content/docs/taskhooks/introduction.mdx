@@ -184,6 +184,24 @@ impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
 ```
 </RenderProgrammingLanguageBased>
 
+And for our registration, we will have to modify it like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=28
+#[task(interval(2s))]
+#[hooks({
+    // [!code highlight]
+    OnTaskStart: MyCoolTaskHook::default(),
+    // [!code highlight]
+    OnTaskEnd: MyCoolTaskHook::default()
+})]
+async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
+    // ...
+}
+
+// ...Same as above...
+```
+</RenderProgrammingLanguageBased>
+
 However we quickly stumble upon one problem, in our code when we subscribe the TaskHooks to each event, <u>we create a new
 instance per event</u>, which means our metrics for tasks starting / ending will be incosistent.
 
@@ -192,7 +210,10 @@ after a set amount of time:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 let task = Task1::instance();
+
+// This method is used to fetch our MyCoolTaskHook from the event its subscribed
 let hook = task.get_hook::<OnTaskStart, MyCoolTaskHook>().unwrap(); // You can use OnTaskEnd as well
+
 let starts: usize = hook.get_start_count(); // Or whatever you want to call it
 let ends: usize = hook.get_end_count(); // Again, whatever name you want
 println!("VALUES ( {starts} | {ends} )");
