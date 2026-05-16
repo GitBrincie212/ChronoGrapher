@@ -154,28 +154,13 @@ handles this, and how it solves the problem elegantly.
 ChronoGrapher uses its own model to monitor Tasks which are called ``TaskHooks``, they accept a generic for the event
 which tells ChronoGrapher this TaskHook wants to listen to this event.
 
-However, they are not limited to one event, they can run their own <Highlight color={"neutral"}>Side Effects</Highlight> per event,
+Though they are not limited to one event, they can run their own *"Side Effects"* per event,
 which is a fancy way of saying different code that reacts for every event.
 
-In later chapters we will discuss more advanced topics about ``TaskHooks``, however for teasers. ``TaskHooks`` are more
-powerful than just listening to events, as they can emit their own set of events which allows subsequently other ``TaskHooks``
-to listen to, this is called <Highlight color={"info"}>Hook-To-Hook Communication</Highlight>.
+In addition, they aren't just event listeners but extension points for a Task, allowing you to embed additional state per
+Task instance and access it at runtime. They can also communicate with each other and so on.
 
-``TaskFrames`` (generally workflows) and even business logic can attach their own internal TaskHooks for tracking events
-themselves, they can also fetch ``TaskHook`` instance by type and its subscribed event type.
-
-However, ``TaskHooks`` aren't just <Highlight color={"idea"}>Event Listener</Highlight>, they can be used as <Highlight color={"warn"}>State Managers</Highlight>
-which attach additional state to a Task, and this state can be read and written to.
-
-Another use of ``TaskHooks`` is as simple as by being present in a Task, essentially acting as <Highlight color={"success"}>Markers</Highlight>.
-Finally, less commonly, they can be used as <Highlight color={"error"}>Post-Error Handlers</Highlight>.
-
-While typical error handlers and post-error handlers resolve a problem, the post-error handler lets through the error and
-tries to work things out to resolve the issue before its ultimately shut down.
-
-``TaskHooks`` can also be used in a mixed scenarios, acting as both a <Highlight color={"warn"}>State Managers</Highlight>,
-a <Highlight color={"success"}>Markers</Highlight> and an <Highlight color={"idea"}>Event Listener</Highlight>. Essentially
-handling multiple requirements on their own without fragmentation.
+---
 
 All these topics will be covered gradually in subsequent chapters, this is more of a taste on how truly powerful this
 system can be, when used to its fullest potential.

@@ -89,10 +89,12 @@ To achieve this we can change our code in the following way:
 // [!code ++]
 #[hooks({
     // [!code ++]
-    MyCoolTaskHook: [OnTaskStart, OnTaskEnd]
+    OnTaskStart: MyCoolTaskHook,
+    // [!code ++]
+    OnTaskEnd: MyCoolTaskHook
 // [!code ++]
 })]
-async fn task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
+async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 1's Actions");
     Ok(())
 }
@@ -105,14 +107,14 @@ async fn task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
 // [!code ++]
 #[hooks({
     // [!code ++]
-    MyCoolTaskHook: [OnTaskStart, OnTaskEnd]
+    OnTaskStart: MyCoolTaskHook,
 // [!code ++]
 })]
-async fn task2(ctx: &TaskFrameContext) -> Result<(), TaskError> {
+async fn Task2(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 2's Actions");
     Ok(())
 }
-    ```
+```
 </RenderProgrammingLanguageBased>
 This automatically attaches our ``MyCoolTaskHook`` TaskHook to our Task instance (both task1 and task2) when we
 instantiate. You may notice in the terminal the following:
@@ -125,29 +127,190 @@ Interested "OnTaskEnd" event triggered! With error = None
 # After 1 second
 Interested "OnTaskStart" event triggered!
 Simulating Task 2's Actions
-Interested "OnTaskEnd" event triggered! With error = None
 ```
 
-The "Interested ... event" prints come from our TaskHook, as it is triggered based on these events.
-Try to change task2 to throw an error and notice what the ``TaskHook`` prints.
+Try removing the ``OnTaskEnd`` entry on ``task1``, notice how it no longer prints the ``OnTaskEnd`` contents?
 
-<Callout type={"idea"} title={"Attaching To All TaskHook Events"}>
-    Instead of manually listing the events to attach to, you can also do the following:
-    <RenderProgrammingLanguageBased target_name={"Rust"}>
-        ```rust title="src/main.rs" lineNumbers=28
-        #[task(interval(2s))]
-        #[hooks(MyCoolTaskHook)]
-        async fn task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
-        // ...
+The "Interested ... event" prints come from our TaskHook, as it is triggered based on these events.
+Try to change task1 to throw an error and notice what the ``TaskHook`` prints.
+
+# Stateful TaskHooks
+TaskHooks aren't limited to behave as a pure function, in fact they can carry data with them which can be read and written
+into (either from itself or from outside parties). As demonstrated below:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=1
+use async_trait::async_trait;
+// [!code ++]
+use std::sync::atomic::{AtomicUsize, Ordering}
+
+// [!code highlight
+// We use AtomicUsize to modify without the need of &mut self
+// [!code highlight]
+#[derive(Default)]
+// [!code highlight]
+pub struct MyCoolTaskHook {
+    // [!code highlight]
+    task_starts: AtomicUsize,
+    // [!code highlight]
+    task_ends: AtomicUsize,
+// [!code highlight]
+}
+
+#[async_trait]
+impl TaskHook<OnTaskStart> for MyCoolTaskHook {
+    async fn on_event(
+        &self,
+        ctx: &TaskHookContext,
+        payload: &<OnTaskStart as TaskHookEvent>::Payload
+    ) {
+        println!("Interested \"OnTaskStart\" event triggered!");
+        // [!code ++]
+        self.task_starts.fetch_add(1, Ordering::Relaxed);
     }
-        ```
-    </RenderProgrammingLanguageBased>
-    This attaches the TaskHook to every event it implements.
+}
+
+#[async_trait]
+impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
+    async fn on_event(
+        &self,
+        ctx: &TaskHookContext,
+        payload: &<OnTaskEnd as TaskHookEvent>::Payload
+    ) {
+        println!("Interested \"OnTaskEnd\" event triggered! With error = {:?}", payload);
+        // [!code ++]
+        self.task_ends.fetch_add(1, Ordering::Relaxed);
+    }
+}
+```
+</RenderProgrammingLanguageBased>
+
+However we quickly stumble upon one problem, in our code when we subscribe the TaskHooks to each event, <u>we create a new
+instance per event</u>, which means our metrics for tasks starting / ending will be incosistent.
+
+Try to define getter methods for the "metric values", then when the Tasks have ran, try to fetch it inside the main code
+after a set amount of time:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+let task = Task1::instance();
+let hook = task.get_hook::<OnTaskStart, MyCoolTaskHook>().unwrap(); // You can use OnTaskEnd as well
+let starts: usize = hook.get_start_count(); // Or whatever you want to call it
+let ends: usize = hook.get_end_count(); // Again, whatever name you want
+println!("VALUES ( {starts} | {ends} )");
+```
+</RenderProgrammingLanguageBased>
+```zsh title="terminal"
+# After 2 seconds
+Interested "OnTaskStart" event triggered!
+Simulating Task 1's Actions
+Interested "OnTaskEnd" event triggered! With error = None
+
+# After 1 second
+Interested "OnTaskStart" event triggered!
+Simulating Task 2's Actions
+
+# When we fetch a TaskHook instance:
+VALUES( 0 | 1 ) # Or the opposite with OnTaskEnd "VALUES( 1 | 0 )"
+```
+
+You will notice starts or ends is either zero, and only the opposite value is correct, to solve this we can define a
+singleton / global TaskHook instance like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=28
+// [!code ++]
+use std::sync::LazyLock;
+// [!code ++]
+
+// [!code ++]
+static MY_COOL_TASKHOOK_INSTANCE1: LazyLock<MyCoolTaskHook> = LazyLock::new(|| MyCoolTaskHook::default());
+
+#[task(interval(2s))]
+#[hooks({
+    // [!code highlight]
+    OnTaskStart: MY_COOL_TASKHOOK_INSTANCE1,
+    // [!code highlight]
+    OnTaskEnd: MY_COOL_TASKHOOK_INSTANCE1
+})]
+async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
+    // ...
+}
+
+// ...Same as above with a different instance...
+```
+</RenderProgrammingLanguageBased>
+We define a singleton which contains the runtime state, we then attach the same TaskHook instance on multiple events without
+creating new instances per event, resolving our mismatch issue.
+
+<Callout title={"Singleton Multi-Task TaskHook Instance"} type={"idea"}>
+Not only you can use a singleton TaskHook instance on multiple events per Task, but also on multiple Tasks at a time.
+Though be careful in terms of how you expose this singleton in you application. You can limit the scope to a single Task
+via:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=28
+#[task(interval(2s))]
+#[hooks({
+    // [!code ++]
+    scopedSingleton = MyCoolTaskHook::default(),
+    // [!code highlight]
+    OnTaskStart: scopedSingleton,
+    // [!code highlight]
+    OnTaskEnd: scopedSingleton
+})]
+async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
+    // ...
+}
+
+// ...Same as above with a different instance...
+```
+</RenderProgrammingLanguageBased>
 </Callout>
 
-Most of the time we typically attach a TaskHook to every event, however, there may scenarios where we only want to
-attach the TaskHook only to specific events.
+# Stateful Containers
+While TaskHooks are nice for event listening, what happens when you only need to mount additional data onto a Task which
+can be read / modified by outside parties only and not listen to any event.
 
-Try removing the ``OnTaskEnd`` entry on ``task2``, notice how it no longer prints the ``OnTaskEnd`` contents?
+This is where the **Stateful Container** pattern comes in. ChronoGrapher provides us with a special event called
+**The Stateless Event** via <RenderProgrammingLanguageBased target_name={"Rust"}>``()`` and specifically ``TaskHook<()>``</RenderProgrammingLanguageBased>.
 
-<h1><Highlight color={"error"}>[DOCUMENTATION UNFINISHED; WIP; FOR DEVELOPER]</Highlight></h1>
+This event cannot be emitted no matter what and its intention is to be used for implementing TaskHooks with no
+interested events, using it as simple as:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers=28
+// Implement TaskHook<()> and provide no code or optionally use the more
+// idiomatic StatelessTaskHook trait alias for MyCoolTaskHook
+
+#[task(interval(2s))]
+#[hooks({
+    // ...
+
+    (): MyCoolTaskHook::default(),
+
+    // ...
+})]
+async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
+    // ...
+}
+
+// ...Same as above with a different instance...
+```
+</RenderProgrammingLanguageBased>
+
+---
+
+In short, TaskHooks have 2 phases, the **Implementation Phase** in which we implement all the necessary events for our
+TaskHook to listen to and the **Registration Phase** where we assign a TaskHook instance to one or multiple events.
+
+This can be done on one or multiple Tasks at a time. Singletons may be defined to help share state across events or Tasks
+or both, you can scope them per Task or let them be global.
+
+TaskHooks can also carry their own state which can be read / modified by itself or outside parties depending on how it wants
+to expose its underlying data.
+
+ChronoGrapher has a special event for the **Stateful Container** pattern via <RenderProgrammingLanguageBased target_name={"Rust"}>``()``</RenderProgrammingLanguageBased>,
+it cannot be emitted no matter what, and is used for TaskHooks that aren't interested in any event but want to hold state.
+
+In the next chapter we will dive deeper into TaskHooks, describing how to make our events, what specifically is the
+<Highlight color={"info"}>Hook-To-Hook Communication</Highlight> pattern and much more.
+
+> TL;DR. TaskHooks involve 2 phases, the implementation for implementing the side effects per event and the registration
+for attaching the instances on one or multiple events / Tasks. We can use singletons to share across our runtime data or
+we can make our TaskHook a stateful container with a special event.
