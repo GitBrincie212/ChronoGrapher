@@ -7,6 +7,7 @@ use crate::task::{ErasedTask, TaskHook};
 use crossbeam::queue::SegQueue;
 use std::any::{Any, type_name};
 use std::sync::Arc;
+use crossbeam::utils::CachePadded;
 use tokio::sync::Notify;
 
 pub enum SchedulerHandleInstructions {
@@ -49,7 +50,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     instruct_queue: &Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     dispatcher: &Arc<C::SchedulerTaskDispatcher>,
     store: &Arc<C::SchedulerTaskStore>,
-    workers: &Arc<Vec<SchedulerWorker<C>>>,
+    workers: &Arc<Vec<CachePadded<SchedulerWorker<C>>>>,
 ) -> impl Future<Output = ()> + Send + 'static {
     let dispatcher = dispatcher.clone();
     let store = store.clone();

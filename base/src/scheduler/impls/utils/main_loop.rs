@@ -3,11 +3,12 @@ use crate::scheduler::engine::SchedulerEngine;
 use crate::scheduler::impls::live::SchedulerWorker;
 use crate::scheduler::impls::utils::spawn_task;
 use std::sync::Arc;
+use crossbeam::utils::CachePadded;
 
 #[inline(always)]
 pub fn main_loop_logic<C: SchedulerConfig>(
     engine: &Arc<C::SchedulerEngine>,
-    workers: &Arc<Vec<SchedulerWorker<C>>>,
+    workers: &Arc<Vec<CachePadded<SchedulerWorker<C>>>>,
 ) -> impl Future<Output = ()> + 'static {
     let engine = engine.clone();
     let workers = workers.clone();

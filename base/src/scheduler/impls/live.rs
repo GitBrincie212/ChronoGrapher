@@ -13,6 +13,7 @@ use crossbeam::deque::{Injector, Steal, Stealer, Worker};
 use crossbeam::queue::SegQueue;
 use std::error::Error;
 use std::sync::Arc;
+use crossbeam::utils::CachePadded;
 use tokio::join;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
@@ -32,6 +33,7 @@ pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
     pub queue: parking_lot::Mutex<Option<Worker<(SchedulerKey<C>, SchedulerWork)>>>,
     pub stealer: Stealer<(SchedulerKey<C>, SchedulerWork)>,
     pub notify: Arc<Notify>,
+    // pub pending: CachePadded<AtomicUsize>
 }
 
 impl<C: SchedulerConfig> SchedulerWorker<C> {
@@ -42,6 +44,7 @@ impl<C: SchedulerConfig> SchedulerWorker<C> {
 
         Self {
             ingress: SegQueue::new(),
+            // pending: CachePadded::new(AtomicUsize::new(0)),
             queue: parking_lot::Mutex::new(Some(queue)),
             stealer,
             notify,
@@ -70,7 +73,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
 
         for _ in 0..config.workers {
             let worker = SchedulerWorker::<C>::new(notifier.clone());
-            workers.push(worker);
+            workers.push(CachePadded::new(worker));
         }
 
         Self {
@@ -91,7 +94,7 @@ pub struct LiveScheduler<C: SchedulerConfig> {
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
     process: Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
-    workers: Arc<Vec<SchedulerWorker<C>>>,
+    workers: Arc<Vec<CachePadded<SchedulerWorker<C>>>>,
     global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     failover_policy: FailoverPolicy,
@@ -145,7 +148,7 @@ async fn apply_failover<C: SchedulerConfig>(
 
 #[inline(always)]
 async fn start_worker_process<C: SchedulerConfig>(
-    workers: Arc<Vec<SchedulerWorker<C>>>,
+    workers: Arc<Vec<CachePadded<SchedulerWorker<C>>>>,
     global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
     idx: usize,
     worker_len: usize,
@@ -273,6 +276,13 @@ async fn start_worker_process<C: SchedulerConfig>(
         if found_work {
             continue;
         }
+
+
+        /*
+        if workers[idx].pending.swap(0, Ordering::Relaxed) > 0 {
+            continue;
+        }
+         */
 
         workers[idx].notify.notified().await;
     }
