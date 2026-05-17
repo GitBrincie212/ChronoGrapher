@@ -13,8 +13,6 @@ pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
 
     fn retrieve(&self) -> impl Future<Output = Vec<SchedulerKey<C>>> + Send;
     
-    fn is_empty(&self) -> bool;
-
     fn clock(&self) -> &C::SchedulerClock;
 
     fn schedule(

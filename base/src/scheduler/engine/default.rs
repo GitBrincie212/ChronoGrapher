@@ -5,7 +5,6 @@ use crate::utils::hierarchical_timing_wheel::HierarchicalTimingWheel;
 use crossbeam::queue::SegQueue;
 use std::error::Error;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 use tokio::sync::Notify;
 
@@ -14,7 +13,7 @@ enum WheelCommand<C: SchedulerConfig> {
     Clear,
 }
 
-type ResultQueue<C> = (SegQueue<Vec<SchedulerKey<C>>>, Notify, AtomicUsize);
+type ResultQueue<C> = (SegQueue<Vec<SchedulerKey<C>>>, Notify);
 
 pub struct DefaultSchedulerEngine<C: SchedulerConfig> {
     command_batch: Arc<SegQueue<WheelCommand<C>>>,
@@ -33,7 +32,7 @@ where
             HierarchicalTimingWheel::<SchedulerKey<C>>::default();
 
         let command_batch = Arc::new(SegQueue::new());
-        let get_result_queue = Arc::new((SegQueue::new(), Notify::new(), AtomicUsize::new(0)));
+        let get_result_queue = Arc::new((SegQueue::new(), Notify::new()));
 
         let clock_clone = clock.clone();
         let batch_clone = command_batch.clone();
@@ -51,7 +50,6 @@ where
                     }
                 }
                 get_result_queue_clone.0.push(hierarchical_wheel.tick());
-                get_result_queue_clone.2.fetch_add(1, Ordering::Release);
                 get_result_queue_clone.1.notify_waiters()
             }
         });
@@ -72,10 +70,6 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
             }
             self.get_result_queue.1.notified().await;
         }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.get_result_queue.2.load(Ordering::Relaxed) == 0
     }
 
     fn clock(&self) -> &C::SchedulerClock {
