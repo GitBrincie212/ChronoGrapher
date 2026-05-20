@@ -22,8 +22,7 @@ pub struct OnNotificationsSent;
 impl TaskHookEvent for OnNotificationsSent {
     type Payload<'a> = usize where Self: 'a;
 }
-
-````
+```
 In our example above, we have defined `OnNotificationsSent` as a TaskHookEvent, by creating a typical struct and implementing the TaskHookEvent trait.
 This trait requires the Default trait as such, we derived it.
 In our previous chapter you may have noticed a payload parameter for our TaskHooks. This payload parameter is the same as the associated type Payload \<'a>. Here we set it to `usize` so listeners receive how many notifications were sent.
@@ -38,24 +37,30 @@ Emiiting custom events from our defined task done like this:
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-#[task(interval(10s))]
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static TICK: AtomicUsize = AtomicUsize::new(0);
+
+#[task(interval(2s))]
 async fn DispatchNotificationsTask(ctx: &TaskFrameContext) -> Result<(), TaskError> {
-    let sent = send_pending_notifications().await?;
+    // Stand-in for a real dispatcher; cycles through a few counts
+    // so listeners can observe the payload changing between ticks.
+    let counts = [50, 1200, 300];
+    let sent = counts[TICK.fetch_add(1, Ordering::Relaxed) % counts.len()];
 
     // [!code highlight]
     ctx.emit::<OnNotificationsSent>(&sent).await;
 
     Ok(())
 }
-```` 
-In the example above we have a task called `DispatchNotificationsTask` that flushes pending notifications every 10 seconds. The `ctx` argument provided to every task is a `TaskFrameContext` reference which exposes the `emit` method. We use it to broadcast our custom event along with the number of notifications that were just sent.
+```
+In the example above we have a task called `DispatchNotificationsTask` that flushes pending notifications every 2 seconds. 
+`TaskFrameContext` contains various methods for us to use, but in our case we will be using `emit` to broadcast our custom event along with the number of notifications that were just sent. 
+The `TICK` counter and `counts` array are only here to keep the example self-contained — in real code `sent` would come from your actual dispatcher.
 
 </RenderProgrammingLanguageBased>
 
-Now we have created custom event but we still lack the main component, which is listeners but before diving deep into the writing code. we need to understand one thing what happen if there is no listeners ?
-so ChronoGrapher handles this without any overhead by simply doing no-op. 
-
-You can implement listeners as follow: 
+For our case we will attach one listener (TaskHook) to monitor our notification task:
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
@@ -68,47 +73,57 @@ pub struct NotificationMetricsHook {
 
 #[async_trait]
 impl TaskHook<OnNotificationsSent> for NotificationMetricsHook {
-    async fn on_event(&self, _ctx: &TaskHookContext, payload: &<OnNotificationsSent as TaskHookEvent>::Payload<'*>) {
+    async fn on_event(&self, _ctx: &TaskHookContext, payload: &<OnNotificationsSent as TaskHookEvent>::Payload<'_>) {
         let total = self.total_sent.fetch_add(*payload, Ordering::Relaxed) + *payload;
         println!("Dispatched: {} notifications | Running total: {total}", payload);
     }
 }
+```
+</RenderProgrammingLanguageBased>
 
-````
+`NotificationMetricsHook` carries a single `AtomicUsize` so it can accumulate counts across ticks without locking. On each time `OnNotificationsSent` fires, the hook folds the latest batch into the running total and prints both. The last step is to attach this hook to the task, 
+following the scoped singleton pattern from the previous chapter:
 
+<RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-use std::sync::LazyLock;
-
-static NOTIFICATION_METRICS: LazyLock<NotificationMetricsHook> = LazyLock::new(NotificationMetricsHook::default);
-
-#[task(interval(10s))]
-// [!code highlight]
-#[hooks({ OnNotificationsSent: NOTIFICATION_METRICS })]
+#[task(interval(2s))]
+#[hooks({
+    scopedSingleton = NotificationMetricsHook::default(),
+    // [!code highlight]
+    OnNotificationsSent: scopedSingleton,
+})]
 async fn DispatchNotificationsTask(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     // ...
 }
-````
-
+```
 </RenderProgrammingLanguageBased>
 
 Running this should produce output similar to:
 
 ```zsh title="terminal"
-# After 10 seconds (50 notifications dispatched)
+# After 2 seconds
 Dispatched: 50 notifications | Running total: 50
 
-# After 20 seconds (1200 notifications dispatched)
+# After 4 seconds
 Dispatched: 1200 notifications | Running total: 1250
 
-# After 30 seconds (300 notifications dispatched)
+# After 6 seconds
 Dispatched: 300 notifications | Running total: 1550
 ```
 
-As you see output in terminal, we have successfully implemented receiver on our custom event. Now let's move ahead with Hook-To-Hook Communication.
+As shown in the terminal's outputs, we have successfully implemented a receiver for our custom event. Now that we have discussed about custom event creation and how to emit them, a key question arises:
+
+> "In which places we can emit our custom events for our receivers to listen?"
+
+The answer is as long as you have access (even indirect through the context) to the Task, you can emit an event. This is where <Highlight color={"info"}>Hook-To-Hook Communication</Highlight> comes in picture.
+
+In essence, its nothing more than emitting events in our TaskHooks, then other TaskHooks can listen to these events (and even emit their own events) which allows for a ripple effect to occur between TaskHooks.
+
+This pattern is useful when TaskHooks aren't familar with the presence of other TaskHooks but may want to communicate with the unknown number of other TaskHooks by broadcasting information in a ping-pong fashion.
 
 # Hook-To-Hook Communication
 
-Hook to Hook Communication will be done like this:
+To see this in action, we will extend our running example. Whenever a dispatch is unusually large, `NotificationMetricsHook` will raise a second event that any number of other hooks can react to. We begin by declaring the new event, exactly the same way we declared `OnNotificationsSent`:
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/events.rs" lineNumbers
@@ -118,9 +133,13 @@ pub struct OnHighVolumeBurst;
 impl TaskHookEvent for OnHighVolumeBurst {
     type Payload<'a> = usize where Self: 'a;
 }
+```
+</RenderProgrammingLanguageBased>
 
-// Now update ``NotificationMetricsHook`` to emit ``OnHighVolumeBurst`` when a single dispatch is unusually large:
+With the event defined, we extend `NotificationMetricsHook` so that it emits `OnHighVolumeBurst` whenever a single batch crosses our threshold. Notice that this happens from inside `on_event` itself — the `TaskHookContext` argument we ignored earlier is what makes that possible:
 
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
 #[async_trait]
 impl TaskHook<OnNotificationsSent> for NotificationMetricsHook {
     async fn on_event(
@@ -139,49 +158,66 @@ impl TaskHook<OnNotificationsSent> for NotificationMetricsHook {
         }
     }
 }
+```
+</RenderProgrammingLanguageBased>
 
-// Then define `AlertHook` and register it alongside `NotificationMetricsHook`:
+On the receiving end we add a second hook, `AlertHook`, whose only job is to react to bursts. It listens for `OnHighVolumeBurst` and has no knowledge of whoever emitted it — that is the whole point of the pattern:
 
-
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
 #[derive(Default)]
 pub struct AlertHook;
 
 #[async_trait]
 impl TaskHook<OnHighVolumeBurst> for AlertHook {
-async fn on_event(&self, _ctx: &TaskHookContext, payload: &<OnHighVolumeBurst as TaskHookEvent>::Payload<'*>) {
-    println!("ALERT: high-volume burst of {payload} notifications detected.");
+    async fn on_event(&self, _ctx: &TaskHookContext, payload: &<OnHighVolumeBurst as TaskHookEvent>::Payload<'_>) {
+        println!("ALERT: high-volume burst of {payload} notifications detected.");
+    }
 }
-}
+```
+</RenderProgrammingLanguageBased>
 
-#[task(interval(10s))]
+Finally we register both hooks against the task. The metrics hook keeps its existing subscription to `OnNotificationsSent`, and the alert hook joins in to listen for the derived burst event:
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+#[task(interval(2s))]
 #[hooks({
-    OnNotificationsSent: NOTIFICATION_METRICS,
+    scopedSingleton = NotificationMetricsHook::default(),
+    OnNotificationsSent: scopedSingleton,
     // [!code ++]
     OnHighVolumeBurst: AlertHook::default(),
 })]
 async fn DispatchNotificationsTask(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     // ...
 }
-````
-As you go through the above code start understand the pattern like how we always define TaskHook and how Implementation for the that hook are always remain the same. the underlying principle remains the same.
-
+```
 </RenderProgrammingLanguageBased>
 
-Running the full example now:
+Running the full example now produces:
 
 ```zsh title="terminal"
-# After 10 seconds (50 notifications)
+# After 2 seconds
 Dispatched: 50 notifications | Running total: 50
 
-# After 20 seconds (1200 notifications)
+# After 4 seconds
 Dispatched: 1200 notifications | Running total: 1250
 ALERT: high-volume burst of 1200 notifications detected.
 
-# After 30 seconds (300 notifications)
+# After 6 seconds
 Dispatched: 300 notifications | Running total: 1550
 ```
 
-After this in terminal, you have successfully done the Hook-To-Hook communication which has lot of application now its upto you how you use this concept in smart way possible.
+As see output in terminal you may have notice few let me that to you, the first tick emits `OnNotificationsSent(50)`, 
+which the metrics hook records and ignores (50 is below the threshold). The second tick fires `OnNotificationsSent(1200)`, 
+the metrics hook records it, then immediately re-emits as `OnHighVolumeBurst(1200)` — picked up by `AlertHook` on the same tick. 
+The third tick falls back below the threshold and the alert stays silent. Two hooks, one Task, neither aware of the other, 
+yet they are able cooperate with each other is this is the power of Hook-To-Hook Communication.
 
-> TL;DR. You can create custom events and emit them also listen them anywhere in code,
+---
+
+In this chapter we went from defining a custom event and emiting it, then we consume the event. we also understand how we do Hook-To-Hook Communication.
+this chapter might open lot of possiblites for you, that's being said we will understand _______
+
+> **TL;DR.** Custom events are plain structs implementing `TaskHookEvent`, with an associated `Payload<'a>` for whatever data the event carries. Any Task can `emit` them, and any TaskHook can listen. Because hooks themselves can emit, you get Hook-To-Hook Communication which is truly powerfull.
 
