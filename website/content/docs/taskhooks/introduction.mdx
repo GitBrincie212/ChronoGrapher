@@ -329,6 +329,17 @@ to expose its underlying data.
 ChronoGrapher has a special event for the **Stateful Container** pattern via <RenderProgrammingLanguageBased target_name={"Rust"}>``()``</RenderProgrammingLanguageBased>,
 it cannot be emitted no matter what, and is used for TaskHooks that aren't interested in any event but want to hold state.
 
+All this information can be summarized in a diagram as shown below.
+<ThemeBasedImage
+    light={"/diagram-light-7.svg"} dark={"/diagram-dark-7.svg"}
+    width={1200} height={1200}
+    alt={"Nested-based diagram explaining how TaskHooks work"}
+/>
+
+The bigger circle is our Task hosting every TaskHook subscribed to particular events, each event is its own bubble containing
+its own interested TaskHooks. There can be an infinite number of events and an infinite number of TaskHooks.
+
+
 In the next chapter we will dive deeper into TaskHooks, describing how to make our events, what specifically is the
 <Highlight color={"info"}>Hook-To-Hook Communication</Highlight> pattern and much more.
 
