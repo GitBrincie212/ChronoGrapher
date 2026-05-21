@@ -14,11 +14,20 @@ macro_rules! dynamic_taskframe {
     }};
 }
 
+#[cfg(feature = "macros")]
+macro_rules! import_macros {
+    () => {
+        pub use chronographer_macros::every;
+        pub use chronographer_macros::task;
+        pub use chronographer_macros::taskframe;
+    };
+}
+
 
 pub mod prelude {
-    #[cfg(feature = "macros")]
     // Macros
-    pub use chronographer_macros::every;
+    #[cfg(feature = "macros")]
+    import_macros!();
 
     // Core
     pub use crate::errors::TaskError;

@@ -1,5 +1,7 @@
 mod every;
 mod utils;
+mod task;
+mod taskframe;
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -8,6 +10,16 @@ use syn::{DeriveInput, parse_macro_input};
 #[proc_macro]
 pub fn every(input: TokenStream) -> TokenStream {
     every::every(input)
+}
+
+#[proc_macro_attribute]
+pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
+    task::task(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn taskframe(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    taskframe::taskframe(item)
 }
 
 #[proc_macro]
