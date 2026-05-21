@@ -2,6 +2,7 @@
   "title": "Introspecting Workflows",
   "pages": [
     "index",
-    "introduction"
+    "introduction",
+    "custom_events"
   ]
 }
