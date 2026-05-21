@@ -4,7 +4,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use async_trait::async_trait;
-use crate::task::{OnTaskEnd, Task, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent, TaskSchedule};
+use crate::task::{OnTaskEnd, Task, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent};
 
 type ExternalFn = Box<dyn Fn() -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>;
 
@@ -65,7 +65,7 @@ macro_rules! impl_monitor_based_dependency {
 }
 
 impl FrameDependency {
-    pub async fn runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: NonZeroU16) -> FrameDependency {
+    pub async fn runs(task: &Task<impl TaskFrame>, value: NonZeroU16) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, _payload, task, value) -> {
             let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;
             if res == 0 {
@@ -74,7 +74,7 @@ impl FrameDependency {
         })
     }
 
-    pub async fn successful_runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: NonZeroU16) -> FrameDependency {
+    pub async fn successful_runs(task: &Task<impl TaskFrame>, value: NonZeroU16) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, payload, task, value) -> {
             if payload.is_some() {
                 return;
@@ -87,7 +87,7 @@ impl FrameDependency {
         })
     }
 
-    pub async fn failed_runs(task: &Task<impl TaskFrame, impl TaskSchedule>, value: NonZeroU16) -> FrameDependency {
+    pub async fn failed_runs(task: &Task<impl TaskFrame>, value: NonZeroU16) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, payload, task, value) -> {
             if payload.is_none() {
                 return;

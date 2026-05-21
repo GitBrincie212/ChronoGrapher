@@ -110,7 +110,7 @@ static SCHEDULER: LazyLock<LiveScheduler<DefaultSchedulerConfig<Box<dyn TaskErro
 
 pub async fn chronographer(tasks: usize, exec: Duration) {
     for _ in 0..tasks {
-        let task = Task::new(TaskScheduleInterval::duration(exec), MyTaskFrame);
+        let task = Task::new(MyTaskFrame, TaskScheduleInterval::duration(exec));
 
         let _ = SCHEDULER.schedule(task).await;
     }

@@ -8,7 +8,7 @@ use crate::scheduler::{
     DefaultSchedulerConfig, FailoverPolicy, Scheduler, SchedulerConfig, SchedulerHandlePayload,
     SchedulerKey,
 };
-use crate::task::{Task, TaskFrame, TaskSchedule};
+use crate::task::{Task, TaskFrame};
 use crossbeam::deque::{Injector, Steal, Stealer, Worker};
 use crossbeam::queue::SegQueue;
 use std::error::Error;
@@ -361,14 +361,10 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         std::future::ready(self.store.exists(key))
     }
 
-    async fn schedule<T1, T2>(
+    async fn schedule<T: TaskFrame<Args = (), Error = C::TaskError>>(
         &self,
-        task: Task<T1, T2>,
-    ) -> Result<Self::Handle, Box<dyn Error + Send + Sync>>
-    where
-        T1: TaskFrame<Args = (), Error = C::TaskError>,
-        T2: TaskSchedule,
-    {
+        task: Task<T>,
+    ) -> Result<Self::Handle, Box<dyn Error + Send + Sync>> {
         let erased = Arc::new(task.into_erased());
         let key = self.store.store(erased.clone())?;
         append_scheduler_handler::<C>(key.clone(), &erased, self.instruction_queue.clone()).await;

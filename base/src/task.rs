@@ -20,25 +20,15 @@ use std::sync::atomic::AtomicUsize;
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>, Box<dyn TaskSchedule>>;
+pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>>;
 
-pub struct Task<T1, T2> {
+pub struct Task<T1> {
     frame: T1,
-    schedule: T2,
+    schedule: Box<dyn TaskSchedule>,
     instance_id: usize
 }
 
-impl<T1: TaskFrame + Default, T2: TaskSchedule + Default> Default for Task<T1, T2> {
-    fn default() -> Self {
-        Self {
-            frame: T1::default(),
-            schedule: T2::default(),
-            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        }
-    }
-}
-
-impl<T1, T2> Task<T1, T2> {
+impl<T1> Task<T1> {
     pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
         let ctx = TaskHookContext(self.instance_id);
 
@@ -60,6 +50,10 @@ impl<T1, T2> Task<T1, T2> {
 
         ctx.detach_hook::<EV, T>().await;
     }
+
+    pub fn schedule(&self) -> &dyn TaskSchedule  {
+        self.schedule.as_ref()
+    }
 }
 
 impl<E: TaskError> ErasedTask<E> {
@@ -80,17 +74,13 @@ impl<E: TaskError> ErasedTask<E> {
     pub fn frame(&self) -> &dyn DynTaskFrame<E, ()> {
         self.frame.as_ref()
     }
-
-    pub fn schedule(&self) -> &dyn TaskSchedule  {
-        self.schedule.as_ref()
-    }
 }
 
-impl<T1: TaskFrame<Args = ()>, T2: TaskSchedule> Task<T1, T2> {
-    pub fn new(schedule: T2, frame: T1) -> Self {
+impl<T1: TaskFrame<Args = ()>> Task<T1> {
+    pub fn new(frame: T1, schedule: impl TaskSchedule) -> Self {
         Self {
             frame,
-            schedule,
+            schedule: Box::new(schedule),
             instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         }
     }
@@ -99,14 +89,10 @@ impl<T1: TaskFrame<Args = ()>, T2: TaskSchedule> Task<T1, T2> {
         &self.frame
     }
 
-    pub fn schedule(&self) -> &T2  {
-        &self.schedule
-    }
-
     pub fn into_erased(self) -> ErasedTask<T1::Error> {
         ErasedTask {
             frame: Box::new(self.frame),
-            schedule: Box::new(self.schedule),
+            schedule: self.schedule,
             instance_id: self.instance_id
         }
     }
