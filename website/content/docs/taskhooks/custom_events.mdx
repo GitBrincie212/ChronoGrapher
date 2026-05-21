@@ -11,10 +11,7 @@ to hold, and saw how to carry and share state across events and Tasks.
 In this chapter we will focus on the event part of TaskHooks, how to create your very own events,
 how to emit them in your own places and understand Hook-To-Hook communication.
 
-# Defining A Custom TaskHookEvent
-
-Defining a custom event for our TaskHooks is as simple as:
-
+# Defining a Custom TaskHookEvent
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::TaskHookEvent;
@@ -31,6 +28,11 @@ implementing the ``TaskHookEvent`` trait. This trait requires the ``Default`` tr
 
 In our previous chapter you may have noticed a payload parameter for our TaskHooks. This payload parameter is the
 associated type ``Payload<'a>``. Here we set it to ``usize`` so listeners receive how many notifications were sent.
+
+<Callout title={"Lifetime Parameter 'a"} type={"info"}>
+    The reason the payload contains a lifetime parameter is data will be shared across TaskHooks and hence it may need to
+    hold references to objects, which need a lifetime and hence ``'a`` can be used.
+</Callout>
 </RenderProgrammingLanguageBased>
 
 Payloads are used to hand out extra information onto the TaskHook about the event, they are a transport layer between the cause
