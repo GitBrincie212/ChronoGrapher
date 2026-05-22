@@ -1,8 +1,46 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, FnArg, GenericArgument, Pat, PatType, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
+use syn::{parse_macro_input, FnArg, GenericArgument, Meta, Pat, PatType, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
+
+#[derive(Debug)]
+pub struct TaskFrameProcAttrArgs(Option<syn::Ident>);
+
+impl TaskFrameProcAttrArgs {
+    fn from_meta_list(
+        metas: Punctuated<Meta, Token![,]>,
+    ) -> syn::Result<Self> {
+        let mut override_val = None;
+
+        for meta in metas {
+            match meta {
+                Meta::NameValue(nv) if nv.path.is_ident("name_override") => {
+                    if let syn::Expr::Path(exprlit) = &nv.value
+                        && let Some(ident) = exprlit.path.get_ident()
+                    {
+                        override_val = Some(ident.clone());
+                        continue;
+                    }
+
+                    return Err(syn::Error::new_spanned(
+                        nv.value,
+                        "Name override parameter must be a simple identifier literal",
+                    ));
+                }
+                
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        other,
+                        "Unknown attribute parameter, did you mean to use \"name_override\"?",
+                    ));
+                }
+            }
+        }
+        
+        Ok(Self(override_val))
+    }
+}
 
 fn extract_arg_name<'a>(pt: &'a PatType, err: &str) -> syn::Result<&'a proc_macro2::Ident> {
     match &*pt.pat {
@@ -172,8 +210,17 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
     Ok(err_ty)
 }
 
-pub fn taskframe(item: TokenStream) -> TokenStream {
+pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as syn::ItemFn);
+    let attr_args = parse_macro_input!(
+        attrs with Punctuated::<Meta, Token![,]>::parse_terminated
+    );
+
+    let name_override = match TaskFrameProcAttrArgs::from_meta_list(attr_args) {
+        Ok(v) => v,
+        Err(e) => return e.to_compile_error().into(),
+    }.0;
+    
     let fn_sig = &mut input.sig;
     let fn_name = &mut fn_sig.ident;
     let fn_block = &mut input.block.into_token_stream();
@@ -198,7 +245,8 @@ pub fn taskframe(item: TokenStream) -> TokenStream {
         *fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 5], fn_name.span())
     }
     
-    let taskframe_name = syn::Ident::new(&format!("{fn_name}TaskFrame"), fn_name.span());
+    let taskframe_name = name_override
+        .unwrap_or(syn::Ident::new(&format!("{fn_name}TaskFrame"), fn_name.span()));
 
 
     if fn_sig.asyncness.is_none() {

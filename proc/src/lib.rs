@@ -18,8 +18,8 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn taskframe(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    taskframe::taskframe(item)
+pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    taskframe::taskframe(attrs, item)
 }
 
 #[proc_macro]

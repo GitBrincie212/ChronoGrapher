@@ -7,6 +7,8 @@ use syn::punctuated::Punctuated;
 struct TaskProcAttrArgs {
     schedule: syn::Expr,
     singleton: bool,
+    taskframe_name_override: Option<syn::Ident>,
+    task_name_override: Option<syn::Ident>,
 }
 
 impl TaskProcAttrArgs {
@@ -15,52 +17,88 @@ impl TaskProcAttrArgs {
     ) -> syn::Result<Self> {
         let mut schedule = None;
         let mut singleton = true;
+        let mut taskframe_name_override = None;
+        let mut task_name_override = None;
 
         for meta in metas {
             match meta {
                 Meta::NameValue(nv) => {
                     let is_schedule_param = nv.path.is_ident("schedule");
-                    let is_singleton_param = nv.path.is_ident("singleton");
+                    let is_taskframe_name_override = nv.path.is_ident("taskframe_override");
+                    let is_task_name_override = nv.path.is_ident("task_override");
 
-                    if !is_schedule_param && !is_singleton_param {
+                    if !is_schedule_param && !is_taskframe_name_override && !is_task_name_override {
                         return Err(syn::Error::new_spanned(
                             nv.path,
-                            "Unknown attribute parameter, use either \"singleton\" or \"schedule\"",
+                            "Unknown attribute parameter, use either \"non_singleton\", \
+                            \"schedule\", \"taskframe_override\" or \"task_override\"",
                         ));
                     }
 
-                    if is_schedule_param {
-                        schedule = Some(nv.value);
-                        continue;
+                    if is_taskframe_name_override {
+                        if let syn::Expr::Path(exprlit) = &nv.value
+                            && let Some(ident) = exprlit.path.get_ident()
+                        {
+                            taskframe_name_override = Some(ident.clone());
+                            continue;
+                        } else if taskframe_name_override.is_some() {
+                            return Err(syn::Error::new_spanned(
+                                nv.value,
+                                "Already specified a TaskFrame name override parameter",
+                            ));
+                        }
+
+                        return Err(syn::Error::new_spanned(
+                            nv.value,
+                            "TaskFrame name override parameter must be a simple identifier literal",
+                        ));
                     }
 
-                    if let syn::Expr::Lit(exprlit) = &nv.value
-                        && let syn::Lit::Bool(boolean) = &exprlit.lit {
-                        singleton = boolean.value;
-                        continue;
+                    if is_task_name_override {
+                        if let syn::Expr::Path(exprlit) = &nv.value
+                            && let Some(ident) = exprlit.path.get_ident()
+                        {
+                            task_name_override = Some(ident.clone());
+                            continue;
+                        }  else if task_name_override.is_some() {
+                            return Err(syn::Error::new_spanned(
+                                nv.value,
+                                "Already specified a Task name override parameter",
+                            ));
+                        }
+
+                        return Err(syn::Error::new_spanned(
+                            nv.value,
+                            "Task name override parameter must be a simple identifier literal",
+                        ));
                     }
 
-                    return Err(syn::Error::new_spanned(
-                        nv.value,
-                        "Singleton must be a boolean literal",
-                    ));
+                    if nv.path.is_ident("non_singleton") {
+                        return Err(syn::Error::new_spanned(
+                            nv.value,
+                            "Non-singleton parameter has to used as a flag only",
+                        ));
+                    }
+
+                    schedule = Some(nv.value);
                 }
 
                 Meta::Path(path) => {
-                    if !path.is_ident("singleton") {
+                    if !path.is_ident("non_singleton") {
                         return Err(syn::Error::new_spanned(
                             path,
-                            "Unknown attribute flag, did you mean to use \"singleton\"?",
+                            "Unknown attribute flag, did you mean to use \"non_singleton\"?",
                         ));
                     }
 
-                    singleton = true;
+                    singleton = false;
                 }
 
                 other => {
                     return Err(syn::Error::new_spanned(
                         other,
-                        "Unsupported attribute syntax, use either \"singleton\" or \"schedule\" attribute parameters",
+                        "Unknown attribute parameter, use either \"non_singleton\", \
+                            \"schedule\", \"taskframe_override\" or \"task_override\"",
                     ));
                 }
             }
@@ -69,13 +107,15 @@ impl TaskProcAttrArgs {
         let schedule = schedule.ok_or_else(|| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "Missing required ``schedule`` attribute parameter",
+                "Missing required \"schedule\" attribute parameter",
             )
         })?;
 
         Ok(Self {
             schedule,
             singleton,
+            taskframe_name_override,
+            task_name_override,
         })
     }
 }
@@ -105,8 +145,11 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
         *fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 4], fn_name.span())
     }
     
-    let taskframe_name = syn::Ident::new(&format!("{fn_name}TaskFrame"), fn_name.span());
-    let task_name = syn::Ident::new(&format!("{fn_name}Task"), fn_name.span());
+    let taskframe_name = args.taskframe_name_override
+        .unwrap_or(syn::Ident::new(&format!("{fn_name}TaskFrame"), fn_name.span()));
+
+    let task_name = args.task_name_override
+        .unwrap_or(syn::Ident::new(&format!("{fn_name}Task"), fn_name.span()));
 
     let task_creation = quote! {
         chronographer::task::Task::new(
@@ -116,7 +159,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let expanded_frame = quote! {
-        #[chronographer::taskframe]
+        #[chronographer::taskframe(name_override = #taskframe_name)]
         #fn_vis async fn #fn_name(#fn_args) #fn_return #fn_block
     };
 
