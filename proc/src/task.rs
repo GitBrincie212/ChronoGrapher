@@ -4,12 +4,51 @@ use syn::{parse_macro_input, Meta, Token};
 use syn::punctuated::Punctuated;
 use crate::utils::{extract_docs, handle_generics_phantom_data};
 
+const UNKNOWN_ATTRIBUTE_PARAM_ERR: &'static str =
+    "Unknown attribute parameter, use either \"non_singleton\", \
+    \"schedule\", \"taskframe_override\" or \"task_override\"";
+
+const TASKFRAME_NAME_OVERRIDE_SPECIFY_ERR: &'static str = "Already specified a TaskFrame name override parameter";
+const TASK_NAME_OVERRIDE_SPECIFY_ERR: &'static str = "Already specified a Task name override parameter";
+const TASKFRAME_NAME_OVERRIDE_STR_ERR: &'static str = "TaskFrame name override parameter must be a string literal";
+const TASK_NAME_OVERRIDE_STR_ERR: &'static str = "Task name override parameter must be a string literal";
+const NON_SINGLETON_FLAG_ERR: &'static str = "Non-singleton parameter has to used as a flag only";
+const UNKNOWN_ATTRIBUTE_FLAG_ERR: &'static str = "Unknown attribute flag, did you mean to use \"non_singleton\"?";
+const MISSING_REQUIRED_SCHEDULE_ERR: &'static str = "Missing required \"schedule\" attribute parameter";
+
+const SINGLETON_GENERIC_LIMITATION_ERR: &'static str =
+    "Generics in singleton Tasks are currently unsupported, \
+    manually assemble your own Task or find another way to circumvent this limitation";
+
 #[derive(Debug)]
 struct TaskProcAttrArgs {
     schedule: syn::Expr,
     singleton: bool,
     taskframe_name_override: Option<syn::Ident>,
     task_name_override: Option<syn::Ident>,
+}
+
+macro_rules! read_identifier {
+    ($nv: ident, $param: expr, $target: expr, $err_override: ident, $err_str: ident) => {{
+        if $param {
+            if let syn::Expr::Path(exprlit) = &$nv.value
+            && let Some(ident) = exprlit.path.get_ident()
+            {
+                $target = Some(ident.clone());
+                continue;
+            } else if $target.is_some() {
+                return Err(syn::Error::new_spanned(
+                    $nv.value,
+                    $err_override
+                ));
+            }
+            
+            return Err(syn::Error::new_spanned(
+                $nv.value,
+                $err_str,
+            ));
+        }
+    }};
 }
 
 impl TaskProcAttrArgs {
@@ -31,53 +70,24 @@ impl TaskProcAttrArgs {
                     if !is_schedule_param && !is_taskframe_name_override && !is_task_name_override {
                         return Err(syn::Error::new_spanned(
                             nv.path,
-                            "Unknown attribute parameter, use either \"non_singleton\", \
-                            \"schedule\", \"taskframe_override\" or \"task_override\"",
+                            UNKNOWN_ATTRIBUTE_PARAM_ERR
                         ));
                     }
 
-                    if is_taskframe_name_override {
-                        if let syn::Expr::Path(exprlit) = &nv.value
-                            && let Some(ident) = exprlit.path.get_ident()
-                        {
-                            taskframe_name_override = Some(ident.clone());
-                            continue;
-                        } else if taskframe_name_override.is_some() {
-                            return Err(syn::Error::new_spanned(
-                                nv.value,
-                                "Already specified a TaskFrame name override parameter",
-                            ));
-                        }
+                    read_identifier!(
+                        nv, is_taskframe_name_override, taskframe_name_override, 
+                        TASKFRAME_NAME_OVERRIDE_SPECIFY_ERR, TASKFRAME_NAME_OVERRIDE_STR_ERR
+                    );
 
-                        return Err(syn::Error::new_spanned(
-                            nv.value,
-                            "TaskFrame name override parameter must be a string literal",
-                        ));
-                    }
-
-                    if is_task_name_override {
-                        if let syn::Expr::Path(exprlit) = &nv.value
-                            && let Some(ident) = exprlit.path.get_ident()
-                        {
-                            task_name_override = Some(ident.clone());
-                            continue;
-                        }  else if task_name_override.is_some() {
-                            return Err(syn::Error::new_spanned(
-                                nv.value,
-                                "Already specified a Task name override parameter",
-                            ));
-                        }
-
-                        return Err(syn::Error::new_spanned(
-                            nv.value,
-                            "Task name override parameter must be a simple string literal",
-                        ));
-                    }
+                    read_identifier!(
+                        nv, is_task_name_override, task_name_override, 
+                        TASK_NAME_OVERRIDE_SPECIFY_ERR, TASK_NAME_OVERRIDE_STR_ERR
+                    );
 
                     if nv.path.is_ident("non_singleton") {
                         return Err(syn::Error::new_spanned(
                             nv.value,
-                            "Non-singleton parameter has to used as a flag only",
+                            NON_SINGLETON_FLAG_ERR
                         ));
                     }
 
@@ -88,7 +98,7 @@ impl TaskProcAttrArgs {
                     if !path.is_ident("non_singleton") {
                         return Err(syn::Error::new_spanned(
                             path,
-                            "Unknown attribute flag, did you mean to use \"non_singleton\"?",
+                            UNKNOWN_ATTRIBUTE_FLAG_ERR
                         ));
                     }
 
@@ -98,8 +108,7 @@ impl TaskProcAttrArgs {
                 other => {
                     return Err(syn::Error::new_spanned(
                         other,
-                        "Unknown attribute parameter, use either \"non_singleton\", \
-                            \"schedule\", \"taskframe_override\" or \"task_override\"",
+                        UNKNOWN_ATTRIBUTE_PARAM_ERR
                     ));
                 }
             }
@@ -108,7 +117,7 @@ impl TaskProcAttrArgs {
         let schedule = schedule.ok_or_else(|| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "Missing required \"schedule\" attribute parameter",
+                MISSING_REQUIRED_SCHEDULE_ERR
             )
         })?;
 
@@ -194,8 +203,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
         if !fn_sig.generics.params.is_empty() {
             return syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "Generics in singleton Tasks are currently unsupported, \
-                manually assemble your own Task or find another way to circumvent this limitation",
+                SINGLETON_GENERIC_LIMITATION_ERR
             ).to_compile_error().into()
         }
 

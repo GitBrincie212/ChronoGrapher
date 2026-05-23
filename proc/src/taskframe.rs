@@ -4,7 +4,22 @@ use syn::{parse_macro_input, FnArg, GenericArgument, Pat, PatType, PathArguments
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use crate::utils::{extract_docs, handle_generics_phantom_data};
+use crate::utils::{extract_docs, handle_generics_phantom_data, LIFETIME_UNSUPPORTED_ERR};
+
+const NAME_OVERRIDE_IDENTIFIER_ERR: &'static str = "Name override parameter must be a simple identifier";
+const UNKNOWN_ATTRIBUTE_PARAM_ERR: &'static str = "Unknown attribute parameter, did you mean to use \"name_override\"?";
+const TASKFRAME_CTX_REQUIRED_ERR: &'static str = "Function is required to have at least one argument of type \"TaskFrameContext\"";
+const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &'static str = "First argument must be of type \"TaskFrameContext\"";
+const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &'static str = "Expected a simple identifier as argument name for the context";
+const SIMPLE_IDENTIFIER_FOR_ARG_ERR: &'static str = "Expected a simple identifier as an argument name";
+const FIRST_ARG_REF_TASKFRAME_ERR: &'static str = "First argument must be a reference of type \"TaskFrameContext\"";
+const METHOD_MACRO_USE_ERR: &'static str = "Using the task attribute macro in methods is unsupported";
+const USE_OF_REF_SELF_ERR: &'static str = "Invalid syntax, cannot use &self or &mut self";
+const INVALID_RETURN_TYPE_ERROR: &'static str = "Return type must be of type Result<(), E> in which E is your desired error type";
+const FIRST_GENERIC_RETURN_ERR: &'static str = "First generic argument of Result must be of type ()";
+const SECOND_GENERIC_RETURN_ERR: &'static str = "Second generic argument of Result must be an error type";
+const ASYNC_REQUIRED_ERR: &'static str = "Function is required to be async";
+const ABI_UNSUPPORTED_ERR: &'static str = "ABI functions are unsupported";
 
 #[derive(Debug)]
 pub struct TaskFrameProcAttrArgs(Option<syn::Ident>);
@@ -21,14 +36,14 @@ impl TaskFrameProcAttrArgs {
                     let syn::Expr::Path(exprpath) = &nv.value else {
                         return Err(syn::Error::new_spanned(
                             nv.value,
-                            "Name override parameter must be a simple identifier",
+                            NAME_OVERRIDE_IDENTIFIER_ERR
                         ));
                     };
 
                     let Some(ident) = exprpath.path.get_ident() else {
                         return Err(syn::Error::new_spanned(
                             nv.value,
-                            "Name override parameter must be a simple identifier",
+                            NAME_OVERRIDE_IDENTIFIER_ERR
                         ));
                     };
 
@@ -39,7 +54,7 @@ impl TaskFrameProcAttrArgs {
                 other => {
                     return Err(syn::Error::new_spanned(
                         other,
-                        "Unknown attribute parameter, did you mean to use \"name_override\"?",
+                        UNKNOWN_ATTRIBUTE_PARAM_ERR
                     ));
                 }
             }
@@ -69,13 +84,13 @@ fn extract_arguments(
         .ok_or(
             syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "Function is required to have at least one argument of type \"TaskFrameContext\"",
+                TASKFRAME_CTX_REQUIRED_ERR
             )
         )?;
 
     let (ctx_name, ctx_type) = match ctx_arg.value() {
         FnArg::Typed(pt) => {
-            let arg_name = extract_arg_name(pt, "Expected a simple identifier as argument name for the context")?;
+            let arg_name = extract_arg_name(pt, SIMPLE_IDENTIFIER_FOR_CTX_ERR)?;
 
             match &*pt.ty {
                 Type::Reference(TypeReference { elem, .. }) => {
@@ -83,7 +98,7 @@ fn extract_arguments(
                     let Type::Path(TypePath { path, .. }) = elem else {
                         return Err(syn::Error::new_spanned(
                             &pt.ty,
-                            "First argument must be of type \"TaskFrameContext\"",
+                            FIRST_ARG_NOT_TASKFRAME_CTX_ERR
                         ));
                     };
 
@@ -96,7 +111,7 @@ fn extract_arguments(
                     if !is_ctx {
                         return Err(syn::Error::new_spanned(
                             &pt.ty,
-                            "First argument must be of type \"TaskFrameContext\"",
+                            FIRST_ARG_NOT_TASKFRAME_CTX_ERR
                         ));
                     }
                 }
@@ -104,7 +119,7 @@ fn extract_arguments(
                 _ => {
                     return Err(syn::Error::new_spanned(
                         &pt.ty,
-                        "First argument must be a reference of type \"TaskFrameContext\"",
+                        FIRST_ARG_REF_TASKFRAME_ERR
                     ));
                 }
             }
@@ -115,7 +130,7 @@ fn extract_arguments(
         FnArg::Receiver(_) => {
             return Err(syn::Error::new_spanned(
                 ctx_arg,
-                "Using the task attribute macro in methods is unsupported",
+                METHOD_MACRO_USE_ERR
             ));
         }
     };
@@ -126,7 +141,7 @@ fn extract_arguments(
     while let Some(argument) = fn_args.next() {
         match argument.value() {
             FnArg::Typed(pt) => {
-                let arg_name = extract_arg_name(pt, "Expected a simple identifier as an argument name")?;
+                let arg_name = extract_arg_name(pt, SIMPLE_IDENTIFIER_FOR_ARG_ERR)?;
                 let arg_type = &*pt.ty;
                 names.push(arg_name.clone());
                 types.push(arg_type.clone());
@@ -135,7 +150,7 @@ fn extract_arguments(
             FnArg::Receiver(_) => {
                 return Err(syn::Error::new_spanned(
                     ctx_arg,
-                    "Invalid syntax, cannot use &self or &mut self",
+                    USE_OF_REF_SELF_ERR
                 ));
             }
         }
@@ -147,14 +162,12 @@ fn extract_arguments(
 }
 
 fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
-    const INVALID_ERROR: &'static str = "Return type must be of type Result<(), E> in which E is your desired error type";
-
     let ty = match return_type {
         ReturnType::Type(_, ty) => ty,
         ReturnType::Default => {
             return Err(syn::Error::new_spanned(
                 return_type,
-                INVALID_ERROR,
+                INVALID_RETURN_TYPE_ERROR,
             ));
         }
     };
@@ -162,32 +175,32 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
     let Type::Path(TypePath { path, .. }) = ty.as_ref() else {
         return Err(syn::Error::new_spanned(
             ty,
-            INVALID_ERROR,
+            INVALID_RETURN_TYPE_ERROR,
         ));
     };
 
     let segment = path.segments.last().ok_or_else(|| {
-        syn::Error::new_spanned(ty, INVALID_ERROR)
+        syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR)
     })?;
 
 
     if segment.ident != "Result" {
         return Err(syn::Error::new_spanned(
             ty,
-            INVALID_ERROR
+            INVALID_RETURN_TYPE_ERROR
         ));
     }
 
     let PathArguments::AngleBracketed(args) = &segment.arguments else {
         return Err(syn::Error::new_spanned(
             ty,
-            INVALID_ERROR
+            INVALID_RETURN_TYPE_ERROR
         ));
     };
 
     let mut args_iter = args.args.iter();
     let first = args_iter.next().ok_or_else(|| {
-        syn::Error::new_spanned(ty, INVALID_ERROR)
+        syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR)
     })?;
 
     match first {
@@ -195,7 +208,7 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
         _ => {
             return Err(syn::Error::new_spanned(
                 first,
-                "First generic argument of Result must be of type ()",
+                FIRST_GENERIC_RETURN_ERR
             ));
         }
     }
@@ -205,7 +218,7 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
         _ => {
             return Err(syn::Error::new_spanned(
                 ty,
-                "Second generic argument of Result must be an error type",
+                SECOND_GENERIC_RETURN_ERR
             ));
         }
     };
@@ -213,7 +226,7 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
     if args_iter.next().is_some() {
         return Err(syn::Error::new_spanned(
             ty,
-            "Return type must be Result<(), E> with exactly two generics where E is your desired error",
+            INVALID_RETURN_TYPE_ERROR,
         ));
     }
 
@@ -298,14 +311,14 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     if fn_sig.asyncness.is_none() {
         return syn::Error::new(
             proc_macro2::Span::call_site(),
-            "Function is required to be async",
+            ASYNC_REQUIRED_ERR,
         ).into_compile_error().into();
     }
 
     if fn_sig.abi.is_some() {
         return syn::Error::new(
             proc_macro2::Span::call_site(),
-            "TaskFrames with an ABI function are unsupported",
+            ABI_UNSUPPORTED_ERR
         ).into_compile_error().into();
     }
 
@@ -323,7 +336,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     if let Some(lt) = generics.lifetimes().next() {
         return syn::Error::new(
             lt.span(),
-            "Lifetimes are unsupported due to 'static lifetime limitations from async",
+            LIFETIME_UNSUPPORTED_ERR,
         ).into_compile_error().into();
     }
 

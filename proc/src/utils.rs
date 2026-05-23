@@ -6,6 +6,8 @@ use syn::token::Comma;
 
 pub mod time_literal;
 
+pub(crate) const LIFETIME_UNSUPPORTED_ERR: &'static str = "Lifetimes are unsupported due to 'static lifetime limitations from async";
+
 pub fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
     attrs.iter()
         .filter_map(|a| {
@@ -37,7 +39,7 @@ pub fn handle_generics_phantom_data(name: &syn::Ident, fn_sig: &syn::Signature) 
     if let Some(lt) = generics.lifetimes().next() {
         return Err(syn::Error::new(
             lt.span(),
-            "Lifetimes are unsupported due to 'static lifetime limitations from async",
+            LIFETIME_UNSUPPORTED_ERR
         ));
     }
 
