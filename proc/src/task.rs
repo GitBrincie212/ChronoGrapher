@@ -2,8 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Meta, Token};
 use syn::punctuated::Punctuated;
-use crate::utils::extract_docs;
-use crate::utils::impl_traits_with_generics::derive_with_generics;
+use crate::utils::{extract_docs, handle_generics_phantom_data};
 
 #[derive(Debug)]
 struct TaskProcAttrArgs {
@@ -158,22 +157,24 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
         .unwrap_or(syn::Ident::new(&format!("{fn_name}Task"), fn_name.span()));
 
     let (
-        derives,
         impl_end_name,
         phantom_data,
         normalized_type_params
-    ) = match derive_with_generics(&task_name, &*fn_sig) {
+    ) = match handle_generics_phantom_data(&task_name, &*fn_sig) {
         Ok(res) => res,
         Err(e) => return e.to_compile_error().into(),
     };
 
-    let expanded_normalized_type_params = normalized_type_params.map(|value| quote! {
-        < #value >
-    });
+    let expanded_normalized_type_params = normalized_type_params
+        .map(|value| quote! {
+            < #value >
+        });
 
-    let temp = expanded_normalized_type_params.clone().map(|value| quote! {
-        #value ::
-    });
+    let temp = expanded_normalized_type_params
+        .clone()
+        .map(|value| quote! {
+            #value ::
+        });
 
     let task_creation = quote! {
         chronographer::task::Task::new(
@@ -200,7 +201,6 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         return TokenStream::from(quote! {
             #(#docs)*
-            #derives
             #fn_vis struct #task_name #generics #phantom_data #where_clause;
 
             impl #generics #impl_end_name {
@@ -218,7 +218,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-        #derives
+        #(#docs)*
         #fn_vis struct #task_name #generics #phantom_data #where_clause;
 
         impl #generics #impl_end_name {
