@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Meta, Token};
 use syn::punctuated::Punctuated;
+use crate::utils::impl_traits_with_generics::derive_with_generics;
 
 #[derive(Debug)]
 struct TaskProcAttrArgs {
@@ -50,7 +51,7 @@ impl TaskProcAttrArgs {
 
                         return Err(syn::Error::new_spanned(
                             nv.value,
-                            "TaskFrame name override parameter must be a simple identifier literal",
+                            "TaskFrame name override parameter must be a string literal",
                         ));
                     }
 
@@ -69,7 +70,7 @@ impl TaskProcAttrArgs {
 
                         return Err(syn::Error::new_spanned(
                             nv.value,
-                            "Task name override parameter must be a simple identifier literal",
+                            "Task name override parameter must be a simple string literal",
                         ));
                     }
 
@@ -133,8 +134,10 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as syn::ItemFn);
     let fn_block = &input.block;
     let fn_sig = &mut input.sig;
-    let fn_name = &mut fn_sig.ident;
+    let mut fn_name = fn_sig.ident.clone();
     let fn_args = &fn_sig.inputs;
+    let generics = &fn_sig.generics;
+    let where_clause = &generics.where_clause;
     let fn_return = &fn_sig.output;
     let fn_vis = &input.vis;
 
@@ -142,7 +145,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let is_singleton = args.singleton;
     let stringified_fn_name = fn_name.to_string();
     if stringified_fn_name.to_lowercase().ends_with("task") {
-        *fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 4], fn_name.span())
+        fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 4], fn_name.span())
     }
     
     let taskframe_name = args.taskframe_name_override
@@ -151,25 +154,54 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let task_name = args.task_name_override
         .unwrap_or(syn::Ident::new(&format!("{fn_name}Task"), fn_name.span()));
 
+    let (
+        derives,
+        impl_end_name,
+        phantom_data,
+        normalized_type_params
+    ) = match derive_with_generics(&task_name, &*fn_sig) {
+        Ok(res) => res,
+        Err(e) => return e.to_compile_error().into(),
+    };
+
+    let expanded_normalized_type_params = normalized_type_params.map(|value| quote! {
+        < #value >
+    });
+
+    let temp = expanded_normalized_type_params.clone().map(|value| quote! {
+        #value ::
+    });
+
     let task_creation = quote! {
         chronographer::task::Task::new(
-            #taskframe_name::default(),
+            #taskframe_name:: #temp default(),
             #schedule
         )
     };
 
     let expanded_frame = quote! {
         #[chronographer::taskframe(name_override = #taskframe_name)]
-        #fn_vis async fn #fn_name(#fn_args) #fn_return #fn_block
+        #fn_vis async fn #fn_name #generics (#fn_args) #fn_return #where_clause #fn_block
     };
 
     if is_singleton {
-        return TokenStream::from(quote! {
-            #fn_vis struct #task_name;
+        if !fn_sig.generics.params.is_empty() {
+            return syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "Generics in singleton Tasks are currently unsupported, \
+                manually assemble your own Task or find another way to circumvent this limitation",
+            ).to_compile_error().into()
+        }
 
-            impl #task_name {
-                pub fn instance() -> &'static chronographer::task::Task<#taskframe_name> {
-                    static INSTANCE: std::sync::OnceLock<chronographer::task::Task<#taskframe_name>> = std::sync::OnceLock::new();
+        return TokenStream::from(quote! {
+            #derives
+            #fn_vis struct #task_name #generics #phantom_data #where_clause;
+
+            impl #generics #impl_end_name {
+                pub fn instance() -> &'static chronographer::task::Task<#taskframe_name #expanded_normalized_type_params> {
+                    static INSTANCE: std::sync::OnceLock<
+                        chronographer::task::Task<#taskframe_name #expanded_normalized_type_params>
+                    > = std::sync::OnceLock::new();
 
                     INSTANCE.get_or_init(|| #task_creation)
                 }
@@ -180,11 +212,11 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     TokenStream::from(quote! {
-        #[derive(Default, Clone, Copy)]
-        #fn_vis struct #task_name;
+        #derives
+        #fn_vis struct #task_name #generics #phantom_data #where_clause;
 
-        impl #task_name {
-            pub fn new() -> chronographer::task::Task<#taskframe_name> {
+        impl #generics #impl_end_name {
+            pub fn new() -> chronographer::task::Task<#taskframe_name #expanded_normalized_type_params> {
                 #task_creation
             }
         }

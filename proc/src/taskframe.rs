@@ -2,7 +2,9 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, FnArg, GenericArgument, Meta, Pat, PatType, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::token::Comma;
+use crate::utils::impl_traits_with_generics::derive_with_generics;
 
 #[derive(Debug)]
 pub struct TaskFrameProcAttrArgs(Option<syn::Ident>);
@@ -16,8 +18,8 @@ impl TaskFrameProcAttrArgs {
         for meta in metas {
             match meta {
                 Meta::NameValue(nv) if nv.path.is_ident("name_override") => {
-                    if let syn::Expr::Path(exprlit) = &nv.value
-                        && let Some(ident) = exprlit.path.get_ident()
+                    if let syn::Expr::Path(exprpath) = &nv.value
+                        && let Some(ident) = exprpath.path.get_ident()
                     {
                         override_val = Some(ident.clone());
                         continue;
@@ -25,10 +27,10 @@ impl TaskFrameProcAttrArgs {
 
                     return Err(syn::Error::new_spanned(
                         nv.value,
-                        "Name override parameter must be a simple identifier literal",
+                        "Name override parameter must be a simple identifier",
                     ));
                 }
-                
+
                 other => {
                     return Err(syn::Error::new_spanned(
                         other,
@@ -37,7 +39,7 @@ impl TaskFrameProcAttrArgs {
                 }
             }
         }
-        
+
         Ok(Self(override_val))
     }
 }
@@ -220,7 +222,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
     }.0;
-    
+
     let fn_sig = &mut input.sig;
     let fn_name = &mut fn_sig.ident;
     let fn_block = &mut input.block.into_token_stream();
@@ -258,9 +260,35 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
     if fn_sig.unsafety.is_some() {
         *fn_block = quote! {
-            unsafe { #fn_block }
+            {
+                unsafe { #fn_block }
+            }
         }
     }
+
+    let generics = &fn_sig.generics;
+    let where_clause = &fn_sig.generics.where_clause;
+
+    if let Some(lt) = generics.lifetimes().next() {
+        return syn::Error::new(
+            lt.span(),
+            "Lifetimes are unsupported due to 'static lifetime limitations from async",
+        ).into_compile_error().into();
+    }
+
+    let (
+        derives,
+        impl_end_name,
+        phantom_data,
+        normalized_type_params
+    ) = match derive_with_generics(&taskframe_name, &*fn_sig) {
+        Ok(res) => res,
+        Err(e) => return e.to_compile_error().into(),
+    };
+
+    let expanded = normalized_type_params.map(|value| {
+        quote! { < #value > }
+    });
 
     let arg_types = arguments
         .iter()
@@ -268,17 +296,17 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
         .collect::<Punctuated<_, Token![,]>>();
 
     quote! {
-        #[derive(Default, Clone, Copy)]
-        #fn_vis struct #taskframe_name;
+        #derives
+        #fn_vis struct #taskframe_name #generics #phantom_data #where_clause;
 
-        impl chronographer::task::TaskFrame for #taskframe_name {
+        impl #generics chronographer::task::TaskFrame for #impl_end_name {
             type Args = (#arg_types);
             type Error = #result;
 
             async fn execute(
                 &self,
                 #ctx_name: #ctx_type,
-                args: &Self::Args
+                args: &<#taskframe_name #expanded as chronographer::task::TaskFrame>::Args
             ) -> Result<(), Self::Error> #fn_block
         }
     }.into()
