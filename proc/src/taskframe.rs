@@ -1,11 +1,10 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, Attribute, FnArg, GenericArgument, Pat, PatType, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
+use syn::{parse_macro_input, FnArg, GenericArgument, Pat, PatType, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use crate::utils::extract_docs;
-use crate::utils::impl_traits_with_generics::derive_with_generics;
+use crate::utils::{extract_docs, handle_generics_phantom_data};
 
 #[derive(Debug)]
 pub struct TaskFrameProcAttrArgs(Option<syn::Ident>);
@@ -219,6 +218,40 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
     }
 
     Ok(err_ty)
+}
+
+fn derive_with_generics(name: &syn::Ident, fn_sig: &syn::Signature) -> syn::Result<(
+    proc_macro2::TokenStream,
+    proc_macro2::TokenStream,
+    Option<proc_macro2::TokenStream>,
+    Option<Punctuated<proc_macro2::TokenStream, Comma>>
+)> {
+    let (
+        impl_end_name,
+        phantom_data,
+        normalized_type_params
+    ) = handle_generics_phantom_data(name, fn_sig)?;
+
+    let generics = &fn_sig.generics;
+    let derives = if phantom_data.is_some() {
+        quote! {
+            impl #generics Default for #impl_end_name {
+                fn default() -> Self {
+                    Self(std::marker::PhantomData)
+                }
+            }
+
+            impl #generics Clone for #impl_end_name {
+                fn clone(&self) -> Self {
+                    Self(std::marker::PhantomData)
+                }
+            }
+
+            impl #generics Copy for #impl_end_name {}
+        }
+    } else { quote! { #[derive(Default, Clone, Copy)] } };
+
+    Ok((derives, impl_end_name, phantom_data, normalized_type_params))
 }
 
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
