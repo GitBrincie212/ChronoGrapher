@@ -40,7 +40,7 @@ async fn main() {
 
     //let timeout_frame = DelayTaskFrame::new(exec_frame, Duration::from_secs(3));
 
-    let task = Task::new(TaskScheduleInterval::from_secs(4), exec_frame);
+    let task = Task::new(exec_frame, TaskScheduleInterval::from_secs(4));
     let _ = scheduler.schedule(task).await;
     scheduler.start().await;
     loop {
