@@ -15,6 +15,11 @@ use syn::{DeriveInput, parse_macro_input};
 /// It utilizes under the hood [`TaskScheduleInterval`](chronographer::prelude::TaskScheduleInterval)
 /// and calculates the appropriate time from the time-literal expression at compile-time.
 ///
+/// The translated / expanded version typically looks this:
+/// ```ignore
+/// TaskScheduleInterval::from_secs_f64(...).unwrap()
+/// ```
+///
 /// # Invocation Syntax
 /// This macro uses its own syntax in order to form an interval via multiple **Time Literals**. The
 /// format of a time literal is a positive number followed by a time prefix.
