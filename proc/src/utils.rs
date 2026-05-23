@@ -4,8 +4,6 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 
-pub mod time_literal;
-
 pub(crate) const LIFETIME_UNSUPPORTED_ERR: &'static str = "Lifetimes are unsupported due to 'static lifetime limitations from async";
 
 pub fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
