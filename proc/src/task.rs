@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Meta, Token};
 use syn::punctuated::Punctuated;
+use crate::utils::extract_docs;
 use crate::utils::impl_traits_with_generics::derive_with_generics;
 
 #[derive(Debug)]
@@ -139,6 +140,8 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let generics = &fn_sig.generics;
     let where_clause = &generics.where_clause;
     let fn_return = &fn_sig.output;
+    let fn_abi = &fn_sig.abi;
+    let fn_unsafe = &fn_sig.unsafety;
     let fn_vis = &input.vis;
 
     let schedule = args.schedule;
@@ -179,9 +182,11 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
         )
     };
 
+    let docs = extract_docs(&*input.attrs);
+
     let expanded_frame = quote! {
         #[chronographer::taskframe(name_override = #taskframe_name)]
-        #fn_vis async fn #fn_name #generics (#fn_args) #fn_return #where_clause #fn_block
+        #fn_vis async #fn_abi #fn_unsafe fn #fn_name #generics (#fn_args) #fn_return #where_clause #fn_block
     };
 
     if is_singleton {
@@ -194,6 +199,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         return TokenStream::from(quote! {
+            #(#docs)*
             #derives
             #fn_vis struct #task_name #generics #phantom_data #where_clause;
 
