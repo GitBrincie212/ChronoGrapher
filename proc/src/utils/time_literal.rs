@@ -5,28 +5,16 @@ use syn::{Expr, ExprLit, Lit};
 use syn::parse::{Parse, ParseStream};
 
 pub enum TimeLiteralType {
-    Days,
-    Hours,
-    Minutes,
-    Seconds,
-    Milliseconds,
+    Days = 0,
+    Hours = 1,
+    Minutes = 2,
+    Seconds = 3,
+    Milliseconds = 4,
 }
 
 pub struct TimeLiteral {
     pub value: f64,
     pub ty: TimeLiteralType,
-}
-
-impl TimeLiteralType {
-    pub fn as_usize(&self) -> usize {
-        match self {
-            TimeLiteralType::Days => 0,
-            TimeLiteralType::Hours => 1,
-            TimeLiteralType::Minutes => 2,
-            TimeLiteralType::Seconds => 3,
-            TimeLiteralType::Milliseconds => 4
-        }
-    }
 }
 
 macro_rules! parse_as_positive_fraction {

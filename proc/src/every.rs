@@ -93,7 +93,7 @@ impl Parse for Every {
                 encountered_fractional = true;
             }
 
-            let pos = time_lit.ty.as_usize();
+            let pos = time_lit.ty as usize;
             if pos > ptr {
                 let expected = extract_expected_values(ptr);
 
