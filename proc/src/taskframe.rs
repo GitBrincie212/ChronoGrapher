@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, FnArg, GenericArgument, Meta, Pat, PatType, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
+use syn::{parse_macro_input, Attribute, FnArg, GenericArgument, Pat, PatType, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
@@ -11,24 +11,29 @@ pub struct TaskFrameProcAttrArgs(Option<syn::Ident>);
 
 impl TaskFrameProcAttrArgs {
     fn from_meta_list(
-        metas: Punctuated<Meta, Token![,]>,
+        metas: Punctuated<syn::Meta, Token![,]>,
     ) -> syn::Result<Self> {
         let mut override_val = None;
 
         for meta in metas {
             match meta {
-                Meta::NameValue(nv) if nv.path.is_ident("name_override") => {
-                    if let syn::Expr::Path(exprpath) = &nv.value
-                        && let Some(ident) = exprpath.path.get_ident()
-                    {
-                        override_val = Some(ident.clone());
-                        continue;
-                    }
+                syn::Meta::NameValue(nv) if nv.path.is_ident("name_override") => {
+                    let syn::Expr::Path(exprpath) = &nv.value else {
+                        return Err(syn::Error::new_spanned(
+                            nv.value,
+                            "Name override parameter must be a simple identifier",
+                        ));
+                    };
 
-                    return Err(syn::Error::new_spanned(
-                        nv.value,
-                        "Name override parameter must be a simple identifier",
-                    ));
+                    let Some(ident) = exprpath.path.get_ident() else {
+                        return Err(syn::Error::new_spanned(
+                            nv.value,
+                            "Name override parameter must be a simple identifier",
+                        ));
+                    };
+
+                    override_val = Some(ident.clone());
+                    continue;
                 }
 
                 other => {
@@ -58,7 +63,7 @@ fn extract_arg_name<'a>(pt: &'a PatType, err: &str) -> syn::Result<&'a proc_macr
 
 fn extract_arguments(
     fn_args: &mut Punctuated<FnArg, Comma>
-) -> syn::Result<Vec<(proc_macro2::Ident, Type)>> {
+) -> syn::Result<(Punctuated<proc_macro2::Ident, Comma>, Punctuated<Type, Comma>)> {
     let mut fn_args = fn_args.pairs_mut();
     let ctx_arg = fn_args.next()
         .ok_or(
@@ -116,13 +121,15 @@ fn extract_arguments(
     };
 
 
-    let mut values = Vec::with_capacity(fn_args.len().max(1) - 1);
+    let mut names = Punctuated::new();
+    let mut types = Punctuated::new();
     while let Some(argument) = fn_args.next() {
         match argument.value() {
             FnArg::Typed(pt) => {
                 let arg_name = extract_arg_name(pt, "Expected a simple identifier as an argument name")?;
                 let arg_type = &*pt.ty;
-                values.push((arg_name.clone(), arg_type.clone()))
+                names.push(arg_name.clone());
+                types.push(arg_type.clone());
             }
 
             FnArg::Receiver(_) => {
@@ -134,8 +141,9 @@ fn extract_arguments(
         }
     }
 
-    values.push((ctx_name.clone(), ctx_type.clone()));
-    Ok(values)
+    names.push(ctx_name.clone());
+    types.push(ctx_type.clone());
+    Ok((names, types))
 }
 
 fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
@@ -212,10 +220,28 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
     Ok(err_ty)
 }
 
+fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
+    attrs.iter()
+        .filter_map(|a| {
+            if !a.path().is_ident("doc") {
+                return None;
+            }
+
+            let syn::Meta::NameValue(nv) = &a.meta else { return None; };
+            let syn::Expr::Lit(expr_lit) = &nv.value else { return None; };
+            let syn::Lit::Str(lit) = &expr_lit.lit else { return None; };
+
+            let string = lit.value();
+            Some(quote! { #[doc = #string] })
+        })
+        .collect()
+}
+
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as syn::ItemFn);
+
     let attr_args = parse_macro_input!(
-        attrs with Punctuated::<Meta, Token![,]>::parse_terminated
+        attrs with Punctuated::<syn::Meta, Token![,]>::parse_terminated
     );
 
     let name_override = match TaskFrameProcAttrArgs::from_meta_list(attr_args) {
@@ -230,12 +256,13 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let fn_args = &mut fn_sig.inputs;
     let fn_output = &fn_sig.output;
 
-    let mut arguments = match extract_arguments(fn_args) {
+    let (mut arg_names, mut arg_types) = match extract_arguments(fn_args) {
         Ok(res) => res,
         Err(e) => return e.to_compile_error().into(),
     };
 
-    let (ctx_name, ctx_type) = arguments.pop().unwrap();
+    let ctx_name = arg_names.pop().unwrap();
+    let ctx_type = arg_types.pop().unwrap();
 
     let result = match extract_error(fn_output) {
         Ok(res) => res,
@@ -255,6 +282,13 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
         return syn::Error::new(
             proc_macro2::Span::call_site(),
             "Function is required to be async",
+        ).into_compile_error().into();
+    }
+
+    if fn_sig.abi.is_some() {
+        return syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "TaskFrames with an ABI function are unsupported",
         ).into_compile_error().into();
     }
 
@@ -290,12 +324,10 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
         quote! { < #value > }
     });
 
-    let arg_types = arguments
-        .iter()
-        .map(|x| x.1.clone())
-        .collect::<Punctuated<_, Token![,]>>();
+    let docs = extract_docs(&*input.attrs);
 
     quote! {
+        #(#docs)*
         #derives
         #fn_vis struct #taskframe_name #generics #phantom_data #where_clause;
 
@@ -307,7 +339,10 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
                 &self,
                 #ctx_name: #ctx_type,
                 args: &<#taskframe_name #expanded as chronographer::task::TaskFrame>::Args
-            ) -> Result<(), Self::Error> #fn_block
+            ) -> Result<(), Self::Error> {
+                let (#arg_names) = args;
+                #fn_block
+            }
         }
     }.into()
 }
