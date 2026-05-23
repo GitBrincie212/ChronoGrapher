@@ -21,7 +21,7 @@ async fn task_finishing_before_timeout_returns_ok() {
         should_fail: false,
     };
     let frame = TimeoutTaskFrame::new(frame, LARGE_DURATION);
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_ok());
@@ -39,7 +39,7 @@ async fn task_finishing_after_timeout_returns_error() {
         }
     });
     let frame = TimeoutTaskFrame::new(frame, TIGHT_DURATION);
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_err())
@@ -54,7 +54,7 @@ async fn task_returning_error_before_timeout_returns_error() {
         should_fail: true,
     };
     let frame = TimeoutTaskFrame::new(frame, LARGE_DURATION);
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(
@@ -75,7 +75,7 @@ async fn zero_duration_timeout_returns_error() {
         Ok::<_, String>(())
     });
     let frame = TimeoutTaskFrame::new(frame, Duration::from_nanos(0));
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_err(), "Zero-duration timeout should immediately time out");

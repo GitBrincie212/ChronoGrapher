@@ -30,7 +30,7 @@ async fn sequential_quit_on_first_frame_returns_indexed_error() {
         ],
         SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
     );
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let err = task
         .into_erased()
         .run()
@@ -53,7 +53,7 @@ async fn sequential_quit_on_failure_returns_indexed_error() {
         SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let err = task
         .into_erased()
         .run()
@@ -77,7 +77,7 @@ async fn sequential_silent_runs_all_frames() {
         SequentialExecStrategy::new(GroupedTaskFramesSilent),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased()
         .run()
         .await
@@ -99,7 +99,7 @@ async fn sequential_fails_on_first_error() {
         SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let err = task
         .into_erased()
         .run()
@@ -123,7 +123,7 @@ async fn parallel_quit_on_success_returns_early() {
         ParallelExecStrategy::new(GroupedTaskFramesQuitOnSuccess),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased()
         .run()
         .await
@@ -141,7 +141,7 @@ async fn selection_exec_runs_selected_frame_only() {
         SelectionExecStrategy::new(FixedSelectAccessor(2)),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased()
         .run()
         .await
@@ -159,7 +159,7 @@ async fn selection_exec_out_of_bounds_returns_error() {
         SelectionExecStrategy::new(FixedSelectAccessor(99)),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let err = task
         .into_erased()
         .run()
@@ -179,7 +179,7 @@ async fn empty_tasks_exec_test() {
     let frame =
         CollectionTaskFrame::new(vec![], SelectionExecStrategy::new(FixedSelectAccessor(0)));
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased()
         .run()
         .await
@@ -200,7 +200,7 @@ async fn parallel_all_fail_returns_error() {
         ParallelExecStrategy::new(GroupedTaskFramesQuitOnFailure),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased()
         .run()
         .await
@@ -222,7 +222,7 @@ async fn parallel_quit_on_failure_returns_error_on_first_fail() {
         ParallelExecStrategy::new(GroupedTaskFramesQuitOnFailure),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased()
         .run()
         .await
@@ -240,7 +240,7 @@ async fn selection_exec_selects_failing_frame_returns_error() {
         SelectionExecStrategy::new(FixedSelectAccessor(1)),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased()
         .run()
         .await
@@ -258,7 +258,7 @@ async fn empty_sequential_collection_returns_ok() {
         SequentialExecStrategy::new(GroupedTaskFramesQuitOnFailure),
     );
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased()
         .run()
         .await

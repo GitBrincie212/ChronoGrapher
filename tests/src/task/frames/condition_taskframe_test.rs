@@ -36,7 +36,7 @@ async fn truthy_condition_returns_ok() {
         async move { frame.execute(&ctx, &((), ())).await }
     });
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased().run().await.unwrap();
 
     assert_eq!(counter.load(Ordering::SeqCst), 1);
@@ -72,7 +72,7 @@ async fn falsey_condition_runs_fallback() {
         async move { frame.execute(&ctx, &((), ())).await }
     });
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased().run().await.unwrap();
 
     assert_eq!(counter.load(Ordering::SeqCst), 0);
@@ -101,7 +101,7 @@ async fn falsey_condition_with_error_on_false_returns_error() {
         async move { frame.execute(&ctx, &((), ())).await }
     });
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
 
     assert!(result.is_err());
@@ -130,7 +130,7 @@ async fn truthy_condition_with_failing_inner_frame_returns_error() {
         async move { frame.execute(&ctx, &((), ())).await }
     });
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
 
     assert!(result.is_err(), "Error from inner frame should propagate");
@@ -171,7 +171,7 @@ async fn falsey_condition_with_failing_fallback_returns_error() {
         async move { frame.execute(&ctx, &((), ())).await }
     });
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
 
     assert!(result.is_err(), "Error from failing fallback should propagate");

@@ -39,7 +39,7 @@ async fn threshold_execute_and_count_all_frames() {
         .threshold(threshold)
         .build();
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let erased = task.into_erased();
     run_until_threshold!(5, erased);
     assert_eq!(
@@ -66,7 +66,7 @@ async fn threshold_count_failing_frames() {
         .threshold(threshold)
         .build();
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let erased = task.into_erased();
 
     run_until_threshold!(3, erased);
@@ -94,7 +94,7 @@ async fn threshold_of_one_reached_after_single_run() {
         .threshold(threshold)
         .build();
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let erased = task.into_erased();
 
     erased.run().await.unwrap();
@@ -123,7 +123,7 @@ async fn sub_threshold_runs_do_not_trigger_reach_behaviour() {
         .threshold(threshold)
         .build();
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let erased = task.into_erased();
 
     // Run only 3 times out of required 5
@@ -156,7 +156,7 @@ async fn sub_threshold_runs_do_not_trigger_reach_behaviour() {
 //         .frame(frame)
 //         .threshold_reach_behaviour(Box::new(ThresholdErrorReachBehaviour))
 //         .build();
-//      let task = Task::new(TaskScheduleImmediate, frame);
+//      let task = Task::new(frame, TaskScheduleImmediate);
 //      let erased = task.into_erased();
 //
 //      run_until_threshold!(2, erased);

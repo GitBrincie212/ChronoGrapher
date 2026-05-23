@@ -25,7 +25,7 @@ async fn returns_ok_when_all_deps_resolved() {
         })
         .dependency(ok_dependency() & ok_dependency() & ok_dependency())
         .build();
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased().run().await.unwrap();
     assert_eq!(counter.load(Ordering::SeqCst), 1);
 }
@@ -40,7 +40,7 @@ async fn returns_error_when_dep_unresolved() {
         })
         .dependency(failing_dependency())
         .build();
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
     assert!(result.is_err());
     assert_eq!(
@@ -60,7 +60,7 @@ async fn stop_on_first_failing_dep() {
         })
         .dependency(ok_dependency() & ok_dependency() & failing_dependency())
         .build();
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
     assert!(
         result.is_err(),
@@ -83,7 +83,7 @@ async fn inner_frame_fails_when_all_deps_resolve() {
         })
         .dependency(ok_dependency() & ok_dependency())
         .build();
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
     assert!(
         result.is_err(),

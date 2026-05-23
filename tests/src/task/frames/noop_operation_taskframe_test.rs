@@ -34,7 +34,7 @@ impl TaskFrame for MyTaskFrame {
 #[tokio::test]
 async fn noop_task_frame_execution_test() {
     let frame = MyTaskFrame(PhantomData);
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
 
     let exec_result = task.into_erased().run().await;
     assert!(

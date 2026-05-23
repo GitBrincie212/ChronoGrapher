@@ -56,7 +56,7 @@ async fn fallback_execution_test() {
 
     let frame = init_counter_with_fallback!(true, false, counter.clone());
 
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_ok());
@@ -72,7 +72,7 @@ async fn no_fallback_primary_succeed() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = init_counter_with_fallback!(false, true, counter.clone());
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_ok());
@@ -87,7 +87,7 @@ async fn both_primary_and_fallback_fail_returns_error() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = init_counter_with_fallback!(true, true, counter.clone());
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(

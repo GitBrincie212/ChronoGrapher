@@ -103,7 +103,7 @@ async fn test_not_dependency() {
 #[tokio::test]
 async fn test_task_identity_run_dependency() -> Result<(), String> {
     let frame = CountingTaskFrame::default();
-    let task = Task::new(TaskScheduleImmediate, frame.clone());
+    let task = Task::new(frame.clone(), TaskScheduleImmediate);
     let dep1 = FrameDependency::runs(&task, NonZeroU16::MIN).await;
     let dep2 = FrameDependency::runs(&task, NonZeroU16::MAX).await;
     let dep3 = FrameDependency::runs(&task, NonZeroU16::MIN).await;
@@ -177,7 +177,7 @@ async fn test_task_identity_run_dependency() -> Result<(), String> {
 #[tokio::test]
 async fn test_task_success_run_dependency() -> Result<(), String> {
     let frame = CountingTaskFrame::default();
-    let task = Task::new(TaskScheduleImmediate, frame.clone());
+    let task = Task::new(frame.clone(), TaskScheduleImmediate);
     let dep1 = FrameDependency::successful_runs(&task, NonZeroU16::MIN).await;
     let dep2 = FrameDependency::successful_runs(&task, NonZeroU16::MAX).await;
     let dep3 = FrameDependency::runs(&task, NonZeroU16::MIN).await;
@@ -251,7 +251,7 @@ async fn test_task_success_run_dependency() -> Result<(), String> {
 #[tokio::test]
 async fn test_task_failed_run_dependency() -> Result<(), String> {
     let frame = CountingTaskFrame::default();
-    let task = Task::new(TaskScheduleImmediate, frame.clone());
+    let task = Task::new(frame.clone(), TaskScheduleImmediate);
     let dep1 = FrameDependency::failed_runs(&task, NonZeroU16::MIN).await;
     let dep2 = FrameDependency::failed_runs(&task, NonZeroU16::MAX).await;
     let dep3 = FrameDependency::runs(&task, NonZeroU16::MIN).await;

@@ -16,8 +16,8 @@ const LARGE: Duration = Duration::from_hours(24);
 async fn run_delayed(delay: Duration) -> Result<Duration, String> {
     let counter = Arc::new(AtomicUsize::new(0));
     let frame = CountingFrame { counter, should_fail: false };
-    let task_frame = DelayTaskFrame::new(frame, delay);
-    let task = Task::new(TaskScheduleImmediate, task_frame);
+    let final_frame = DelayTaskFrame::new(frame, delay);
+    let task = Task::new(final_frame, TaskScheduleImmediate);
     let start = Instant::now();
     let handle = tokio::spawn(async move {
         let exec = task.into_erased().run().await;
@@ -61,8 +61,8 @@ async fn task_execution_returns_ok() {
         should_fail: false,
     };
 
-    let task_frame = DelayTaskFrame::new(frame, Duration::from_millis(1));
-    let task = Task::new(TaskScheduleImmediate, task_frame);
+    let final_frame = DelayTaskFrame::new(frame, Duration::from_millis(1));
+    let task = Task::new(final_frame, TaskScheduleImmediate);
 
     let exec = task.into_erased().run().await;
     assert!(exec.is_ok());
@@ -78,8 +78,8 @@ async fn task_execution_with_delay_and_failing_frame_returns_error() {
     };
 
     let delay = Duration::from_secs(1);
-    let task_frame = DelayTaskFrame::new(frame, delay);
-    let task = Task::new(TaskScheduleImmediate, task_frame);
+    let final_frame = DelayTaskFrame::new(frame, delay);
+    let task = Task::new(final_frame, TaskScheduleImmediate);
 
     let handle = tokio::spawn(async move {
         task.into_erased().run().await
@@ -106,8 +106,8 @@ async fn zero_duration_delay_executes_immediately() {
         should_fail: false,
     };
 
-    let task_frame = DelayTaskFrame::new(frame, Duration::ZERO);
-    let task = Task::new(TaskScheduleImmediate, task_frame);
+    let final_frame = DelayTaskFrame::new(frame, Duration::ZERO);
+    let task = Task::new(final_frame, TaskScheduleImmediate);
 
     let handle = tokio::spawn(async move { task.into_erased().run().await });
 

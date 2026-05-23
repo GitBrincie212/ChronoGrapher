@@ -51,7 +51,7 @@ async fn test_shared_returns_same_instance() {
     let frame = TestFrame {
         result: result.clone(),
     };
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
 
     task.into_erased().run().await.unwrap();
 
@@ -103,7 +103,7 @@ async fn test_shared_isolated_by_type() {
     let frame = TestFrame {
         result: result.clone(),
     };
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
 
     task.into_erased().run().await.unwrap();
 
@@ -140,7 +140,7 @@ async fn test_get_shared_none_if_missing() {
     let frame = TestFrame {
         result: result.clone(),
     };
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
 
     task.into_erased().run().await.unwrap();
 
@@ -181,7 +181,7 @@ async fn test_get_shared_some_if_exists() {
     let frame = TestFrame {
         result: result.clone(),
     };
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
 
     task.into_erased().run().await.unwrap();
 
@@ -249,7 +249,7 @@ async fn test_shared_custom_state_manager() {
     let frame = TestFrame {
         result: result.clone(),
     };
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
 
     task.into_erased().run().await.unwrap();
 
@@ -290,7 +290,7 @@ async fn test_shared_with_marker() {
     let frame = TestFrame {
         result: result.clone(),
     };
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
 
     task.into_erased().run().await.unwrap();
 
@@ -324,18 +324,18 @@ async fn test_shared_scoped_to_task_context() {
     }
 
     let task1 = Task::new(
-        TaskScheduleImmediate,
         WorkerTask {
             worker_id: 1,
             result: result.clone(),
         },
+        TaskScheduleImmediate
     );
     let task2 = Task::new(
-        TaskScheduleImmediate,
         WorkerTask {
             worker_id: 2,
             result: result.clone(),
         },
+        TaskScheduleImmediate
     );
 
     task1.into_erased().run().await.unwrap();
@@ -370,10 +370,10 @@ async fn test_shared_scoped_to_task_context() {
     }
 
     let supervisor = Task::new(
-        TaskScheduleImmediate,
         SupervisorTask {
             result: result.clone(),
         },
+        TaskScheduleImmediate
     );
     supervisor.into_erased().run().await.unwrap();
 

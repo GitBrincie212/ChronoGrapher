@@ -11,7 +11,7 @@ async fn frame_execution_returns_ok() {
     let frame = DynamicTaskFrame::new(move |_ctx: &TaskFrameContext, _args: &()| async move {
         Ok::<_, String>(())
     });
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_ok(), "Dynamic task should succeed");
@@ -28,7 +28,7 @@ async fn frame_execution_increments_counter() {
             Ok::<_, String>(())
         }
     });
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_ok(), "Dynamic task should succeed");
@@ -40,7 +40,7 @@ async fn frame_execution_returns_error() {
     let frame = DynamicTaskFrame::new(|_ctx: &TaskFrameContext, _args: &()| async move {
         Err("intentional failure".to_string())
     });
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_err(), "Dynamic task should fail");
@@ -51,7 +51,7 @@ async fn frame_execution_error_contains_message() {
     let frame = DynamicTaskFrame::new(|_ctx: &TaskFrameContext, _args: &()| async move {
         Err("specific error content".to_string())
     });
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
     assert!(exec.is_err(), "Dynamic task should fail");
@@ -73,7 +73,7 @@ async fn frame_closure_captures_state_across_multiple_runs() {
             Ok::<_, String>(())
         }
     });
-    let task = Task::new(TaskScheduleImmediate, frame);
+    let task = Task::new(frame, TaskScheduleImmediate);
     let erased = task.into_erased();
 
     erased.run().await.unwrap();
