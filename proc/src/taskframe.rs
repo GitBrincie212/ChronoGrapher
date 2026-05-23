@@ -4,6 +4,7 @@ use syn::{parse_macro_input, Attribute, FnArg, GenericArgument, Pat, PatType, Pa
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
+use crate::utils::extract_docs;
 use crate::utils::impl_traits_with_generics::derive_with_generics;
 
 #[derive(Debug)]
@@ -218,23 +219,6 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
     }
 
     Ok(err_ty)
-}
-
-fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
-    attrs.iter()
-        .filter_map(|a| {
-            if !a.path().is_ident("doc") {
-                return None;
-            }
-
-            let syn::Meta::NameValue(nv) = &a.meta else { return None; };
-            let syn::Expr::Lit(expr_lit) = &nv.value else { return None; };
-            let syn::Lit::Str(lit) = &expr_lit.lit else { return None; };
-
-            let string = lit.value();
-            Some(quote! { #[doc = #string] })
-        })
-        .collect()
 }
 
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
