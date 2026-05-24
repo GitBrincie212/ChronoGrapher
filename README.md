@@ -26,21 +26,19 @@ ChronoGrapher is the **Job Scheduler And Workflow Orchestration Platform** that 
 ```rust
 use chronographer::prelude::*;
 
-#[task(schedule = interval(4s))]
-async fn HelloWorldTask(ctx: &TaskContext) -> Result<(), Box<dyn TaskError>> {
+#[task(schedule = every!(4s))]
+async fn HelloWorldTask(ctx: &TaskContext) -> Result<(), String> {
   println!("Hello World");
   Ok(())
 }
 
 
 #[chronographer::main]
-async fn main(scheduler: DefaultScheduler<Box<dyn TaskError>>) {
+async fn main(scheduler: DefaultLiveScheduler<String>) {
   let task = HelloWorldTask::instance();
   scheduler.schedule(&task).await;
 }
 ```
-
-> Temporary Note: The proccedual macros are being worked on and thus need more time to be finished. These examples most likely won't work until the macro extension is done, for now simply map the syntax to the base API (the individual structs, traits, enums... etc). Currently the macros API is a vision being worked on and the syntax may change as time goes on
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Solving Modern Scheduling Challenges</h1>
@@ -92,6 +90,7 @@ async fn HandleCleanupTask(ctx: &TaskContext) -> Result<(), Box<dyn TaskError>> 
   // <...>
 }
 ```
+> Temporary Note: Everything up until the workflow proc-macro are considered finished, the rest are being worked on and thus needs more time to materialize. These examples most likely won't work until the macro extension is done, for now simply map the syntax to the base API (the individual structs, traits, enums... etc), this syntax is purely a vision and thus may change over time
 
 Some of the available task frame types are:
 
