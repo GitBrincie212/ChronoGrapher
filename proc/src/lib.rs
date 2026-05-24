@@ -227,7 +227,6 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     task::task(attr, item)
 }
 
-
 /// The [`taskframe`] attribute macro is an alternative more ergonomic way to write TaskFrames as opposed to
 /// manually constructing them via the Base API and Rust internals from the ground up.
 ///
@@ -362,6 +361,80 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     taskframe::taskframe(attrs, item)
 }
 
+
+/// The [`main`] attribute macro is an alternative more ergonomic way to write the main function
+/// / entry-point for ChronoGrapher as opposed to manually making it using ``#[tokio::main]`` from the
+/// ground up.
+///
+/// The bare minimal interface is essentially:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[chronographer::main]
+/// async fn main(scheduler: DefaultLiveScheduler<String>) {
+///     todo!()
+/// }
+/// ```
+///
+/// The arguments inside the main function must be scheduler types in which there must be present at least
+/// one argument (apart from that, there can be any number of them).
+///
+/// The macro sets up the tokio environment while also automatically initializing and starting the
+/// schedulers. Finally, these schedulers can be accessed inside the main function
+///
+/// # Valid Targets
+/// The [`main`] macro is applied primarily async functions, specifically a function with the name of
+/// *main* that is contained inside a binary file and isn't a method.
+///
+/// # Attributes & Parameters
+/// The [`main`] contains only two attribute parameters, the former being ``thread_count`` which allows
+/// users to modify the number of threads allocated (the default behavior is the same as tokio)
+///
+/// While the latter being an attribute flag ``before_startup`` which modifies when the schedulers start,
+/// by default they start after the user code has run, when set, it starts before the user code runs
+///
+/// # Expansion Semantics
+/// Typically when the [`main`] macro expands, its structure is similar to:
+/// ```ignore
+/// fn main() {
+///     let rt = tokio::runtime::Builder::new_multi_thread()
+///         .enable_all()
+///         .build()
+///         .unwrap();
+///
+///     rt.block_on(async {
+///         let scheduler = <DefaultLiveScheduler<String> as Default>::default();
+///
+///         (async {
+///             // ...
+///         }).await;
+///
+///         chronographer::prelude::Scheduler::start(&scheduler).await;
+///         tokio::signal::ctrl_c().await.unwrap();
+///     });
+/// }
+/// ```
+///
+/// Apart from the parameters, it works identically like the *main* function letting you use
+/// as the return type ``Result<T, E>`` (you can also use ``?`` for error propagation), for instance:
+/// ```ignore
+/// #[chronographer::main]
+/// async fn main() -> io::Result<()> {
+///     Ok(())
+/// }
+/// ```
+///
+/// # Limitations
+/// When it comes to [`Schedulers`](chronographer::prelude::Scheduler) coupled with their
+/// [`SchedulerConfig`](chronographer::prelude::SchedulerConfig), they must implement the ``Default``
+/// trait since it calls this specifically when initializing.
+///
+/// The only workaround if implementing the ``Default`` trait isn't possible is manually creating the
+/// main function via ``#[tokio::main]`` macro and such.
+///
+/// # See Also
+/// - [`Scheduler`](chronographer::prelude::Scheduler) - The type required for this macro in its argument(s).
+/// - [`SchedulerConfig`](chronographer::prelude::SchedulerConfig) - The config container for the scheduler(s).
 #[proc_macro_attribute]
 pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
     entry::entry(attrs, item)
