@@ -77,7 +77,7 @@ features are opt-in and never enforced, we will focus on a few key features defi
 ChronoGrapher's power comes from its modular task system. Build complex workflows by composing simple, reusable components:
 
 ```rust
-#[task(schedule = interval(4s))]
+#[task(schedule = every!(4s))]
 #[workflow(
     dependency(
         HealthCheckTask && (DatabaseCheckTask || SystemUpdateTask)
@@ -176,7 +176,7 @@ Fine-grain control over when a Task executes via ``TaskTrigger`` or more commonl
 schedules or use pre-existing ones such as ``TaskScheduleCalendar`` to satisfy your time critical needs:
 
 ```rust
-#[task(schedule = calendar({
+#[task(schedule = calendar!{
     year: interval(1), // Can be omitted as well
     month: 1, // Same as using january or exact(1)
     day: 1..=10, // The first 10 days
@@ -184,7 +184,7 @@ schedules or use pre-existing ones such as ``TaskScheduleCalendar`` to satisfy y
     minute: jitter(+2, 2), // Jitter with a factor of 2
     second: bounded(0, +10, 20), // Bounded interval
     millisecond: identity // Can be omitted as well
-}))]
+})]
 async fn CalendarBasedTask(ctx: &TaskContext) -> Result<(), String> {
   // <...>
 }
