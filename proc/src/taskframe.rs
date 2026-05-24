@@ -300,7 +300,9 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let stringified_fn_name = fn_name.to_string();
-    if stringified_fn_name.to_lowercase().ends_with("frame") {
+    if stringified_fn_name.to_lowercase().ends_with("taskframe") {
+        *fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 9], fn_name.span())
+    } else if stringified_fn_name.to_lowercase().ends_with("frame") {
         *fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 5], fn_name.span())
     }
     
