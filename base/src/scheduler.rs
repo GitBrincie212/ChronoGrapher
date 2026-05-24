@@ -22,12 +22,6 @@ pub type SchedulerKey<C> = <<C as SchedulerConfig>::SchedulerTaskStore as Schedu
 
 pub(crate) type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 
-#[cfg(feature = "anyhow")]
-pub type DefaultAnyhowScheduler = DefaultScheduler<anyhow::Error>;
-
-#[cfg(feature = "eyre")]
-pub type DefaultEyreScheduler = DefaultScheduler<eyre::Error>;
-
 pub trait SchedulerConfig: Sized + 'static {
     type TaskError: TaskError;
 

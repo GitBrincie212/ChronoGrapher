@@ -57,7 +57,7 @@ pub mod prelude {
     pub use crate::task::schedule::TaskSchedule;
 
     // Schedulers
-    pub use crate::scheduler::DefaultScheduler;
+    pub use crate::scheduler::DefaultLiveScheduler;
     pub use crate::scheduler::LiveScheduler;
     pub use crate::scheduler::DefaultSchedulerConfig;
     pub use crate::scheduler::Scheduler;
@@ -65,10 +65,10 @@ pub mod prelude {
     pub use crate::scheduler::FailoverPolicy;
 
     #[cfg(feature = "anyhow")]
-    pub use crate::scheduler::DefaultAnyhowScheduler;
+    pub use crate::scheduler::DefaultLiveAnyhowScheduler;
 
     #[cfg(feature = "eyre")]
-    pub use crate::scheduler::DefaultEyreScheduler;
+    pub use crate::scheduler::DefaultLiveEyreScheduler;
 
     // TaskHooks / TaskHookEvents
     pub use crate::task::hooks::{NonObserverTaskHook, TaskHook, events::*};

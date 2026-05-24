@@ -19,7 +19,13 @@ use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
-pub type DefaultScheduler<E> = LiveScheduler<DefaultSchedulerConfig<E>>;
+pub type DefaultLiveScheduler<E> = LiveScheduler<DefaultSchedulerConfig<E>>;
+
+#[cfg(feature = "anyhow")]
+pub type DefaultLiveAnyhowScheduler = DefaultLiveScheduler<anyhow::Error>;
+
+#[cfg(feature = "eyre")]
+pub type DefaultLiveEyreScheduler = DefaultLiveScheduler<eyre::Error>;
 
 #[derive(Debug)]
 #[repr(u8)]
