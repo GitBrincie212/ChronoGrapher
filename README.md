@@ -27,7 +27,7 @@ ChronoGrapher is the **Job Scheduler And Workflow Orchestration Platform** that 
 use chronographer::prelude::*;
 
 #[task(schedule = every!(4s))]
-async fn HelloWorldTask(ctx: &TaskContext) -> Result<(), String> {
+async fn HelloWorldTask(ctx: &TaskFrameContext) -> Result<(), String> {
   println!("Hello World");
   Ok(())
 }
@@ -86,7 +86,7 @@ ChronoGrapher's power comes from its modular task system. Build complex workflow
     fallback(HandlePaymentFailure), // If it does or fails, execute this
     timeout(30s), // Cannot exceed more than 30 seconds
 )]
-async fn HandleCleanupTask(ctx: &TaskContext) -> Result<(), Box<dyn TaskError>> {
+async fn HandleCleanupTask(ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>> {
   // <...>
 }
 ```
@@ -124,19 +124,19 @@ struct PrometheusMetricsHook;
 */
 
 impl TaskHook<OnTaskStart> for PrometheusMetricsHook {
-  async fn on_event(&self, event: OnTaskStart, ctx: Arc<TaskContext>, payload: &OnTaskStart::Payload) {
+  async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskStart as TaskHookEvent>::Payload<'_>) {
       // ...Increment the number of running Tasks and update metrics...
   }
 }
 
 impl TaskHook<OnTaskEnd> for PrometheusMetricsHook {
-  async fn on_event(&self, event: OnTaskEnd, ctx: Arc<TaskContext>, payload: &OnTaskEnd::Payload) {
+  async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskEnd as TaskHookEvent>::Payload<'_>) {
       // ...Decrement the number of running Tasks and update metrics...
   }
 }
 
 impl TaskHook<OnTimeout> for PrometheusMetricsHook {
-    async fn on_event(&self, event: OnTimeout, ctx: Arc<TaskContext>, payload: &OnTimeout::Payload) {
+    async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTimeout as TaskHookEvent>::Payload<'_>) {
         // ...Executes when a TimeoutTaskFrame throws a timeout...
     }
 }
@@ -144,9 +144,8 @@ impl TaskHook<OnTimeout> for PrometheusMetricsHook {
 impl TaskHook<OnHookAttach<OnTaskStart>> for PrometheusMetricsHook {
     async fn on_event(
         &self, 
-        event: OnHookAttach<OnTaskStart>,
-        ctx: Arc<TaskContext>,
-        payload: &OnHookAttach<OnTaskStart>::Payload
+        ctx: &TaskHookContext,
+        payload: &<OnHookAttach<OnTaskStart> as TaskHookEvent>::Payload<'_>
     ) {
         // ...You can initialize logic for when it is attached to a OnTaskStart event...
     }
@@ -186,7 +185,7 @@ schedules or use pre-existing ones such as ``TaskScheduleCalendar`` to satisfy y
     second: bounded(0, +10, 20), // Bounded interval
     millisecond: identity // Can be omitted as well
 }))]
-async fn CalendarBasedTask(ctx: &TaskContext) -> Result<(), Box<dyn TaskError>> {
+async fn CalendarBasedTask(ctx: &TaskContext) -> Result<(), String> {
   // <...>
 }
 ```
