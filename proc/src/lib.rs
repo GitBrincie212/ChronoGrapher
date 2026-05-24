@@ -99,8 +99,8 @@ pub fn every(input: TokenStream) -> TokenStream {
     every::every(input)
 }
 
-/// The [`task`] attribute macro is an alternative more ergonomic way to write Tasks as opposed to
-/// manually constructing them via the Base API and Rust internals from the ground up.
+/// The [`task`] attribute macro is an alternative more ergonomic way to write [`Task`](chronographer::prelude::Task)
+/// as opposed to manually constructing them via the Base API and Rust internals from the ground up.
 ///
 /// The bare minimal interface is essentially a typical Rust function with a schedule:
 /// ```rust
@@ -113,13 +113,14 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// ```
 /// > **NOTE:** The camelCase is done on purpose, since the macro translates it into a struct
 ///
-/// Tasks can either be singleton (one instance can be fetched globally from anywhere) or
-/// non-singleton / multi-instanced (you can create new instances of tasks).
+/// [`Task(s)`](chronographer::prelude::Task) generated with the macro can either be singleton
+/// (one instance can be fetched globally from anywhere) or non-singleton / multi-instanced
+/// (you can create new instances of tasks).
 ///
-/// [`task`] macro includes a "clever" auto-append feature in which it adds the Task or TaskFrame prefix
-/// if not included depending on if it is a Task or TaskFrame that is currently being expanded to.
+/// [`task`] macro includes a "clever" auto-append feature in which it adds the "Task" or "TaskFrame" prefix
+/// if not included depending on if it is a "Task" or "TaskFrame" that is currently being expanded to.
 ///
-/// Though it allows the for an escape hatch, to override names with two attribute parameters
+/// Though it allows the for an escape hatch to override names with two respective attribute parameters
 /// (see below for more info about).
 ///
 /// Everything else is almost identical to the [`taskframe`] attribute macro as such it's recommended
@@ -135,21 +136,21 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// - **schedule** Specifies the schedule to use, this can be anything (from a type initialization to a macro)
 /// that translates or is something that implements the [`TaskSchedule`](chronographer::prelude::TaskSchedule) trait
 ///
-/// - **non_singleton** Fully optional, specifies the Task to be non-singleton, with this set, developers
-/// can use the ``new()`` method to create new Task instances as opposed to ``instance()`` for getting the
-/// global singleton instance
+/// - **non_singleton** Fully optional, specifies the [`Task`](chronographer::prelude::Task) to be non-singleton,
+/// with this set, developers can use the ``new()`` method to create new [`Task`](chronographer::prelude::Task)
+/// instances as opposed to ``instance()`` for getting the global singleton instance
 ///
-/// - **task_name_override** Fully optional, overrides the name of the Task (not its TaskFrame), disables
-/// the clever auto-append feature
+/// - **task_name_override** Fully optional, overrides the name of the generated [`Task`](chronographer::prelude::Task)
+/// (not its [`TaskFrame`](chronographer::prelude::TaskFrame)), disables the clever auto-append feature
 ///
-/// - **taskframe_name_override** Fully optional, overrides the name of the TaskFrame (not its Task),
-/// disables the clever auto-append feature
+/// - **taskframe_name_override** Fully optional, overrides the name of the [`TaskFrame`](chronographer::prelude::TaskFrame)
+/// (not its [`Task`](chronographer::prelude::Task)), disables the clever auto-append feature
 ///
 /// # Expansion Semantics
-/// The [`task`] macro has two ways of expanding, all depending on whenever the Task is either singleton
+/// The [`task`] macro has two ways of expanding, all depending on whenever the [`Task`](chronographer::prelude::Task) is either singleton
 /// or non-singleton / multi-instanced. In both cases it uses the [`taskframe`] macro under the hood.
 ///
-/// For the former where the Task is a singleton it is similar to:
+/// For the former where the [`Task`](chronographer::prelude::Task) is a singleton it is similar to:
 /// ```ignore
 /// /* Input:
 /// #[task(schedule = [SCHEDULE])]
@@ -171,7 +172,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// Both ``[SCHEDULE]`` and ``[ERROR]`` are placeholders for what kind of scheduler to use and the
+/// Both ``[SCHEDULE]`` and ``[ERROR]`` are placeholders for what kind of schedule to use and the
 /// error type to use respectively. The latter on the other hand typically takes the form of:
 /// ```ignore
 /// /* Input:
@@ -201,11 +202,12 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// The [`task`] macro preserves every other attribute macro and mounts it onto the generated results,
 /// while also having its own interactions with other attribute macros.
 ///
-/// When specifying ``#[workflow(...)]`` modifies the TaskFrame initialization of the Task with
-/// the specified workflow (including the function of the Task).
+/// When specifying ``#[workflow(...)]`` modifies the [`TaskFrame`](chronographer::prelude::TaskFrame)
+/// initialization of the [`Task`](chronographer::prelude::Task) with the specified workflow
+/// (including the function of the generated [`Task`](chronographer::prelude::Task)).
 ///
-/// Whereas specifying ``#[hooks(...)]`` automatically attaches the specified TaskHooks that subscribed
-/// to specific events upon initialization of the Task.
+/// Whereas specifying ``#[hooks(...)]`` automatically attaches the specified [`TaskHooks`](chronographer::prelude::TaskHook)
+/// that subscribed to specific events upon initialization of the [`Task`](chronographer::prelude::Task).
 ///
 /// # Limitations
 /// While [`taskframe`] generics work mostly out of the box, there is a caveat for [`task`].
@@ -217,18 +219,21 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// structs / enums / traits, just pure functions.
 ///
 /// # See Also
+/// - [`Task`](chronographer::prelude::Task) - The base API "equivalent" used internally
 /// - [`taskframe`] - The macro closely related to [`task`] for producing TaskFrames
 /// - [`workflow`] - The macro used for defining workflows, and has close relations with [`task`] and [`taskframe`]
 /// - [`hooks`] - The macro used for attaching TaskHooks to events, and has close relations with [`task`]
 /// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The trait that makes TaskFrames possible
 /// - [`TaskSchedule`](chronographer::prelude::TaskSchedule) - The trait that makes schedules possible
+/// - [`TaskHook`](chronographer::prelude::Task) - The system used for the [`hooks`] macro
 #[proc_macro_attribute]
 pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     task::task(attr, item)
 }
 
-/// The [`taskframe`] attribute macro is an alternative more ergonomic way to write TaskFrames as opposed to
-/// manually constructing them via the Base API and Rust internals from the ground up.
+/// The [`taskframe`] attribute macro is an alternative more ergonomic way to write
+/// [`TaskFrames`](chronographer::prelude::TaskFrame) as opposed to manually constructing them via the
+/// Base API and Rust internals from the ground up.
 ///
 /// The bare minimal interface is essentially a typical Rust function:
 /// ```rust
@@ -241,7 +246,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 /// > **NOTE:** The camelCase is done on purpose, since the macro translates it into a struct
 ///
-/// [`taskframe`] macro includes a "clever" auto-append feature in which it adds the TaskFrame prefix
+/// [`taskframe`] macro includes a "clever" auto-append feature in which it adds the "TaskFrame" prefix
 /// if not included. Though it allows the for an escape hatch, to override the name with one attribute
 /// parameter (see below for more info about).
 ///
@@ -254,7 +259,8 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// # Attributes & Parameters
 /// The [`taskframe`] contains only one attribute parameter that being ``name_override`` which allows
-/// users to modify the name of the final TaskFrame generated (disables the clever auto-append feature).
+/// users to modify the name of the final [`TaskFrames`](chronographer::prelude::TaskFrame) generated
+/// (disables the clever auto-append feature).
 ///
 /// # Expansion Semantics
 /// The [`taskframe`] syntax is almost if not identical to a pure Rust function, when the macro expands
@@ -283,8 +289,8 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// }
 /// ```
 /// The only restrictions the [`taskframe`] macro imposes is it has to be an async function, has
-/// to contain as first argument a reference to the [`TaskFrameContext`] and its return type must be
-/// a ``Result<(), E>`` with E being your error type.
+/// to contain as first argument a reference to the [`TaskFrameContext`](chronographer::prelude::TaskFrameContext)
+/// and its return type must be a ``Result<(), E>`` with E being your error type.
 ///
 /// One of the things the [`taskframe`] macro supports is the use of the ``unsafe`` keyword in TaskFrames
 /// which is automatically embedded to the implementation.
@@ -337,8 +343,8 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// they work the same as Rust generics*.
 ///
 /// Additionally, we have one constant parameter ``N`` that is type of usize, this isn't used anywhere
-/// obvious but could theoritically be used in our code. Moreover, we also have a ``where`` clause which is supported,
-/// alternatively we can specify the trait bounds directly if we want to.
+/// obvious but could theoritically be used in our code. Moreover, we also have a ``where`` clause which is
+/// supported, alternatively we can specify the trait bounds directly if we want to.
 ///
 /// # External Interactions
 /// The [`taskframe`] macro preserves every other attribute macro and mounts it onto the generated results,
@@ -353,9 +359,9 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// pure functions.
 ///
 /// # See Also
+/// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The base API equivelent
 /// - [`task`] - An upgrade of the [`taskframe`] macro for specifying full Task objects
 /// - [`workflow`] - The macro used for defining workflows, and has close relations with [`taskframe`]
-/// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The trait that makes TaskFrames possible
 #[proc_macro_attribute]
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     taskframe::taskframe(attrs, item)
