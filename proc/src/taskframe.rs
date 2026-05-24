@@ -1,10 +1,10 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, FnArg, GenericArgument, Pat, PatType, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
+use syn::{parse_macro_input, FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use crate::utils::{extract_docs, handle_generics_phantom_data, LIFETIME_UNSUPPORTED_ERR};
+use crate::utils::{extract_arg_name, extract_docs, handle_generics_phantom_data, LIFETIME_UNSUPPORTED_ERR};
 
 const NAME_OVERRIDE_IDENTIFIER_ERR: &'static str = "Name override parameter must be a simple identifier";
 const UNKNOWN_ATTRIBUTE_PARAM_ERR: &'static str = "Unknown attribute parameter, did you mean to use \"name_override\"?";
@@ -61,18 +61,6 @@ impl TaskFrameProcAttrArgs {
         }
 
         Ok(Self(override_val))
-    }
-}
-
-fn extract_arg_name<'a>(pt: &'a PatType, err: &str) -> syn::Result<&'a proc_macro2::Ident> {
-    match &*pt.pat {
-        Pat::Ident(pat_ident) => Ok(&pat_ident.ident),
-        _ => {
-            Err(syn::Error::new_spanned(
-                &pt.pat,
-                err,
-            ))
-        }
     }
 }
 

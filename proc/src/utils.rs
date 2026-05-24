@@ -1,10 +1,10 @@
 use quote::quote;
-use syn::Attribute;
+use syn::{Attribute, Pat, PatType};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 
-pub(crate) const LIFETIME_UNSUPPORTED_ERR: &'static str = "Lifetimes are unsupported due to 'static lifetime limitations from async";
+pub const LIFETIME_UNSUPPORTED_ERR: &'static str = "Lifetimes are unsupported due to 'static lifetime limitations from async";
 
 pub fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
     attrs.iter()
@@ -65,4 +65,16 @@ pub fn handle_generics_phantom_data(name: &syn::Ident, fn_sig: &syn::Signature) 
     }
 
     Ok((impl_end_name, phantom_data, normalized_type_params))
+}
+
+pub fn extract_arg_name<'a>(pt: &'a PatType, err: &str) -> syn::Result<&'a proc_macro2::Ident> {
+    match &*pt.pat {
+        Pat::Ident(pat_ident) => Ok(&pat_ident.ident),
+        _ => {
+            Err(syn::Error::new_spanned(
+                &pt.pat,
+                err,
+            ))
+        }
+    }
 }
