@@ -2,6 +2,7 @@ mod every;
 mod utils;
 mod task;
 mod taskframe;
+mod entry;
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -359,6 +360,11 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     taskframe::taskframe(attrs, item)
+}
+
+#[proc_macro_attribute]
+pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    entry::entry(attrs, item)
 }
 
 #[proc_macro]
