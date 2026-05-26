@@ -1,0 +1,12 @@
+[package]
+name = "chronographer_utils"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "chronographer_utils"
+crate-type = ["rlib"]
+
+[dependencies]
+proc-macro2 = { version = "1.0.101", features = ["span-locations"] }
+thiserror = "2.0.16"
