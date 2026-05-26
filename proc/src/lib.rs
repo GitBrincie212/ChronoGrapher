@@ -1,4 +1,5 @@
 mod every;
+mod cron;
 mod utils;
 mod task;
 mod taskframe;
@@ -448,16 +449,5 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn cron(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = &input.ident;
-
-    let expanded = quote! {
-        impl #name {
-            pub fn greet() -> String {
-                my_library::hello(stringify!(#name))
-            }
-        }
-    };
-
-    TokenStream::from(expanded)
+    cron::cron(input)
 }
