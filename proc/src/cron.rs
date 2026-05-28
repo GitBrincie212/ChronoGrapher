@@ -49,7 +49,7 @@ pub fn cron(input: TokenStream) -> TokenStream {
 
     let fields: Vec<_> = ast.iter().map(ast_node_to_tokens).collect();
     quote! {
-        chronographer::task::schedule::TaskScheduleCron::new([#(#fields),*])
+        chronographer::task::schedule::TaskScheduleCron::new([#(#fields),*, chronographer::task::schedule::CronField::Wildcard])
     }
     .into()
 }

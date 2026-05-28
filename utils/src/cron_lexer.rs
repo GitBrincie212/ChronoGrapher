@@ -193,23 +193,67 @@ pub fn tokenize_from_tokens(
     input: proc_macro2::TokenStream,
 ) -> Result<[Vec<Token>; 6], (CronLexerError, proc_macro2::Span)> {
     let mut tokens: [Vec<Token>; 6] = std::array::from_fn(|_| Vec::new());
-    let mut iter = input.into_iter().peekable();
-    let mut field_pos = 0;
+    let mut field_pos: usize = 0;
 
-    while let Some(tt) = iter.next() {
-        let tt_span = tt.span();
+    // Field boundaries are detected by token-type adjacency rather than span columns,
+    // so this works in both cargo and rust-analyzer proc-macro contexts.
+    //
+    // Rule: two adjacent "value" tokens (with no operator between them) mark a field
+    // boundary — because cron values within a single field are always separated by an
+    // operator (-, /, ,, #).  Exceptions: `NL` (e.g. `1L`) and `NW` (e.g. `15W`) are
+    // suffix forms in the same field, as is `LW` (last weekday).
+    #[derive(Clone, Copy, PartialEq)]
+    enum Prev { None, Operator, Value, NumLit, IdentL }
+    let mut prev = Prev::None;
+
+    for tt in input {
+        let is_value = match &tt {
+            TokenTree::Literal(_) | TokenTree::Ident(_) => true,
+            TokenTree::Punct(p) => matches!(p.as_char(), '*' | '?'),
+            TokenTree::Group(_) => false,
+        };
+
+        if is_value && field_pos < 5 {
+            let advance = match prev {
+                Prev::None | Prev::Operator => false,
+                Prev::NumLit => match &tt {
+                    TokenTree::Ident(id) => {
+                        let s = id.to_string().to_uppercase();
+                        s != "L" && s != "W"
+                    }
+                    _ => true,
+                },
+                Prev::IdentL => match &tt {
+                    TokenTree::Ident(id) => id.to_string().to_uppercase() != "W",
+                    _ => true,
+                },
+                Prev::Value => true,
+            };
+            if advance {
+                field_pos += 1;
+            }
+        }
+
+        prev = match &tt {
+            TokenTree::Literal(_) => Prev::NumLit,
+            TokenTree::Ident(id) if id.to_string().to_uppercase() == "L" => Prev::IdentL,
+            TokenTree::Ident(_) => Prev::Value,
+            TokenTree::Punct(p) if matches!(p.as_char(), '*' | '?') => Prev::Value,
+            TokenTree::Punct(_) => Prev::Operator,
+            TokenTree::Group(_) => prev,
+        };
+
         match tt {
             TokenTree::Literal(lit) => {
                 let s = lit.to_string();
                 let val: u32 = s
                     .parse()
                     .map_err(|_| (CronLexerError::UnknownCharacter, lit.span()))?;
-
                 tokens[field_pos].push(Token {
                     start: 0,
                     token_type: TokenType::Value(val),
                     span: Some(lit.span()),
-                })
+                });
             }
             TokenTree::Ident(ident) => {
                 let s = ident.to_string();
@@ -237,7 +281,6 @@ pub fn tokenize_from_tokens(
                     "DEC" => TokenType::Value(12),
                     _ => return Err((CronLexerError::UnknownCharacter, ident.span())),
                 };
-
                 tokens[field_pos].push(Token {
                     start: 0,
                     token_type,
@@ -258,16 +301,9 @@ pub fn tokenize_from_tokens(
                     start: 0,
                     token_type,
                     span: Some(punct.span()),
-                })
+                });
             }
             TokenTree::Group(_) => {}
-        }
-        if let Some(next) = iter.peek() {
-            if tt_span.end().column < next.span().start().column - 1
-                || tt_span.end().line != next.span().start().line
-            {
-                field_pos += 1;
-            }
         }
     }
 
