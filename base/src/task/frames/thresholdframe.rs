@@ -55,10 +55,10 @@ pub struct ThresholdFrameConfig<T: TaskFrame> {
     frame: T,
 
     #[builder(default = Box::new(ThresholdIdentityCountLogic))]
-    threshold_logic: Box<dyn ThresholdLogic<T::Error>>,
+    count_behaviour: Box<dyn ThresholdLogic<T::Error>>,
 
     #[builder(default = Box::new(ThresholdSuccessReachBehaviour))]
-    threshold_reach_behaviour: Box<dyn ThresholdReachBehaviour<T::Error>>,
+    reach_behaviour: Box<dyn ThresholdReachBehaviour<T::Error>>,
     threshold: NonZeroUsize,
 }
 
@@ -66,8 +66,8 @@ impl<T: TaskFrame> From<ThresholdFrameConfig<T>> for ThresholdTaskFrame<T> {
     fn from(config: ThresholdFrameConfig<T>) -> Self {
         Self {
             frame: config.frame,
-            threshold_logic: config.threshold_logic,
-            threshold_reach_behaviour: config.threshold_reach_behaviour,
+            threshold_logic: config.count_behaviour,
+            threshold_reach_behaviour: config.reach_behaviour,
             threshold: config.threshold,
             count: AtomicUsize::new(0),
         }

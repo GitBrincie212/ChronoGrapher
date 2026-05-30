@@ -2,11 +2,12 @@ use proc_macro::TokenStream;
 use darling::ast::NestedMeta;
 use darling::FromMeta;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, FnArg, GenericArgument, PathArguments, ReturnType, Type, TypePath, TypeReference};
+use syn::{parse_macro_input, FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 use crate::utils::{extract_arg_name, extract_docs, handle_generics_phantom_data, LIFETIME_UNSUPPORTED_ERR};
+use crate::workflow::WorkflowAnnotation;
 
 const TASKFRAME_CTX_REQUIRED_ERR: &'static str = "Function is required to have at least one argument of type \"TaskFrameContext\"";
 const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &'static str = "First argument must be of type \"TaskFrameContext\"";
@@ -21,9 +22,25 @@ const SECOND_GENERIC_RETURN_ERR: &'static str = "Second generic argument of Resu
 const ASYNC_REQUIRED_ERR: &'static str = "Function is required to be async";
 const ABI_UNSUPPORTED_ERR: &'static str = "ABI functions are unsupported";
 
+#[derive(Debug)]
+struct WorkflowSpecs(Punctuated<syn::Expr, Token![,]>);
+
+impl darling::FromMeta for WorkflowSpecs {
+    fn from_expr(expr: &syn::Expr) -> darling::Result<Self> {
+        if let syn::Expr::Tuple(exp_paren) = expr {
+            return Ok(Self(exp_paren.elems.clone()));
+        }
+
+        Err(darling::Error::custom("Expected parenthesized token stream"))
+    }
+}
+
 #[derive(Debug, FromMeta)]
 pub struct TaskFrameMacroArguments {
-    name_override: Option<syn::Ident>
+    name_override: Option<syn::Ident>,
+
+    #[doc(hidden)]
+    __internal_workflow_spec: Option<WorkflowSpecs>
 }
 
 fn extract_arguments(
@@ -228,12 +245,12 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let name_override = match TaskFrameMacroArguments::from_list(&attr_args) {
+    let mut macro_args = match TaskFrameMacroArguments::from_list(&attr_args) {
         Ok(v) => v,
         Err(e) => {
             return e.write_errors().into();
         }
-    }.name_override;
+    };
 
     let fn_sig = &mut input.sig;
     let fn_name = &mut fn_sig.ident;
@@ -261,8 +278,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     } else if stringified_fn_name.to_lowercase().ends_with("frame") {
         *fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 5], fn_name.span())
     }
-    
-    let taskframe_name = name_override
+
+    let taskframe_name = macro_args.name_override
         .unwrap_or(syn::Ident::new(&format!("{fn_name}TaskFrame"), fn_name.span()));
 
 
@@ -308,16 +325,42 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
         Err(e) => return e.to_compile_error().into(),
     };
 
-    let expanded = normalized_type_params.map(|value| {
-        quote! { < #value > }
-    });
+    let expanded = normalized_type_params.clone()
+        .map(|value| quote! { < #value > });
 
     let docs = extract_docs(&*input.attrs);
+
+    let mut impl_workflow_method = None;
+    if let Some(workflow_spec) = macro_args.__internal_workflow_spec {
+        let temp = normalized_type_params.clone()
+            .map(|x| quote! { <#x> });
+
+        let res = WorkflowAnnotation::translate(
+            quote! { #taskframe_name #temp ::default() },
+            quote! { #taskframe_name #temp },
+            workflow_spec.0
+        );
+
+        let (expanded_workflow_init, expanded_workflow_type) = match res {
+            Ok(res) => res,
+            Err(e) => return e.to_compile_error().into(),
+        };
+
+        impl_workflow_method = Some(quote! {
+            impl #generics #impl_end_name {
+                pub fn workflow() -> #expanded_workflow_type {
+                    #expanded_workflow_init
+                }
+            }
+        });
+    }
 
     quote! {
         #(#docs)*
         #derives
         #fn_vis struct #taskframe_name #generics #phantom_data #where_clause;
+
+        #impl_workflow_method
 
         impl #generics chronographer::task::TaskFrame for #impl_end_name {
             type Args = (#arg_types);

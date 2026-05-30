@@ -53,6 +53,7 @@ pub mod prelude {
     pub use crate::task::fallbackframe::FallbackTaskFrame;
     pub use crate::task::retryframe::RetriableTaskFrame;
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
+    pub use crate::task::thresholdframe::ThresholdTaskFrame;
 
     // Scheduling / Triggering
     pub use crate::task::schedule::TaskScheduleInterval;

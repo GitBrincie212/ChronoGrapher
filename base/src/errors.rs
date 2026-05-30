@@ -41,6 +41,17 @@ pub enum TimeoutTaskFrameError<T: TaskError> {
 }
 
 #[derive(Error, Debug)]
+pub enum ThresholdTaskFrameError<T: TaskError> {
+    #[error(
+        "ThresholdTaskFrame has failed, with the error originating from primary TaskFrame's failure:\n\t{0}"
+    )]
+    Inner(T),
+
+    #[error("ThresholdTaskFrame has failed with the error originating from the \"DependentFailBehavior\"")]
+    ThresholdReachedWithFailure,
+}
+
+#[derive(Error, Debug)]
 pub enum DependencyTaskFrameError<T: TaskError> {
     #[error(
         "DependencyTaskFrame has failed, with the error originating from inner TaskFrame's failure:\n\t{0}"

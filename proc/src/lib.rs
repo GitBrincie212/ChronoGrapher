@@ -3,6 +3,7 @@ mod utils;
 mod task;
 mod taskframe;
 mod entry;
+mod workflow;
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -365,6 +366,11 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     taskframe::taskframe(attrs, item)
+}
+
+#[proc_macro_attribute]
+pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    workflow::workflow(attrs, item)
 }
 
 
