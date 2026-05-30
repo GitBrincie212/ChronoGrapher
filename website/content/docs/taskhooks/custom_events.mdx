@@ -52,7 +52,7 @@ static TICK: AtomicUsize = AtomicUsize::new(0);
 #[derive(Error, Debug)]
 pub enum MyErrors {}
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 async fn DispatchNotificationsTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // Stand-in for a real dispatcher; cycles through a few counts
     // so listeners can observe the payload changing between ticks.
@@ -102,7 +102,7 @@ The last step is to attach this hook to the task, following the scoped singleton
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[hooks({
     scopedSingleton = NotificationMetricsHook::default(),
     // [!code highlight]
@@ -210,7 +210,7 @@ and the alert hook joins in to listen for the derived burst event:
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[hooks({
     scopedSingleton = NotificationMetricsHook::default(),
     OnNotificationsSent: scopedSingleton,

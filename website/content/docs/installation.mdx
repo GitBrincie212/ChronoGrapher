@@ -47,7 +47,7 @@ use thiserror::Error;
 pub enum MyErrors {}
 
 // Define our singleton Task to run
-#[task(schedule = interval(2s))]
+#[task(schedule = every!(2s))]
 async fn MyTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     println!("Hello ChronoGrapher!");
     Ok(())

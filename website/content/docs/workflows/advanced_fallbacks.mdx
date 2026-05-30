@@ -32,7 +32,7 @@ async fn my_task_fallback(ctx: &TaskFrameContext, err: &MyErrors) -> Result<(), 
     }
 }
 
-#[task(interval(6s))]
+#[task(schedule = every!(6s)))]
 #[workflow(
     fallback(my_task_fallback)
 )]
@@ -82,7 +82,7 @@ async fn some_other_error_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> 
 
 // Add more TaskFrames for handling errors.
 
-#[task(interval(6s))]
+#[task(schedule = every!(6s)))]
 #[workflow(
     fallback(server_error_fallback, resource_not_found404_fallback, some_other_error_fallback)
 )]
@@ -132,7 +132,7 @@ async fn resource_not_found_fallback(ctx: &TaskFrameContext, error: &MyErrors) -
 
 // <...>
 
-#[task(interval(6s))]
+#[task(schedule = every!(6s)))]
 #[workflow(
     fallback(server_error_fallback, resource_not_found404_fallback, some_other_error_fallback)
 )]

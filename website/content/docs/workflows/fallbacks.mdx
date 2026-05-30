@@ -24,7 +24,7 @@ pub enum MyErrors {
     // <...>
 }
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(retry(3, 2s))]
 async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // [!code highlight]
@@ -110,7 +110,7 @@ async fn MyFallbackTaskFrame(ctx: &TaskFrameContext, error: &MyErrors) -> Result
 // [!code ++]
 }
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     // [!code ++]
     fallback(MyFallbackTaskFrame),

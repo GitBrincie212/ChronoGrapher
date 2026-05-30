@@ -18,7 +18,7 @@ hard to notice this in production and highly dangerous. To solve this, use ``tim
 Back in our previous script, we add the following:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(1s))]
+#[task(schedule = every!(1s)))]
 #[workflow(
     // [!code ++]
     timeout(5s),
@@ -73,7 +73,7 @@ Timeouts can also be calculated dynamically via a custom function, each time the
 is invoked to calculate the corresponding duration:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(1s))]
+#[task(schedule = every!(1s)))]
 #[workflow(
     // [!code highlight]
     timeout(custom = |_| Duration::from_secs(5)),
@@ -90,7 +90,7 @@ Try switching the order! You can control where the timeout takes effect in. For 
 the entire workflow whereas in:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(1s))]
+#[task(schedule = every!(1s)))]
 #[workflow(
     fallback(myfallback),
     retry(3, 2s),
@@ -101,7 +101,7 @@ the entire workflow whereas in:
 This only takes effect in business logic, another permutation is:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(1s))]
+#[task(schedule = every!(1s)))]
 #[workflow(
     fallback(myfallback),
     retry(3, 2s),
@@ -130,7 +130,7 @@ by a specified duration.
 We can use ``delay`` to achieve our goals. Like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(1s))]
+#[task(schedule = every!(1s)))]
 #[workflow(
     timeout(6s),
     fallback(myfallback),
@@ -148,7 +148,7 @@ Just like ``timeout``, we can also use a custom function to calculate dynamicall
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(1s))]
+#[task(schedule = every!(1s)))]
 #[workflow(
     timeout(6s),
     fallback(myfallback),

@@ -14,12 +14,12 @@ Hence, ChronoGrapher provides us the ability to declare dependencies via ``depen
 on are different Tasks so let's see this in action with an example:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(1s))]
+#[task(schedule = every!(1s)))]
 async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     // [!code highlight]
     dependency(MyTask1)
@@ -43,7 +43,7 @@ async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 Though what happens if we want to require the Task to run at least 3 times regardless of result? We can achieve this via:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     // [!code highlight]
     dependency(MyTask1(any = 3))
@@ -59,7 +59,7 @@ consecutive variant via ``consecutive_failures`` and ``consecutive_successes``.
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     // [!code highlight]
     // or "successes = 3", same follows with consecutive variants
@@ -75,7 +75,7 @@ async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 We can also provide a custom implementation for counting failures/successes via a ``custom`` like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     // [!code highlight]
     dependency(
@@ -96,13 +96,13 @@ Unlike other workflow orchestrators (which mostly model via DAGs), ChronoGrapher
 via pure boolean operations as demonstrated below:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(1s))]
+#[task(schedule = every!(1s)))]
 async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 
 // [!code ++]
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 // [!code ++]
 async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // [!code ++]
@@ -110,7 +110,7 @@ async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 // [!code ++]
 }
 
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     // [!code highlight]
     dependency(MyTask1 && MyTask2)
@@ -125,7 +125,7 @@ However, we are not restricted to simple boolean logic, we can have all kinds of
 NOT and XOR and various complex boolean expressions like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     // [!code highlight]
     dependency(!MyTask5 && (MyTask1 || MyTask2 ^ MyTask4))
@@ -140,7 +140,7 @@ async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 We can also customize just like our previous workflow primitives what happens when our dependency isn't resolved via:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     // [!code highlight]
     dependency(
@@ -161,7 +161,7 @@ Now instead of just skipping this workflow part with success, it errors out with
 of course customize the logic to either succeed or error out via ``custom(...)``:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     dependency(
         !MyTask5 && (MyTask1 || MyTask2 ^ MyTask4),
@@ -182,7 +182,7 @@ ways to achieve this. The most simple is via a ``flag(...)`` dependency:
 ```rust title="src/main.rs" lineNumbers=14
 static MY_FLAG: AtomicBool = AtomicBool::new(false);
 
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     dependency(
         // [!code highlight]
@@ -201,7 +201,7 @@ The second way is via ``dynamic(...)`` dependency. Its a function that is being 
 dependency:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     dependency(
         // [!code highlight]
@@ -220,7 +220,7 @@ async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 You can even mix and match different dependency types with boolean operations, for example:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
-#[task(interval(4s))]
+#[task(schedule = every!(4s)))]
 #[workflow(
     dependency(
         // [!code highlight]

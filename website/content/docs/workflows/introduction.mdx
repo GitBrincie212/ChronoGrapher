@@ -33,7 +33,7 @@ pub enum MyErrors {
     OtherHttpStatus(reqwest::StatusCode)
 }
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s))]
 async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     let res = reqwest::get("https://httpbin.org/status/200,429,500").await?;
 
@@ -98,7 +98,7 @@ To fix this we can add retries, which re-attempt requests once we hit an error:
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 // [!code ++]
 #[workflow(retry(3))]
 async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
@@ -143,7 +143,7 @@ Notice the multiple debugs for each run? This means our Task is being retried, t
 happen immediately. To fix this, we can declare a delay per retry like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s))]
 // [!code ++]
 #[workflow(retry(3, 2s))]
 async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
