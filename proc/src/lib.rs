@@ -1,6 +1,5 @@
 mod every;
 mod cron;
-mod cron_lexer;
 mod utils;
 mod task;
 mod taskframe;
