@@ -1,6 +1,7 @@
-use crate::{cron_lexer::{Token, TokenType}, error::CronExpressionParserErrors};
-
-
+use crate::{
+    cron_lexer::{Token, TokenType},
+    errors::CronExpressionParserErrors,
+};
 
 #[derive(Clone, Debug, Default)]
 pub struct AstNode {

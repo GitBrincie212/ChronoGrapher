@@ -1,16 +1,12 @@
 use std::ops::RangeInclusive;
 
-use crate::{cron_parser::{AstNode, AstTreeNode}, error::CronExpressionParserErrors};
+use crate::{
+    cron_parser::{AstNode, AstTreeNode},
+    errors::CronExpressionParserErrors,
+};
 
-const RANGES: [RangeInclusive<u32>; 7] = [
-    0..=59,
-    0..=59,
-    0..=23,
-    1..=31,
-    1..=12,
-    1..=7,
-    2026..=2099,
-];
+const RANGES: [RangeInclusive<u32>; 7] =
+    [0..=59, 0..=59, 0..=23, 1..=31, 1..=12, 1..=7, 2026..=2099];
 
 const FIELD_NAMES: [&str; 7] = [
     "seconds",
@@ -22,7 +18,10 @@ const FIELD_NAMES: [&str; 7] = [
     "year",
 ];
 
-pub fn validate_ast_node(node: &AstNode, field_pos: usize) -> Result<(), CronExpressionParserErrors> {
+pub fn validate_ast_node(
+    node: &AstNode,
+    field_pos: usize,
+) -> Result<(), CronExpressionParserErrors> {
     let range = &RANGES[field_pos];
     let field_name = FIELD_NAMES[field_pos];
 

@@ -1,33 +1,39 @@
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum CronLexerError {
-    #[error("Number of fields not in known format")]
-    UnknownFieldFormat,
+pub struct CronError {
+    pub field_pos: usize,
+    pub position: usize,
+    pub error_type: CronErrorTypes,
+}
 
-    #[error("Unknown character")]
-    UnknownCharacter,
+impl Display for CronError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let field_type = match self.field_pos {
+            0 => "Seconds",
+            1 => "Minutes",
+            2 => "Hours",
+            3 => "Day Of Month",
+            4 => "Month",
+            5 => "Day Of Week",
+            _ => "UNKNOWN",
+        };
 
-    #[error("Invalid use of range operator")]
-    InvalidRange,
+        f.write_fmt(format_args!(
+            "{}\n\tAt `{field_type}` field and position {}",
+            self.error_type, self.position
+        ))
+    }
+}
 
-    #[error("Invalid use of wildcard operand")]
-    InvalidWildcard,
+#[derive(Error, Debug)]
+pub enum CronErrorTypes {
+    #[error("ParserError: {0}")]
+    Parser(CronExpressionParserErrors),
 
-    #[error("Invalid use of list seperator")]
-    InvalidListSeperator,
-
-    #[error("Use of non-numeric operands / operations inside list")]
-    NonNumericOperatorUse,
-
-    #[error("Undefined range, minimum bound is higher than maximum bound ({start} >= {end})")]
-    InvalidRangeBounds { start: u32, end: u32 },
-
-    #[error("Number `{num}` exceeds expected range (of {start} - {end})")]
-    InvalidNumericRange { num: u32, start: u32, end: u32 },
-
-    #[error("Empty field")]
-    EmptyField,
+    #[error("LexerError: {0}")]
+    Lexer(CronExpressionLexerErrors),
 }
 
 #[derive(Error, Debug)]
@@ -90,4 +96,34 @@ pub enum CronExpressionParserErrors {
 
     #[error("# (nth weekday) operator is only valid for day_of_week field")]
     InvalidNthWeekdayOperator,
+}
+
+#[derive(Error, Debug)]
+pub enum CronExpressionLexerErrors {
+    #[error("Number of fields not in known format")]
+    UnknownFieldFormat,
+
+    #[error("Unknown character")]
+    UnknownCharacter,
+
+    #[error("Invalid use of range operator")]
+    InvalidRange,
+
+    #[error("Invalid use of wildcard operand")]
+    InvalidWildcard,
+
+    #[error("Invalid use of list seperator")]
+    InvalidListSeperator,
+
+    #[error("Use of non-numeric operands / operations inside list")]
+    NonNumericOperatorUse,
+
+    #[error("Undefined range, minimum bound is higher than maximum bound ({start} >= {end})")]
+    InvalidRangeBounds { start: u32, end: u32 },
+
+    #[error("Number `{num}` exceeds expected range (of {start} - {end})")]
+    InvalidNumericRange { num: u32, start: u32, end: u32 },
+
+    #[error("Empty field")]
+    EmptyField,
 }

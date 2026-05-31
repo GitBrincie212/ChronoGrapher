@@ -1,6 +1,6 @@
 use proc_macro2::{Span, TokenTree};
 
-use crate::error::CronLexerError;
+use crate::errors::CronExpressionLexerErrors;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenType {
@@ -27,7 +27,7 @@ fn constant_to_numeric(
     field_pos: usize,
     position: usize,
     tokens: &mut Vec<Token>,
-) -> Result<(), (CronLexerError, usize, usize)> {
+) -> Result<(), (CronExpressionLexerErrors, usize, usize)> {
     let num: u32 = match &char_buffer[0..=2] {
         "SUN" | "sun" if field_pos == 3 => 1,
         "MON" | "mon" if field_pos == 3 => 2,
@@ -49,7 +49,11 @@ fn constant_to_numeric(
         "NOV" | "nov" if field_pos == 5 => 11,
         "DEC" | "dec" if field_pos == 5 => 12,
         _ => {
-            return Err((CronLexerError::UnknownCharacter, position, field_pos));
+            return Err((
+                CronExpressionLexerErrors::UnknownCharacter,
+                position,
+                field_pos,
+            ));
         }
     };
 
@@ -78,7 +82,9 @@ fn try_allocate_number(
     }
 }
 
-pub fn tokenize_from_str(s: &str) -> Result<[Vec<Token>; 6], (CronLexerError, usize, usize)> {
+pub fn tokenize_from_str(
+    s: &str,
+) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
     let mut tokens: [Vec<Token>; 6] = [const { Vec::new() }; 6];
     let mut current_number = 0u32;
     let mut field_pos = 0;
@@ -103,15 +109,23 @@ pub fn tokenize_from_str(s: &str) -> Result<[Vec<Token>; 6], (CronLexerError, us
                     &mut tokens[field_pos],
                 )?;
             } else if !char_buffer.is_empty() {
-                return Err((CronLexerError::UnknownCharacter, position, field_pos));
+                return Err((
+                    CronExpressionLexerErrors::UnknownCharacter,
+                    position,
+                    field_pos,
+                ));
             }
 
             if field_pos >= 5 {
-                return Err((CronLexerError::UnknownFieldFormat, position, field_pos));
+                return Err((
+                    CronExpressionLexerErrors::UnknownFieldFormat,
+                    position,
+                    field_pos,
+                ));
             }
 
             if tokens[field_pos].is_empty() && field_pos > 0 {
-                return Err((CronLexerError::EmptyField, position, field_pos));
+                return Err((CronExpressionLexerErrors::EmptyField, position, field_pos));
             }
             field_pos += 1;
             continue;
@@ -158,7 +172,11 @@ pub fn tokenize_from_str(s: &str) -> Result<[Vec<Token>; 6], (CronLexerError, us
                 TokenType::NearestWeekday
             }
             _ => {
-                return Err((CronLexerError::UnknownCharacter, position, field_pos));
+                return Err((
+                    CronExpressionLexerErrors::UnknownCharacter,
+                    position,
+                    field_pos,
+                ));
             }
         };
 
@@ -170,12 +188,20 @@ pub fn tokenize_from_str(s: &str) -> Result<[Vec<Token>; 6], (CronLexerError, us
     }
 
     if field_pos != 5 && field_pos != 4 {
-        return Err((CronLexerError::UnknownFieldFormat, s.len() - 1, field_pos));
+        return Err((
+            CronExpressionLexerErrors::UnknownFieldFormat,
+            s.len() - 1,
+            field_pos,
+        ));
     }
 
     if !char_buffer.is_empty() {
         let position = s.len() - char_buffer.len();
-        return Err((CronLexerError::UnknownCharacter, position, field_pos));
+        return Err((
+            CronExpressionLexerErrors::UnknownCharacter,
+            position,
+            field_pos,
+        ));
     }
 
     if let Some(start) = digit_start {
@@ -191,7 +217,7 @@ pub fn tokenize_from_str(s: &str) -> Result<[Vec<Token>; 6], (CronLexerError, us
 
 pub fn tokenize_from_tokens(
     input: proc_macro2::TokenStream,
-) -> Result<[Vec<Token>; 6], (CronLexerError, proc_macro2::Span)> {
+) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, proc_macro2::Span)> {
     let mut tokens: [Vec<Token>; 6] = std::array::from_fn(|_| Vec::new());
     let mut field_pos: usize = 0;
 
@@ -199,11 +225,17 @@ pub fn tokenize_from_tokens(
     // so this works in both cargo and rust-analyzer proc-macro contexts.
     //
     // Rule: two adjacent "value" tokens (with no operator between them) mark a field
-    // boundary — because cron values within a single field are always separated by an
+    // boundary, because cron values within a single field are always separated by an
     // operator (-, /, ,, #).  Exceptions: `NL` (e.g. `1L`) and `NW` (e.g. `15W`) are
     // suffix forms in the same field, as is `LW` (last weekday).
     #[derive(Clone, Copy, PartialEq)]
-    enum Prev { None, Operator, Value, NumLit, IdentL }
+    enum Prev {
+        None,
+        Operator,
+        Value,
+        NumLit,
+        IdentL,
+    }
     let mut prev = Prev::None;
 
     for tt in input {
@@ -248,7 +280,7 @@ pub fn tokenize_from_tokens(
                 let s = lit.to_string();
                 let val: u32 = s
                     .parse()
-                    .map_err(|_| (CronLexerError::UnknownCharacter, lit.span()))?;
+                    .map_err(|_| (CronExpressionLexerErrors::UnknownCharacter, lit.span()))?;
                 tokens[field_pos].push(Token {
                     start: 0,
                     token_type: TokenType::Value(val),
@@ -279,7 +311,7 @@ pub fn tokenize_from_tokens(
                     "OCT" => TokenType::Value(10),
                     "NOV" => TokenType::Value(11),
                     "DEC" => TokenType::Value(12),
-                    _ => return Err((CronLexerError::UnknownCharacter, ident.span())),
+                    _ => return Err((CronExpressionLexerErrors::UnknownCharacter, ident.span())),
                 };
                 tokens[field_pos].push(Token {
                     start: 0,
@@ -295,7 +327,7 @@ pub fn tokenize_from_tokens(
                     '/' => TokenType::Step,
                     '#' => TokenType::NthWeekday,
                     '?' => TokenType::Unspecified,
-                    _ => return Err((CronLexerError::UnknownCharacter, punct.span())),
+                    _ => return Err((CronExpressionLexerErrors::UnknownCharacter, punct.span())),
                 };
                 tokens[field_pos].push(Token {
                     start: 0,
