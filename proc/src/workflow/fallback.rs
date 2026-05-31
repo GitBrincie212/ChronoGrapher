@@ -31,7 +31,7 @@ impl WorkflowTransform for FallbackArguments {
     fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
         let mut curr = quote! { #toks };
         for ident in self.0.iter() {
-            curr = quote! { chronographer::prelude::DependencyTaskFrame<#curr, #ident> };
+            curr = quote! { chronographer::prelude::FallbackTaskFrame<#curr, #ident> };
         }
         
         curr
