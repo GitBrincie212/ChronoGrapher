@@ -1,5 +1,5 @@
+use crate::cron_lexer::tokenize_from_tokens;
 use chronographer_utils::{
-    cron_lexer,
     cron_parser::{AstNode, AstTreeNode, CronParser},
     validator::validate_ast_node,
 };
@@ -9,7 +9,7 @@ use quote::quote;
 
 pub fn cron(input: TokenStream) -> TokenStream {
     let input2: proc_macro2::TokenStream = input.into();
-    let tokens = match cron_lexer::tokenize_from_tokens(input2) {
+    let tokens = match tokenize_from_tokens(input2) {
         Ok(t) => t,
         Err((err, span)) => {
             return syn::Error::new(span, err.to_string())

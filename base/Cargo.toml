@@ -29,6 +29,7 @@ eyre = {version = "0.6.12", optional = true}
 crossbeam = "0.8.4"
 slotmap = "1.1.1"
 parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
+chronographer_utils = { path = "../utils" }
 
 [dev-dependencies]
 chronographer = {path = "../core"}
