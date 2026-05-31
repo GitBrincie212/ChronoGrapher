@@ -1,7 +1,9 @@
+use proc_macro2::Span;
+
 use crate::errors::CronExpressionLexerErrors;
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum TokenType {
+pub enum TokenType {
     Value(u32),
     Minus,
     Wildcard,
@@ -14,9 +16,10 @@ pub(crate) enum TokenType {
 }
 
 #[derive(Debug)]
-pub(crate) struct Token {
-    pub(crate) start: usize,
-    pub(crate) token_type: TokenType,
+pub struct Token {
+    pub start: usize,
+    pub token_type: TokenType,
+    pub span: Option<Span>,
 }
 
 fn constant_to_numeric(
@@ -25,26 +28,27 @@ fn constant_to_numeric(
     position: usize,
     tokens: &mut Vec<Token>,
 ) -> Result<(), (CronExpressionLexerErrors, usize, usize)> {
-    let num: u32 = match &char_buffer[0..=2] {
-        "SUN" | "sun" if field_pos == 3 => 1,
-        "MON" | "mon" if field_pos == 3 => 2,
-        "TUE" | "tue" if field_pos == 3 => 3,
-        "WED" | "wed" if field_pos == 3 => 4,
-        "THU" | "thu" if field_pos == 3 => 5,
-        "FRI" | "fri" if field_pos == 3 => 6,
-        "SAT" | "sat" if field_pos == 3 => 7,
-        "JAN" | "jan" if field_pos == 5 => 1,
-        "FEB" | "feb" if field_pos == 5 => 2,
-        "MAR" | "mar" if field_pos == 5 => 3,
-        "APR" | "apr" if field_pos == 5 => 4,
-        "MAY" | "may" if field_pos == 5 => 5,
-        "JUN" | "jun" if field_pos == 5 => 6,
-        "JUL" | "jul" if field_pos == 5 => 7,
-        "AUG" | "aug" if field_pos == 5 => 8,
-        "SEP" | "sep" if field_pos == 5 => 9,
-        "OCT" | "oct" if field_pos == 5 => 10,
-        "NOV" | "nov" if field_pos == 5 => 11,
-        "DEC" | "dec" if field_pos == 5 => 12,
+    // Normalize case once so mixed-case names (e.g. `Mon`, `MoN`) parse the same as `MON`/`mon`.
+    let num: u32 = match char_buffer[0..=2].to_ascii_uppercase().as_str() {
+        "SUN" if field_pos == 3 => 1,
+        "MON" if field_pos == 3 => 2,
+        "TUE" if field_pos == 3 => 3,
+        "WED" if field_pos == 3 => 4,
+        "THU" if field_pos == 3 => 5,
+        "FRI" if field_pos == 3 => 6,
+        "SAT" if field_pos == 3 => 7,
+        "JAN" if field_pos == 5 => 1,
+        "FEB" if field_pos == 5 => 2,
+        "MAR" if field_pos == 5 => 3,
+        "APR" if field_pos == 5 => 4,
+        "MAY" if field_pos == 5 => 5,
+        "JUN" if field_pos == 5 => 6,
+        "JUL" if field_pos == 5 => 7,
+        "AUG" if field_pos == 5 => 8,
+        "SEP" if field_pos == 5 => 9,
+        "OCT" if field_pos == 5 => 10,
+        "NOV" if field_pos == 5 => 11,
+        "DEC" if field_pos == 5 => 12,
         _ => {
             return Err((
                 CronExpressionLexerErrors::UnknownCharacter,
@@ -57,6 +61,7 @@ fn constant_to_numeric(
     tokens.push(Token {
         start: position - 3,
         token_type: TokenType::Value(num),
+        span: None,
     });
     char_buffer.clear();
     Ok(())
@@ -71,13 +76,16 @@ fn try_allocate_number(
         tokens.push(Token {
             start: *start,
             token_type: TokenType::Value(*current_number),
+            span: None,
         });
         *current_number = 0;
         *digit_start = None;
     }
 }
 
-pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
+pub fn tokenize_from_str(
+    s: &str,
+) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, usize, usize)> {
     let mut tokens: [Vec<Token>; 6] = [const { Vec::new() }; 6];
     let mut current_number = 0u32;
     let mut field_pos = 0;
@@ -176,6 +184,7 @@ pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressio
         tokens[field_pos].push(Token {
             start: position,
             token_type,
+            span: None,
         })
     }
 
@@ -200,6 +209,7 @@ pub(crate) fn tokenize_fields(s: &str) -> Result<[Vec<Token>; 6], (CronExpressio
         tokens[field_pos].push(Token {
             start,
             token_type: TokenType::Value(current_number),
+            span: None,
         });
     }
 

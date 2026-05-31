@@ -1,24 +1,19 @@
-use crate::errors::{CronError, CronErrorTypes, CronExpressionParserErrors};
-use crate::task::schedule::cron_lexer::{Token, tokenize_fields};
-use crate::task::schedule::cron_parser::{AstNode, AstTreeNode, CronParser};
+use crate::task::TaskSchedule;
+use async_trait::async_trait;
+use chronographer_utils::{
+    cron_lexer::{Token, tokenize_from_str},
+    cron_parser::{AstNode, AstTreeNode, CronParser},
+    errors::{CronError, CronErrorTypes, CronExpressionParserErrors},
+};
 use std::error::Error;
 use std::fmt::{Debug, Formatter, Write};
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
-use async_trait::async_trait;
 use time::UtcDateTime;
-use crate::task::TaskSchedule;
 
-const RANGES: [RangeInclusive<u32>; 7] = [
-    0..=59,
-    0..=59,
-    0..=23,
-    1..=31,
-    1..=12,
-    1..=7,
-    2026..=2099,
-];
+const RANGES: [RangeInclusive<u32>; 7] =
+    [0..=59, 0..=59, 0..=23, 1..=31, 1..=12, 1..=7, 2026..=2099];
 
 const FIELD_NAMES: [&str; 7] = [
     "seconds",
@@ -182,29 +177,27 @@ pub enum CronField {
 impl Debug for CronField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            CronField::Wildcard => {f.write_char('*')}
-            CronField::Exact(val) => {f.write_str(&val.to_string())}
-            CronField::Range(start, end) => {f.write_fmt(format_args!("{start}-{end}"))}
-            CronField::Step(val, step) => {f.write_fmt(format_args!("{val:?}-{step}"))}
-            CronField::List(vals) => {
-                vals.fmt(f)
-            }
-            CronField::Unspecified => {f.write_char('?')}
+            CronField::Wildcard => f.write_char('*'),
+            CronField::Exact(val) => f.write_str(&val.to_string()),
+            CronField::Range(start, end) => f.write_fmt(format_args!("{start}-{end}")),
+            CronField::Step(val, step) => f.write_fmt(format_args!("{val:?}-{step}")),
+            CronField::List(vals) => vals.fmt(f),
+            CronField::Unspecified => f.write_char('?'),
             CronField::Last(val) => {
-                if let Some(val) = val && val.is_negative() {
+                if let Some(val) = val
+                    && val.is_negative()
+                {
                     f.write_fmt(format_args!("L-{val}"))
-                } else if let Some(val) = val && val.is_positive() {
+                } else if let Some(val) = val
+                    && val.is_positive()
+                {
                     f.write_fmt(format_args!("{val}L"))
                 } else {
                     f.write_char('L')
                 }
             }
-            CronField::NearestWeekday(val) => {
-                f.write_fmt(format_args!("{val}W"))
-            }
-            CronField::NthWeekday(val1, val2) => {
-                f.write_fmt(format_args!("{val1}#{val2}"))
-            }
+            CronField::NearestWeekday(val) => f.write_fmt(format_args!("{val}W")),
+            CronField::NthWeekday(val1, val2) => f.write_fmt(format_args!("{val1}#{val2}")),
         }
     }
 }
@@ -423,8 +416,12 @@ impl Debug for TaskScheduleCron {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{:?} {:?} {:?} {:?} {:?} {:?} {:?}",
-            self.seconds, self.minute, self.hour,
-            self.day_of_month, self.month, self.day_of_week,
+            self.seconds,
+            self.minute,
+            self.hour,
+            self.day_of_month,
+            self.month,
+            self.day_of_week,
             self.year
         ))
     }
@@ -510,8 +507,9 @@ impl TaskScheduleCron {
             if !self.matches_year(dt.year() as u32) {
                 let next_year = self.next_valid_year(dt.year() as u32)?;
                 dt = UtcDateTime::new(
-                    time::Date::from_calendar_date(next_year as i32, time::Month::January, 1).ok()?,
-                    time::Time::from_hms(0, 0, 0).ok()?
+                    time::Date::from_calendar_date(next_year as i32, time::Month::January, 1)
+                        .ok()?,
+                    time::Time::from_hms(0, 0, 0).ok()?,
                 );
                 continue;
             }
@@ -521,8 +519,13 @@ impl TaskScheduleCron {
             if !self.month.matches(month) {
                 dt = match self.month.next_valid(month, 12) {
                     Some(next_month) => UtcDateTime::new(
-                        time::Date::from_calendar_date(dt.year(), time::Month::try_from(next_month as u8).ok()?, 1).ok()?,
-                        time::Time::from_hms(0, 0, 0).ok()?
+                        time::Date::from_calendar_date(
+                            dt.year(),
+                            time::Month::try_from(next_month as u8).ok()?,
+                            1,
+                        )
+                        .ok()?,
+                        time::Time::from_hms(0, 0, 0).ok()?,
                     ),
 
                     None => {
@@ -531,9 +534,10 @@ impl TaskScheduleCron {
                             time::Date::from_calendar_date(
                                 next_year as i32,
                                 time::Month::try_from(self.month.min() as u8).ok()?,
-                                1
-                            ).ok()?,
-                            time::Time::from_hms(0, 0, 0).ok()?
+                                1,
+                            )
+                            .ok()?,
+                            time::Time::from_hms(0, 0, 0).ok()?,
                         )
                     }
                 };
@@ -551,23 +555,29 @@ impl TaskScheduleCron {
             if !self.hour.matches(dt.hour() as u32) {
                 dt = match self.hour.next_valid(dt.hour() as u32, 23) {
                     Some(next_hour) => dt.date().with_hms(next_hour as u8, 0, 0).ok()?.as_utc(),
-                    None => (dt.date() + Duration::from_hours(24)).with_hms(0, 0, 0).ok()?.as_utc(),
+                    None => (dt.date() + Duration::from_hours(24))
+                        .with_hms(0, 0, 0)
+                        .ok()?
+                        .as_utc(),
                 };
                 continue;
             }
 
             if !self.minute.matches(dt.minute() as u32) {
                 dt = match self.minute.next_valid(dt.minute() as u32, 59) {
-                    Some(next_minute) => dt.date().with_hms(dt.hour(), next_minute as u8, 0).ok()?.as_utc(),
+                    Some(next_minute) => dt
+                        .date()
+                        .with_hms(dt.hour(), next_minute as u8, 0)
+                        .ok()?
+                        .as_utc(),
                     None => {
                         let next_hour = self.hour.next_valid((dt.hour() + 1) as u32, 23);
                         match next_hour {
-                            Some(hour) => {
-                                dt.date()
-                                    .with_hms(hour as u8, self.minute.min() as u8, 0)
-                                    .ok()?
-                                    .as_utc()
-                            }
+                            Some(hour) => dt
+                                .date()
+                                .with_hms(hour as u8, self.minute.min() as u8, 0)
+                                .ok()?
+                                .as_utc(),
                             None => (dt.date() + Duration::from_hours(24))
                                 .with_hms(0, 0, 0)
                                 .ok()?
@@ -580,26 +590,27 @@ impl TaskScheduleCron {
 
             if !self.seconds.matches(dt.second() as u32) {
                 dt = match self.seconds.next_valid(dt.second() as u32, 59) {
-                    Some(next_second) => {
-                        dt.date()
-                            .with_hms(dt.hour(), dt.minute(), next_second as u8)
-                            .ok()?
-                            .as_utc()
-                    }
+                    Some(next_second) => dt
+                        .date()
+                        .with_hms(dt.hour(), dt.minute(), next_second as u8)
+                        .ok()?
+                        .as_utc(),
                     None => {
                         let next_minute = self.minute.next_valid(dt.minute() as u32 + 1, 59);
                         if let Some(minute) = next_minute {
-                            dt.date().with_hms(
-                                dt.hour(),
-                                minute as u8,
-                                self.seconds.min() as u8,
-                            ).ok()?.as_utc()
+                            dt.date()
+                                .with_hms(dt.hour(), minute as u8, self.seconds.min() as u8)
+                                .ok()?
+                                .as_utc()
                         } else if let Some(hour) = self.hour.next_valid(dt.hour() as u32 + 1, 23) {
-                            dt.date().with_hms(
-                                hour as u8,
-                                self.minute.min() as u8,
-                                self.seconds.min() as u8,
-                            ).ok()?.as_utc()
+                            dt.date()
+                                .with_hms(
+                                    hour as u8,
+                                    self.minute.min() as u8,
+                                    self.seconds.min() as u8,
+                                )
+                                .ok()?
+                                .as_utc()
                         } else {
                             (dt.date() + Duration::from_hours(24))
                                 .with_hms(0, 0, 0)
@@ -623,9 +634,7 @@ impl TaskScheduleCron {
         if current > 2099 {
             return None;
         }
-        self.year
-            .next_valid(current, 99)
-            .map(|y| y + 2026)
+        self.year.next_valid(current, 99).map(|y| y + 2026)
     }
 
     fn matches_day(&self, dt: UtcDateTime) -> bool {
@@ -651,11 +660,12 @@ impl FromStr for TaskScheduleCron {
     type Err = CronError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let tokens = tokenize_fields(s).map_err(|(error_type, position, field_pos)| CronError {
-            field_pos,
-            position,
-            error_type: CronErrorTypes::Lexer(error_type),
-        })?;
+        let tokens =
+            tokenize_from_str(s).map_err(|(error_type, position, field_pos)| CronError {
+                field_pos,
+                position,
+                error_type: CronErrorTypes::Lexer(error_type),
+            })?;
 
         let mut ast: [AstNode; 7] = Default::default();
         let mut prev_toks: &[Token] = &tokens[0];
@@ -726,9 +736,8 @@ impl FromStr for TaskScheduleCron {
 #[async_trait]
 impl TaskSchedule for TaskScheduleCron {
     async fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
-        Ok(
-            self.next_time_from(time)
-                .ok_or("No valid scheduling time found")?
-        )
+        Ok(self
+            .next_time_from(time)
+            .ok_or("No valid scheduling time found")?)
     }
 }

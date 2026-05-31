@@ -12,6 +12,7 @@ quote = "1.0"
 strsim = "0.11.1"
 darling = "0.23.0"
 chronographer_base = { path = "../base" }
+chronographer_utils = { path = "../utils"}
 proc-macro2 = "1.0.101"
 
 [dev-dependencies]
