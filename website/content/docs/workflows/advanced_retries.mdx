@@ -33,7 +33,7 @@ Now with ``constant`` out of the picture, we can discuss more of the dynamic bac
 Reverting back our example from before (without timeouts, fallbacks and delays), we can improve it slightly via:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, linear(1s, 500ms, 2s))
     //  OPTIONAL ARGUMENT      ^^^^
@@ -54,7 +54,7 @@ Using ``linear`` is useful for basic setups where delays shouldn't be constant, 
 towards non-constant delay, for API requests however, it's more idiomatic to use ``exponential``.
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, exponential(2, 5s))
     //  OPTIONAL ARGUMENT   ^^
@@ -73,7 +73,7 @@ Perhaps remove ``5s`` entirely. Notice how its completely uncapped?
 All of our backoff strategies act deterministically, with ``jitter`` however, we can add noise on top as demonstrated below:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, jitter(full, exponential(2, 5s)))
 )]
@@ -90,7 +90,7 @@ The problem with **Full Jitter** is how in some occasions the randomization proc
 or lower. To fix this, we can modify our example to use **Equal Jitter** like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, jitter(equal, exponential(2, 5s)))
 )]
@@ -105,7 +105,7 @@ initial delay and the initial full delay.
 If we want better randomization for our delays, we can turn to **Decorrelated Jitter** via so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, jitter(decorrelated(20s), exponential(2, 5s)))
     // OPTIONAL ARGUMENT        ^^^^^
@@ -125,7 +125,7 @@ impl RetryBackoffStrategy for MyBackoffStrategy {
     }
 }
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, custom(MyBackoffStrategy)))
 )]
@@ -166,7 +166,7 @@ up in the workflow, effectively this is what **Error Filtering** means.
 To see this in action, lets modify our example like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, when = ![MyErrors::ForbiddenAccessError])
 )]
@@ -213,7 +213,7 @@ This is the inverse idea where any other error not present in the whitelist get 
 The above example can be written with a whitelist as:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, when = [
         MyErrors::ServerError,
@@ -277,7 +277,7 @@ returns a boolean, indicating whenever or not the error is allowed.
 Modifying our example, we can write the same whitelist as:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(
     retry(3, when = custom(|err| {
         match err {
@@ -313,7 +313,7 @@ impl RetryErrorFilter<MyErrors> {
     }
 }
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(retry(3, when = custom(MyErrorFilter))]
 async fn APIRequestTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...Same code as before... //

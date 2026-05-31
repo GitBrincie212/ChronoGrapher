@@ -24,14 +24,14 @@ Fortunately ChronoGrapher provides us with various scheduling primitives to work
 this entire time in our Task without knowing:
 
 ## Interval-Based Scheduling
-Lets return to our example to see it more clearly:
+Let's return to our example to see it more clearly:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
 // <...>
 
 // Define our singleton Task to run
 // [!code focus]
-#[task(schedule = interval(2s))]
+#[task(schedule = every!(2s)))]
 async fn MyTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     println!("Hello ChronoGrapher!");
     Ok(())
@@ -47,7 +47,7 @@ it should execute the Task.
     Duration literals act as a syntax sugar for defining a ``Duration`` object. They aren't required and in fact our example
     can be translated into a less pretty form:
     ```rust
-    #[task(schedule = interval(Duration::from_secs(2)))]
+    #[task(schedule = every!(Duration::from_secs(2))))]
     ```
 </Callout>
 The structure of an duration literal requires a number and the unit of time used as a suffix, in our case ``s`` is for seconds
@@ -61,13 +61,13 @@ However we aren't restricted to just seconds nor even having to use one duration
 
 We can also use decimals for higher precision like so:
 ```rust
-#[task(schedule = interval(0.1m))]
+#[task(schedule = every!(0.1m)))]
 ```
 
 And for multiple duration literals, we simply separate them with a comma or space (yes, we can also use decimals here
 though they are required to be last):
 ```rust
-#[task(schedule = interval(1m, 5s))] // or: interval(1m 5s)
+#[task(schedule = every!(1m, 5s))] // or: interval(1m 5s))
 ```
 
 This reads as *"an interval every 1 minute and 5 seconds"*.
@@ -78,7 +78,7 @@ While not a common scheduling primitive, it is worth a mention as its job is to 
 It has no other options / configurations and can be written like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-#[task(schedule = immediate)]
+#[task(schedule = immediate!())]
 ```
 </RenderProgrammingLanguageBased>
 
@@ -129,14 +129,14 @@ thus it is highly recommended to learn from there the syntax.
 Replicating our exact primitive example from above is as simple as:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-#[task(schedule = cron(0 0 10 * * ?))]
+#[task(schedule = cron!(0 0 10 * * ?))]
 ```
 </RenderProgrammingLanguageBased>
 
 For our interval primitive example on the top, we can do something similar such as:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-#[task(schedule = cron(*/2 * * * ? *))]
+#[task(schedule = cron!(*/2 * * * ? *))]
 ```
 </RenderProgrammingLanguageBased>
 
@@ -155,13 +155,13 @@ various shortcuts which are explained below.
 
 An example for how the calendar works is:
 ```rust title="src/main.rs" lineNumbers
-#[task(schedule = calendar({
+#[task(schedule = calendar! {
     day: FRI, // On a friday (can also use a number)
     hour: 0, // Exactly 12 AM as hour (24 hour-based)
     minute: +2, // Every 2 minutes
     second: *,
     millisecond: 0..=800 // Between 0th and 800th millisecond
-}))]
+})]
 ```
 </RenderProgrammingLanguageBased>
 

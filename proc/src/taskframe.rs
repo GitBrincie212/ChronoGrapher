@@ -1,13 +1,13 @@
 use proc_macro::TokenStream;
+use darling::ast::NestedMeta;
+use darling::FromMeta;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
+use syn::{parse_macro_input, FnArg, GenericArgument, PathArguments, ReturnType, Type, TypePath, TypeReference};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 use crate::utils::{extract_arg_name, extract_docs, handle_generics_phantom_data, LIFETIME_UNSUPPORTED_ERR};
 
-const NAME_OVERRIDE_IDENTIFIER_ERR: &'static str = "Name override parameter must be a simple identifier";
-const UNKNOWN_ATTRIBUTE_PARAM_ERR: &'static str = "Unknown attribute parameter, did you mean to use \"name_override\"?";
 const TASKFRAME_CTX_REQUIRED_ERR: &'static str = "Function is required to have at least one argument of type \"TaskFrameContext\"";
 const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &'static str = "First argument must be of type \"TaskFrameContext\"";
 const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &'static str = "Expected a simple identifier as argument name for the context";
@@ -21,47 +21,9 @@ const SECOND_GENERIC_RETURN_ERR: &'static str = "Second generic argument of Resu
 const ASYNC_REQUIRED_ERR: &'static str = "Function is required to be async";
 const ABI_UNSUPPORTED_ERR: &'static str = "ABI functions are unsupported";
 
-#[derive(Debug)]
-pub struct TaskFrameProcAttrArgs(Option<syn::Ident>);
-
-impl TaskFrameProcAttrArgs {
-    fn from_meta_list(
-        metas: Punctuated<syn::Meta, Token![,]>,
-    ) -> syn::Result<Self> {
-        let mut override_val = None;
-
-        for meta in metas {
-            match meta {
-                syn::Meta::NameValue(nv) if nv.path.is_ident("name_override") => {
-                    let syn::Expr::Path(exprpath) = &nv.value else {
-                        return Err(syn::Error::new_spanned(
-                            nv.value,
-                            NAME_OVERRIDE_IDENTIFIER_ERR
-                        ));
-                    };
-
-                    let Some(ident) = exprpath.path.get_ident() else {
-                        return Err(syn::Error::new_spanned(
-                            nv.value,
-                            NAME_OVERRIDE_IDENTIFIER_ERR
-                        ));
-                    };
-
-                    override_val = Some(ident.clone());
-                    continue;
-                }
-
-                other => {
-                    return Err(syn::Error::new_spanned(
-                        other,
-                        UNKNOWN_ATTRIBUTE_PARAM_ERR
-                    ));
-                }
-            }
-        }
-
-        Ok(Self(override_val))
-    }
+#[derive(Debug, FromMeta)]
+pub struct TaskFrameMacroArguments {
+    name_override: Option<syn::Ident>
 }
 
 fn extract_arguments(
@@ -258,14 +220,20 @@ fn derive_with_generics(name: &syn::Ident, fn_sig: &syn::Signature) -> syn::Resu
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as syn::ItemFn);
 
-    let attr_args = parse_macro_input!(
-        attrs with Punctuated::<syn::Meta, Token![,]>::parse_terminated
-    );
-
-    let name_override = match TaskFrameProcAttrArgs::from_meta_list(attr_args) {
+    // TODO: Find a way to remove this boilerplate pattern
+    let attr_args: Vec<NestedMeta> = match NestedMeta::parse_meta_list(attrs.into()) {
         Ok(v) => v,
-        Err(e) => return e.to_compile_error().into(),
-    }.0;
+        Err(e) => {
+            return darling::Error::from(e).write_errors().into();
+        }
+    };
+
+    let name_override = match TaskFrameMacroArguments::from_list(&attr_args) {
+        Ok(v) => v,
+        Err(e) => {
+            return e.write_errors().into();
+        }
+    }.name_override;
 
     let fn_sig = &mut input.sig;
     let fn_name = &mut fn_sig.ident;

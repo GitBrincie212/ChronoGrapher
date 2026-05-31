@@ -16,7 +16,7 @@ async fn predicate(_ctx: TaskFrameContext) -> bool {
     true
 }
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <... Black Box Area ...>
 }
@@ -38,7 +38,7 @@ async fn predicate(ctx: &TaskFrameContext) -> bool {
     true
 }
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 // [!code ++]
 #[workflow(condition(predicate))]
 async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
@@ -59,7 +59,7 @@ In our simple example, our predicate always returns success when our Task doesn'
 this behavior as well, for that we can configure the ``falsey_behavior`` like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=10
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 // [!code highlight]
 #[workflow(condition(predicate, falsey_behavior = error))]
 async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
@@ -76,7 +76,7 @@ in ChronoGrapher to let us know the predicate returned false.
 However, we can also control if it throws an error or succeeds from outside data via ``custom(...)``:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=10
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 // [!code highlight]
 #[workflow(
     // [!code highlight]
@@ -115,7 +115,7 @@ async fn my_secondary_taskframe(ctx: &TaskFrameContext) -> Result<(), MyErrors> 
     // <... Black Box Area ...>
 }
 
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 // [!code highlight]
 #[workflow(
     // [!code highlight]
@@ -171,7 +171,7 @@ async fn special_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<()
 }
 
 // fallback1 and fallback2 are typical fallbacks which we won't focus on
-#[task(interval(2s))]
+#[task(schedule = every!(2s)))]
 #[workflow(fallback(fallback1, fallback2, special_fallback))]
 async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // <... Black Box Area ...>

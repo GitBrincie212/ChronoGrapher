@@ -7,7 +7,7 @@ pub use chronographer_macros::*;
 #[macro_export]
 macro_rules! dynamic_taskframe {
     ($block: block) => {{
-        DynamicTaskFrame::new(|taskframe_ctx| async {
+        $crate::prelude::DynamicTaskFrame::new(|taskframe_ctx| async {
             $block;
             Ok(())
         })
@@ -15,19 +15,24 @@ macro_rules! dynamic_taskframe {
 }
 
 #[cfg(feature = "macros")]
-macro_rules! import_macros {
+#[macro_export]
+macro_rules! immediate {
     () => {
-        pub use chronographer_macros::every;
-        pub use chronographer_macros::task;
-        pub use chronographer_macros::taskframe;
+        $crate::prelude::TaskScheduleInterval::from_secs(0)
     };
 }
 
+#[cfg(feature = "macros")]
+pub mod macros {
+    pub use chronographer_macros::*;
+    pub use dynamic_taskframe;
+    pub use immediate;
+}
 
 pub mod prelude {
     // Macros
     #[cfg(feature = "macros")]
-    import_macros!();
+    pub use crate::macros::*;
 
     // Core
     pub use crate::errors::TaskError;

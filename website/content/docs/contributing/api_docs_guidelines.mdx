@@ -217,27 +217,26 @@ For errors, in the semantics header, one should describe how each variant behave
 
 **Attribute-Macro Sections**
 Attribute macros (like ``#[task]`, ``#[workflow]``, ``#[chronographer::main]``) modify the behavior of the item they annotate.
-- ``# Expansion Semantics`` Describes what the macro generates as code (do not provide the entire code, explain only what its
-    supposed to expand to), how it transforms the annotated item, and any hidden behavior. **(REQUIRED)**
 - ``# Valid Targets`` Specifies what the macro can be applied to (functions, structs / enums, modules, etc...), and any restrictions. **(REQUIRED)**
 - ``# Attributes & Parameters`` Lists all accepted attributes, their syntax, what they do, their types, default values and what they control. **(REQUIRED)**
-- ``# Interaction With Other Attributes`` Explains how this macro behaves when combined
+- ``# External Interactions`` Explains how this macro behaves when combined
     with other attribute macros (e.g., using ``#[workflow]`` and ``#[task]`` together). **(REQUIRED)**
+- ``# Expansion Semantics`` Describes what the macro generates as code (do not provide the entire code, explain only what its
+    supposed to expand to), how it transforms the annotated item, and any hidden behavior. **(REQUIRED)**
 - ``# Limitations`` Documents any known limitations, edge cases, or situations where the macro behaves unexpectedly. **(RECOMMENDED)**
 - ``# Hygiene & Scoping`` Describes how the macro handles variable scope, imports, and identifier collisions. **(RECOMMENDED)**
 
 **Declarative & Function-Like Macro Sections**
 Declarative and function-like macros (like `dynamic_taskframe!`) are invoked with `!` and behave similarly to functions but with compile-time code generation.
+- ``# Invocation Syntax`` Shows the exact syntax for calling the macro, including all valid forms and what kind of inputs it accepts. **(REQUIRED)**
 - ``# Expansion Semantics`` Describes what the macro generates as code (do not provide the entire code, explain only what its supposed to expand to). **(REQUIRED)**
-- ``# Invocation Syntax`` Shows the exact syntax for calling the macro, including all valid forms. **(REQUIRED)**
-- ``# Input Types`` Describes what kinds of expressions, types, or blocks the macro accepts as input. **(REQUIRED)**
 - ``# Limitations`` Documents any known limitations, edge cases, or situations where the macro behaves unexpectedly. **(RECOMMENDED)**
 
 **Derive Macro Sections**
 Derive macros (like `#[derive(Default)]` if you add them) automatically implement traits for structs/enums.
-- ``# Expansion Semantics`` Describes what the macro generates as code (do not provide the entire code, explain only what its supposed to expand to). **(REQUIRED)**
 - ``# Implemented Trait(s)`` Lists which traits the macro implements for its target, if any. **(REQUIRED)**
 - ``# Requirements`` Describes what the target struct/enum must provide (field names, types, etc...). For the macro to work. **(REQUIRED)**
+- ``# Expansion Semantics`` Describes what the macro generates as code (do not provide the entire code, explain only what its supposed to expand to). **(REQUIRED)**
 - ``# Customization Attributes`` Lists any helper attributes that modify the derived behavior (e.g., `#[my_attribute(name = "...")]`). **(RECOMMENDED)**
 - ``# Limitations`` Documents any known limitations, edge cases, or situations where the macro behaves unexpectedly. **(RECOMMENDED)**
 
