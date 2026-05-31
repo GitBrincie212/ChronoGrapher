@@ -1,4 +1,4 @@
-use proc_macro2::{Span, TokenTree};
+use proc_macro2::Span;
 
 use crate::errors::CronExpressionLexerErrors;
 
@@ -28,26 +28,27 @@ fn constant_to_numeric(
     position: usize,
     tokens: &mut Vec<Token>,
 ) -> Result<(), (CronExpressionLexerErrors, usize, usize)> {
-    let num: u32 = match &char_buffer[0..=2] {
-        "SUN" | "sun" if field_pos == 3 => 1,
-        "MON" | "mon" if field_pos == 3 => 2,
-        "TUE" | "tue" if field_pos == 3 => 3,
-        "WED" | "wed" if field_pos == 3 => 4,
-        "THU" | "thu" if field_pos == 3 => 5,
-        "FRI" | "fri" if field_pos == 3 => 6,
-        "SAT" | "sat" if field_pos == 3 => 7,
-        "JAN" | "jan" if field_pos == 5 => 1,
-        "FEB" | "feb" if field_pos == 5 => 2,
-        "MAR" | "mar" if field_pos == 5 => 3,
-        "APR" | "apr" if field_pos == 5 => 4,
-        "MAY" | "may" if field_pos == 5 => 5,
-        "JUN" | "jun" if field_pos == 5 => 6,
-        "JUL" | "jul" if field_pos == 5 => 7,
-        "AUG" | "aug" if field_pos == 5 => 8,
-        "SEP" | "sep" if field_pos == 5 => 9,
-        "OCT" | "oct" if field_pos == 5 => 10,
-        "NOV" | "nov" if field_pos == 5 => 11,
-        "DEC" | "dec" if field_pos == 5 => 12,
+    // Normalize case once so mixed-case names (e.g. `Mon`, `MoN`) parse the same as `MON`/`mon`.
+    let num: u32 = match char_buffer[0..=2].to_ascii_uppercase().as_str() {
+        "SUN" if field_pos == 3 => 1,
+        "MON" if field_pos == 3 => 2,
+        "TUE" if field_pos == 3 => 3,
+        "WED" if field_pos == 3 => 4,
+        "THU" if field_pos == 3 => 5,
+        "FRI" if field_pos == 3 => 6,
+        "SAT" if field_pos == 3 => 7,
+        "JAN" if field_pos == 5 => 1,
+        "FEB" if field_pos == 5 => 2,
+        "MAR" if field_pos == 5 => 3,
+        "APR" if field_pos == 5 => 4,
+        "MAY" if field_pos == 5 => 5,
+        "JUN" if field_pos == 5 => 6,
+        "JUL" if field_pos == 5 => 7,
+        "AUG" if field_pos == 5 => 8,
+        "SEP" if field_pos == 5 => 9,
+        "OCT" if field_pos == 5 => 10,
+        "NOV" if field_pos == 5 => 11,
+        "DEC" if field_pos == 5 => 12,
         _ => {
             return Err((
                 CronExpressionLexerErrors::UnknownCharacter,
@@ -210,133 +211,6 @@ pub fn tokenize_from_str(
             token_type: TokenType::Value(current_number),
             span: None,
         });
-    }
-
-    Ok(tokens)
-}
-
-pub fn tokenize_from_tokens(
-    input: proc_macro2::TokenStream,
-) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, proc_macro2::Span)> {
-    let mut tokens: [Vec<Token>; 6] = std::array::from_fn(|_| Vec::new());
-    let mut field_pos: usize = 0;
-
-    // Field boundaries are detected by token-type adjacency rather than span columns,
-    // so this works in both cargo and rust-analyzer proc-macro contexts.
-    //
-    // Rule: two adjacent "value" tokens (with no operator between them) mark a field
-    // boundary, because cron values within a single field are always separated by an
-    // operator (-, /, ,, #).  Exceptions: `NL` (e.g. `1L`) and `NW` (e.g. `15W`) are
-    // suffix forms in the same field, as is `LW` (last weekday).
-    #[derive(Clone, Copy, PartialEq)]
-    enum Prev {
-        None,
-        Operator,
-        Value,
-        NumLit,
-        IdentL,
-    }
-    let mut prev = Prev::None;
-
-    for tt in input {
-        let is_value = match &tt {
-            TokenTree::Literal(_) | TokenTree::Ident(_) => true,
-            TokenTree::Punct(p) => matches!(p.as_char(), '*' | '?'),
-            TokenTree::Group(_) => false,
-        };
-
-        if is_value && field_pos < 5 {
-            let advance = match prev {
-                Prev::None | Prev::Operator => false,
-                Prev::NumLit => match &tt {
-                    TokenTree::Ident(id) => {
-                        let s = id.to_string().to_uppercase();
-                        s != "L" && s != "W"
-                    }
-                    _ => true,
-                },
-                Prev::IdentL => match &tt {
-                    TokenTree::Ident(id) => id.to_string().to_uppercase() != "W",
-                    _ => true,
-                },
-                Prev::Value => true,
-            };
-            if advance {
-                field_pos += 1;
-            }
-        }
-
-        prev = match &tt {
-            TokenTree::Literal(_) => Prev::NumLit,
-            TokenTree::Ident(id) if id.to_string().to_uppercase() == "L" => Prev::IdentL,
-            TokenTree::Ident(_) => Prev::Value,
-            TokenTree::Punct(p) if matches!(p.as_char(), '*' | '?') => Prev::Value,
-            TokenTree::Punct(_) => Prev::Operator,
-            TokenTree::Group(_) => prev,
-        };
-
-        match tt {
-            TokenTree::Literal(lit) => {
-                let s = lit.to_string();
-                let val: u32 = s
-                    .parse()
-                    .map_err(|_| (CronExpressionLexerErrors::UnknownCharacter, lit.span()))?;
-                tokens[field_pos].push(Token {
-                    start: 0,
-                    token_type: TokenType::Value(val),
-                    span: Some(lit.span()),
-                });
-            }
-            TokenTree::Ident(ident) => {
-                let s = ident.to_string();
-                let token_type = match s.to_uppercase().as_str() {
-                    "L" => TokenType::Last,
-                    "W" => TokenType::NearestWeekday,
-                    "SUN" => TokenType::Value(1),
-                    "MON" => TokenType::Value(2),
-                    "TUE" => TokenType::Value(3),
-                    "WED" => TokenType::Value(4),
-                    "THU" => TokenType::Value(5),
-                    "FRI" => TokenType::Value(6),
-                    "SAT" => TokenType::Value(7),
-                    "JAN" => TokenType::Value(1),
-                    "FEB" => TokenType::Value(2),
-                    "MAR" => TokenType::Value(3),
-                    "APR" => TokenType::Value(4),
-                    "MAY" => TokenType::Value(5),
-                    "JUN" => TokenType::Value(6),
-                    "JUL" => TokenType::Value(7),
-                    "AUG" => TokenType::Value(8),
-                    "SEP" => TokenType::Value(9),
-                    "OCT" => TokenType::Value(10),
-                    "NOV" => TokenType::Value(11),
-                    "DEC" => TokenType::Value(12),
-                    _ => return Err((CronExpressionLexerErrors::UnknownCharacter, ident.span())),
-                };
-                tokens[field_pos].push(Token {
-                    start: 0,
-                    token_type,
-                    span: Some(ident.span()),
-                });
-            }
-            TokenTree::Punct(punct) => {
-                let token_type = match punct.as_char() {
-                    '*' => TokenType::Wildcard,
-                    '-' => TokenType::Minus,
-                    ',' => TokenType::ListSeparator,
-                    '/' => TokenType::Step,
-                    '#' => TokenType::NthWeekday,
-                    '?' => TokenType::Unspecified,
-                    _ => return Err((CronExpressionLexerErrors::UnknownCharacter, punct.span())),
-                };
-                tokens[field_pos].push(Token {
-                    start: 0,
-                    token_type,
-                    span: Some(punct.span()),
-                });
-            }
-            TokenTree::Group(_) => {}
-        }
     }
 
     Ok(tokens)
