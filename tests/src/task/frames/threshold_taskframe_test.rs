@@ -33,9 +33,9 @@ async fn threshold_execute_and_count_all_frames() {
     let threshold = NonZero::new(5).expect("God bless you");
 
     let frame = ThresholdTaskFrame::builder()
-        .threshold_logic(Box::new(ThresholdSuccessesCountLogic))
+        .count_behaviour(Box::new(ThresholdSuccessesCountLogic))
         .frame(frame)
-        .threshold_reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
+        .reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
         .threshold(threshold)
         .build();
 
@@ -60,9 +60,9 @@ async fn threshold_count_failing_frames() {
     let threshold = NonZero::new(2).unwrap();
 
     let frame = ThresholdTaskFrame::builder()
-        .threshold_logic(Box::new(ThresholdErrorsCountLogic))
+        .count_behaviour(Box::new(ThresholdErrorsCountLogic))
         .frame(frame)
-        .threshold_reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
+        .reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
         .threshold(threshold)
         .build();
 
@@ -88,9 +88,9 @@ async fn threshold_of_one_reached_after_single_run() {
     let threshold = NonZero::new(1).unwrap();
 
     let frame = ThresholdTaskFrame::builder()
-        .threshold_logic(Box::new(ThresholdSuccessesCountLogic))
+        .count_behaviour(Box::new(ThresholdSuccessesCountLogic))
         .frame(frame)
-        .threshold_reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
+        .reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
         .threshold(threshold)
         .build();
 
@@ -117,9 +117,9 @@ async fn sub_threshold_runs_do_not_trigger_reach_behaviour() {
     let threshold = NonZero::new(5).unwrap();
 
     let frame = ThresholdTaskFrame::builder()
-        .threshold_logic(Box::new(ThresholdSuccessesCountLogic))
+        .count_behaviour(Box::new(ThresholdSuccessesCountLogic))
         .frame(frame)
-        .threshold_reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
+        .reach_behaviour(Box::new(ThresholdSuccessReachBehaviour))
         .threshold(threshold)
         .build();
 
