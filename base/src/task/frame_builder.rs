@@ -5,7 +5,7 @@ use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
 use crate::task::{
-    ConditionalFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame,
+    ConditionalTaskFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame,
     NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
 };
 use std::num::NonZeroU32;
@@ -40,8 +40,8 @@ use std::time::Duration;
 /// - [`with_backoff_retry`](TaskFrameBuilder::with_backoff_retry) - Wraps with [`RetriableTaskFrame`] using a custom [`RetryBackoffStrategy`].
 /// - [`with_timeout`](TaskFrameBuilder::with_timeout) - Wraps with [`TimeoutTaskFrame`], cancelling execution if it exceeds the given duration.
 /// - [`with_fallback`](TaskFrameBuilder::with_fallback) - Wraps with [`FallbackTaskFrame`], executing a secondary frame if the primary fails.
-/// - [`with_condition`](TaskFrameBuilder::with_condition) - Wraps with [`ConditionalFrame`], only executing if the predicate is true (no-op otherwise).
-/// - [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) - Wraps with [`ConditionalFrame`], executing a fallback frame when the predicate is false.
+/// - [`with_condition`](TaskFrameBuilder::with_condition) - Wraps with [`ConditionalTaskFrame`], only executing if the predicate is true (no-op otherwise).
+/// - [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) - Wraps with [`ConditionalTaskFrame`], executing a fallback frame when the predicate is false.
 /// - [`with_dependency`](TaskFrameBuilder::with_dependency) - Wraps with [`DependencyTaskFrame`], waiting for a dependency to be resolved before executing.
 /// - [`build`](TaskFrameBuilder::build) - Consumes the builder and returns the fully composed frame.
 ///
@@ -111,7 +111,7 @@ use std::time::Duration;
 /// - [`RetriableTaskFrame`] - The retry wrapper frame.
 /// - [`TimeoutTaskFrame`] - The timeout wrapper frame.
 /// - [`FallbackTaskFrame`] - The fallback wrapper frame.
-/// - [`ConditionalFrame`] - The conditional execution wrapper frame.
+/// - [`ConditionalTaskFrame`] - The conditional execution wrapper frame.
 /// - [`DependencyTaskFrame`] - The dependency-gated wrapper frame.
 /// - [`Task`](crate::task::Task) - The top-level struct combining a frame with a trigger.
 pub struct TaskFrameBuilder<T: TaskFrame>(T);
@@ -442,7 +442,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(FallbackTaskFrame::new(self.0, fallback))
     }
 
-    /// Method wraps the inner [`TaskFrame`] in a [`ConditionalFrame`] which conditionally executes the task based on a provided predicate function.
+    /// Method wraps the inner [`TaskFrame`] in a [`ConditionalTaskFrame`] which conditionally executes the task based on a provided predicate function.
     ///
     /// This wrapper allows the execution of the inner task to be controlled by dynamic condition logic. The predicate is
     /// evaluated asynchronously to determine whether the inner task should run. Note that the predicate is not a direct
@@ -462,7 +462,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::{TaskFrameBuilder, ConditionalFrame};
+    /// use chronographer::task::{TaskFrameBuilder, ConditionalTaskFrame};
     ///
     /// # use chronographer::task::{TaskFrame, TaskFrameContext, RetriableTaskFrame, RestrictTaskFrameContext, ConditionalFramePredicate};
     /// # use async_trait::async_trait;
@@ -487,22 +487,22 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #     }
     /// # }
     ///
-    /// let task: ConditionalFrame<MyTaskFrame, _> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: ConditionalTaskFrame<MyTaskFrame, _> = TaskFrameBuilder::new(MyTaskFrame)
     ///     .with_condition(CheckCondition) // Execute MyTaskFrame only if the predicate executes to true
     ///     .build();
     /// ```
     ///
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
-    /// - [`ConditionalFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`ConditionalTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
     /// - [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) - Wrapper that executes a fallback frame on false conditions.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_condition(
         self,
         predicate: impl ConditionalFramePredicate + 'static,
-    ) -> TaskFrameBuilder<ConditionalFrame<T, NoOperationTaskFrame<T::Error, impl Send + Sync + 'static>>> {
-        let condition = ConditionalFrame::builder()
+    ) -> TaskFrameBuilder<ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, impl Send + Sync + 'static>>> {
+        let condition = ConditionalTaskFrame::builder()
             .predicate(predicate)
             .frame(self.0)
             .error_on_false(false)
@@ -510,7 +510,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         TaskFrameBuilder(condition)
     }
 
-    /// Method wraps the inner [`TaskFrame`] in a [`ConditionalFrame`] and optionally executes a secondary inner task upon a falsey condition value.
+    /// Method wraps the inner [`TaskFrame`] in a [`ConditionalTaskFrame`] and optionally executes a secondary inner task upon a falsey condition value.
     ///
     /// This wrapper allows the execution of the inner task to be controlled by dynamic condition logic. The predicate is
     /// evaluated asynchronously to determine whether the inner task should run. Note that the predicate is not a direct
@@ -533,7 +533,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::{TaskFrameBuilder, ConditionalFrame};
+    /// use chronographer::task::{TaskFrameBuilder, ConditionalTaskFrame};
     ///
     /// # use chronographer::task::{TaskFrame, TaskFrameContext, ConditionalFramePredicate, RestrictTaskFrameContext};
     /// # use async_trait::async_trait;
@@ -569,14 +569,14 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #     }
     /// # }
     ///
-    /// let task: ConditionalFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: ConditionalTaskFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::new(MyTaskFrame)
     ///     .with_fallback_condition(BackupFrame, CheckCondition) // Runs MyTaskFrame if true, BackupFrame if false
     ///     .build();
     /// ```
     ///
     /// # See Also
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
-    /// - [`ConditionalFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`ConditionalTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
     /// - [`with_condition`](TaskFrameBuilder::with_condition) - Wrapper that simply aborts/skips on false condition.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
@@ -584,8 +584,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         self,
         fallback: T2,
         predicate: impl ConditionalFramePredicate + 'static,
-    ) -> TaskFrameBuilder<ConditionalFrame<T, T2>> {
-        let condition: ConditionalFrame<T, T2> = ConditionalFrame::<T, T2>::fallback_builder()
+    ) -> TaskFrameBuilder<ConditionalTaskFrame<T, T2>> {
+        let condition: ConditionalTaskFrame<T, T2> = ConditionalTaskFrame::<T, T2>::fallback_builder()
             .predicate(predicate)
             .frame(self.0)
             .fallback(fallback)

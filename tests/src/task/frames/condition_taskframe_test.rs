@@ -1,5 +1,5 @@
 use chronographer::prelude::DynamicTaskFrame;
-use chronographer::task::ConditionalFrame;
+use chronographer::task::ConditionalTaskFrame;
 use chronographer::task::RestrictTaskFrameContext;
 use chronographer::task::Task;
 use chronographer::task::TaskFrame;
@@ -24,7 +24,7 @@ async fn truthy_condition_returns_ok() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { true };
 
-    let frame = ConditionalFrame::builder()
+    let frame = ConditionalTaskFrame::builder()
         .frame(frame)
         .predicate(predicate)
         .build();
@@ -59,7 +59,7 @@ async fn falsey_condition_runs_fallback() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
 
-    let frame = ConditionalFrame::fallback_builder()
+    let frame = ConditionalTaskFrame::fallback_builder()
         .frame(frame)
         .fallback(fallback)
         .predicate(predicate)
@@ -88,7 +88,7 @@ async fn falsey_condition_with_error_on_false_returns_error() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
 
-    let frame = ConditionalFrame::builder()
+    let frame = ConditionalTaskFrame::builder()
         .frame(frame)
         .predicate(predicate)
         .error_on_false(true)
@@ -118,7 +118,7 @@ async fn truthy_condition_with_failing_inner_frame_returns_error() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { true };
 
-    let frame = ConditionalFrame::builder()
+    let frame = ConditionalTaskFrame::builder()
         .frame(inner)
         .predicate(predicate)
         .build();
@@ -158,7 +158,7 @@ async fn falsey_condition_with_failing_fallback_returns_error() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
 
-    let frame = ConditionalFrame::fallback_builder()
+    let frame = ConditionalTaskFrame::fallback_builder()
         .frame(primary)
         .fallback(fallback)
         .predicate(predicate)
