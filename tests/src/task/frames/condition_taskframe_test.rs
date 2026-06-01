@@ -1,3 +1,4 @@
+use crate::task::frames::CountingFrame;
 use chronographer::prelude::DynamicTaskFrame;
 use chronographer::task::ConditionalTaskFrame;
 use chronographer::task::RestrictTaskFrameContext;
@@ -7,7 +8,6 @@ use chronographer::task::TaskScheduleImmediate;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use crate::task::frames::CountingFrame;
 
 #[tokio::test]
 async fn truthy_condition_returns_ok() {
@@ -174,7 +174,18 @@ async fn falsey_condition_with_failing_fallback_returns_error() {
     let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
 
-    assert!(result.is_err(), "Error from failing fallback should propagate");
-    assert_eq!(primary_counter.load(Ordering::SeqCst), 0, "Primary should not have run");
-    assert_eq!(fallback_counter.load(Ordering::SeqCst), 1, "Fallback should have been called once");
+    assert!(
+        result.is_err(),
+        "Error from failing fallback should propagate"
+    );
+    assert_eq!(
+        primary_counter.load(Ordering::SeqCst),
+        0,
+        "Primary should not have run"
+    );
+    assert_eq!(
+        fallback_counter.load(Ordering::SeqCst),
+        1,
+        "Fallback should have been called once"
+    );
 }

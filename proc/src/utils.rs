@@ -1,15 +1,16 @@
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{ToTokens, TokenStreamExt, quote};
 use std::fmt::{Display, Formatter};
 use std::ops::{Range, RangeInclusive};
-use quote::{quote, ToTokens, TokenStreamExt};
 use strsim::levenshtein;
-use syn::{Attribute, Expr, ExprLit, Lit, Pat, PatType};
-use proc_macro2::TokenStream as TokenStream2;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
+use syn::{Attribute, Expr, ExprLit, Lit, Pat, PatType};
 
-pub const LIFETIME_UNSUPPORTED_ERR: &'static str = "Lifetimes are unsupported due to 'static lifetime limitations from async";
+pub const LIFETIME_UNSUPPORTED_ERR: &'static str =
+    "Lifetimes are unsupported due to 'static lifetime limitations from async";
 
 pub(crate) enum RangeType {
     Bounded(Range<f64>),
@@ -28,8 +29,12 @@ impl RangeType {
 impl Display for RangeType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RangeType::Bounded(range) => f.write_fmt(format_args!("{}..{}", range.start, range.end)),
-            RangeType::Inclusive(range) => f.write_fmt(format_args!("{}..={}", range.start(), range.end())),
+            RangeType::Bounded(range) => {
+                f.write_fmt(format_args!("{}..{}", range.start, range.end))
+            }
+            RangeType::Inclusive(range) => {
+                f.write_fmt(format_args!("{}..={}", range.start(), range.end()))
+            }
         }
     }
 }
@@ -39,7 +44,7 @@ pub(crate) const TIME_LITERAL_RANGES: [RangeType; 5] = [
     RangeType::Bounded(0.0..60.0),
     RangeType::Bounded(0.0..60.0),
     RangeType::Bounded(0.0..60.0),
-    RangeType::Inclusive(0.0..=31.0)
+    RangeType::Inclusive(0.0..=31.0),
 ];
 pub const TIME_LITERAL_FIELD: [&str; 5] = ["milliseconds", "seconds", "minutes", "hours", "days"];
 pub const TIME_LITERAL_SUFFIXES: [&str; 5] = ["ms", "s", "m", "h", "d"];
@@ -47,10 +52,12 @@ pub const TIME_LITERAL_SUFFIXES: [&str; 5] = ["ms", "s", "m", "h", "d"];
 pub fn extract_workflow<T>(
     attrs: &[Attribute],
     result: &mut Option<T>,
-    initializer: impl Fn(TokenStream2) -> syn::Result<T>
+    initializer: impl Fn(TokenStream2) -> syn::Result<T>,
 ) -> syn::Result<()> {
     for attr in attrs {
-        let Some(path) = attr.path().segments.last() else { continue; };
+        let Some(path) = attr.path().segments.last() else {
+            continue;
+        };
         if path.ident.to_string() != "workflow" {
             continue;
         }
@@ -58,15 +65,15 @@ pub fn extract_workflow<T>(
         if result.is_some() {
             return Err(syn::Error::new_spanned(
                 attr,
-                "Cannot use the workflow macro twice"
+                "Cannot use the workflow macro twice",
             ));
         }
 
         let syn::Meta::List(list) = &attr.meta else {
             return Err(syn::Error::new_spanned(
                 attr,
-                "Workflow annotation expected a list of values"
-            ))
+                "Workflow annotation expected a list of values",
+            ));
         };
 
         *result = Some(initializer(list.tokens.clone())?);
@@ -76,15 +83,22 @@ pub fn extract_workflow<T>(
 }
 
 pub fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
-    attrs.iter()
+    attrs
+        .iter()
         .filter_map(|attr| {
             if !attr.path().is_ident("doc") {
                 return None;
             }
 
-            let syn::Meta::NameValue(nv) = &attr.meta else { return None; };
-            let Expr::Lit(expr_lit) = &nv.value else { return None; };
-            let Lit::Str(lit) = &expr_lit.lit else { return None; };
+            let syn::Meta::NameValue(nv) = &attr.meta else {
+                return None;
+            };
+            let Expr::Lit(expr_lit) = &nv.value else {
+                return None;
+            };
+            let Lit::Str(lit) = &expr_lit.lit else {
+                return None;
+            };
 
             let string = lit.value();
             Some(quote! { #[doc = #string] })
@@ -92,10 +106,13 @@ pub fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
         .collect()
 }
 
-pub fn handle_generics_phantom_data(name: &syn::Ident, fn_sig: &syn::Signature) -> syn::Result<(
+pub fn handle_generics_phantom_data(
+    name: &syn::Ident,
+    fn_sig: &syn::Signature,
+) -> syn::Result<(
     proc_macro2::TokenStream,
     Option<proc_macro2::TokenStream>,
-    Option<Punctuated<proc_macro2::TokenStream, Comma>>
+    Option<Punctuated<proc_macro2::TokenStream, Comma>>,
 )> {
     let generics = &fn_sig.generics;
     let where_clause = &fn_sig.generics.where_clause;
@@ -104,14 +121,12 @@ pub fn handle_generics_phantom_data(name: &syn::Ident, fn_sig: &syn::Signature) 
     let mut normalized_type_params = None;
 
     if let Some(lt) = generics.lifetimes().next() {
-        return Err(syn::Error::new(
-            lt.span(),
-            LIFETIME_UNSUPPORTED_ERR
-        ));
+        return Err(syn::Error::new(lt.span(), LIFETIME_UNSUPPORTED_ERR));
     }
 
     if !generics.params.is_empty() {
-        let phantom_type_params = generics.type_params()
+        let phantom_type_params = generics
+            .type_params()
             .map(|x| {
                 let type_param = &x.ident;
                 quote! { #type_param }
@@ -121,12 +136,10 @@ pub fn handle_generics_phantom_data(name: &syn::Ident, fn_sig: &syn::Signature) 
         phantom_data = Some(quote! { ( std::marker::PhantomData <( #phantom_type_params )> ) });
 
         let mut temp = phantom_type_params.clone();
-        temp.extend(
-            generics.const_params().map(|x| {
-                let type_param = &x.ident;
-                quote! { #type_param }
-            })
-        );
+        temp.extend(generics.const_params().map(|x| {
+            let type_param = &x.ident;
+            quote! { #type_param }
+        }));
 
         normalized_type_params = Some(temp);
 
@@ -139,12 +152,7 @@ pub fn handle_generics_phantom_data(name: &syn::Ident, fn_sig: &syn::Signature) 
 pub fn extract_arg_name<'a>(pt: &'a PatType, err: &str) -> syn::Result<&'a proc_macro2::Ident> {
     match &*pt.pat {
         Pat::Ident(pat_ident) => Ok(&pat_ident.ident),
-        _ => {
-            Err(syn::Error::new_spanned(
-                &pt.pat,
-                err,
-            ))
-        }
+        _ => Err(syn::Error::new_spanned(&pt.pat, err)),
     }
 }
 
@@ -168,7 +176,7 @@ impl ToTokens for TimeLiteral {
             TimeLiteralType::Hours => 3600f64,
             TimeLiteralType::Minutes => 60f64,
             TimeLiteralType::Seconds => 1f64,
-            TimeLiteralType::Milliseconds => 0.01f64
+            TimeLiteralType::Milliseconds => 0.01f64,
         };
 
         let res = self.value * multiplier;
@@ -182,15 +190,15 @@ macro_rules! parse_as_positive_fraction {
         let num = $lit.base10_parse::<f64>().map_err(|_| {
             syn::Error::new(
                 $lit_span,
-                format!("Expected a {} but got \"{}\"", $name, $lit)
+                format!("Expected a {} but got \"{}\"", $name, $lit),
             )
         })?;
 
         if num <= 0f64 {
             return Err(syn::Error::new(
                 $lit_span,
-                format!("Expected a {} but got \"{}\"", $name, $lit)
-            ))
+                format!("Expected a {} but got \"{}\"", $name, $lit),
+            ));
         }
 
         num
@@ -220,23 +228,28 @@ impl Parse for TimeLiteral {
         let Ok(lit) = input.parse::<Expr>() else {
             return Err(syn::Error::new(
                 lit_span,
-                "Expected a positive integer or float literal but got something else"
+                "Expected a positive integer or float literal but got something else",
             ));
         };
 
         let (num, suffix) = match lit {
-            Expr::Lit(ExprLit { lit: Lit::Int(lit), .. }) => {
+            Expr::Lit(ExprLit {
+                lit: Lit::Int(lit), ..
+            }) => {
                 let num = parse_as_positive_fraction!(lit, lit_span, "positive integer");
 
                 (num, lit.suffix().to_string())
             }
 
-            Expr::Lit(ExprLit { lit: Lit::Float(lit), .. }) => {
+            Expr::Lit(ExprLit {
+                lit: Lit::Float(lit),
+                ..
+            }) => {
                 if lit.to_string().to_ascii_lowercase().contains('e') {
                     return Err(syn::Error::new(
                         lit_span,
-                        "Scientific notation is prohibited in use"
-                    ))
+                        "Scientific notation is prohibited in use",
+                    ));
                 }
 
                 let num = parse_as_positive_fraction!(lit, lit_span, "positive float");
@@ -246,7 +259,7 @@ impl Parse for TimeLiteral {
             _ => {
                 return Err(syn::Error::new(
                     lit_span,
-                    "Expected a positive integer or float literal but got something else"
+                    "Expected a positive integer or float literal but got something else",
                 ));
             }
         };
@@ -258,10 +271,9 @@ impl Parse for TimeLiteral {
                         lit_span,
                         format!(
                             "Exceeded expected range of {} for \"{}\" time field, got \"{num}\"",
-                            range,
-                            TIME_LITERAL_FIELD[pos]
-                        )
-                    ))
+                            range, TIME_LITERAL_FIELD[pos]
+                        ),
+                    ));
                 }
 
                 let ty = match pos {
@@ -270,28 +282,25 @@ impl Parse for TimeLiteral {
                     2 => TimeLiteralType::Minutes,
                     3 => TimeLiteralType::Seconds,
                     4 => TimeLiteralType::Milliseconds,
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
 
-                Ok(TimeLiteral {
-                    value: num,
-                    ty
-                })
-            },
+                Ok(TimeLiteral { value: num, ty })
+            }
 
             Err((dist, expected)) => {
                 let msg = if suffix.is_empty() {
                     "Missing time unit suffix (expected one of: ms, s, m, h, d)".to_string()
                 } else if dist < 2 {
-                    format!("Unexpected suffix \"{}\", did you mean \"{}\"", suffix, expected)
+                    format!(
+                        "Unexpected suffix \"{}\", did you mean \"{}\"",
+                        suffix, expected
+                    )
                 } else {
                     format!("Unexpected suffix \"{}\"", suffix)
                 };
 
-                Err(syn::Error::new(
-                    lit_span,
-                    msg
-                ))
+                Err(syn::Error::new(lit_span, msg))
             }
         }
     }

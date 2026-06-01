@@ -48,7 +48,9 @@ define_event_group!(
     OnFalseyValueEvent
 );
 
-impl<T: TaskFrame, T2: TaskFrame> From<ConditionalTaskFrameConfig<T, T2>> for ConditionalTaskFrame<T, T2> {
+impl<T: TaskFrame, T2: TaskFrame> From<ConditionalTaskFrameConfig<T, T2>>
+    for ConditionalTaskFrame<T, T2>
+{
     fn from(config: ConditionalTaskFrameConfig<T, T2>) -> Self {
         ConditionalTaskFrame {
             frame: config.frame,
@@ -94,7 +96,9 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalTaskFrame<T, F> {
 
         if result {
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
-            return self.frame.execute(&ctx, &args.0)
+            return self
+                .frame
+                .execute(&ctx, &args.0)
                 .await
                 .map_err(ConditionalTaskFrameError::PrimaryFailed);
         }

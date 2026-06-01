@@ -47,7 +47,9 @@ pub enum ThresholdTaskFrameError<T: TaskError> {
     )]
     Inner(T),
 
-    #[error("ThresholdTaskFrame has failed with the error originating from the \"DependentFailBehavior\"")]
+    #[error(
+        "ThresholdTaskFrame has failed with the error originating from the \"DependentFailBehavior\""
+    )]
     ThresholdReachedWithFailure,
 }
 
@@ -192,11 +194,13 @@ pub enum CronExpressionLexerErrors {
 }
 
 #[derive(Error, Debug, PartialEq, Eq)]
-#[error("Task frame index `{index}` is out of bounds for `{src}` with task frame size `{size}` element(s)")]
+#[error(
+    "Task frame index `{index}` is out of bounds for `{src}` with task frame size `{size}` element(s)"
+)]
 pub struct TaskSelectionIndexOutOfBounds {
     pub index: usize,
     pub src: String,
-    pub size: usize
+    pub size: usize,
 }
 
 #[derive(Error, Debug, PartialEq, Eq)]

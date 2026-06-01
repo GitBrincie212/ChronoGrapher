@@ -1,6 +1,5 @@
 use chronographer::prelude::*;
 
-
 #[taskframe(__internal_workflow_spec = (
     retry(3),
     timeout(5s)

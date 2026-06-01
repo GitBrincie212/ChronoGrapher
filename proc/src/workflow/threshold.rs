@@ -1,13 +1,13 @@
-use quote::{quote, ToTokens, TokenStreamExt};
-use syn::{parenthesized, LitInt};
-use proc_macro2::TokenStream as TokenStream2;
-use syn::parse::{Parse, ParseStream};
 use crate::workflow::utils::{ArgumentParser, ValueSource, WorkflowTransform};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{ToTokens, TokenStreamExt, quote};
+use syn::parse::{Parse, ParseStream};
+use syn::{LitInt, parenthesized};
 
 pub enum ThresholdReachBehavior {
     Error,
     Skip,
-    Custom(syn::Expr)
+    Custom(syn::Expr),
 }
 
 impl Parse for ThresholdReachBehavior {
@@ -22,7 +22,7 @@ impl Parse for ThresholdReachBehavior {
                 Ok(Self::Custom(content.parse()?))
             }
 
-            _ => Err(input.error("Unknown threshold count behaviour"))
+            _ => Err(input.error("Unknown threshold count behaviour")),
         }
     }
 }
@@ -30,9 +30,11 @@ impl Parse for ThresholdReachBehavior {
 impl ToTokens for ThresholdReachBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let expanded = match self {
-            ThresholdReachBehavior::Error => quote! { chronographer::task:::frames:thresholdframe::ThresholdSuccessReachBehaviour },
+            ThresholdReachBehavior::Error => {
+                quote! { chronographer::task:::frames:thresholdframe::ThresholdSuccessReachBehaviour }
+            }
             ThresholdReachBehavior::Skip => todo!(),
-            ThresholdReachBehavior::Custom(expr) => quote! { #expr }
+            ThresholdReachBehavior::Custom(expr) => quote! { #expr },
         };
 
         tokens.append_all(expanded);
@@ -45,7 +47,7 @@ pub enum ThresholdCountBehavior {
     Failures,
     // ConsecutiveSuccesses,
     // ConsecutiveFailures,
-    Custom(syn::Expr)
+    Custom(syn::Expr),
 }
 
 impl Parse for ThresholdCountBehavior {
@@ -63,7 +65,7 @@ impl Parse for ThresholdCountBehavior {
                 Ok(Self::Custom(content.parse()?))
             }
 
-            _ => Err(input.error("Unknown threshold count behaviour"))
+            _ => Err(input.error("Unknown threshold count behaviour")),
         }
     }
 }
@@ -71,10 +73,16 @@ impl Parse for ThresholdCountBehavior {
 impl ToTokens for ThresholdCountBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let expanded = match self {
-            ThresholdCountBehavior::Identity => quote! { chronographer::task::frames::thresholdframe::ThresholdIdentityCountLogic },
-            ThresholdCountBehavior::Successes => quote! { chronographer::task::frames::thresholdframe::ThresholdSuccessesCountLogic },
-            ThresholdCountBehavior::Failures => quote! { chronographer::task::frames::thresholdframe::ThresholdErrorsCountLogic },
-            ThresholdCountBehavior::Custom(expr) => quote! { #expr }
+            ThresholdCountBehavior::Identity => {
+                quote! { chronographer::task::frames::thresholdframe::ThresholdIdentityCountLogic }
+            }
+            ThresholdCountBehavior::Successes => {
+                quote! { chronographer::task::frames::thresholdframe::ThresholdSuccessesCountLogic }
+            }
+            ThresholdCountBehavior::Failures => {
+                quote! { chronographer::task::frames::thresholdframe::ThresholdErrorsCountLogic }
+            }
+            ThresholdCountBehavior::Custom(expr) => quote! { #expr },
         };
 
         tokens.append_all(expanded);
@@ -87,23 +95,31 @@ pub struct ThresholdArguments {
     count_behavior: Option<ThresholdCountBehavior>,
 }
 
-impl Parse for ThresholdArguments{
+impl Parse for ThresholdArguments {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut argument_parser = ArgumentParser::new(input);
         let max = argument_parser.parse_required("max")?;
         let reach_behavior = argument_parser.parse_optional("reach_behavior")?;
         let count_behavior = argument_parser.parse_optional("count_behavior")?;
-        Ok(ThresholdArguments { max, reach_behavior, count_behavior })
+        Ok(ThresholdArguments {
+            max,
+            reach_behavior,
+            count_behavior,
+        })
     }
 }
 
 impl WorkflowTransform for ThresholdArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
         let max = &self.max;
-        let expanded_reach_behavior = self.reach_behavior.as_ref()
+        let expanded_reach_behavior = self
+            .reach_behavior
+            .as_ref()
             .map(|x| quote! { .reach_behaviour(#x) });
 
-        let expanded_count_logic = self.count_behavior.as_ref()
+        let expanded_count_logic = self
+            .count_behavior
+            .as_ref()
             .map(|x| quote! { .count_behaviour(#x) });
 
         quote! {

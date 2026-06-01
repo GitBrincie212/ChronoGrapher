@@ -1,15 +1,15 @@
+use crate::utils::{TIME_LITERAL_FIELD, TimeLiteral};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Token};
 use syn::parse::{Parse, ParseStream};
-use crate::utils::{TimeLiteral, TIME_LITERAL_FIELD};
+use syn::{Token, parse_macro_input};
 
 struct Every {
     days: f64,
     hours: f64,
     minutes: f64,
     seconds: f64,
-    millis: f64
+    millis: f64,
 }
 
 fn extract_expected_values(ptr: usize) -> String {
@@ -26,23 +26,18 @@ fn handle_seperator_format(
     input: &ParseStream,
     is_seperator: bool,
     seperator_format: bool,
-    expecting_seperator: &mut bool
-)
-    -> Result<bool, syn::Error> {
+    expecting_seperator: &mut bool,
+) -> Result<bool, syn::Error> {
     match (is_seperator, seperator_format, &expecting_seperator) {
-        (true, false, _) => {
-            Err(syn::Error::new(
-                input.span(),
-                "Unexpected a seperator \",\""
-            ))
-        }
+        (true, false, _) => Err(syn::Error::new(
+            input.span(),
+            "Unexpected a seperator \",\"",
+        )),
 
-        (false, true, true) => {
-            Err(syn::Error::new(
-                input.span(),
-                format!("Expected a seperator (,) but got \"{input}\"")
-            ))
-        }
+        (false, true, true) => Err(syn::Error::new(
+            input.span(),
+            format!("Expected a seperator (,) but got \"{input}\""),
+        )),
 
         (true, true, true) => {
             let _ = input.parse::<Token![,]>();
@@ -50,9 +45,7 @@ fn handle_seperator_format(
             Ok(true)
         }
 
-        (_, _, _) => {
-            Ok(false)
-        }
+        (_, _, _) => Ok(false),
     }
 }
 
@@ -66,11 +59,17 @@ impl Parse for Every {
         let mut has_modified = false;
 
         while !input.is_empty() {
-            let is_seperator = input.cursor()
+            let is_seperator = input
+                .cursor()
                 .punct()
                 .is_some_and(|(tok, _)| tok.as_char() == ',');
 
-            if handle_seperator_format(&input, is_seperator, seperator_format, &mut expecting_seperator)? {
+            if handle_seperator_format(
+                &input,
+                is_seperator,
+                seperator_format,
+                &mut expecting_seperator,
+            )? {
                 continue;
             }
 
@@ -85,7 +84,9 @@ impl Parse for Every {
                     lit_span,
                     if is_integer {
                         "Unexpected integer followed after fractional part"
-                    } else { "Fractional parts are allowed only at the lowest time field" }
+                    } else {
+                        "Fractional parts are allowed only at the lowest time field"
+                    },
                 ));
             }
 
@@ -99,15 +100,21 @@ impl Parse for Every {
 
                 return Err(syn::Error::new(
                     lit_span,
-                    format!("Incorrect time field ordering expected {expected}, got \"{}\"", TIME_LITERAL_FIELD[pos])
-                ))
+                    format!(
+                        "Incorrect time field ordering expected {expected}, got \"{}\"",
+                        TIME_LITERAL_FIELD[pos]
+                    ),
+                ));
             } else if pos == ptr {
                 let expected = extract_expected_values(ptr);
 
                 return Err(syn::Error::new(
                     lit_span,
-                    format!("Duplicate time field, expected {expected}, got \"{}\"", TIME_LITERAL_FIELD[pos])
-                ))
+                    format!(
+                        "Duplicate time field, expected {expected}, got \"{}\"",
+                        TIME_LITERAL_FIELD[pos]
+                    ),
+                ));
             }
 
             ptr = pos;
@@ -119,7 +126,7 @@ impl Parse for Every {
         if !has_modified {
             return Err(syn::Error::new(
                 input.span(),
-                "Expected time field literals got nothing"
+                "Expected time field literals got nothing",
             ));
         }
 
@@ -141,6 +148,8 @@ pub fn every(input: TokenStream) -> TokenStream {
         + (input.minutes * 60.0)
         + (input.hours * 3600.0)
         + (input.days * 86400.0);
-    
-    TokenStream::from(quote! { chronographer::task::schedule::TaskScheduleInterval::from_secs_f64(#sum).unwrap() })
+
+    TokenStream::from(
+        quote! { chronographer::task::schedule::TaskScheduleInterval::from_secs_f64(#sum).unwrap() },
+    )
 }

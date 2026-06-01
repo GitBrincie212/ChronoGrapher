@@ -1,3 +1,4 @@
+use crate::task::frames::CountingFrame;
 use chronographer::prelude::DynamicTaskFrame;
 use chronographer::task::Task;
 use chronographer::task::TaskFrameContext;
@@ -7,7 +8,6 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use crate::task::frames::CountingFrame;
 
 // TODO: Fix the errors in the unit tests regarding the timeouts
 
@@ -26,7 +26,10 @@ async fn task_finishing_before_timeout_returns_ok() {
     let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
-    assert!(exec.is_ok(), "Task should have succeeded without any errors");
+    assert!(
+        exec.is_ok(),
+        "Task should have succeeded without any errors"
+    );
 }
 
 #[tokio::test]
@@ -80,5 +83,8 @@ async fn zero_duration_timeout_returns_error() {
     let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
-    assert!(exec.is_err(), "Zero-duration timeout should immediately time out");
+    assert!(
+        exec.is_err(),
+        "Zero-duration timeout should immediately time out"
+    );
 }

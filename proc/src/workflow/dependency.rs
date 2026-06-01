@@ -1,9 +1,9 @@
-use proc_macro2::TokenStream;
-use quote::{quote, ToTokens, TokenStreamExt};
-use syn::{BinOp, UnOp};
-use proc_macro2::TokenStream as TokenStream2;
-use syn::parse::{Parse, ParseStream};
 use crate::workflow::utils::{ArgumentParser, WorkflowTransform};
+use proc_macro2::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{ToTokens, TokenStreamExt, quote};
+use syn::parse::{Parse, ParseStream};
+use syn::{BinOp, UnOp};
 
 pub enum TaskRunMetric {
     Failure(syn::LitInt),
@@ -11,7 +11,7 @@ pub enum TaskRunMetric {
     // ConsecutiveSuccesses(syn::LitInt),
     // ConsecutiveFailures(syn::LitInt),
     Any(syn::LitInt),
-    Custom(syn::Expr)
+    Custom(syn::Expr),
 }
 
 pub enum AtomicDependency {
@@ -21,13 +21,16 @@ pub enum AtomicDependency {
     },
 
     Function(syn::Ident),
-    Dynamic(syn::ExprClosure)
+    Dynamic(syn::ExprClosure),
 }
 
 macro_rules! translate_task_run_metric {
     ($run_metric: expr, $ident: ident, $method_name: ident) => {
         if let TaskRunMetric::$ident(val) = &$run_metric {
-            return (quote! { $method_name }, quote! { std::num::NonZeroU16::new(#val).unwrap() });
+            return (
+                quote! { $method_name },
+                quote! { std::num::NonZeroU16::new(#val).unwrap() },
+            );
         }
     };
 }
@@ -69,7 +72,10 @@ macro_rules! task_run_metric {
                 return Ok(TaskRunMetric::$name(value.clone()));
             };
 
-            return Err(syn::Error::new_spanned(&$assign_expr, "Expected an integer literal as value, but got something else"));
+            return Err(syn::Error::new_spanned(
+                &$assign_expr,
+                "Expected an integer literal as value, but got something else",
+            ));
         }
     }};
 }
@@ -81,13 +87,13 @@ fn get_run_metric(ident: &syn::Ident, assign_expr: &syn::ExprAssign) -> syn::Res
     // task_run_metric!(ident, assign_expr, "consecutive_failures", ConsecutiveFailures);
     // task_run_metric!(ident, assign_expr, "consecutive_successes", ConsecutiveSuccesses);
     if ident.to_string().as_str() == "custom" {
-        return Ok(TaskRunMetric::Custom(*assign_expr.right.clone()))
+        return Ok(TaskRunMetric::Custom(*assign_expr.right.clone()));
     }
 
     Err(syn::Error::new_spanned(
         &ident,
         "Expected either \"any\", \"successes\", \"failures\", \
-                                        \"consecutive_failures\" or \"consecutive_successes\" but got something else"
+                                        \"consecutive_failures\" or \"consecutive_successes\" but got something else",
     ))
 }
 
@@ -98,53 +104,75 @@ impl TryInto<AtomicDependency> for &syn::Expr {
         match self {
             syn::Expr::Call(expr_call) => {
                 let syn::Expr::Path(expr_path) = expr_call.func.as_ref() else {
-                    return Err(syn::Error::new_spanned(&expr_call.func, "Expected an identifier but got something else"));
+                    return Err(syn::Error::new_spanned(
+                        &expr_call.func,
+                        "Expected an identifier but got something else",
+                    ));
                 };
 
                 let Some(path) = expr_path.path.segments.last() else {
-                    return Err(syn::Error::new_spanned(expr_path, "Expected an identifier but got something else"));
+                    return Err(syn::Error::new_spanned(
+                        expr_path,
+                        "Expected an identifier but got something else",
+                    ));
                 };
 
                 match path.ident.to_string().as_str() {
                     "dynamic" => {
                         if expr_call.args.len() != 1 {
-                            return Err(syn::Error::new_spanned(path, "Expected a closure for \"dynamic\" but got nothing or more than needed"))
+                            return Err(syn::Error::new_spanned(
+                                path,
+                                "Expected a closure for \"dynamic\" but got nothing or more than needed",
+                            ));
                         }
 
                         let first = expr_call.args.first().unwrap();
                         let syn::Expr::Closure(expr_closure) = &first else {
-                            return Err(syn::Error::new_spanned(&first, "Expected a closure for the \"dynamic\", but got something else"));
+                            return Err(syn::Error::new_spanned(
+                                &first,
+                                "Expected a closure for the \"dynamic\", but got something else",
+                            ));
                         };
 
                         Ok(AtomicDependency::Dynamic(expr_closure.clone()))
                     }
 
-                    _ => {
-                        match expr_call.args.len() {
-                            0 => Ok(AtomicDependency::Function(path.ident.clone())),
-                            1 => {
-                                let first = expr_call.args.first().unwrap();
-                                let syn::Expr::Assign(assign_expr) = first else {
-                                    return Err(syn::Error::new_spanned(&first, "Expected a named argument but got something else"));
-                                };
+                    _ => match expr_call.args.len() {
+                        0 => Ok(AtomicDependency::Function(path.ident.clone())),
+                        1 => {
+                            let first = expr_call.args.first().unwrap();
+                            let syn::Expr::Assign(assign_expr) = first else {
+                                return Err(syn::Error::new_spanned(
+                                    &first,
+                                    "Expected a named argument but got something else",
+                                ));
+                            };
 
-                                let syn::Expr::Path(expr_path) = assign_expr.left.as_ref() else {
-                                    return Err(syn::Error::new_spanned(&expr_call.func, "Expected an identifier but got something else"));
-                                };
+                            let syn::Expr::Path(expr_path) = assign_expr.left.as_ref() else {
+                                return Err(syn::Error::new_spanned(
+                                    &expr_call.func,
+                                    "Expected an identifier but got something else",
+                                ));
+                            };
 
-                                let Some(arg_path) = expr_path.path.segments.last() else {
-                                    return Err(syn::Error::new_spanned(expr_path, "Expected an identifier but got something else"));
-                                };
+                            let Some(arg_path) = expr_path.path.segments.last() else {
+                                return Err(syn::Error::new_spanned(
+                                    expr_path,
+                                    "Expected an identifier but got something else",
+                                ));
+                            };
 
-                                let run_metric = get_run_metric(&arg_path.ident, &assign_expr)?;
-                                Ok(AtomicDependency::Task {
-                                    dependency: path.ident.clone(),
-                                    value: run_metric
-                                })
-                            }
-                            _ => Err(syn::Error::new_spanned(path, "Expected a single named argument for a Task or none for a function, got more"))
+                            let run_metric = get_run_metric(&arg_path.ident, &assign_expr)?;
+                            Ok(AtomicDependency::Task {
+                                dependency: path.ident.clone(),
+                                value: run_metric,
+                            })
                         }
-                    }
+                        _ => Err(syn::Error::new_spanned(
+                            path,
+                            "Expected a single named argument for a Task or none for a function, got more",
+                        )),
+                    },
                 }
             }
 
@@ -153,7 +181,10 @@ impl TryInto<AtomicDependency> for &syn::Expr {
                 Ok(AtomicDependency::Function(last.ident.clone()))
             }
 
-            value => Err(syn::Error::new_spanned(value, "Expected an identifier but got something else"))
+            value => Err(syn::Error::new_spanned(
+                value,
+                "Expected an identifier but got something else",
+            )),
         }
     }
 }
@@ -173,7 +204,7 @@ impl ToTokens for Dependency {
             Dependency::OR(dep1, dep2) => quote! { #dep1 | #dep2 },
             Dependency::AND(dep1, dep2) => quote! { #dep1 & #dep2 },
             Dependency::XOR(dep1, dep2) => quote! { (#dep1 & !#dep2) | (!#dep1 & #dep2) },
-            Dependency::NOT(dep) => quote! { !#dep }
+            Dependency::NOT(dep) => quote! { !#dep },
         };
 
         tokens.append_all(expanded);
@@ -185,40 +216,42 @@ impl TryInto<Dependency> for &syn::Expr {
 
     fn try_into(self) -> Result<Dependency, Self::Error> {
         match self {
-            syn::Expr::Paren(paren) => {
-                paren.expr.as_ref().try_into()
-            }
+            syn::Expr::Paren(paren) => paren.expr.as_ref().try_into(),
 
-            syn::Expr::Binary(bin) => {
-                match bin.op {
-                    BinOp::And(..) => Ok(Dependency::AND(
-                        Box::new(bin.left.as_ref().try_into()?),
-                        Box::new(bin.right.as_ref().try_into()?)
-                    )),
+            syn::Expr::Binary(bin) => match bin.op {
+                BinOp::And(..) => Ok(Dependency::AND(
+                    Box::new(bin.left.as_ref().try_into()?),
+                    Box::new(bin.right.as_ref().try_into()?),
+                )),
 
-                    BinOp::Or(..) => Ok(Dependency::OR(
-                        Box::new(bin.left.as_ref().try_into()?),
-                        Box::new(bin.right.as_ref().try_into()?)
-                    )),
+                BinOp::Or(..) => Ok(Dependency::OR(
+                    Box::new(bin.left.as_ref().try_into()?),
+                    Box::new(bin.right.as_ref().try_into()?),
+                )),
 
-                    BinOp::BitXor(..) => Ok(Dependency::XOR(
-                        Box::new(bin.left.as_ref().try_into()?),
-                        Box::new(bin.right.as_ref().try_into()?)
-                    )),
+                BinOp::BitXor(..) => Ok(Dependency::XOR(
+                    Box::new(bin.left.as_ref().try_into()?),
+                    Box::new(bin.right.as_ref().try_into()?),
+                )),
 
-                    _ => Err(syn::Error::new_spanned(bin.op, "Unknown boolean based operator"))
-                }
-            }
+                _ => Err(syn::Error::new_spanned(
+                    bin.op,
+                    "Unknown boolean based operator",
+                )),
+            },
 
             syn::Expr::Unary(unary) => {
                 if let UnOp::Not(..) = unary.op {
                     return Ok(Dependency::NOT(Box::new(unary.expr.as_ref().try_into()?)));
                 }
 
-                Err(syn::Error::new_spanned(unary.op, "Unknown boolean based operator"))
+                Err(syn::Error::new_spanned(
+                    unary.op,
+                    "Unknown boolean based operator",
+                ))
             }
 
-            value => Ok(Dependency::Atomic(value.try_into()?))
+            value => Ok(Dependency::Atomic(value.try_into()?)),
         }
     }
 }
@@ -232,14 +265,18 @@ impl Parse for Dependency {
 pub enum UnresolveBehavior {
     Fail,
     Skip,
-    Custom(syn::Expr)
+    Custom(syn::Expr),
 }
 
 impl ToTokens for UnresolveBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let expanded = match self {
-            UnresolveBehavior::Fail => quote! { chronographer::task::frames::dependencyframe::DependentFailureOnFail },
-            UnresolveBehavior::Skip => quote! { chronographer::task::frames::dependencyframe::DependentSuccessOnFail },
+            UnresolveBehavior::Fail => {
+                quote! { chronographer::task::frames::dependencyframe::DependentFailureOnFail }
+            }
+            UnresolveBehavior::Skip => {
+                quote! { chronographer::task::frames::dependencyframe::DependentSuccessOnFail }
+            }
             UnresolveBehavior::Custom(expr) => quote! { #expr },
         };
 
@@ -252,11 +289,15 @@ impl Parse for UnresolveBehavior {
         match input.parse::<syn::Expr>()? {
             syn::Expr::Call(call) => {
                 let syn::Expr::Path(expr_path) = call.func.as_ref() else {
-                    return Err(input.error("Expected \"custom\" as a simple identifier but got something instead"))
+                    return Err(input.error(
+                        "Expected \"custom\" as a simple identifier but got something instead",
+                    ));
                 };
 
                 if expr_path.path.segments.len() != 1 {
-                    return Err(input.error("Expected \"custom\" as a simple identifier but got something instead"))
+                    return Err(input.error(
+                        "Expected \"custom\" as a simple identifier but got something instead",
+                    ));
                 }
 
                 let mut argument_parser = ArgumentParser::new(input);
@@ -266,25 +307,28 @@ impl Parse for UnresolveBehavior {
 
             syn::Expr::Path(expr_path) => {
                 if expr_path.path.segments.len() != 1 {
-                    return Err(input.error("Expected one ident but got multiple instead"))
+                    return Err(input.error("Expected one ident but got multiple instead"));
                 }
 
                 let path = expr_path.path.segments.last().unwrap();
                 match path.ident.to_string().as_str() {
                     "fail" => Ok(Self::Fail),
                     "skip" => Ok(Self::Skip),
-                    _ => Err(input.error("Expected either \"fail\", \"skip\" but got something else"))
+                    _ => {
+                        Err(input
+                            .error("Expected either \"fail\", \"skip\" but got something else"))
+                    }
                 }
             }
 
-            _ => Err(input.error("Unknown unresolve behavior"))
+            _ => Err(input.error("Unknown unresolve behavior")),
         }
     }
 }
 
 pub struct DependencyArguments {
     dep: Dependency,
-    unresolve_behavior: Option<UnresolveBehavior>
+    unresolve_behavior: Option<UnresolveBehavior>,
 }
 
 impl Parse for DependencyArguments {
@@ -292,7 +336,10 @@ impl Parse for DependencyArguments {
         let mut argument_parser = ArgumentParser::new(input);
         let dep = argument_parser.parse_required("dep")?;
         let unresolve_behavior = argument_parser.parse_optional("unresolve")?;
-        Ok(DependencyArguments { dep, unresolve_behavior })
+        Ok(DependencyArguments {
+            dep,
+            unresolve_behavior,
+        })
     }
 }
 
@@ -300,7 +347,9 @@ impl WorkflowTransform for DependencyArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
         let dependency = &self.dep;
         let expanded_dependency = quote! { #dependency };
-        let expanded_unresolve_behavior = self.unresolve_behavior.as_ref()
+        let expanded_unresolve_behavior = self
+            .unresolve_behavior
+            .as_ref()
             .map(|x| quote! { .dependent_behaviour(#x) });
 
         quote! {

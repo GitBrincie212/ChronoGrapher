@@ -42,9 +42,9 @@ impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let delay = match &self.delay {
             DelaySource::Duration(dur) => *dur,
-            DelaySource::Function(func) => func().clone()
+            DelaySource::Function(func) => func().clone(),
         };
-        
+
         ctx.emit::<OnDelayStart>(&delay).await;
         tokio::time::sleep(delay).await;
         ctx.emit::<OnDelayEnd>(&delay).await;

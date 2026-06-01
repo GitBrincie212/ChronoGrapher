@@ -79,19 +79,19 @@ pub struct LinearBackoffStrategyConfig {
     start: Duration,
 
     #[builder(default, setter(strip_option))]
-    clamp: Option<Duration>
+    clamp: Option<Duration>,
 }
 
 impl Into<LinearBackoffStrategy> for LinearBackoffStrategyConfig {
     fn into(self) -> LinearBackoffStrategy {
-        let start =  self.start.as_secs_f64();
+        let start = self.start.as_secs_f64();
         let factor = self.factor.as_secs_f64();
         let clamp = self.clamp.map(|x| x.as_secs_f64()).unwrap_or(f64::INFINITY);
 
         LinearBackoffStrategy {
             start,
             factor,
-            clamp
+            clamp,
         }
     }
 }
@@ -100,7 +100,7 @@ impl Into<LinearBackoffStrategy> for LinearBackoffStrategyConfig {
 pub struct LinearBackoffStrategy {
     start: f64,
     factor: f64,
-    clamp: f64
+    clamp: f64,
 }
 
 impl LinearBackoffStrategy {
@@ -126,36 +126,43 @@ enum JitterType {
 pub struct JitterBackoffStrategy<T: RetryBackoffStrategy> {
     backoff: T,
     factor: f64,
-    jitter_type: JitterType
+    jitter_type: JitterType,
 }
 
 impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
     pub fn new_full(strat: T, factor: f64) -> Self {
-        Self { backoff: strat, factor, jitter_type: JitterType::FullJitter}
+        Self {
+            backoff: strat,
+            factor,
+            jitter_type: JitterType::FullJitter,
+        }
     }
 
     pub fn new_equal(strat: T, factor: f64) -> Self {
-        Self { backoff: strat, factor, jitter_type: JitterType::EqualJitter }
+        Self {
+            backoff: strat,
+            factor,
+            jitter_type: JitterType::EqualJitter,
+        }
     }
 
     pub fn new_decorrelated(strat: T, factor: f64, max: f64) -> Self {
-        Self { backoff: strat, factor, jitter_type: JitterType::DecorrelatedJitter(max) }
+        Self {
+            backoff: strat,
+            factor,
+            jitter_type: JitterType::DecorrelatedJitter(max),
+        }
     }
 }
 
 impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> {
     fn compute(&self, retry: u32) -> Duration {
-        let base = self
-            .backoff
-            .compute(retry)
-            .mul_f64(self.factor);
+        let base = self.backoff.compute(retry).mul_f64(self.factor);
 
         let base_secs = base.as_secs_f64();
 
         let secs = match self.jitter_type {
-            JitterType::FullJitter => {
-                fastrand::f64() * base_secs
-            }
+            JitterType::FullJitter => fastrand::f64() * base_secs,
 
             JitterType::EqualJitter => {
                 let half = base_secs / 2.0;

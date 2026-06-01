@@ -1,8 +1,8 @@
+mod entry;
 mod every;
-mod utils;
 mod task;
 mod taskframe;
-mod entry;
+mod utils;
 mod workflow;
 
 use proc_macro::TokenStream;
@@ -372,7 +372,6 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
     workflow::workflow(attrs, item)
 }
-
 
 /// The [`main`] attribute macro is an alternative more ergonomic way to write the main function
 /// / entry-point for ChronoGrapher as opposed to manually making it using ``#[tokio::main]`` from the

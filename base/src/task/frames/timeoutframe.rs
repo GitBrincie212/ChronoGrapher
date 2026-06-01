@@ -1,7 +1,7 @@
-use crate::utils::macros::define_event;
 use crate::errors::TimeoutTaskFrameError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
+use crate::utils::macros::define_event;
 use std::time::Duration;
 
 define_event!(OnTimeout, Duration);
@@ -39,12 +39,10 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let duration = match &self.max_duration {
             TimeoutSource::Duration(dur) => *dur,
-            TimeoutSource::Function(func) => func().clone()
+            TimeoutSource::Function(func) => func().clone(),
         };
 
-        let result = tokio::time::timeout(
-            duration, self.frame.execute(ctx, &args)
-        ).await;
+        let result = tokio::time::timeout(duration, self.frame.execute(ctx, &args)).await;
 
         if let Ok(inner) = result {
             return inner.map_err(TimeoutTaskFrameError::Inner);

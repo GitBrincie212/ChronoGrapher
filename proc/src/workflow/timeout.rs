@@ -1,8 +1,8 @@
-use quote::quote;
-use proc_macro2::TokenStream as TokenStream2;
-use syn::parse::{Parse, ParseStream};
 use crate::utils::TimeLiteral;
 use crate::workflow::utils::{ArgumentParser, ValueSource, WorkflowTransform};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::quote;
+use syn::parse::{Parse, ParseStream};
 
 pub struct TimeoutArguments(ValueSource<TimeLiteral>);
 
@@ -20,7 +20,7 @@ impl WorkflowTransform for TimeoutArguments {
 
         let method_name = match &value {
             ValueSource::Function(_) => quote! { new_with },
-            _ => quote! { new }
+            _ => quote! { new },
         };
 
         quote! { chronographer::task::frames::timeoutframe::TimeoutTaskFrame::#method_name( #toks, #value )}

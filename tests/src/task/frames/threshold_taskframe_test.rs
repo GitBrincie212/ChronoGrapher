@@ -1,3 +1,4 @@
+use crate::task::frames::{failing_frame, ok_frame};
 use chronographer::task::CollectionTaskFrame;
 use chronographer::task::GroupedTaskFramesQuitOnFailure;
 use chronographer::task::GroupedTaskFramesSilent;
@@ -12,7 +13,6 @@ use std::num::NonZero;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use crate::task::frames::{failing_frame, ok_frame};
 
 macro_rules! run_until_threshold {
     ($threshold:expr, $var:ident) => {
@@ -137,7 +137,6 @@ async fn sub_threshold_runs_do_not_trigger_reach_behaviour() {
         "Only 3 runs should have occurred, threshold not yet reached"
     );
 }
-
 
 // TODO: Add this this test when `ThresholdErrorReachBehaviour` is implemented
 //

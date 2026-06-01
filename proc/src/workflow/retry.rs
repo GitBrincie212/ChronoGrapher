@@ -1,15 +1,15 @@
-use quote::{quote, ToTokens, TokenStreamExt};
-use syn::{bracketed, parenthesized, LitInt, Token};
-use proc_macro2::TokenStream as TokenStream2;
-use syn::parse::{Parse, ParseBuffer, ParseStream};
-use syn::parse::discouraged::Speculative;
 use crate::utils::TimeLiteral;
 use crate::workflow::utils::{ArgumentParser, ValueSource, WorkflowTransform};
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{ToTokens, TokenStreamExt, quote};
+use syn::parse::discouraged::Speculative;
+use syn::parse::{Parse, ParseBuffer, ParseStream};
+use syn::{LitInt, Token, bracketed, parenthesized};
 
 pub enum JitterType {
     FullJitter,
     EqualJitter,
-    DecorrelatedJitter(ValueSource<LitInt>)
+    DecorrelatedJitter(ValueSource<LitInt>),
 }
 
 impl Parse for JitterType {
@@ -26,9 +26,7 @@ impl Parse for JitterType {
                 Ok(JitterType::DecorrelatedJitter(value))
             }
 
-            _ => {
-                Err(syn::Error::new(input.span(), "Unknown jitter type"))
-            }
+            _ => Err(syn::Error::new(input.span(), "Unknown jitter type")),
         }
     }
 }
@@ -41,13 +39,13 @@ pub enum RetryDelay {
     Linear {
         factor: syn::Expr,
         start: Option<syn::Expr>,
-        clamp: Option<syn::Expr>
+        clamp: Option<syn::Expr>,
     },
 
     Exponential {
         start: syn::Expr,
         factor: syn::Expr,
-        clamp: Option<syn::Expr>
+        clamp: Option<syn::Expr>,
     },
 
     Jitter {
@@ -60,15 +58,21 @@ pub enum RetryDelay {
 impl ToTokens for RetryDelay {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let expanded = match self {
-            RetryDelay::Constant(value) =>
-                quote! { Box::new(chronographer::task::frames::retryframe::ConstantBackoffStrategy::new(#value)) },
+            RetryDelay::Constant(value) => {
+                quote! { Box::new(chronographer::task::frames::retryframe::ConstantBackoffStrategy::new(#value)) }
+            }
 
-            RetryDelay::Immediate =>
-                quote! { Box::new(chronographer::task::frames::retryframe::ConstantBackoffStrategy::new(std::time::Duration::ZERO)) },
+            RetryDelay::Immediate => {
+                quote! { Box::new(chronographer::task::frames::retryframe::ConstantBackoffStrategy::new(std::time::Duration::ZERO)) }
+            }
 
             RetryDelay::Custom(value) => quote! { #value },
 
-            RetryDelay::Linear { start, factor, clamp } => {
+            RetryDelay::Linear {
+                start,
+                factor,
+                clamp,
+            } => {
                 let expanded_clamp = clamp.as_ref().map(|x| quote! {.clamp(#x)});
                 let expanded_start = start.as_ref().map(|x| quote! {.start(#x)});
 
@@ -80,7 +84,11 @@ impl ToTokens for RetryDelay {
                 ) }
             }
 
-            RetryDelay::Exponential { start, factor, clamp } => {
+            RetryDelay::Exponential {
+                start,
+                factor,
+                clamp,
+            } => {
                 let expanded_clamp = clamp.as_ref().map(|x| quote! {.clamp(#x)});
 
                 quote! { Box::new(chronographer::task::frames::retryframe::ExponentialBackoffStrategy::builder()
@@ -90,7 +98,11 @@ impl ToTokens for RetryDelay {
                     .build()
                 ) }
             }
-            RetryDelay::Jitter { jitter_type, delay, factor } => {
+            RetryDelay::Jitter {
+                jitter_type,
+                delay,
+                factor,
+            } => {
                 let expanded_method = match jitter_type {
                     JitterType::FullJitter => quote! {
                         chronographer::task::frames::retryframe::JitterBackoffStrategy::new_full(#delay, #factor)
@@ -100,9 +112,8 @@ impl ToTokens for RetryDelay {
                     },
                     JitterType::DecorrelatedJitter(max) => quote! {
                         chronographer::prelude::new_decorrelated(#delay, #factor, #max)
-                    }
+                    },
                 };
-
 
                 quote! { Box::new(#expanded_method) }
             }
@@ -130,14 +141,22 @@ impl Parse for RetryDelay {
                     let factor = arg_parser.parse_required("factor")?;
                     let start = arg_parser.parse_optional("start")?;
                     let clamp = arg_parser.parse_optional("clamp")?;
-                    Ok(Self::Linear { start, factor, clamp })
+                    Ok(Self::Linear {
+                        start,
+                        factor,
+                        clamp,
+                    })
                 }
 
                 "exponential" => {
                     let start: syn::Expr = content.parse()?;
                     content.parse::<Token![,]>()?;
                     let factor: syn::Expr = content.parse()?;
-                    Ok(Self::Exponential { start, factor, clamp: None })
+                    Ok(Self::Exponential {
+                        start,
+                        factor,
+                        clamp: None,
+                    })
                 }
 
                 "jitter" => {
@@ -147,10 +166,14 @@ impl Parse for RetryDelay {
                     content.parse::<Token![,]>()?;
                     let factor = content.parse()?;
                     content.parse::<Token![,]>()?;
-                    Ok(Self::Jitter { jitter_type, factor, delay })
+                    Ok(Self::Jitter {
+                        jitter_type,
+                        factor,
+                        delay,
+                    })
                 }
 
-                _ => Err(input.error("Unknown delay value expression"))
+                _ => Err(input.error("Unknown delay value expression")),
             };
         }
 
@@ -226,7 +249,7 @@ impl InnerRetryErrorFilter {
 
 pub struct RetryErrorFilter {
     inner: InnerRetryErrorFilter,
-    blacklist: bool
+    blacklist: bool,
 }
 
 impl Parse for RetryErrorFilter {
@@ -246,7 +269,7 @@ impl Parse for RetryErrorFilter {
 pub struct RetryArguments {
     max: ValueSource<LitInt>,
     delay: Option<RetryDelay>,
-    when: Option<RetryErrorFilter>
+    when: Option<RetryErrorFilter>,
 }
 
 impl Parse for RetryArguments {
@@ -261,19 +284,24 @@ impl Parse for RetryArguments {
 
 impl WorkflowTransform for RetryArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
-        let expanded_backoff = self.delay.as_ref()
-            .map(|x| quote! { .backoff(#x) });
+        let expanded_backoff = self.delay.as_ref().map(|x| quote! { .backoff(#x) });
 
         let max = match &self.max {
             ValueSource::Lit(lit) => {
                 let Ok(digits) = lit.base10_parse::<u32>() else {
-                    return syn::Error::new_spanned(lit, "Retries must be a positive non-zero number")
-                        .to_compile_error();
+                    return syn::Error::new_spanned(
+                        lit,
+                        "Retries must be a positive non-zero number",
+                    )
+                    .to_compile_error();
                 };
 
                 if digits == 0 {
-                    return syn::Error::new_spanned(lit, "Retries must be a positive non-zero number")
-                        .to_compile_error();
+                    return syn::Error::new_spanned(
+                        lit,
+                        "Retries must be a positive non-zero number",
+                    )
+                    .to_compile_error();
                 }
 
                 quote! { std::num::NonZeroU32::new(#lit).unwrap() }
@@ -281,24 +309,25 @@ impl WorkflowTransform for RetryArguments {
 
             ValueSource::Function(func) => quote! { #func },
             ValueSource::Closure(closure) => quote! { #closure },
-            ValueSource::Macro(macr) => quote! { #macr }
+            ValueSource::Macro(macr) => quote! { #macr },
         };
 
-        let expanded_when = self.when.as_ref()
-            .map(|when| {
-                match &when.inner {
-                    InnerRetryErrorFilter::Patterns(pats) => {
-                        let whitelist = if when.blacklist { quote! { ! }} else { quote!() };
-                        quote! { .when(|err| {
-                            #whitelist matches!(err, Some(#(#pats)|*))
-                        }) }
-                    }
+        let expanded_when = self.when.as_ref().map(|when| match &when.inner {
+            InnerRetryErrorFilter::Patterns(pats) => {
+                let whitelist = if when.blacklist {
+                    quote! { ! }
+                } else {
+                    quote!()
+                };
+                quote! { .when(|err| {
+                    #whitelist matches!(err, Some(#(#pats)|*))
+                }) }
+            }
 
-                    InnerRetryErrorFilter::Function(func) => quote! { .when(#func) },
-                    InnerRetryErrorFilter::Closure(closure) => quote! { .when(#closure) },
-                    InnerRetryErrorFilter::Macro(macr) => quote! { .when(#macr) },
-                }
-            });
+            InnerRetryErrorFilter::Function(func) => quote! { .when(#func) },
+            InnerRetryErrorFilter::Closure(closure) => quote! { .when(#closure) },
+            InnerRetryErrorFilter::Macro(macr) => quote! { .when(#macr) },
+        });
 
         quote! {
             chronographer::task::frames::retryframe::RetriableTaskFrame::builder()

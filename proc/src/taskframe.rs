@@ -1,24 +1,39 @@
+use crate::utils::{
+    LIFETIME_UNSUPPORTED_ERR, extract_arg_name, extract_docs, extract_workflow,
+    handle_generics_phantom_data,
+};
+use crate::workflow::WorkflowSpec;
+use crate::workflow::utils::WorkflowTransform;
 use proc_macro::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{parenthesized, parse_macro_input, FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
+use quote::{ToTokens, quote};
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use crate::utils::{extract_arg_name, extract_docs, extract_workflow, handle_generics_phantom_data, LIFETIME_UNSUPPORTED_ERR};
-use crate::workflow::utils::WorkflowTransform;
-use crate::workflow::WorkflowSpec;
+use syn::{
+    FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference,
+    parenthesized, parse_macro_input,
+};
 
-const TASKFRAME_CTX_REQUIRED_ERR: &'static str = "Function is required to have at least one argument of type \"TaskFrameContext\"";
-const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &'static str = "First argument must be of type \"TaskFrameContext\"";
-const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &'static str = "Expected a simple identifier as argument name for the context";
-const SIMPLE_IDENTIFIER_FOR_ARG_ERR: &'static str = "Expected a simple identifier as an argument name";
-const FIRST_ARG_REF_TASKFRAME_ERR: &'static str = "First argument must be a reference of type \"TaskFrameContext\"";
-const METHOD_MACRO_USE_ERR: &'static str = "Using the task attribute macro in methods is unsupported";
+const TASKFRAME_CTX_REQUIRED_ERR: &'static str =
+    "Function is required to have at least one argument of type \"TaskFrameContext\"";
+const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &'static str =
+    "First argument must be of type \"TaskFrameContext\"";
+const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &'static str =
+    "Expected a simple identifier as argument name for the context";
+const SIMPLE_IDENTIFIER_FOR_ARG_ERR: &'static str =
+    "Expected a simple identifier as an argument name";
+const FIRST_ARG_REF_TASKFRAME_ERR: &'static str =
+    "First argument must be a reference of type \"TaskFrameContext\"";
+const METHOD_MACRO_USE_ERR: &'static str =
+    "Using the task attribute macro in methods is unsupported";
 const USE_OF_REF_SELF_ERR: &'static str = "Invalid syntax, cannot use &self or &mut self";
-const INVALID_RETURN_TYPE_ERROR: &'static str = "Return type must be of type Result<(), E> in which E is your desired error type";
-const FIRST_GENERIC_RETURN_ERR: &'static str = "First generic argument of Result must be of type ()";
-const SECOND_GENERIC_RETURN_ERR: &'static str = "Second generic argument of Result must be an error type";
+const INVALID_RETURN_TYPE_ERROR: &'static str =
+    "Return type must be of type Result<(), E> in which E is your desired error type";
+const FIRST_GENERIC_RETURN_ERR: &'static str =
+    "First generic argument of Result must be of type ()";
+const SECOND_GENERIC_RETURN_ERR: &'static str =
+    "Second generic argument of Result must be an error type";
 const ASYNC_REQUIRED_ERR: &'static str = "Function is required to be async";
 const ABI_UNSUPPORTED_ERR: &'static str = "ABI functions are unsupported";
 
@@ -62,16 +77,16 @@ impl Parse for TaskFrameMacroArguments {
 }
 
 fn extract_arguments(
-    fn_args: &mut Punctuated<FnArg, Comma>
-) -> syn::Result<(Punctuated<proc_macro2::Ident, Comma>, Punctuated<Type, Comma>)> {
+    fn_args: &mut Punctuated<FnArg, Comma>,
+) -> syn::Result<(
+    Punctuated<proc_macro2::Ident, Comma>,
+    Punctuated<Type, Comma>,
+)> {
     let mut fn_args = fn_args.pairs_mut();
-    let ctx_arg = fn_args.next()
-        .ok_or(
-            syn::Error::new(
-                proc_macro2::Span::call_site(),
-                TASKFRAME_CTX_REQUIRED_ERR
-            )
-        )?;
+    let ctx_arg = fn_args.next().ok_or(syn::Error::new(
+        proc_macro2::Span::call_site(),
+        TASKFRAME_CTX_REQUIRED_ERR,
+    ))?;
 
     let (ctx_name, ctx_type) = match ctx_arg.value() {
         FnArg::Typed(pt) => {
@@ -83,7 +98,7 @@ fn extract_arguments(
                     let Type::Path(TypePath { path, .. }) = elem else {
                         return Err(syn::Error::new_spanned(
                             &pt.ty,
-                            FIRST_ARG_NOT_TASKFRAME_CTX_ERR
+                            FIRST_ARG_NOT_TASKFRAME_CTX_ERR,
                         ));
                     };
 
@@ -96,16 +111,13 @@ fn extract_arguments(
                     if !is_ctx {
                         return Err(syn::Error::new_spanned(
                             &pt.ty,
-                            FIRST_ARG_NOT_TASKFRAME_CTX_ERR
+                            FIRST_ARG_NOT_TASKFRAME_CTX_ERR,
                         ));
                     }
                 }
 
                 _ => {
-                    return Err(syn::Error::new_spanned(
-                        &pt.ty,
-                        FIRST_ARG_REF_TASKFRAME_ERR
-                    ));
+                    return Err(syn::Error::new_spanned(&pt.ty, FIRST_ARG_REF_TASKFRAME_ERR));
                 }
             }
 
@@ -113,13 +125,9 @@ fn extract_arguments(
         }
 
         FnArg::Receiver(_) => {
-            return Err(syn::Error::new_spanned(
-                ctx_arg,
-                METHOD_MACRO_USE_ERR
-            ));
+            return Err(syn::Error::new_spanned(ctx_arg, METHOD_MACRO_USE_ERR));
         }
     };
-
 
     let mut names = Punctuated::new();
     let mut types = Punctuated::new();
@@ -133,10 +141,7 @@ fn extract_arguments(
             }
 
             FnArg::Receiver(_) => {
-                return Err(syn::Error::new_spanned(
-                    ctx_arg,
-                    USE_OF_REF_SELF_ERR
-                ));
+                return Err(syn::Error::new_spanned(ctx_arg, USE_OF_REF_SELF_ERR));
             }
         }
     }
@@ -158,78 +163,60 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
     };
 
     let Type::Path(TypePath { path, .. }) = ty.as_ref() else {
-        return Err(syn::Error::new_spanned(
-            ty,
-            INVALID_RETURN_TYPE_ERROR,
-        ));
+        return Err(syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR));
     };
 
-    let segment = path.segments.last().ok_or_else(|| {
-        syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR)
-    })?;
-
+    let segment = path
+        .segments
+        .last()
+        .ok_or_else(|| syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR))?;
 
     if segment.ident != "Result" {
-        return Err(syn::Error::new_spanned(
-            ty,
-            INVALID_RETURN_TYPE_ERROR
-        ));
+        return Err(syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR));
     }
 
     let PathArguments::AngleBracketed(args) = &segment.arguments else {
-        return Err(syn::Error::new_spanned(
-            ty,
-            INVALID_RETURN_TYPE_ERROR
-        ));
+        return Err(syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR));
     };
 
     let mut args_iter = args.args.iter();
-    let first = args_iter.next().ok_or_else(|| {
-        syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR)
-    })?;
+    let first = args_iter
+        .next()
+        .ok_or_else(|| syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR))?;
 
     match first {
         GenericArgument::Type(Type::Tuple(tuple)) if tuple.elems.is_empty() => {}
         _ => {
-            return Err(syn::Error::new_spanned(
-                first,
-                FIRST_GENERIC_RETURN_ERR
-            ));
+            return Err(syn::Error::new_spanned(first, FIRST_GENERIC_RETURN_ERR));
         }
     }
 
     let err_ty = match args_iter.next() {
         Some(GenericArgument::Type(ty)) => ty.clone(),
         _ => {
-            return Err(syn::Error::new_spanned(
-                ty,
-                SECOND_GENERIC_RETURN_ERR
-            ));
+            return Err(syn::Error::new_spanned(ty, SECOND_GENERIC_RETURN_ERR));
         }
     };
 
     if args_iter.next().is_some() {
-        return Err(syn::Error::new_spanned(
-            ty,
-            INVALID_RETURN_TYPE_ERROR,
-        ));
+        return Err(syn::Error::new_spanned(ty, INVALID_RETURN_TYPE_ERROR));
     }
 
     Ok(err_ty)
 }
 
-fn derive_with_generics(name: &syn::Ident, fn_sig: &syn::Signature) -> syn::Result<(
+fn derive_with_generics(
+    name: &syn::Ident,
+    fn_sig: &syn::Signature,
+) -> syn::Result<(
     proc_macro2::TokenStream,
     proc_macro2::TokenStream,
     proc_macro2::TokenStream,
     Option<proc_macro2::TokenStream>,
-    Option<Punctuated<proc_macro2::TokenStream, Comma>>
+    Option<Punctuated<proc_macro2::TokenStream, Comma>>,
 )> {
-    let (
-        impl_end_name,
-        phantom_data,
-        normalized_type_params
-    ) = handle_generics_phantom_data(name, fn_sig)?;
+    let (impl_end_name, phantom_data, normalized_type_params) =
+        handle_generics_phantom_data(name, fn_sig)?;
 
     let generics = &fn_sig.generics;
     let (phantom_data_init, derives) = if phantom_data.is_some() {
@@ -243,11 +230,19 @@ fn derive_with_generics(name: &syn::Ident, fn_sig: &syn::Signature) -> syn::Resu
                 }
 
                 impl #generics Copy for #impl_end_name {}
-            }
+            },
         )
-    } else { (quote! { Self }, quote! { #[derive(Default, Clone, Copy)] }) };
+    } else {
+        (quote! { Self }, quote! { #[derive(Default, Clone, Copy)] })
+    };
 
-    Ok((derives, impl_end_name, phantom_data_init, phantom_data, normalized_type_params))
+    Ok((
+        derives,
+        impl_end_name,
+        phantom_data_init,
+        phantom_data,
+        normalized_type_params,
+    ))
 }
 
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
@@ -283,17 +278,15 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     if fn_sig.asyncness.is_none() {
-        return syn::Error::new(
-            proc_macro2::Span::call_site(),
-            ASYNC_REQUIRED_ERR,
-        ).into_compile_error().into();
+        return syn::Error::new(proc_macro2::Span::call_site(), ASYNC_REQUIRED_ERR)
+            .into_compile_error()
+            .into();
     }
 
     if fn_sig.abi.is_some() {
-        return syn::Error::new(
-            proc_macro2::Span::call_site(),
-            ABI_UNSUPPORTED_ERR
-        ).into_compile_error().into();
+        return syn::Error::new(proc_macro2::Span::call_site(), ABI_UNSUPPORTED_ERR)
+            .into_compile_error()
+            .into();
     }
 
     if fn_sig.unsafety.is_some() {
@@ -308,37 +301,29 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let where_clause = &fn_sig.generics.where_clause;
 
     if let Some(lt) = generics.lifetimes().next() {
-        return syn::Error::new(
-            lt.span(),
-            LIFETIME_UNSUPPORTED_ERR,
-        ).into_compile_error().into();
+        return syn::Error::new(lt.span(), LIFETIME_UNSUPPORTED_ERR)
+            .into_compile_error()
+            .into();
     }
 
-    let (
-        derives,
-        impl_end_name,
-        standalone_init,
-        phantom_data,
-        normalized_type_params
-    ) = match derive_with_generics(&fn_name, &*fn_sig) {
-        Ok(res) => res,
-        Err(e) => return e.to_compile_error().into(),
-    };
+    let (derives, impl_end_name, standalone_init, phantom_data, normalized_type_params) =
+        match derive_with_generics(&fn_name, &*fn_sig) {
+            Ok(res) => res,
+            Err(e) => return e.to_compile_error().into(),
+        };
 
-    let expanded = normalized_type_params.clone()
+    let expanded = normalized_type_params
+        .clone()
         .map(|value| quote! { < #value > });
 
-    let temp = expanded.clone()
-        .map(|value| quote! { :: #value });
+    let temp = expanded.clone().map(|value| quote! { :: #value });
 
     let docs = extract_docs(&*input.attrs);
-    match extract_workflow(
-        &*input.attrs,
-        &mut macro_args.0,
-        |x| WorkflowSpec::parse.parse2(x)
-    ) {
-        Ok(()) => {},
-        Err(e) => return e.to_compile_error().into()
+    match extract_workflow(&*input.attrs, &mut macro_args.0, |x| {
+        WorkflowSpec::parse.parse2(x)
+    }) {
+        Ok(()) => {}
+        Err(e) => return e.to_compile_error().into(),
     }
 
     let mut expanded_workflow_init = quote! { #fn_name #temp ::single() };
@@ -379,5 +364,6 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
                 #fn_block
             }
         }
-    }.into()
+    }
+    .into()
 }

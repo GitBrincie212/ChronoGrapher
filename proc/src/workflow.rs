@@ -1,17 +1,12 @@
-pub mod retry;
-pub mod utils;
-pub mod timeout;
-pub mod delay;
-pub mod fallback;
-pub mod threshold;
 pub mod condition;
+pub mod delay;
 mod dependency;
+pub mod fallback;
+pub mod retry;
+pub mod threshold;
+pub mod timeout;
+pub mod utils;
 
-use proc_macro::TokenStream;
-use syn::parse::{Parse, ParseStream};
-use syn::{parenthesized, Token};
-use proc_macro2::TokenStream as TokenStream2;
-use syn::punctuated::Punctuated;
 use crate::workflow::condition::ConditionArguments;
 use crate::workflow::delay::DelayArguments;
 use crate::workflow::dependency::DependencyArguments;
@@ -20,7 +15,11 @@ use crate::workflow::retry::RetryArguments;
 use crate::workflow::threshold::ThresholdArguments;
 use crate::workflow::timeout::TimeoutArguments;
 use crate::workflow::utils::WorkflowTransform;
-
+use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
+use syn::parse::{Parse, ParseStream};
+use syn::punctuated::Punctuated;
+use syn::{Token, parenthesized};
 
 pub struct WorkflowSpec(pub Punctuated<WorkflowPrimitive, Token![,]>);
 
@@ -31,7 +30,7 @@ pub enum WorkflowPrimitive {
     Timeout(TimeoutArguments),
     Threshold(ThresholdArguments),
     Dependency(DependencyArguments),
-    Condition(ConditionArguments)
+    Condition(ConditionArguments),
 }
 
 impl WorkflowTransform for WorkflowPrimitive {
@@ -64,10 +63,12 @@ impl WorkflowTransform for WorkflowPrimitive {
 
 impl Parse for WorkflowPrimitive {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let ident = input.parse::<syn::Ident>()
-            .map_err(|x| syn::Error::new(
-                x.span(), "Expected an identifier for the workflow primitive")
-            )?;
+        let ident = input.parse::<syn::Ident>().map_err(|x| {
+            syn::Error::new(
+                x.span(),
+                "Expected an identifier for the workflow primitive",
+            )
+        })?;
 
         let content;
         parenthesized!(content in input);
@@ -81,10 +82,7 @@ impl Parse for WorkflowPrimitive {
             "dependency" => Ok(Self::Dependency(content.parse()?)),
             "condition" => Ok(Self::Condition(content.parse()?)),
 
-            _ => Err(syn::Error::new_spanned(
-                ident,
-                "Unknown workflow primitive"
-            ))
+            _ => Err(syn::Error::new_spanned(ident, "Unknown workflow primitive")),
         }
     }
 }
@@ -93,7 +91,7 @@ impl Parse for WorkflowSpec {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let primitives = Punctuated::parse_terminated(input)?;
         if primitives.is_empty() {
-            return Err(input.error("Expected at least one workflow primitive"))
+            return Err(input.error("Expected at least one workflow primitive"));
         }
 
         Ok(Self(primitives))

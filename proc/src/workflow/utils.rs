@@ -1,8 +1,8 @@
-use quote::{quote, ToTokens, TokenStreamExt};
 use proc_macro2::TokenStream as TokenStream2;
-use syn::parse::{Parse, ParseStream};
-use syn::parse::discouraged::Speculative;
+use quote::{ToTokens, TokenStreamExt, quote};
 use syn::Token;
+use syn::parse::discouraged::Speculative;
+use syn::parse::{Parse, ParseStream};
 
 pub enum ValueSource<T: Parse> {
     Lit(T),
@@ -54,36 +54,36 @@ impl<T: Parse + ToTokens> ToTokens for ValueSource<T> {
 
 pub enum MacroArgument<T: Parse> {
     Positional(T),
-    Named {
-        name: syn::Ident,
-        value: T
-    }
+    Named { name: syn::Ident, value: T },
 }
 
 impl<T: Parse> MacroArgument<T> {
     pub fn name(&self) -> Option<&syn::Ident> {
         match self {
             MacroArgument::Positional(_) => None,
-            MacroArgument::Named { name, ..} => Some(name)
+            MacroArgument::Named { name, .. } => Some(name),
         }
     }
 
     pub fn into_value(self) -> T {
         match self {
             MacroArgument::Positional(v) => v,
-            MacroArgument::Named { value, ..} => value
+            MacroArgument::Named { value, .. } => value,
         }
     }
 }
 
 pub struct ArgumentParser<'a> {
     input: ParseStream<'a>,
-    expect_named: bool
+    expect_named: bool,
 }
 
 impl<'a> ArgumentParser<'a> {
     pub fn new(input: ParseStream<'a>) -> Self {
-        Self { input, expect_named: false }
+        Self {
+            input,
+            expect_named: false,
+        }
     }
 
     fn try_consume_comma(&mut self) {
@@ -108,7 +108,9 @@ impl<'a> ArgumentParser<'a> {
         }
 
         if self.expect_named {
-            return Err(self.input.error("Expected a named argument but got a positional instead"));
+            return Err(self
+                .input
+                .error("Expected a named argument but got a positional instead"));
         }
 
         let value = self.input.parse()?;
@@ -119,29 +121,26 @@ impl<'a> ArgumentParser<'a> {
     pub fn parse_required<T: Parse>(&mut self, expected: &'static str) -> syn::Result<T> {
         self.parse_next()?
             .ok_or_else(|| {
-                syn::Error::new(self.input.span(), format!("Expected {expected} argument but got nothing"))
+                syn::Error::new(
+                    self.input.span(),
+                    format!("Expected {expected} argument but got nothing"),
+                )
             })
-            .and_then(|arg| {
-                match arg.name() {
-                    None => Ok(arg.into_value()),
-                    Some(name) if name.to_string() == expected => Ok(arg.into_value()),
-                    Some(unexpected) => Err(syn::Error::new(
-                        self.input.span(),
-                        format!("Expected {expected} argument but got {unexpected}")
-                    ))
-                }
+            .and_then(|arg| match arg.name() {
+                None => Ok(arg.into_value()),
+                Some(name) if name.to_string() == expected => Ok(arg.into_value()),
+                Some(unexpected) => Err(syn::Error::new(
+                    self.input.span(),
+                    format!("Expected {expected} argument but got {unexpected}"),
+                )),
             })
     }
 
     pub fn parse_optional<T: Parse>(&mut self, expected: &'static str) -> syn::Result<Option<T>> {
-        Ok(self.parse_next()?
-            .and_then(|x| {
-                match x.name() {
-                    Some(actual) if actual.to_string().as_str() == expected => Some(x.into_value()),
-                    _ => None
-                }
-            })
-        )
+        Ok(self.parse_next()?.and_then(|x| match x.name() {
+            Some(actual) if actual.to_string().as_str() == expected => Some(x.into_value()),
+            _ => None,
+        }))
     }
 
     pub fn parse_remaining<T: Parse>(&mut self) -> syn::Result<Vec<T>> {
