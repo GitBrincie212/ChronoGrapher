@@ -11,7 +11,7 @@ use syn::token::Comma;
 
 pub const LIFETIME_UNSUPPORTED_ERR: &'static str = "Lifetimes are unsupported due to 'static lifetime limitations from async";
 
-enum RangeType {
+pub(crate) enum RangeType {
     Bounded(Range<f64>),
     Inclusive(RangeInclusive<f64>),
 }
@@ -34,7 +34,7 @@ impl Display for RangeType {
     }
 }
 
-pub const TIME_LITERAL_RANGES: [RangeType; 5] = [
+pub(crate) const TIME_LITERAL_RANGES: [RangeType; 5] = [
     RangeType::Bounded(0.0..1000.0),
     RangeType::Bounded(0.0..60.0),
     RangeType::Bounded(0.0..60.0),
