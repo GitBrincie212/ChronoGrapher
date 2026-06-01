@@ -1,9 +1,9 @@
-use proc_macro::TokenStream;
-use darling::ast::NestedMeta;
+use crate::utils::{extract_docs, extract_workflow, handle_generics_phantom_data};
 use darling::FromMeta;
+use darling::ast::NestedMeta;
+use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse_macro_input;
-use crate::utils::{extract_docs, handle_generics_phantom_data};
 
 #[derive(Debug, FromMeta)]
 struct TaskMacroArguments {
@@ -49,54 +49,71 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let is_singleton = args.singleton;
     let stringified_fn_name = fn_name.to_string();
     if stringified_fn_name.to_lowercase().ends_with("task") {
-        fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 4], fn_name.span())
+        fn_name = syn::Ident::new(
+            &stringified_fn_name[..stringified_fn_name.len() - 4],
+            fn_name.span(),
+        )
     }
-    
-    let taskframe_name = args.taskframe_name_override
-        .unwrap_or(syn::Ident::new(&format!("{fn_name}TaskFrame"), fn_name.span()));
 
-    let task_name = args.task_name_override
+    let taskframe_name = args.taskframe_name_override.unwrap_or(syn::Ident::new(
+        &format!("{fn_name}TaskFrame"),
+        fn_name.span(),
+    ));
+
+    let task_name = args
+        .task_name_override
         .unwrap_or(syn::Ident::new(&format!("{fn_name}Task"), fn_name.span()));
 
-    let (
-        impl_end_name,
-        phantom_data,
-        normalized_type_params
-    ) = match handle_generics_phantom_data(&task_name, &*fn_sig) {
-        Ok(res) => res,
+    let (impl_end_name, phantom_data, normalized_type_params) =
+        match handle_generics_phantom_data(&task_name, &*fn_sig) {
+            Ok(res) => res,
+            Err(e) => return e.to_compile_error().into(),
+        };
+
+    let expanded_normalized_type_params = normalized_type_params.map(|value| {
+        quote! {
+            < #value >
+        }
+    });
+
+    let temp = expanded_normalized_type_params.clone().map(|value| {
+        quote! {
+            #value ::
+        }
+    });
+
+    let mut workflow_toks = None;
+    match extract_workflow(&*input.attrs, &mut workflow_toks, |x| Ok(x)) {
+        Ok(()) => {}
         Err(e) => return e.to_compile_error().into(),
     };
 
-    let expanded_normalized_type_params = normalized_type_params
-        .map(|value| quote! {
-            < #value >
-        });
-
-    let temp = expanded_normalized_type_params
-        .clone()
-        .map(|value| quote! {
-            #value ::
-        });
-
+    let taskframe_creation_method = if workflow_toks.is_some() {
+        quote! { workflow }
+    } else {
+        quote! { single }
+    };
     let task_creation = quote! {
         chronographer::task::Task::new(
-            #taskframe_name:: #temp default(),
+            #taskframe_name:: #temp #taskframe_creation_method(),
             #schedule
         )
     };
 
     let docs = extract_docs(&*input.attrs);
 
+    let expanded_workflow_toks = workflow_toks.map(|x| quote! { ,__internal_workflow_spec(#x)});
     let mut expanded_method_init_logic = task_creation.clone();
-    let mut task_method_name = "new";
-    let mut task_method_return_type = quote! { chronographer::task::Task<#taskframe_name #expanded_normalized_type_params> };
+    let mut task_method_name = syn::Ident::new("new", proc_macro2::Span::call_site());
+    let mut task_method_return_type =
+        quote! { chronographer::task::Task<#taskframe_name #expanded_normalized_type_params> };
     if is_singleton {
         if !fn_sig.generics.params.is_empty() {
             return syn::Error::new(
                 proc_macro2::Span::call_site(),
                 "Generics in singleton Tasks are currently unsupported, \
                     manually assemble your own Task or find another way to circumvent this limitation"
-            ).to_compile_error().into()
+            ).to_compile_error().into();
         }
 
         expanded_method_init_logic = quote! {
@@ -107,7 +124,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
             INSTANCE.get_or_init(|| #task_creation)
         };
 
-        task_method_name = "instance";
+        task_method_name = syn::Ident::new("instance", proc_macro2::Span::call_site());
         task_method_return_type = quote! { &'static chronographer::task::Task<#taskframe_name #expanded_normalized_type_params> };
     }
 
@@ -121,7 +138,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        #[chronographer::taskframe(name_override = #taskframe_name)]
-        #fn_vis async #fn_abi #fn_unsafe fn #fn_name #generics (#fn_args) #fn_return #where_clause #fn_block
+        #[chronographer::taskframe(#expanded_workflow_toks)]
+        #fn_vis async #fn_abi #fn_unsafe fn #taskframe_name #generics (#fn_args) #fn_return #where_clause #fn_block
     }.into()
 }

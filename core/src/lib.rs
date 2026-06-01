@@ -36,7 +36,7 @@ pub mod prelude {
 
     // Core
     pub use crate::errors::TaskError;
-    pub use crate::task::{TaskFrameContext, RestrictTaskFrameContext, Task};
+    pub use crate::task::{RestrictTaskFrameContext, Task, TaskFrameContext};
 
     // Common frames
     pub use crate::task::collectionframe::CollectionTaskFrame;
@@ -52,22 +52,23 @@ pub mod prelude {
     pub use crate::task::dynamicframe::DynamicTaskFrame;
     pub use crate::task::fallbackframe::FallbackTaskFrame;
     pub use crate::task::retryframe::RetriableTaskFrame;
+    pub use crate::task::thresholdframe::ThresholdTaskFrame;
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
 
     // Scheduling / Triggering
-    pub use crate::task::schedule::TaskScheduleInterval;
-    pub use crate::task::schedule::TaskScheduleCalendar;
     pub use crate::task::schedule::TaskCalendarField;
-    pub use crate::task::schedule::TaskScheduleCron;
     pub use crate::task::schedule::TaskSchedule;
+    pub use crate::task::schedule::TaskScheduleCalendar;
+    pub use crate::task::schedule::TaskScheduleCron;
+    pub use crate::task::schedule::TaskScheduleInterval;
 
     // Schedulers
     pub use crate::scheduler::DefaultLiveScheduler;
-    pub use crate::scheduler::LiveScheduler;
     pub use crate::scheduler::DefaultSchedulerConfig;
+    pub use crate::scheduler::FailoverPolicy;
+    pub use crate::scheduler::LiveScheduler;
     pub use crate::scheduler::Scheduler;
     pub use crate::scheduler::SchedulerConfig;
-    pub use crate::scheduler::FailoverPolicy;
 
     #[cfg(feature = "anyhow")]
     pub use crate::scheduler::DefaultLiveAnyhowScheduler;
@@ -82,7 +83,7 @@ pub mod prelude {
     pub use crate::task::TaskFrameBuilder;
     pub use crate::task::dependency::*;
     pub use crate::task::retryframe::{
-        ExponentialBackoffStrategy, LinearBackoffStrategy, ConstantBackoffStrategy,
-        JitterBackoffStrategy, RetryBackoffStrategy
+        ConstantBackoffStrategy, ExponentialBackoffStrategy, JitterBackoffStrategy,
+        LinearBackoffStrategy, RetryBackoffStrategy,
     };
 } // skipcq: RS-D1001

@@ -1,5 +1,6 @@
+use crate::task::frames::CountingFrame;
 use chronographer::prelude::DynamicTaskFrame;
-use chronographer::task::ConditionalFrame;
+use chronographer::task::ConditionalTaskFrame;
 use chronographer::task::RestrictTaskFrameContext;
 use chronographer::task::Task;
 use chronographer::task::TaskFrame;
@@ -7,7 +8,6 @@ use chronographer::task::TaskScheduleImmediate;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use crate::task::frames::CountingFrame;
 
 #[tokio::test]
 async fn truthy_condition_returns_ok() {
@@ -24,7 +24,7 @@ async fn truthy_condition_returns_ok() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { true };
 
-    let frame = ConditionalFrame::builder()
+    let frame = ConditionalTaskFrame::builder()
         .frame(frame)
         .predicate(predicate)
         .build();
@@ -59,7 +59,7 @@ async fn falsey_condition_runs_fallback() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
 
-    let frame = ConditionalFrame::fallback_builder()
+    let frame = ConditionalTaskFrame::fallback_builder()
         .frame(frame)
         .fallback(fallback)
         .predicate(predicate)
@@ -88,7 +88,7 @@ async fn falsey_condition_with_error_on_false_returns_error() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
 
-    let frame = ConditionalFrame::builder()
+    let frame = ConditionalTaskFrame::builder()
         .frame(frame)
         .predicate(predicate)
         .error_on_false(true)
@@ -118,7 +118,7 @@ async fn truthy_condition_with_failing_inner_frame_returns_error() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { true };
 
-    let frame = ConditionalFrame::builder()
+    let frame = ConditionalTaskFrame::builder()
         .frame(inner)
         .predicate(predicate)
         .build();
@@ -158,7 +158,7 @@ async fn falsey_condition_with_failing_fallback_returns_error() {
 
     let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
 
-    let frame = ConditionalFrame::fallback_builder()
+    let frame = ConditionalTaskFrame::fallback_builder()
         .frame(primary)
         .fallback(fallback)
         .predicate(predicate)
@@ -174,7 +174,18 @@ async fn falsey_condition_with_failing_fallback_returns_error() {
     let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
 
-    assert!(result.is_err(), "Error from failing fallback should propagate");
-    assert_eq!(primary_counter.load(Ordering::SeqCst), 0, "Primary should not have run");
-    assert_eq!(fallback_counter.load(Ordering::SeqCst), 1, "Fallback should have been called once");
+    assert!(
+        result.is_err(),
+        "Error from failing fallback should propagate"
+    );
+    assert_eq!(
+        primary_counter.load(Ordering::SeqCst),
+        0,
+        "Primary should not have run"
+    );
+    assert_eq!(
+        fallback_counter.load(Ordering::SeqCst),
+        1,
+        "Fallback should have been called once"
+    );
 }

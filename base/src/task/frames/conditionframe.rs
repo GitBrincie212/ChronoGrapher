@@ -23,8 +23,8 @@ where
 }
 
 #[derive(TypedBuilder)]
-#[builder(build_method(into = ConditionalFrame<T, T2>))]
-pub struct ConditionalFrameConfig<T: TaskFrame, T2: TaskFrame> {
+#[builder(build_method(into = ConditionalTaskFrame<T, T2>))]
+pub struct ConditionalTaskFrameConfig<T: TaskFrame, T2: TaskFrame> {
     fallback: T2,
 
     frame: T,
@@ -48,9 +48,11 @@ define_event_group!(
     OnFalseyValueEvent
 );
 
-impl<T: TaskFrame, T2: TaskFrame> From<ConditionalFrameConfig<T, T2>> for ConditionalFrame<T, T2> {
-    fn from(config: ConditionalFrameConfig<T, T2>) -> Self {
-        ConditionalFrame {
+impl<T: TaskFrame, T2: TaskFrame> From<ConditionalTaskFrameConfig<T, T2>>
+    for ConditionalTaskFrame<T, T2>
+{
+    fn from(config: ConditionalTaskFrameConfig<T, T2>) -> Self {
+        ConditionalTaskFrame {
             frame: config.frame,
             fallback: config.fallback,
             predicate: config.predicate,
@@ -59,7 +61,7 @@ impl<T: TaskFrame, T2: TaskFrame> From<ConditionalFrameConfig<T, T2>> for Condit
     }
 }
 
-pub struct ConditionalFrame<T, T2> {
+pub struct ConditionalTaskFrame<T, T2> {
     frame: T,
     fallback: T2,
     predicate: Box<dyn ConditionalFramePredicate>,
@@ -67,25 +69,25 @@ pub struct ConditionalFrame<T, T2> {
 }
 
 #[allow(type_alias_bounds)]
-pub type NonFallbackCFCBuilder<T: TaskFrame> = ConditionalFrameConfigBuilder<
+pub type NonFallbackCFCBuilder<T: TaskFrame> = ConditionalTaskFrameConfigBuilder<
     T,
     NoOperationTaskFrame<T::Error, ()>,
     ((NoOperationTaskFrame<T::Error, ()>,), (), (), ()),
 >;
 
-impl<T: TaskFrame> ConditionalFrame<T, NoOperationTaskFrame<T::Error, ()>> {
+impl<T: TaskFrame> ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, ()>> {
     pub fn builder() -> NonFallbackCFCBuilder<T> {
-        ConditionalFrameConfig::builder().fallback(NoOperationTaskFrame::default())
+        ConditionalTaskFrameConfig::builder().fallback(NoOperationTaskFrame::default())
     }
 }
 
-impl<T: TaskFrame, T2: TaskFrame> ConditionalFrame<T, T2> {
-    pub fn fallback_builder() -> ConditionalFrameConfigBuilder<T, T2> {
-        ConditionalFrameConfig::builder()
+impl<T: TaskFrame, T2: TaskFrame> ConditionalTaskFrame<T, T2> {
+    pub fn fallback_builder() -> ConditionalTaskFrameConfigBuilder<T, T2> {
+        ConditionalTaskFrameConfig::builder()
     }
 }
 
-impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
+impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalTaskFrame<T, F> {
     type Error = ConditionalTaskFrameError<T::Error, F::Error>;
     type Args = (T::Args, F::Args);
 
@@ -94,7 +96,9 @@ impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalFrame<T, F> {
 
         if result {
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
-            return self.frame.execute(&ctx, &args.0)
+            return self
+                .frame
+                .execute(&ctx, &args.0)
                 .await
                 .map_err(ConditionalTaskFrameError::PrimaryFailed);
         }

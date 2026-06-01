@@ -20,7 +20,19 @@ impl<T: TaskError> RetryErrorFilter<T> for () {
     }
 }
 
-pub trait RetryBackoffStrategy: Debug + Send + Sync + 'static {
+#[async_trait]
+impl<F, Fut, T> RetryErrorFilter<T> for F
+where
+    T: TaskError,
+    Fut: Future<Output = bool> + Send + Sync + 'static,
+    F: Fn(Option<&T>) -> Fut + Send + Sync + 'static,
+{
+    async fn execute(&self, error: Option<&T>) -> bool {
+        self(error).await
+    }
+}
+
+pub trait RetryBackoffStrategy: Send + Sync + 'static {
     fn compute(&self, retry: u32) -> Duration;
 }
 
@@ -58,38 +70,114 @@ impl RetryBackoffStrategy for ExponentialBackoffStrategy {
     }
 }
 
+#[derive(TypedBuilder)]
+#[builder(build_method(into = LinearBackoffStrategy))]
+pub struct LinearBackoffStrategyConfig {
+    factor: Duration,
+
+    #[builder(default = Duration::ZERO)]
+    start: Duration,
+
+    #[builder(default, setter(strip_option))]
+    clamp: Option<Duration>,
+}
+
+impl Into<LinearBackoffStrategy> for LinearBackoffStrategyConfig {
+    fn into(self) -> LinearBackoffStrategy {
+        let start = self.start.as_secs_f64();
+        let factor = self.factor.as_secs_f64();
+        let clamp = self.clamp.map(|x| x.as_secs_f64()).unwrap_or(f64::INFINITY);
+
+        LinearBackoffStrategy {
+            start,
+            factor,
+            clamp,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct LinearBackoffStrategy(Duration, Duration);
+pub struct LinearBackoffStrategy {
+    start: f64,
+    factor: f64,
+    clamp: f64,
+}
 
 impl LinearBackoffStrategy {
-    pub fn new(factor: Duration) -> Self {
-        Self(factor, Duration::from_secs_f64(f64::INFINITY))
-    }
-
-    pub fn new_with(factor: Duration, max_duration: Duration) -> Self {
-        Self(factor, max_duration)
+    pub fn builder() -> LinearBackoffStrategyConfigBuilder {
+        LinearBackoffStrategyConfig::builder()
     }
 }
 
 impl RetryBackoffStrategy for LinearBackoffStrategy {
     fn compute(&self, retry: u32) -> Duration {
-        (self.0 * retry).min(self.1)
+        Duration::from_secs_f64((self.start * (retry as f64) * self.factor).min(self.clamp))
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct JitterBackoffStrategy<T: RetryBackoffStrategy>(T, f64);
+#[derive(Clone, Copy)]
+enum JitterType {
+    FullJitter,
+    EqualJitter,
+    DecorrelatedJitter(f64),
+}
+
+#[derive(Clone, Copy)]
+pub struct JitterBackoffStrategy<T: RetryBackoffStrategy> {
+    backoff: T,
+    factor: f64,
+    jitter_type: JitterType,
+}
 
 impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
-    pub fn new(strat: T, factor: f64) -> Self {
-        Self(strat, factor)
+    pub fn new_full(strat: T, factor: f64) -> Self {
+        Self {
+            backoff: strat,
+            factor,
+            jitter_type: JitterType::FullJitter,
+        }
+    }
+
+    pub fn new_equal(strat: T, factor: f64) -> Self {
+        Self {
+            backoff: strat,
+            factor,
+            jitter_type: JitterType::EqualJitter,
+        }
+    }
+
+    pub fn new_decorrelated(strat: T, factor: f64, max: f64) -> Self {
+        Self {
+            backoff: strat,
+            factor,
+            jitter_type: JitterType::DecorrelatedJitter(max),
+        }
     }
 }
 
 impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> {
     fn compute(&self, retry: u32) -> Duration {
-        let max_jitter = self.0.compute(retry).mul_f64(self.1);
-        Duration::from_secs_f64(fastrand::f64() * max_jitter.as_secs_f64())
+        let base = self.backoff.compute(retry).mul_f64(self.factor);
+
+        let base_secs = base.as_secs_f64();
+
+        let secs = match self.jitter_type {
+            JitterType::FullJitter => fastrand::f64() * base_secs,
+
+            JitterType::EqualJitter => {
+                let half = base_secs / 2.0;
+                half + (fastrand::f64() * half)
+            }
+
+            JitterType::DecorrelatedJitter(max) => {
+                // TODO: This is an approximation, might get fixed in the future
+                let upper = (base_secs * 3.0).min(max);
+
+                fastrand::f64() * upper
+            }
+        };
+
+        Duration::from_secs_f64(secs)
     }
 }
 
@@ -112,7 +200,9 @@ define_event_group!(RetryAttemptEvents, OnRetryAttemptStart, OnRetryAttemptEnd);
         }
 
         pub fn linear(&mut self, factor: Duration){
-            self.backoff = Box::new(LinearBackoffStrategy::new(factor));
+            self.backoff = Box::new(
+                LinearBackoffStrategy::builder().factor(factor).build()
+            );
         }
 
         pub fn bounded_exponential(&mut self, factor: f64, max: Duration){
@@ -120,7 +210,9 @@ define_event_group!(RetryAttemptEvents, OnRetryAttemptStart, OnRetryAttemptEnd);
         }
 
         pub fn bounded_linear(&mut self, factor: Duration, max: Duration){
-            self.backoff = Box::new(LinearBackoffStrategy::new_with(factor, max));
+            self.backoff = Box::new(
+                LinearBackoffStrategy::builder().factor(factor).clamp(max).build()
+            );
         }
 
         pub fn backoff(&mut self, backoff: impl RetryBackoffStrategy){
