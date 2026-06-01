@@ -1,14 +1,16 @@
-use crate::errors::CronExpressionParserErrors;
-use crate::task::schedule::cron_lexer::{Token, TokenType};
+use crate::{
+    cron_lexer::{Token, TokenType},
+    errors::CronExpressionParserErrors,
+};
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct AstNode {
+pub struct AstNode {
     pub start: usize,
     pub kind: AstTreeNode,
 }
 
 #[derive(Default, Clone, Debug)]
-pub(crate) enum AstTreeNode {
+pub enum AstTreeNode {
     #[default]
     Wildcard,
 
@@ -22,17 +24,17 @@ pub(crate) enum AstTreeNode {
     NearestWeekday(Box<AstNode>),
 }
 
-pub(crate) struct CronParser<'a> {
+pub struct CronParser<'a> {
     tokens: &'a [Token],
-    pub(crate) pos: usize,
+    pub pos: usize,
 }
 
 impl<'a> CronParser<'a> {
-    pub(crate) fn new(tokens: &'a [Token]) -> Self {
+    pub fn new(tokens: &'a [Token]) -> Self {
         Self { tokens, pos: 0 }
     }
 
-    pub(crate) fn parse_field(&mut self) -> Result<AstNode, CronExpressionParserErrors> {
+    pub fn parse_field(&mut self) -> Result<AstNode, CronExpressionParserErrors> {
         let node = self.parse_list()?;
 
         if !self.is_at_end() {
