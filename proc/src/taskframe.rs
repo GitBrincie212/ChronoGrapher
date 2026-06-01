@@ -327,9 +327,11 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let mut expanded_workflow_init = quote! { #fn_name #temp ::single() };
+    let mut expanded_workflow_type = quote! { #fn_name #temp };
     if let Some(workflow_spec) = macro_args.0 {
         for primitive in workflow_spec.0.iter() {
             expanded_workflow_init = primitive.transform(expanded_workflow_init);
+            expanded_workflow_type = primitive.get_type(expanded_workflow_type);
         }
     }
 
@@ -343,22 +345,20 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
                 #standalone_init
             }
 
-            pub fn workflow() -> impl chronographer::task::frames::TaskFrame<
-                Error = <Self as chronographer::task::frames::TaskFrame>::Error,
-                Args = <Self as chronographer::task::frames::TaskFrame>::Args
-            > {
+            pub fn workflow() -> <Self as ::chronographer::task::frames::TaskFrame>::Workflow {
                 #expanded_workflow_init
             }
         }
 
-        impl #generics chronographer::task::frames::TaskFrame for #impl_end_name {
+        impl #generics ::chronographer::task::frames::TaskFrame for #impl_end_name {
             type Args = (#arg_types);
             type Error = #result;
+            type Workflow = #expanded_workflow_type;
 
             async fn execute(
                 &self,
                 #ctx_name: #ctx_type,
-                args: &<#fn_name #expanded as chronographer::task::frames::TaskFrame>::Args
+                args: &<#fn_name #expanded as ::chronographer::task::frames::TaskFrame>::Args
             ) -> Result<(), Self::Error> {
                 let (#arg_names) = args;
                 #fn_block
