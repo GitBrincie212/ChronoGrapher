@@ -155,4 +155,5 @@ impl<'a> ArgumentParser<'a> {
 
 pub trait WorkflowTransform {
     fn transform(&self, toks: TokenStream2) -> TokenStream2;
+    fn get_type(&self, toks: TokenStream2) -> TokenStream2;
 }

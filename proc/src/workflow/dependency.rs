@@ -353,11 +353,15 @@ impl WorkflowTransform for DependencyArguments {
             .map(|x| quote! { .dependent_behaviour(#x) });
 
         quote! {
-            chronographer::task::frames::dependencyframe::DependencyTaskFrame::builder()
+            ::chronographer::task::frames::dependencyframe::DependencyTaskFrame::builder()
                 .frame(#toks)
                 .dependency(#expanded_dependency)
                 #expanded_unresolve_behavior
                 .build()
         }
+    }
+
+    fn get_type(&self, toks: TokenStream) -> TokenStream {
+        quote! { ::chronographer::task::frames::dependencyframe::DependencyTaskFrame::<#toks> }
     }
 }

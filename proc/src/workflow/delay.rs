@@ -23,6 +23,10 @@ impl WorkflowTransform for DelayArguments {
             _ => quote! { new },
         };
 
-        quote! { chronographer::task::frames::delayframe::DelayTaskFrame::#method_name( #toks, #value )}
+        quote! { ::chronographer::task::frames::delayframe::DelayTaskFrame::#method_name( #toks, #value )}
+    }
+
+    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
+        quote! { ::chronographer::task::frames::delayframe::DelayTaskFrame::<#toks> }
     }
 }

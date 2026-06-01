@@ -63,7 +63,8 @@ impl Parse for ConditionArguments {
 impl WorkflowTransform for ConditionArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
         let predicate = &self.predicate;
-        let secondary = self.secondary.as_ref().map(|x| quote! { .fallback(#x) });
+        let secondary = self.secondary.as_ref()
+            .map(|x| quote! { .fallback(#x) });
 
         let on_false = self
             .on_false
@@ -77,12 +78,23 @@ impl WorkflowTransform for ConditionArguments {
         };
 
         quote! {
-            chronographer::task::frames::conditionframe::ConditionalTaskFrame:: #builder_method()
+            ::chronographer::task::frames::conditionframe::ConditionalTaskFrame:: #builder_method()
                 .predicate(#predicate)
                 .frame(#toks)
                 #secondary
                 #on_false
                 .build()
         }
+    }
+
+    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
+        self.secondary.as_ref()
+            .map(|x| quote! { #x })
+            .unwrap_or_else(|| quote! {
+                ::chronographer::task::frames::noopframe::NoOperationTaskFrame::<
+                    <#toks as ::chronographer::task::frames::TaskFrame>::Error,
+                    ()
+                >
+            })
     }
 }

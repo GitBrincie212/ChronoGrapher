@@ -123,12 +123,16 @@ impl WorkflowTransform for ThresholdArguments {
             .map(|x| quote! { .count_behaviour(#x) });
 
         quote! {
-            chronographer::task::frames::thresholdframe::ThresholdTaskFrame::builder()
+            ::chronographer::task::frames::thresholdframe::ThresholdTaskFrame::builder()
                 .frame(#toks)
                 .threshold(std::num::NonZeroUsize::new(#max).unwrap())
                 #expanded_reach_behavior
                 #expanded_count_logic
                 .build()
         }
+    }
+
+    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
+        quote! { ::chronographer::task::frames::thresholdframe::ThresholdTaskFrame::<#toks> }
     }
 }

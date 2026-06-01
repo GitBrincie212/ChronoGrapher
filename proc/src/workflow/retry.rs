@@ -330,12 +330,16 @@ impl WorkflowTransform for RetryArguments {
         });
 
         quote! {
-            chronographer::task::frames::retryframe::RetriableTaskFrame::builder()
+            ::chronographer::task::frames::retryframe::RetriableTaskFrame::builder()
                 .frame(#toks)
                 .retries(#max)
                 #expanded_when
                 #expanded_backoff
                 .build()
         }
+    }
+
+    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
+        quote! { ::chronographer::task::frames::retryframe::RetriableTaskFrame::<#toks> }
     }
 }
