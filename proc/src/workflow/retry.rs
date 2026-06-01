@@ -1,6 +1,6 @@
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{bracketed, parenthesized, LitInt, Token};
-use syn::__private::TokenStream2;
+use proc_macro2::TokenStream as TokenStream2;
 use syn::parse::{Parse, ParseBuffer, ParseStream};
 use syn::parse::discouraged::Speculative;
 use crate::utils::TimeLiteral;
@@ -92,11 +92,11 @@ impl ToTokens for RetryDelay {
             }
             RetryDelay::Jitter { jitter_type, delay, factor } => {
                 let expanded_method = match jitter_type {
-                    JitterType::FullJitter => quote! { 
-                        chronographer::task::frames::retryframe::JitterBackoffStrategy::new_full(#delay, #factor) 
+                    JitterType::FullJitter => quote! {
+                        chronographer::task::frames::retryframe::JitterBackoffStrategy::new_full(#delay, #factor)
                     },
-                    JitterType::EqualJitter => quote! { 
-                        chronographer::task::frames::retryframe::JitterBackoffStrategy::new_equal(#delay, #factor) 
+                    JitterType::EqualJitter => quote! {
+                        chronographer::task::frames::retryframe::JitterBackoffStrategy::new_equal(#delay, #factor)
                     },
                     JitterType::DecorrelatedJitter(max) => quote! {
                         chronographer::prelude::new_decorrelated(#delay, #factor, #max)

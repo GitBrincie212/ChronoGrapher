@@ -10,7 +10,7 @@ mod dependency;
 use proc_macro::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{parenthesized, Token};
-use syn::__private::TokenStream2;
+use proc_macro2::TokenStream as TokenStream2;
 use syn::punctuated::Punctuated;
 use crate::workflow::condition::ConditionArguments;
 use crate::workflow::delay::DelayArguments;
@@ -43,7 +43,7 @@ impl WorkflowTransform for WorkflowPrimitive {
             WorkflowPrimitive::Timeout(res) => res.transform(toks),
             WorkflowPrimitive::Threshold(res) => res.transform(toks),
             WorkflowPrimitive::Dependency(res) => res.transform(toks),
-            _ => todo!()
+            _ => todo!(),
             // WorkflowPrimitive::Condition(res) => res.transform(toks),
         }
     }
@@ -56,7 +56,7 @@ impl WorkflowTransform for WorkflowPrimitive {
             WorkflowPrimitive::Timeout(res) => res.get_type(toks),
             WorkflowPrimitive::Threshold(res) => res.get_type(toks),
             WorkflowPrimitive::Dependency(res) => res.get_type(toks),
-            _ => todo!()
+            _ => todo!(),
             // WorkflowPrimitive::Condition(res) => res.get_type(toks),
         }
     }

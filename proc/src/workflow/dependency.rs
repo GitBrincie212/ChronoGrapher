@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens, TokenStreamExt};
 use syn::{BinOp, UnOp};
-use syn::__private::TokenStream2;
+use proc_macro2::TokenStream as TokenStream2;
 use syn::parse::{Parse, ParseStream};
 use crate::workflow::utils::{ArgumentParser, WorkflowTransform};
 

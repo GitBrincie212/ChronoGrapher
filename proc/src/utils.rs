@@ -3,7 +3,7 @@ use std::ops::{Range, RangeInclusive};
 use quote::{quote, ToTokens, TokenStreamExt};
 use strsim::levenshtein;
 use syn::{Attribute, Expr, ExprLit, Lit, Pat, PatType};
-use syn::__private::TokenStream2;
+use proc_macro2::TokenStream as TokenStream2;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
