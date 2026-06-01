@@ -25,6 +25,8 @@ where
 {
     type Error = E;
     type Args = Args;
+    type Workflow = Self;
+
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         self.0(ctx, args).await

@@ -364,6 +364,7 @@ impl<'a, T: CollectionExecStrategy> Deref for CollectionTaskFrameHandle<'a, T> {
 impl<T: CollectionExecStrategy> TaskFrame for CollectionTaskFrame<T> {
     type Error = CollectionTaskError;
     type Args = ();
+    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
         let handle = CollectionTaskFrameHandle {

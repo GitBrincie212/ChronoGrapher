@@ -36,6 +36,7 @@ impl CountingTaskFrame {
 impl TaskFrame for CountingTaskFrame {
     type Error = String;
     type Args = ();
+    type Workflow = Self;
 
     async fn execute(&self, _: &TaskFrameContext, _: &Self::Args) -> Result<(), Self::Error> {
         if self.error.load(Ordering::Acquire) {

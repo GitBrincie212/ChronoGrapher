@@ -90,6 +90,7 @@ impl<T: TaskFrame, T2: TaskFrame> ConditionalTaskFrame<T, T2> {
 impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalTaskFrame<T, F> {
     type Error = ConditionalTaskFrameError<T::Error, F::Error>;
     type Args = (T::Args, F::Args);
+    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let result = self.predicate.execute(&ctx.0).await;

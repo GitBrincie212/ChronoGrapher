@@ -38,6 +38,7 @@ struct SimpleTaskFrame {
 impl TaskFrame for SimpleTaskFrame {
     type Error = Box<dyn TaskError>;
     type Args = ();
+    type Workflow = Self;
 
     async fn execute(
         &self,

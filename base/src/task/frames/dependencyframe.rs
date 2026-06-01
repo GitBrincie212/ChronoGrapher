@@ -73,6 +73,7 @@ impl<T: TaskFrame> DependencyTaskFrame<T> {
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     type Error = DependencyTaskFrameError<T::Error>;
     type Args = T::Args;
+    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let is_resolved = self.dependency.is_resolved().await;
