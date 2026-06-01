@@ -9,8 +9,7 @@ use syn::parse_macro_input;
 struct TaskMacroArguments {
     schedule: syn::Expr,
 
-    #[darling(default)]
-    singleton: bool,
+    singleton: Option<bool>,
 
     taskframe_name_override: Option<syn::Ident>,
     task_name_override: Option<syn::Ident>,
@@ -46,7 +45,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_vis = &input.vis;
 
     let schedule = args.schedule;
-    let is_singleton = args.singleton;
+    let is_singleton = args.singleton.unwrap_or(true);
     let stringified_fn_name = fn_name.to_string();
     if stringified_fn_name.to_lowercase().ends_with("task") {
         fn_name = syn::Ident::new(
@@ -102,11 +101,11 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let docs = extract_docs(&*input.attrs);
 
-    let expanded_workflow_toks = workflow_toks.map(|x| quote! { ,__internal_workflow_spec(#x)});
+    let expanded_workflow_toks = workflow_toks.map(|x| quote! { __internal_workflow_spec(#x)});
     let mut expanded_method_init_logic = task_creation.clone();
     let mut task_method_name = syn::Ident::new("new", proc_macro2::Span::call_site());
-    let mut task_method_return_type =
-        quote! { chronographer::task::Task<#taskframe_name #expanded_normalized_type_params> };
+    let workflow = quote! { <#taskframe_name #temp as ::chronographer::task::frames::TaskFrame>::Workflow };
+    let mut task_method_return_type = quote! { ::chronographer::task::Task<#workflow> };
     if is_singleton {
         if !fn_sig.generics.params.is_empty() {
             return syn::Error::new(
@@ -118,14 +117,14 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         expanded_method_init_logic = quote! {
             static INSTANCE: std::sync::OnceLock<
-            chronographer::task::Task<#taskframe_name #expanded_normalized_type_params>
+            chronographer::task::Task<#workflow>
             > = std::sync::OnceLock::new();
 
             INSTANCE.get_or_init(|| #task_creation)
         };
 
         task_method_name = syn::Ident::new("instance", proc_macro2::Span::call_site());
-        task_method_return_type = quote! { &'static chronographer::task::Task<#taskframe_name #expanded_normalized_type_params> };
+        task_method_return_type = quote! { &'static ::chronographer::task::Task<#workflow> };
     }
 
     quote! {
