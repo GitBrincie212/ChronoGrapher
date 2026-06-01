@@ -30,7 +30,7 @@ impl Parse for ThresholdReachBehavior {
 impl ToTokens for ThresholdReachBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let expanded = match self {
-            ThresholdReachBehavior::Error => quote! { chronographer::task::thresholdframe::ThresholdSuccessReachBehaviour },
+            ThresholdReachBehavior::Error => quote! { chronographer::task:::frames:thresholdframe::ThresholdSuccessReachBehaviour },
             ThresholdReachBehavior::Skip => todo!(),
             ThresholdReachBehavior::Custom(expr) => quote! { #expr }
         };
@@ -71,9 +71,9 @@ impl Parse for ThresholdCountBehavior {
 impl ToTokens for ThresholdCountBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let expanded = match self {
-            ThresholdCountBehavior::Identity => quote! { chronographer::task::thresholdframe::ThresholdIdentityCountLogic },
-            ThresholdCountBehavior::Successes => quote! { chronographer::task::thresholdframe::ThresholdSuccessesCountLogic },
-            ThresholdCountBehavior::Failures => quote! { chronographer::task::thresholdframe::ThresholdErrorsCountLogic },
+            ThresholdCountBehavior::Identity => quote! { chronographer::task::frames::thresholdframe::ThresholdIdentityCountLogic },
+            ThresholdCountBehavior::Successes => quote! { chronographer::task::frames::thresholdframe::ThresholdSuccessesCountLogic },
+            ThresholdCountBehavior::Failures => quote! { chronographer::task::frames::thresholdframe::ThresholdErrorsCountLogic },
             ThresholdCountBehavior::Custom(expr) => quote! { #expr }
         };
 
@@ -107,7 +107,7 @@ impl WorkflowTransform for ThresholdArguments {
             .map(|x| quote! { .count_behaviour(#x) });
 
         quote! {
-            chronographer::prelude::ThresholdTaskFrame::builder()
+            chronographer::task::frames::thresholdframe::ThresholdTaskFrame::builder()
                 .frame(#toks)
                 .threshold(std::num::NonZeroUsize::new(#max).unwrap())
                 #expanded_reach_behavior
@@ -117,6 +117,6 @@ impl WorkflowTransform for ThresholdArguments {
     }
 
     fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        quote! { chronographer::prelude::ThresholdTaskFrame<#toks> }
+        quote! { chronographer::task::frames::thresholdframe::ThresholdTaskFrame<#toks> }
     }
 }

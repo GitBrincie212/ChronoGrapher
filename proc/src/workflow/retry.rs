@@ -61,10 +61,10 @@ impl ToTokens for RetryDelay {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let expanded = match self {
             RetryDelay::Constant(value) =>
-                quote! { Box::new(chronographer::prelude::ConstantBackoffStrategy::new(#value)) },
+                quote! { Box::new(chronographer::task::frames::retryframe::ConstantBackoffStrategy::new(#value)) },
 
             RetryDelay::Immediate =>
-                quote! { Box::new(chronographer::prelude::ConstantBackoffStrategy::new(std::time::Duration::ZERO)) },
+                quote! { Box::new(chronographer::task::frames::retryframe::ConstantBackoffStrategy::new(std::time::Duration::ZERO)) },
 
             RetryDelay::Custom(value) => quote! { #value },
 
@@ -72,7 +72,7 @@ impl ToTokens for RetryDelay {
                 let expanded_clamp = clamp.as_ref().map(|x| quote! {.clamp(#x)});
                 let expanded_start = start.as_ref().map(|x| quote! {.start(#x)});
 
-                quote! { Box::new(chronographer::prelude::LinearBackoffStrategy::builder()
+                quote! { Box::new(chronographer::task::frames::retryframe::LinearBackoffStrategy::builder()
                     .factor(#factor)
                     #expanded_start
                     #expanded_clamp
@@ -83,7 +83,7 @@ impl ToTokens for RetryDelay {
             RetryDelay::Exponential { start, factor, clamp } => {
                 let expanded_clamp = clamp.as_ref().map(|x| quote! {.clamp(#x)});
 
-                quote! { Box::new(chronographer::prelude::LinearBackoffStrategy::builder()
+                quote! { Box::new(chronographer::task::frames::retryframe::ExponentialBackoffStrategy::builder()
                     .factor(#factor)
                     .start(#start)
                     #expanded_clamp
@@ -92,8 +92,12 @@ impl ToTokens for RetryDelay {
             }
             RetryDelay::Jitter { jitter_type, delay, factor } => {
                 let expanded_method = match jitter_type {
-                    JitterType::FullJitter => quote! { chronographer::prelude::new_full(#delay, #factor) },
-                    JitterType::EqualJitter => quote! { chronographer::prelude::new_equal(#delay, #factor) },
+                    JitterType::FullJitter => quote! { 
+                        chronographer::task::frames::retryframe::JitterBackoffStrategy::new_full(#delay, #factor) 
+                    },
+                    JitterType::EqualJitter => quote! { 
+                        chronographer::task::frames::retryframe::JitterBackoffStrategy::new_equal(#delay, #factor) 
+                    },
                     JitterType::DecorrelatedJitter(max) => quote! {
                         chronographer::prelude::new_decorrelated(#delay, #factor, #max)
                     }
@@ -297,7 +301,7 @@ impl WorkflowTransform for RetryArguments {
             });
 
         quote! {
-            chronographer::prelude::RetriableTaskFrame::builder()
+            chronographer::task::frames::retryframe::RetriableTaskFrame::builder()
                 .frame(#toks)
                 .retries(#max)
                 #expanded_when
@@ -307,6 +311,6 @@ impl WorkflowTransform for RetryArguments {
     }
 
     fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        quote! { chronographer::prelude::RetriableTaskFrame<#toks> }
+        quote! { chronographer::task::frames::retryframe::RetriableTaskFrame<#toks> }
     }
 }

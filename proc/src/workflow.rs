@@ -8,8 +8,7 @@ pub mod condition;
 mod dependency;
 
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::parse::{Parse, ParseStream, Parser};
+use syn::parse::{Parse, ParseStream};
 use syn::{parenthesized, Token};
 use syn::__private::TokenStream2;
 use syn::punctuated::Punctuated;
@@ -22,72 +21,82 @@ use crate::workflow::threshold::ThresholdArguments;
 use crate::workflow::timeout::TimeoutArguments;
 use crate::workflow::utils::WorkflowTransform;
 
-pub struct WorkflowAnnotation;
 
-impl WorkflowAnnotation {
-    pub fn translate(
-        initial_creation: TokenStream2,
-        initial_type: TokenStream2,
-        attrs: Punctuated<syn::Expr, Token![,]>
-    ) -> syn::Result<(TokenStream2, TokenStream2)> {
-        let mut wrappers: Vec<Box<dyn WorkflowTransform>> = Vec::new();
+pub struct WorkflowSpec(pub Punctuated<WorkflowPrimitive, Token![,]>);
 
-        if attrs.is_empty() {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                "Expected at least one workflow primitive"
+pub enum WorkflowPrimitive {
+    Retry(RetryArguments),
+    Fallback(FallbackArguments),
+    Delay(DelayArguments),
+    Timeout(TimeoutArguments),
+    Threshold(ThresholdArguments),
+    Dependency(DependencyArguments),
+    Condition(ConditionArguments)
+}
+
+impl WorkflowTransform for WorkflowPrimitive {
+    fn transform(&self, toks: TokenStream2) -> TokenStream2 {
+        match self {
+            WorkflowPrimitive::Retry(res) => res.transform(toks),
+            WorkflowPrimitive::Fallback(res) => res.transform(toks),
+            WorkflowPrimitive::Delay(res) => res.transform(toks),
+            WorkflowPrimitive::Timeout(res) => res.transform(toks),
+            WorkflowPrimitive::Threshold(res) => res.transform(toks),
+            WorkflowPrimitive::Dependency(res) => res.transform(toks),
+            _ => todo!()
+            // WorkflowPrimitive::Condition(res) => res.transform(toks),
+        }
+    }
+
+    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
+        match self {
+            WorkflowPrimitive::Retry(res) => res.get_type(toks),
+            WorkflowPrimitive::Fallback(res) => res.get_type(toks),
+            WorkflowPrimitive::Delay(res) => res.get_type(toks),
+            WorkflowPrimitive::Timeout(res) => res.get_type(toks),
+            WorkflowPrimitive::Threshold(res) => res.get_type(toks),
+            WorkflowPrimitive::Dependency(res) => res.get_type(toks),
+            _ => todo!()
+            // WorkflowPrimitive::Condition(res) => res.get_type(toks),
+        }
+    }
+}
+
+impl Parse for WorkflowPrimitive {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let ident = input.parse::<syn::Ident>()
+            .map_err(|x| syn::Error::new(
+                x.span(), "Expected an identifier for the workflow primitive")
+            )?;
+
+        let content;
+        parenthesized!(content in input);
+
+        match ident.to_string().as_str() {
+            "retry" => Ok(Self::Retry(content.parse()?)),
+            "delay" => Ok(Self::Delay(content.parse()?)),
+            "timeout" => Ok(Self::Timeout(content.parse()?)),
+            "fallback" => Ok(Self::Fallback(content.parse()?)),
+            "threshold" => Ok(Self::Threshold(content.parse()?)),
+            "dependency" => Ok(Self::Dependency(content.parse()?)),
+            "condition" => Ok(Self::Condition(content.parse()?)),
+
+            _ => Err(syn::Error::new_spanned(
+                ident,
+                "Unknown workflow primitive"
             ))
         }
+    }
+}
 
-        for inner in attrs {
-            let syn::Expr::Call(call_expr) = inner else {
-                return Err(syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    "Expected at least one workflow primitive"
-                ));
-            };
-
-            let syn::Expr::Path(path_expr) = call_expr.func.as_ref() else {
-                return Err(syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    "Expected a simple identifier"
-                ));
-            };
-
-            let segments = &path_expr.path.segments;
-            if segments.len() != 1 {
-                return Err(syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    "Expected a workflow primitive identifier"
-                ));
-            }
-
-            let args = call_expr.args;
-            let content = quote! { #args };
-            match segments.last().unwrap().ident.to_string().as_str() {
-                "retry" => wrappers.push(Box::new(RetryArguments::parse.parse2(content)?)),
-                "delay" => wrappers.push(Box::new(DelayArguments::parse.parse2(content)?)),
-                "timeout" => wrappers.push(Box::new(TimeoutArguments::parse.parse2(content)?)),
-                "fallback" => wrappers.push(Box::new(FallbackArguments::parse.parse2(content)?)),
-                "threshold" => wrappers.push(Box::new(ThresholdArguments::parse.parse2(content)?)),
-                "dependency" => wrappers.push(Box::new(DependencyArguments::parse.parse2(content)?)),
-                // "condition" => wrappers.push(Box::new(ConditionArguments::parse(&content)?)),
-
-                _ => return Err(syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    "Unknown workflow primitive"
-                ))
-            }
+impl Parse for WorkflowSpec {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let primitives = Punctuated::parse_terminated(input)?;
+        if primitives.is_empty() {
+            return Err(input.error("Expected at least one workflow primitive"))
         }
 
-        let mut expanded_creation = quote! { #initial_creation };
-        let mut expanded_alias = quote! { #initial_type };
-        for primitive in &wrappers {
-            expanded_creation = primitive.transform(expanded_creation);
-            expanded_alias = primitive.get_type(expanded_alias);
-        }
-        
-        Ok((expanded_creation, expanded_alias))
+        Ok(Self(primitives))
     }
 }
 

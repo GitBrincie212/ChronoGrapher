@@ -47,7 +47,7 @@ pub const TIME_LITERAL_SUFFIXES: [&str; 5] = ["ms", "s", "m", "h", "d"];
 pub fn extract_workflow<T>(
     attrs: &[Attribute],
     result: &mut Option<T>,
-    initializer: impl Fn(TokenStream2) -> T
+    initializer: impl Fn(TokenStream2) -> syn::Result<T>
 ) -> syn::Result<()> {
     for attr in attrs {
         let Some(path) = attr.path().segments.last() else { continue; };
@@ -69,7 +69,7 @@ pub fn extract_workflow<T>(
             ))
         };
 
-        *result = Some(initializer(list.tokens.clone()));
+        *result = Some(initializer(list.tokens.clone())?);
     }
 
     Ok(())

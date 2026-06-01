@@ -1,4 +1,4 @@
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::__private::TokenStream2;
 use syn::parse::{Parse, ParseStream};
 use crate::utils::TimeLiteral;
@@ -23,10 +23,10 @@ impl WorkflowTransform for TimeoutArguments {
             _ => quote! { new }
         };
 
-        quote! { chronographer::prelude::TimeoutTaskFrame::#method_name( #toks, #value )}
+        quote! { chronographer::task::frames::timeoutframe::TimeoutTaskFrame::#method_name( #toks, #value )}
     }
 
     fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        quote! { chronographer::prelude::TimeoutTaskFrame<#toks> }
+        quote! { chronographer::task::frames::timeoutframe::TimeoutTaskFrame<#toks> }
     }
 }

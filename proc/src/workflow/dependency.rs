@@ -44,7 +44,7 @@ impl ToTokens for AtomicDependency {
         let expanded = match self {
             AtomicDependency::Task { dependency, value } => {
                 let (expanded_method_name, expanded_value) = get_task_metric_vals(value);
-                quote! { chronographer::prelude::FrameDependency::#expanded_method_name(#dependency, #expanded_value).await }
+                quote! { chronographer::task::dependency::FrameDependency::#expanded_method_name(#dependency, #expanded_value).await }
             }
 
             AtomicDependency::Function(func) => {
@@ -238,8 +238,8 @@ pub enum UnresolveBehavior {
 impl ToTokens for UnresolveBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let expanded = match self {
-            UnresolveBehavior::Fail => quote! { chronographer::prelude::DependentFailureOnFail },
-            UnresolveBehavior::Skip => quote! { chronographer::prelude::DependentSuccessOnFail },
+            UnresolveBehavior::Fail => quote! { chronographer::task::frames::dependencyframe::DependentFailureOnFail },
+            UnresolveBehavior::Skip => quote! { chronographer::task::frames::dependencyframe::DependentSuccessOnFail },
             UnresolveBehavior::Custom(expr) => quote! { #expr },
         };
 
@@ -304,7 +304,7 @@ impl WorkflowTransform for DependencyArguments {
             .map(|x| quote! { .dependent_behaviour(#x) });
 
         quote! {
-            chronographer::prelude::DependencyTaskFrame::builder()
+            chronographer::task::frames::dependencyframe::DependencyTaskFrame::builder()
                 .frame(#toks)
                 .dependency(#expanded_dependency)
                 #expanded_unresolve_behavior
@@ -313,6 +313,6 @@ impl WorkflowTransform for DependencyArguments {
     }
 
     fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        quote! { chronographer::prelude::DependencyTaskFrame<#toks> }
+        quote! { chronographer::task::frames::dependencyframe::DependencyTaskFrame<#toks> }
     }
 }

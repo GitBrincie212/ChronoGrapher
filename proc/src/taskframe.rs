@@ -1,13 +1,13 @@
 use proc_macro::TokenStream;
-use darling::ast::NestedMeta;
-use darling::FromMeta;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
+use syn::{parenthesized, parse_macro_input, FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference};
+use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use crate::utils::{extract_arg_name, extract_docs, handle_generics_phantom_data, LIFETIME_UNSUPPORTED_ERR};
-use crate::workflow::WorkflowAnnotation;
+use crate::utils::{extract_arg_name, extract_docs, extract_workflow, handle_generics_phantom_data, LIFETIME_UNSUPPORTED_ERR};
+use crate::workflow::utils::WorkflowTransform;
+use crate::workflow::WorkflowSpec;
 
 const TASKFRAME_CTX_REQUIRED_ERR: &'static str = "Function is required to have at least one argument of type \"TaskFrameContext\"";
 const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &'static str = "First argument must be of type \"TaskFrameContext\"";
@@ -22,25 +22,43 @@ const SECOND_GENERIC_RETURN_ERR: &'static str = "Second generic argument of Resu
 const ASYNC_REQUIRED_ERR: &'static str = "Function is required to be async";
 const ABI_UNSUPPORTED_ERR: &'static str = "ABI functions are unsupported";
 
-#[derive(Debug)]
-struct WorkflowSpecs(Punctuated<syn::Expr, Token![,]>);
+pub struct TaskFrameMacroArguments(Option<WorkflowSpec>);
 
-impl darling::FromMeta for WorkflowSpecs {
-    fn from_expr(expr: &syn::Expr) -> darling::Result<Self> {
-        if let syn::Expr::Tuple(exp_paren) = expr {
-            return Ok(Self(exp_paren.elems.clone()));
+impl Parse for TaskFrameMacroArguments {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut __internal_workflow_spec = None;
+        let mut has_entered_loop = false;
+
+        while !input.is_empty() {
+            if has_entered_loop {
+                let _ = input.parse::<Token![,]>();
+            }
+
+            has_entered_loop = true;
+            let key: syn::Ident = input.parse()?;
+            if key.to_string().as_str() != "__internal_workflow_spec" {
+                return Err(syn::Error::new(
+                    key.span(),
+                    format!("Unknown taskframe argument: {}", key),
+                ));
+            }
+
+            if __internal_workflow_spec.is_some() {
+                return Err(syn::Error::new(
+                    key.span(),
+                    "Already specified the internal workflow as a parameter (REPORT THIS AS A BUG TO THE DEVELOPERS)",
+                ));
+            }
+
+            let content;
+            parenthesized!(content in input);
+            __internal_workflow_spec = Some(content.parse()?);
         }
 
-        Err(darling::Error::custom("Expected parenthesized token stream"))
+        let _ = input.parse::<Token![,]>();
+
+        Ok(Self(__internal_workflow_spec))
     }
-}
-
-#[derive(Debug, FromMeta)]
-pub struct TaskFrameMacroArguments {
-    name_override: Option<syn::Ident>,
-
-    #[doc(hidden)]
-    __internal_workflow_spec: Option<WorkflowSpecs>
 }
 
 fn extract_arguments(
@@ -203,6 +221,7 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
 fn derive_with_generics(name: &syn::Ident, fn_sig: &syn::Signature) -> syn::Result<(
     proc_macro2::TokenStream,
     proc_macro2::TokenStream,
+    proc_macro2::TokenStream,
     Option<proc_macro2::TokenStream>,
     Option<Punctuated<proc_macro2::TokenStream, Comma>>
 )> {
@@ -213,47 +232,33 @@ fn derive_with_generics(name: &syn::Ident, fn_sig: &syn::Signature) -> syn::Resu
     ) = handle_generics_phantom_data(name, fn_sig)?;
 
     let generics = &fn_sig.generics;
-    let derives = if phantom_data.is_some() {
-        quote! {
-            impl #generics Default for #impl_end_name {
-                fn default() -> Self {
-                    Self(std::marker::PhantomData)
+    let (phantom_data_init, derives) = if phantom_data.is_some() {
+        (
+            quote! { Self(std::marker::PhantomData) },
+            quote! {
+                impl #generics Clone for #impl_end_name {
+                    fn clone(&self) -> Self {
+                        Self(std::marker::PhantomData)
+                    }
                 }
+
+                impl #generics Copy for #impl_end_name {}
             }
+        )
+    } else { (quote! { Self }, quote! { #[derive(Default, Clone, Copy)] }) };
 
-            impl #generics Clone for #impl_end_name {
-                fn clone(&self) -> Self {
-                    Self(std::marker::PhantomData)
-                }
-            }
-
-            impl #generics Copy for #impl_end_name {}
-        }
-    } else { quote! { #[derive(Default, Clone, Copy)] } };
-
-    Ok((derives, impl_end_name, phantom_data, normalized_type_params))
+    Ok((derives, impl_end_name, phantom_data_init, phantom_data, normalized_type_params))
 }
 
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    let mut macro_args = match syn::parse2::<TaskFrameMacroArguments>(attrs.into()) {
+        Ok(v) => v,
+        Err(e) => return e.to_compile_error().into(),
+    };
+
     let mut input = parse_macro_input!(item as syn::ItemFn);
-
-    // TODO: Find a way to remove this boilerplate pattern
-    let attr_args: Vec<NestedMeta> = match NestedMeta::parse_meta_list(attrs.into()) {
-        Ok(v) => v,
-        Err(e) => {
-            return darling::Error::from(e).write_errors().into();
-        }
-    };
-
-    let mut macro_args = match TaskFrameMacroArguments::from_list(&attr_args) {
-        Ok(v) => v,
-        Err(e) => {
-            return e.write_errors().into();
-        }
-    };
-
     let fn_sig = &mut input.sig;
-    let fn_name = &mut fn_sig.ident;
+    let fn_name = fn_sig.ident.clone();
     let fn_block = &mut input.block.into_token_stream();
     let fn_vis = &input.vis;
     let fn_args = &mut fn_sig.inputs;
@@ -267,21 +272,15 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let ctx_name = arg_names.pop().unwrap();
     let ctx_type = arg_types.pop().unwrap();
 
+    if arg_types.len() == 1 {
+        arg_types.pop_punct();
+        arg_names.pop_punct();
+    }
+
     let result = match extract_error(fn_output) {
         Ok(res) => res,
         Err(e) => return e.to_compile_error().into(),
     };
-
-    let stringified_fn_name = fn_name.to_string();
-    if stringified_fn_name.to_lowercase().ends_with("taskframe") {
-        *fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 9], fn_name.span())
-    } else if stringified_fn_name.to_lowercase().ends_with("frame") {
-        *fn_name = syn::Ident::new(&stringified_fn_name[..stringified_fn_name.len() - 5], fn_name.span())
-    }
-
-    let taskframe_name = macro_args.name_override
-        .unwrap_or(syn::Ident::new(&format!("{fn_name}TaskFrame"), fn_name.span()));
-
 
     if fn_sig.asyncness.is_none() {
         return syn::Error::new(
@@ -318,9 +317,10 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let (
         derives,
         impl_end_name,
+        standalone_init,
         phantom_data,
         normalized_type_params
-    ) = match derive_with_generics(&taskframe_name, &*fn_sig) {
+    ) = match derive_with_generics(&fn_name, &*fn_sig) {
         Ok(res) => res,
         Err(e) => return e.to_compile_error().into(),
     };
@@ -328,48 +328,52 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = normalized_type_params.clone()
         .map(|value| quote! { < #value > });
 
+    let temp = expanded.clone()
+        .map(|value| quote! { :: #value });
+
     let docs = extract_docs(&*input.attrs);
+    match extract_workflow(
+        &*input.attrs,
+        &mut macro_args.0,
+        |x| WorkflowSpec::parse.parse2(x)
+    ) {
+        Ok(()) => {},
+        Err(e) => return e.to_compile_error().into()
+    }
 
-    let mut impl_workflow_method = None;
-    if let Some(workflow_spec) = macro_args.__internal_workflow_spec {
-        let temp = normalized_type_params.clone()
-            .map(|x| quote! { <#x> });
-
-        let res = WorkflowAnnotation::translate(
-            quote! { #taskframe_name #temp ::default() },
-            quote! { #taskframe_name #temp },
-            workflow_spec.0
-        );
-
-        let (expanded_workflow_init, expanded_workflow_type) = match res {
-            Ok(res) => res,
-            Err(e) => return e.to_compile_error().into(),
-        };
-
-        impl_workflow_method = Some(quote! {
-            impl #generics #impl_end_name {
-                pub fn workflow() -> #expanded_workflow_type {
-                    #expanded_workflow_init
-                }
-            }
-        });
+    let mut expanded_workflow_init = quote! { #fn_name #temp ::single() };
+    if let Some(workflow_spec) = macro_args.0 {
+        for primitive in workflow_spec.0.iter() {
+            expanded_workflow_init = primitive.transform(expanded_workflow_init);
+        }
     }
 
     quote! {
         #(#docs)*
         #derives
-        #fn_vis struct #taskframe_name #generics #phantom_data #where_clause;
+        #fn_vis struct #fn_name #generics #phantom_data #where_clause;
 
-        #impl_workflow_method
+        impl #generics #impl_end_name {
+            pub fn single() -> Self {
+                #standalone_init
+            }
 
-        impl #generics chronographer::task::TaskFrame for #impl_end_name {
+            pub fn workflow() -> impl chronographer::task::frames::TaskFrame<
+                Error = <Self as chronographer::task::frames::TaskFrame>::Error,
+                Args = <Self as chronographer::task::frames::TaskFrame>::Args
+            > {
+                #expanded_workflow_init
+            }
+        }
+
+        impl #generics chronographer::task::frames::TaskFrame for #impl_end_name {
             type Args = (#arg_types);
             type Error = #result;
 
             async fn execute(
                 &self,
                 #ctx_name: #ctx_type,
-                args: &<#taskframe_name #expanded as chronographer::task::TaskFrame>::Args
+                args: &<#fn_name #expanded as chronographer::task::frames::TaskFrame>::Args
             ) -> Result<(), Self::Error> {
                 let (#arg_names) = args;
                 #fn_block
