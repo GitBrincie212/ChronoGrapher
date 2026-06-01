@@ -360,8 +360,4 @@ impl WorkflowTransform for DependencyArguments {
                 .build()
         }
     }
-
-    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        quote! { chronographer::task::frames::dependencyframe::DependencyTaskFrame<#toks> }
-    }
 }

@@ -25,8 +25,4 @@ impl WorkflowTransform for TimeoutArguments {
 
         quote! { chronographer::task::frames::timeoutframe::TimeoutTaskFrame::#method_name( #toks, #value )}
     }
-
-    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        quote! { chronographer::task::frames::timeoutframe::TimeoutTaskFrame<#toks> }
-    }
 }

@@ -338,8 +338,4 @@ impl WorkflowTransform for RetryArguments {
                 .build()
         }
     }
-
-    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        quote! { chronographer::task::frames::retryframe::RetriableTaskFrame<#toks> }
-    }
 }

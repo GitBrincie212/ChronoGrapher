@@ -27,18 +27,4 @@ impl WorkflowTransform for FallbackArguments {
 
         curr
     }
-
-    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        let mut curr = quote! { #toks };
-        for _ in self.0.iter() {
-            curr = quote! {
-                chronographer::task::frames::fallbackframe::FallbackTaskFrame<#curr, impl chronographer::task::frames::TaskFrame<
-                    Error = <#curr as chronographer::task::frames::TaskFrame>::Error,
-                    Args = <#curr as chronographer::task::frames::TaskFrame>::Args
-                >>
-            };
-        }
-
-        curr
-    }
 }

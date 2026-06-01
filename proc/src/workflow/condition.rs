@@ -85,18 +85,4 @@ impl WorkflowTransform for ConditionArguments {
                 .build()
         }
     }
-
-    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        let secondary = self
-            .secondary
-            .as_ref()
-            .map(|x| quote! { #x })
-            .unwrap_or_else(
-                || quote! { chronographer::task::frames::noopframe::NoOperationTaskFrame<_, ()> },
-            );
-
-        quote! {
-            chronographer::task::frames::conditionframe::ConditionalTaskFrame<#toks, #secondary>
-        }
-    }
 }

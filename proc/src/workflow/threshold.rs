@@ -131,8 +131,4 @@ impl WorkflowTransform for ThresholdArguments {
                 .build()
         }
     }
-
-    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        quote! { chronographer::task::frames::thresholdframe::ThresholdTaskFrame<#toks> }
-    }
 }

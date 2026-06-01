@@ -46,19 +46,6 @@ impl WorkflowTransform for WorkflowPrimitive {
             // WorkflowPrimitive::Condition(res) => res.transform(toks),
         }
     }
-
-    fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        match self {
-            WorkflowPrimitive::Retry(res) => res.get_type(toks),
-            WorkflowPrimitive::Fallback(res) => res.get_type(toks),
-            WorkflowPrimitive::Delay(res) => res.get_type(toks),
-            WorkflowPrimitive::Timeout(res) => res.get_type(toks),
-            WorkflowPrimitive::Threshold(res) => res.get_type(toks),
-            WorkflowPrimitive::Dependency(res) => res.get_type(toks),
-            _ => todo!(),
-            // WorkflowPrimitive::Condition(res) => res.get_type(toks),
-        }
-    }
 }
 
 impl Parse for WorkflowPrimitive {
