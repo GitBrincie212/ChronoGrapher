@@ -92,8 +92,7 @@ fn get_run_metric(ident: &syn::Ident, assign_expr: &syn::ExprAssign) -> syn::Res
 
     Err(syn::Error::new_spanned(
         &ident,
-        "Expected either \"any\", \"successes\", \"failures\", \
-                                        \"consecutive_failures\" or \"consecutive_successes\" but got something else",
+        "Expected either \"any\", \"successes\", \"failures\",  but got something else",
     ))
 }
 
@@ -138,7 +137,13 @@ impl TryInto<AtomicDependency> for &syn::Expr {
                     }
 
                     _ => match expr_call.args.len() {
-                        0 => Ok(AtomicDependency::Function(path.ident.clone())),
+                        0 => {
+                            Err(syn::Error::new_spanned(
+                                &expr_call,
+                                "Invalid dependency expression, perhaps you meant to specify an argument?",
+                            ))
+                        },
+
                         1 => {
                             let first = expr_call.args.first().unwrap();
                             let syn::Expr::Assign(assign_expr) = first else {
