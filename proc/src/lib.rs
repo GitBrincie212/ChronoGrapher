@@ -7,6 +7,7 @@ mod taskframe;
 mod workflow;
 
 use proc_macro::TokenStream;
+
 /// The [`every`] proc-macro is an alternative ergonomic way to write interval-based schedule as
 /// opposed to manually constructing the [`TaskScheduleInterval`](chronographer::prelude::TaskScheduleInterval)
 /// object from the ground up.
@@ -201,11 +202,11 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// The [`task`] macro preserves every other attribute macro and mounts it onto the generated results,
 /// while also having its own interactions with other attribute macros.
 ///
-/// When specifying ``#[workflow(...)]`` modifies the [`TaskFrame`](chronographer::prelude::TaskFrame)
+/// When specifying [`workflow`] modifies the [`TaskFrame`](chronographer::prelude::TaskFrame)
 /// initialization of the [`Task`](chronographer::prelude::Task) with the specified workflow
 /// (including the function of the generated [`Task`](chronographer::prelude::Task)).
 ///
-/// Whereas specifying ``#[hooks(...)]`` automatically attaches the specified [`TaskHooks`](chronographer::prelude::TaskHook)
+/// Whereas specifying [`hook`] automatically attaches the specified [`TaskHooks`](chronographer::prelude::TaskHook)
 /// that subscribed to specific events upon initialization of the [`Task`](chronographer::prelude::Task).
 ///
 /// # Limitations
@@ -220,7 +221,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// # See Also
 /// - [`Task`](chronographer::prelude::Task) - The base API "equivalent" used internally
 /// - [`taskframe`] - The macro closely related to [`task`] for producing TaskFrames
-/// - [`workflow`] - The macro used for defining workflows, and has close relations with [`task`] and [`taskframe`]
+/// - [`workflow`] - The macro used for defining workflows, has close relations with [`task`] and [`taskframe`]
 /// - [`hooks`] - The macro used for attaching TaskHooks to events, and has close relations with [`task`]
 /// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The trait that makes TaskFrames possible
 /// - [`TaskSchedule`](chronographer::prelude::TaskSchedule) - The trait that makes schedules possible
@@ -245,10 +246,6 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 /// > **NOTE:** The camelCase is done on purpose, since the macro translates it into a struct
 ///
-/// [`taskframe`] macro includes a "clever" auto-append feature in which it adds the "TaskFrame" prefix
-/// if not included. Though it allows the for an escape hatch, to override the name with one attribute
-/// parameter (see below for more info about).
-///
 /// Whe it comes to creating full Tasks objects, it is recommended to check the [`task`] attribute macro,
 /// its interface is almost identical and in fact the [`taskframe`] macro is used under the hood.
 ///
@@ -257,9 +254,8 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// &self or &mut self as first argument in a struct / enum / trait).
 ///
 /// # Attributes & Parameters
-/// The [`taskframe`] contains only one attribute parameter that being ``name_override`` which allows
-/// users to modify the name of the final [`TaskFrames`](chronographer::prelude::TaskFrame) generated
-/// (disables the clever auto-append feature).
+/// The [`taskframe`] contains no attribute parameters (apart from an internal one which under any
+/// circumstances should **NOT** be used due to being an antipattern).
 ///
 /// # Expansion Semantics
 /// The [`taskframe`] syntax is almost if not identical to a pure Rust function, when the macro expands
@@ -349,8 +345,8 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// The [`taskframe`] macro preserves every other attribute macro and mounts it onto the generated results,
 /// while also having its own interactions with one other attribute macro.
 ///
-/// When specifying ``#[workflow(...)]`` modifies the TaskFrame to include an additional method to
-/// create the workflow specified via the ``new_workflow`` constructor.
+/// When specifying [`workflow`] modifies the TaskFrame to include an additional method to
+/// create the workflow specified via the ``workflow`` constructor.
 ///
 /// # Limitations
 /// When it comes to generics, lifetimes (due to async limitations) and ABI functions are unsupported.
@@ -360,12 +356,456 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// # See Also
 /// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The base API equivelent
 /// - [`task`] - An upgrade of the [`taskframe`] macro for specifying full Task objects
-/// - [`workflow`] - The macro used for defining workflows, and has close relations with [`taskframe`]
+/// - [`workflow`] - The macro used for defining workflows, has close relations with [`taskframe`] and [`task`]
 #[proc_macro_attribute]
 pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     taskframe::taskframe(attrs, item)
 }
 
+/// The [`workflow`] attribute macro is a special macro from the rest macro, like with [`hooks`] it
+/// behaves as an annotation working alongside [`task`] and [`taskframe`] rather than a macro which
+/// transforms directly the input provided into something new.
+///
+/// With that said, it allows users to write ergonomically workflows ([`TaskFrames`](chronographer::prelude::TaskFrame)
+/// stacking on top of each other) which works on top of the function / code they have already written.
+///
+/// Users can write any kind of workflow via the provided built-in workflow primitives,
+/// from simplest (one workflow primitive) to most complex (with basically an infinite number of these).
+///
+/// Just like the Base API, ordering matters significantly as the workflow will behave drastically
+/// differently under various ordering configurations. Everything is applied from top to bottom.
+///
+/// The bare minimal interface is essentially mounting a workflow below either [`task`] or [`taskframe`]:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[taskframe]
+/// #[workflow(
+///     threshold(10), // Allow this workflow to run up to 10 times, then skip it when tempted
+///     timeout(20s), // Timeout the entire workflow if it lasts >20 seconds
+///     retry(5) // If the workflow fails, retry it immediately up to 5 times
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+/// ```
+///
+/// # Valid Targets
+/// The [`workflow`] macro is applied primarily async functions which include either the [`taskframe`]
+/// or [`task`] attribute macro at the top. See the aforementioned attribute macros for more information
+/// about their restrictions.
+///
+/// # Attributes & Parameters
+/// Unlike most macros which have a predictable set of named parameters. The [`workflow`] macro more
+/// functions as a DSL (Domain-Specific Language) and contains a list of workflow primitives.
+///
+/// The basic grammar of a workflow primitive is in the form ``WORKFLOW(...)`` where "WORKFLOW" is the
+/// name of the workflow primitive we want to use and ``...`` are its arguments.
+///
+/// Unlike typical Rust, workflow primitive arguments can be positional (no argument name, just value) and
+/// named (with the argument's name) or in special occasions contain a variable number of arguments.
+///
+/// In essence, workflow primitive arguments behave similarly to Python's ``args`` / ``kwargs``, which
+/// means positional arguments should **NOT** be followed after named arguments.
+///
+/// As previously said, there can be any number workflow primitives. However, the [`workflow`] macro
+/// imposes a minimum threshold of one workflow primitive (though no upper limit).
+///
+/// ## Quick Reference
+/// - [Retry Workflow Primitive](#retry%20workflow%20primitive) The syntax of the ``retry`` workflow primitive.
+/// - [Fallback Workflow Primitive](#fallback%20workflow%20primitive) The syntax of the ``fallback`` workflow primitive.
+/// - [Delay Workflow Primitive](#delay%20workflow%20primitive) The syntax of the ``delay`` workflow primitive.
+/// - [Timeout Workflow Primitive](#timeout%20workflow%20primitive) The syntax of the ``timeout`` workflow primitive.
+/// - [Threshold Workflow Primitive](#threshold%20workflow%20primitive) The syntax of the ``threshold`` workflow primitive.
+/// - [Dependency Workflow Primitive](#dependency%20workflow%20primitive) The syntax of the ``dependency`` workflow primitive.
+/// - [Condition Workflow Primitive](#condition%20workflow%20primitive) The syntax of the ``condition`` workflow primitive.
+///
+/// ## Retry Workflow Primitive
+/// ```ignore
+/// retry(max = INT | MACRO | IDENT, delay? = RETRY_DELAY, when? = RETRY_FILTER)
+/// ```
+///
+/// The retry workflow primitive behaves identically to [`RetriableTaskFrame`](chronographer::prelude::RetriableTaskFrame),
+/// it allows to retry the workflow up to a specified number of times with a configurable delay and error filter.
+///
+/// ### Arguments
+/// - ``max`` The upper bound of times to retry a workflow until it succeeds. Unlike other arguments,
+/// this one is required to be specified, additionally it can be any source of an integer as long as it
+/// can be converted internally to a ``NonZeroU32``.
+///
+/// - ``delay`` The delay in-between every retry, this can be as simple as ``immediate``, providing a
+/// constant time / duration literal or even a backoff strategy. Its fully optional to specify and
+/// by default immediately retries (zero-delay). The syntaxes of the backoff strategies are as follows:
+///     1. ``immediate`` The default backoff strategy, it retries immediately
+///     2. ``constant(value = DURATION)`` Same as using a plain duration / time literal.
+///     3. ``linear(factor = DURATION_EXPR, start? = DURATION_EXPR, clamp? = DURATION_EXPR)`` Adjusts the delay between retries
+///     based on a linear functon from the growth factor, the start and an upper bound (clamp).
+///     4. ``exponential (factor = FLOAT_EXPR, start? = DURATION_EXPR, clamp? = DURATION_EXPR)`` Adjusts the delay between
+///     retries based on an exponential function with the factor as base, the start and an upper bound (clamp).
+///     5. ``jitter(jitter_type = JITTER_TYPE, backoff = RETRY_DELAY)`` Adjusts the delay between retries
+///     based on a jittered result from the supplied backoff's results. This jitter type can be either
+///     ``full``, ``equal`` or ``decorrelated(VALUE)`` which specify how the jitter should behave. It is
+///     recommended to read more the article [When APIs Fail: A Developer's Journey with Retries, Back Off, and Jitter](https://dev.to/kengowada/when-apis-fail-a-developers-journey-with-retries-back-off-and-jitter-1g2f)
+///
+/// - ``when`` The error filter composed of a list of patterns encapsulated in brackets (``[...]``)
+/// with optionally an exclamation mark (``!``) as prefix. When used without any exclamation marks it's
+/// a whitelist (one of the pattern must match) whereas with one it turns into a blacklist (none of the
+/// patterns must match). Patterns match based on the error's structure, its fully optional to specify
+/// and by default any error is let through.
+///
+/// ### Examples:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[taskframe]
+/// #[workflow(
+///     retry(5), // Retry up to 5 times immediately
+///     retry(2, delay = 3s), // Retry up to 2 times with a delay of 3 seconds
+///     retry(7, linear(2s, 300ms)), // ... with a delay starting from 2 seconds and growing linearly
+///     retry(3, delay = exponential(2.0)), // ... with a delay exponentially growing by 2^n
+///     retry(11, delay = jitter(equal, 2s)), // ... with an equally-jittered delay of 2 seconds
+///     retry(8, when = ["A" | "B"]), // ... with an error filter matching either values "A" or "B"
+///     retry(1, when = !["C" | "D"]), // ... with an error filter NOT matching either values "C" or "D"
+///     retry(4, 5s, ["A" | "B" | "C"]), // Retry up to 4 times with a delay of 5 seconds IF matching the errors
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+/// ```
+///
+/// ## Fallback Workflow Primitive
+/// ```ignore
+/// fallback(TASK_FRAMES...)
+/// ```
+///
+/// The fallback workflow primitive behaves almost identically to [`FallbackTaskFrame`](chronographer::prelude::FallbackTaskFrame),
+/// it allows the specification of one or multiple fallbacks when things go south (an error occurred).
+///
+/// Unlike the Base API's [`FallbackTaskFrame`](chronographer::prelude::FallbackTaskFrame), which requires
+/// manually stacking one fallback on top of the other to include multiple fallbacks. This workflow
+/// primitive does the nesting automatically and isn't restricted to the number of TaskFrames used as fallbacks.
+///
+/// The ordering goes from left (acting as the first) to right (acting as last). Specifying multiple
+/// fallback primitives in rapid succession is deemed an antipattern even if possible.
+///
+/// ### Arguments
+/// This workflow primitive can have an infinite number of arguments, with the only restrictions being
+/// they are positional and must be a [`TaskFrames`](chronographer::prelude::TaskFrame) "expression".
+///
+/// These [`TaskFrames`](chronographer::prelude::TaskFrame) "expressions" are either identifiers
+/// or they can be identifiers prefixed with ``@``, both produce polar opposite results.
+///
+/// The former tells ChronoGrapher to include the entire target [`TaskFrame's`](chronographer::prelude::TaskFrame)
+/// workflow (alongside it of course), this concept is called **Workflow Inheritance**.
+///
+/// While the latter only includes the target [`TaskFrame's`](chronographer::prelude::TaskFrame) raw code,
+/// disregarding completely the workflow logic, present or not.
+///
+/// ### Examples:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[taskframe]
+/// pub async fn MyFallbackTaskFrame1(ctx: &TaskFrameContext, _error: String) -> Result<(), String> {
+///     todo!()
+/// }
+///
+/// #[taskframe]
+/// pub async fn MyFallbackTaskFrame2(ctx: &TaskFrameContext, _error: String) -> Result<(), String> {
+///     todo!()
+/// }
+///
+/// #[taskframe]
+/// pub async fn MyFallbackTaskFrame3(ctx: &TaskFrameContext, _error: String) -> Result<(), String> {
+///     todo!()
+/// }
+///
+/// #[taskframe]
+/// #[workflow(
+///     fallback(MyFallbackTaskFrame1), // If it fails, then run MyFallbackTaskFrame1 as backup
+///     fallback(
+///         MyFallbackTaskFrame1,
+///         MyFallbackTaskFrame2
+///     ), // ... run MyFallbackTaskFrame1 -> MyFallbackTaskFrame2 as backup
+///     fallback(
+///         MyFallbackTaskFrame1,
+///         MyFallbackTaskFrame2,
+///         MyFallbackTaskFrame3
+///     ), // ... run MyFallbackTaskFrame1 -> MyFallbackTaskFrame2 -> MyFallbackTaskFrame3 as backup
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+/// ```
+/// ## Delay Workflow Primitive
+/// ```ignore
+/// delay(delay = DURATION)
+/// ```
+///
+/// The delay workflow primitive behaves identically to [`DelayTaskFrame`](chronographer::prelude::DelayTaskFrame),
+/// it allows the specification of a constant delay before executing the workflow.
+///
+/// ### Arguments
+/// The workflow primitive accepts only argument that being ``delay`` which is a duration based
+/// expression either an identifier to a constant, a macro or a time literal. It specifies the amount of
+/// time to idle before continuing.
+///
+/// ### Examples:
+/// ```rust
+/// use chronographer::prelude::*;
+/// use std::time::Duration;
+///
+/// #[taskframe]
+/// #[workflow(
+///     delay(5s), // Delay the workflow for 5 seconds
+///     delay(delay = 800ms), // ... for 800 milliseconds
+///     delay(Duration::from_secs(2)) // ... for 2 seconds
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+/// ```
+///
+/// ## Timeout Workflow Primitive
+/// ```ignore
+/// timeout(duration = DURATION)
+/// ```
+///
+/// The timeout workflow primitive behaves identically to [`TimeoutTaskFrame`](chronographer::prelude::TimeoutTaskFrame),
+/// it allows the specification of an upper time limit within the workflow. If it fails to complete
+/// in that time, it errors out with a timeout error.
+///
+/// ### Arguments
+/// The workflow primitive accepts only argument that being ``duration`` which is a duration based
+/// expression either an identifier to a constant, a macro or a time literal. It specifies the maximum
+/// time allowed for the workflow to run before timeout.
+///
+/// ### Examples:
+/// ```rust
+/// use chronographer::prelude::*;
+/// use std::time::Duration;
+///
+/// #[taskframe]
+/// #[workflow(
+///     timeout(5s), // Timeout the workflow if it executes for more than 5 seconds
+///     timeout(duration = 800ms) // ... if more than 800 milliseconds
+///     timeout(Duration::from_secs(2)) // ... if more than 2 seconds
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+/// ```
+///
+/// ## Threshold Workflow Primitive
+/// ```ignore
+/// threshold(max = INT | MACRO | IDENT, when_reach? = THRESHOLD_REACH, count? = THRESHOLD_COUNT)
+/// ```
+///
+/// The threshold workflow primitive behaves identically to [`ThresholdTaskFrame`](chronographer::prelude::ThresholdTaskFrame),
+/// it allows the specification of an upper time limit in the number of times a workflow is executed
+/// based on a criteria. When the workflow is tempted to run again, it can skip, fail with an error or
+/// do something custom.
+///
+/// ### Arguments
+/// - ``max`` The upper bound of times to run a workflow. Unlike other arguments, this one is required to
+/// be specified, additionally it can be any source of an integer as long as it can be converted internally
+/// to a ``NonZeroUsize``.
+///
+/// - ``when_reach`` A configuration for the threshold on how to react when the upper threshold limit
+/// has been reached and the workflow is tempted to run again, the value has to implements the
+/// [`ThresholdLogic`](chronographer::task::frames::thresholdframe::ThresholdLogic). Its fully optional
+/// to specify and by default it skips it with success. The syntax is as follows:
+///     1. ``skip`` Used by default, skips the workflow fully as success
+///     2. ``error`` Error out with a special-defined error from ChronoGrapher
+///     3. ``custom(EXPR)`` A custom-based reach behavior with its own internal algorithm to determine
+///     the corresponding behavior.
+///
+/// - ``count`` A configuration for the threshold on how to count each run towards the threshold
+/// based on criteria, the value has to implements the
+/// [`ThresholdReachBehaviour`](chronographer::task::frames::thresholdframe::ThresholdReachBehaviour).
+/// Its fully optional to specify and by default it counts any kind of run towards the threshold. The
+/// syntax is as follows:
+///     1. ``identity``  Used by default, it counts any kind of run as valid
+///     2. ``successes`` Counts any kind of <u>successful</u> run.
+///     3. ``failures`` Counts any kind of <u>failed</u> runs with any shape of error.
+///     4. ``custom`` A custom criteria that identifies when to count or not a specific run.
+///
+/// ### Examples:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[taskframe]
+/// #[workflow(
+///     threshold(10), // Allow this workflow to run up to 10 times before skipping it when tempted
+///     threshold(5, count = successes), // ... to 5 successful times before skipping it ...
+///     threshold(3, count = failures), // ... to 3 failed times before skipping it ...
+///     threshold(2, error), // ... up to 2 times before erroring out when tempted
+///     threshold(2, error, failures), // Run up to 2 failed times before erroring out ...
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+/// ```
+///
+/// ## Dependency Workflow Primitive
+/// ```ignore
+/// dependency(dep = DEPENDENCY, unresolve? = DEPENDENCY_UNRESOLVE)
+/// ```
+///
+/// The dependency workflow primitive behaves identically to [`DependencyTaskFrame`](chronographer::prelude::DependencyTaskFrame),
+/// it allows the specification of a required dependency to be resolved before ultimately running the workflow,
+/// the shape of the dependency can be as simple as a flag to as complex as a boolean expression with Tasks.
+///
+/// ### Arguments
+/// This workflow primitive only has two arguments, the former being a required argument to specify and
+/// specifies the dependency to be resolved before running this workflow. This argument is special while
+/// it can accept any [`FrameDependency`](chronographer::task::dependency::FrameDependency). It also allows
+/// users to create their own complex dependencies easily:
+///
+/// Unlike the base API which due to Rust limitations supports as boolean operators ``&``, ``|`` and
+/// ``!`` (not the boolean-based operators). Inside a dependency expression it supports ``&&``, ``||``
+/// and ``!`` mapping to their respective base API counterpart.
+///
+/// Additionally, dependency expressions also support the XOR operator (``^``) which translates to the
+/// corresponding base API operators under the hood.
+///
+/// Finally, when it comes to the "leaf" / "atomic" dependencies themselves, there are two categories,
+/// by specifying an identifier you reference an outside dependency fully whereas you can create a
+/// dependency by utilizing the following "atomic" expressions:
+/// - ``MY_TASK(any = INT)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
+/// specifying "any" followed by an integer value (N), creates a Task dependency that must run N times
+/// before resolving.
+///
+/// - ``MY_TASK(success = INT)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
+/// specifying "success" followed by an integer value (N), creates a Task dependency that must run N successful
+/// times before resolving.
+///
+/// - ``MY_TASK(failures = INT)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
+/// specifying "failures" followed by an integer value (N), creates a Task dependency that must run N failed
+/// times before resolving.
+///
+/// - ``MY_TASK(custom = ...)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
+/// specifying "custom" followed by an expression, creates a Task dependency that resolves based on a
+/// custom criteria.
+///
+/// - ``dynamic(...)`` Creates a dynamic dependency with a closure as an argument inside that runs
+/// when tempted to resolve.
+///
+/// Finally, the second argument is a configuration that specifies how to react whe dependencies aren't
+/// resolved. Its optional and by default it simply skips the workflow with success via ``skip``.
+///
+/// With ``fail`` you can fail the workflow when dependencies aren't resolved, custom criteria can be achieved
+/// via the ``custom(...)`` which runs when dependencies aren't resolved and then decided what to do.
+///
+/// ### Examples:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[taskframe]
+/// #[workflow(
+///     dependency(dep = A), // Run this workflow when "A" is resolved, else skip if not
+///     dependency(!A), // ... when "A" is NOT resolved ...
+///     dependency(A || B), // ... when "A" OR "B" is resolved ...
+///     dependency(A && B), // ... when "A" AND "B" is resolved ...
+///     dependency(A ^ B), // ... when "A" XOR "B" is resolved ...
+///     dependency(MyTask1(any = 3)), // ... when MyTask1 has run at least 3 times ...
+///     dependency(MyTask2(success = 2)), // ... when MyTask2 has run at least 2 successful times ...
+///     dependency(MyTask3(failures = 4)), // ... when MyTask3 has run at least 4 failed times ...
+///     dependency(A, unresolve = fail), // Run this workflow when "A" is resolved, else fail if not
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+/// ```
+///
+/// ## Condition Workflow Primitive
+/// ```ignore
+/// condition(predicate = IDENT | CLOSURE, secondary? = TASKFRAME_EXPR, on_false? = CONDITION_RETURN)
+/// ```
+///
+/// The condition workflow primitive behaves identically to [`ConditionalTaskFrame`](chronographer::prelude::ConditionalTaskFrame),
+/// it allows the specification of a predicate to be resolved truthfully before ultimately running the workflow.
+/// Predicates are functions which run when the workflow is tempted to run and return a boolean value.
+///
+/// ### Arguments
+/// - ``predicate`` The predicate function to run evaluating whenever or not to continue running the
+/// workflow. Unlike other arguments, this one is required to be specified. The predicate must either
+/// be an identifier or a closure.
+///
+/// - ``secondary`` A backup TaskFrame to run in case the predicate returns false, its optional and by
+/// default runs nothing. Just like the fallback this follows the exact same expression syntax and
+/// can inherit automatically the workflow or not via ``@``.
+///
+/// - ``on_false`` A configuration for the workflow primitive to act in case the predicate returns false.
+/// This can either be ``error`` for erroring out or ``success`` to simply skip. **It is important to know**
+/// when a secondary TaskFrame runs and fails, its error will be prioritized, if it succeeds then the condition
+/// errors out regardless with its own error.
+///
+/// ### Examples:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[taskframe]
+/// #[workflow(
+///     condition(MY_PREDICATE), // Run MY_PREDICATE, if it returns true -> run the workflow
+///     condition(|| { true }), // Run the provided closure, if it returns true -> run the workflow
+///     condition(MY_PREDICATE, on_false = error), // ... if it returns false -> error out
+///     condition(MY_PREDICATE, MyTaskFrame2), // ... if it returns false -> run MyTaskFrame2
+///     condition(
+///         MY_PREDICATE,
+///         MyTaskFrame2,
+///         error
+///     ), // ... if it returns false -> run MyTaskFrame2 and always error out
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+/// ```
+///
+/// # Expansion Semantics
+/// The output typically depends on which macro ([`task`] or [`taskframe`]), the [`workflow`] macro is
+/// attached to, for this reason read more about their expansion semantics in their respective documentation.
+///
+/// When attaching it anywhere else it infamously produces a compile-time error:
+/// ```ignore
+/// "Workflow attribute is unsupported outside of Tasks and TaskFrames (via the respective macros)"
+/// ```
+///
+/// # Limitations
+/// Due to Rust's macro limitations imposed, the [`workflow`] macro cannot support any type of expression
+/// which can produce a non-obvious type in some specific scenarios such as [`TaskFrames`](chronographer::prelude::TaskFrame).
+///
+/// When it comes to [`TaskFrame`](chronographer::prelude::TaskFrame) "expressions", it is expected for the
+/// input [`TaskFrames`](chronographer::prelude::TaskFrame) to be created from with use of [`taskframe`],
+/// a wok-around for the base API users is to manually define a workflow method (either directly or indirectly
+/// with a trait).
+///
+/// Additionally due to the way the workflow annotation macro is set up, some IDEs such as RustRover
+/// may not display the color of the [`workflow`] macro nicely or rarely provide false positive
+/// errors (in this case run ``cargo clean``).
+///
+/// Finally, while every workflow primitive defined in the core crate is supported through the
+/// [`workflow`] macro interface. Any third party crates defining their own [`TaskFrames`](chronographer::prelude::TaskFrame)
+/// will not work no matter what and as such require the switch to the base API.
+///
+/// # See Also
+/// - [`task`] - A macro for defining Tasks, can also consume the workflow annotation.
+/// - [`taskframe`] - A macro for defining TaskFrames, can also consume the workflow annotation.
+/// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The base API building block for defining workflows.
+/// - [`TaskFrameBuilder`](chronographer::task::frame_builder::TaskFrameBuilder) - An alternative way to
+/// write workflows in the base API ergonomically.
+/// - [`RetriableTaskFrame`](chronographer::prelude::RetriableTaskFrame) - The base API equivalent of
+/// the ``retry`` workflow primitive.
+/// - [`FallbackTaskFrame`](chronographer::prelude::FallbackTaskFrame) - The base API equivalent of
+/// the ``fallback`` workflow primitive.
+/// - [`DelayTaskFrame`](chronographer::prelude::DelayTaskFrame) - The base API equivalent of
+/// the ``delay`` workflow primitive.
+/// - [`TimeoutTaskFrame`](chronographer::prelude::TimeoutTaskFrame) - The base API equivalent of
+/// the ``timeout`` workflow primitive.
+/// - [`DependencyTaskFrame`](chronographer::prelude::DependencyTaskFrame) - The base API equivalent of
+/// the ``dependency`` workflow primitive.
+/// - [`ConditionalTaskFrame`](chronographer::prelude::ConditionalTaskFrame) - The base API equivalent of
+/// the ``condition`` workflow primitive.
 #[proc_macro_attribute]
 pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
     workflow::workflow(attrs, item)
