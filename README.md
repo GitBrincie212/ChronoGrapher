@@ -4,7 +4,7 @@
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">One Unified Workflow Orchestrator, Unlimited Power</h1>
 
-ChronoGrapher is the **Job Scheduler And Workflow Orchestration Platform** that brings unified scheduling to your entire stack.
+ChronoGrapher is the **Scheduling / Orchestration Kernel** (related to job scheduling and workflow orhcestration but more generalized and adaptive) that brings unified scheduling to your entire stack.
 
 1. **Unified Multi-Language API:** Coordinate workflows across Python, TypeScript/JavaScript, Rust, and Java with a
   single and beautiful API tailor-made for each programming language, no more awkward glue code needed.
