@@ -18,7 +18,7 @@ macro_rules! dynamic_taskframe {
 #[macro_export]
 macro_rules! immediate {
     () => {
-        $crate::prelude::TaskScheduleInterval::from_secs(0)
+        $crate::prelude::TaskScheduleImmediate
     };
 }
 
@@ -61,6 +61,7 @@ pub mod prelude {
     pub use crate::task::schedule::TaskScheduleCalendar;
     pub use crate::task::schedule::TaskScheduleCron;
     pub use crate::task::schedule::TaskScheduleInterval;
+    pub use crate::task::schedule::TaskScheduleImmediate;
 
     // Schedulers
     pub use crate::scheduler::DefaultLiveScheduler;
