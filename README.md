@@ -90,7 +90,6 @@ async fn HandleCleanupTask(ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskErr
   // <...>
 }
 ```
-> Temporary Note: Everything up until the workflow proc-macro are considered finished, the rest are being worked on and thus needs more time to materialize. These examples most likely won't work until the macro extension is done, for now simply map the syntax to the base API (the individual structs, traits, enums... etc), this syntax is purely a vision and thus may change over time
 
 Some of the available task frame types are:
 
@@ -155,25 +154,40 @@ impl TaskHook<OnHookAttach<OnTaskStart>> for PrometheusMetricsHook {
 let hook = Arc::new(PrometheusMetricsHook);
 task.attach_hook::<OnTaskStart>(hook).await;
 task.attach_hook::<OnTimeout>(hook).await;
+
+// Or more ergonomically attaching the hook inside the task macro via hooks annotation:
+#[task(schedule = every!(1s))]
+#[hooks(
+    local_prometheus_instance = PrometheusMetricsHook::default(),
+    OnTaskStart: local_prometheus_instance,
+    OnTimeout: local_prometheus_instance
+)]
+async fn MyTask(ctx: &TaskFrameContext) -> Result<(), String> {
+  todo!()
+}
 ```
+> Temporary Note: Everything up until the hooks annotation proc-macro are considered finished, the rest are being worked 
+on and thus needs more time to materialize. These examples most likely won't work until the macro extension is done, 
+for now simply map the syntax to the base API (the individual structs, traits, enums... etc), this syntax is purely a vision 
+and thus may change over time
+
 TaskHook Events Include:
 - TaskHook attach/detach events
-- Task start and end events 
+- Task start and end events
 - Retries starting and finishing events
 - Timeout events
 - Dependency resolution status events
 - Conditional branching decisions
 
-
 ...
 
 Various patterns can be achieved such as TaskHooks communicating with each other via their own set of events 
-(Hook-To-Hook Communication), registering internal TaskHooks from TaskFrames or elsewhere or running conditional code
-based on the presence of a TaskHook.
+(Hook-To-Hook Communication), registering internal TaskHooks from TaskFrames or elsewhere, and even running conditional 
+code based on the presence of a TaskHook.
 
 ### Millisecond Calendar-Based Schedules
-Fine-grain control over when a Task executes via ``TaskTrigger`` or more commonly ``TaskSchedule``. Build your own complex
-schedules or use pre-existing ones such as ``TaskScheduleCalendar`` to satisfy your time critical needs:
+Fine-grain control over when a Task executes via ``TaskSchedule``. Build your own complex schedules or use pre-existing 
+ones such as ``TaskScheduleCalendar`` to satisfy your time critical needs:
 
 ```rust
 #[task(schedule = calendar!{
