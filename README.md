@@ -2,7 +2,7 @@
 <img src="./assets/ChronoGrapher Logo.png" alt="Chronographer Banner" />
 
 <img align="center" src="assets/Chronographer Divider.png" />
-<h1 align="center">One Unified Workflow Orchestrator, Unlimited Power</h1>
+<h1 align="center">One Unified Scheduling / Workflow Kernel, Unlimited Power</h1>
 
 ChronoGrapher is the **Scheduling / Orchestration Kernel** (related to job scheduling and workflow orhcestration but more generalized and adaptive) that brings unified scheduling to your entire stack.
 
