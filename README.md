@@ -2,15 +2,17 @@
 <img src="./assets/ChronoGrapher Logo.png" alt="Chronographer Banner" />
 
 <img align="center" src="assets/Chronographer Divider.png" />
-<h1 align="center">One Unified Scheduling / Workflow Kernel, Unlimited Power</h1>
+<h1 align="center">One Unified Scheduling Kernel, Unlimited Power</h1>
 
-ChronoGrapher is the **Scheduling / Orchestration Kernel** (related to job scheduling and workflow orhcestration but more generalized and adaptive) that brings unified scheduling to your entire stack.
+ChronoGrapher is the **Scheduling / Orchestration Kernel** (related to job scheduling and workflow orchestration but more 
+generalized and adaptive) that brings unified scheduling to your entire stack.
 
 1. **Unified Multi-Language API:** Coordinate workflows across Python, TypeScript/JavaScript, Rust, and Java with a
   single and beautiful API tailor-made for each programming language, no more awkward glue code needed.
 
 2. **Unopinionated by Design:** ChronoGrapher provides core scheduling without forcing features. Major capabilities 
-  offered as optional extensions such as **Cloud Infrastructure Support**, **Distributed Systems**, **Markers API** which build on top of the core.
+  offered as optional extensions such as **Cloud Infrastructure Support**, **Distributed Systems**, **Markers API** which 
+  build on top of the core.
 
 3. **Hyper-Extensible Architecture:** The best in market when it comes to extensibility, as demonstrated with its
   extensions / integrations, its core is exceptionally powerful with its design philosophy being 
@@ -21,8 +23,10 @@ ChronoGrapher is the **Scheduling / Orchestration Kernel** (related to job sched
 
 5. **Adaptive Crash-Resistant Durability:** Never lose task progress and state, with its revolutionary persistence 
   model. Guaranteeing high durability and low overhead in performance, developers should never worry about failures.
+   <u>(COMING SOON)</u>
 
-**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust (≥ 1.92v). Other languages look similar):
+**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust (≥ 1.92v). Other 
+languages look similar:
 ```rust
 use chronographer::prelude::*;
 
@@ -31,7 +35,6 @@ async fn HelloWorldTask(ctx: &TaskFrameContext) -> Result<(), String> {
   println!("Hello World");
   Ok(())
 }
-
 
 #[chronographer::main]
 async fn main(scheduler: DefaultLiveScheduler<String>) {
@@ -42,8 +45,8 @@ async fn main(scheduler: DefaultLiveScheduler<String>) {
 
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Solving Modern Scheduling Challenges</h1>
-Today's applications are inherently ambitious, polyglot and complex. Yet workflow orchestration for the most part
-remains language-bound, constraint and sometimes with inconsistent developer experience.
+Today's applications are inherently ambitious, polyglot and complex. Yet job scheduling and workflow orchestration for the 
+most part remain language-bound, constraint and sometimes with inconsistent developer experience.
 
 A typical modern stack leverages multiple programming languages. Each requiring its own scheduling ecosystem:
 
@@ -58,9 +61,13 @@ Most solutions face one or more fundamental limitations:
 - **Language Isolation:** Bound to single ecosystems, either leading to the use of different solutions for every programming 
   language with their own APIs to learn, their own tradeoffs... etc. Or alternatively requiring complex and awkward glue-code.
 - **Scalability Issues:**  Difficult to scale and extend beyond what the solution was initially intended for, without 
-  requiring significant re-engineering or weird hacky solutions to common problems. Both approaches are a maintenance nightmare to developers.
+  requiring significant re-engineering or weird hacky solutions to common problems. Both approaches are a maintenance nightmare to 
+  developers.
 - **Inconsistent Developer Experience:** Inconsistent poorly-maintained documentation quality and at worst outright outdated, 
   opinionated patterns with different systems doing the same thing, and an overall steep learning curve across tools. 
+- **Highly Niche:** Some job schedulers and workflow orchestrations are built for one thing in mind, while its good for
+  solving that particular problem pretty well, there is no generalized blueprint which can be adapted across industries
+  freely.
 
 **The ChronoGrapher Approach:**
 We believe developers deserve better than fragmented scheduling experiences. While no solution is perfect, 
@@ -83,15 +90,15 @@ ChronoGrapher's power comes from its modular task system. Build complex workflow
         HealthCheckTask && (DatabaseCheckTask || SystemUpdateTask)
     ),  // Run workflow only if dependencies are resolved
     retry(3, delay = 1s), // If everything fails retry with a delay up to 3 times
-    fallback(HandlePaymentFailure), // If it does or fails, execute this
+    fallback(HandlePaymentFailure), // If the below "sub-workflow" fails, execute this
     timeout(30s), // Cannot exceed more than 30 seconds
 )]
-async fn HandleCleanupTask(ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>> {
+async fn HandleCleanupTask(ctx: &TaskFrameContext) -> Result<(), String> {
   // <...>
 }
 ```
 
-Some of the available task frame types are:
+Some of the available workflow primitive types are:
 
 - **🔄 RetriableFrame:** Automatic retries for a TaskFrame with configurable backoff strategies
 - **⏱️ TimeoutFrame:** Enforce execution time limits on a TaskFrame (otherwise a timeout error is thrown if exceeded)
@@ -102,6 +109,7 @@ Some of the available task frame types are:
 - **💤 DelayFrame:** Delays the execution of a TaskFrame
 
 ### Powerful Hook-Based System
+
 Fine-grain reactivity for Tasks at a deep level, or append your own stateful containers, or even mix both! Unlimited freedom
 as ``TaskHooks`` are the backbone of extensibility in ChronoGrapher:
 ```rust
@@ -166,6 +174,7 @@ async fn MyTask(ctx: &TaskFrameContext) -> Result<(), String> {
   todo!()
 }
 ```
+
 > Temporary Note: Everything up until the hooks annotation proc-macro are considered finished, the rest are being worked 
 on and thus needs more time to materialize. These examples most likely won't work until the macro extension is done, 
 for now simply map the syntax to the base API (the individual structs, traits, enums... etc), this syntax is purely a vision 
@@ -186,6 +195,7 @@ Various patterns can be achieved such as TaskHooks communicating with each other
 code based on the presence of a TaskHook.
 
 ### Millisecond Calendar-Based Schedules
+
 Fine-grain control over when a Task executes via ``TaskSchedule``. Build your own complex schedules or use pre-existing 
 ones such as ``TaskScheduleCalendar`` to satisfy your time critical needs:
 
@@ -205,7 +215,9 @@ async fn CalendarBasedTask(ctx: &TaskContext) -> Result<(), String> {
 ```
 
 ### Creating Custom Schedulers
+
 The composition-based architecture of ChronoGrapher also applies to Schedulers!
+
 ```rust
 #[derive(Scheduler(
     clock!, // Required during construction
