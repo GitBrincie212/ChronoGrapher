@@ -42,6 +42,18 @@ impl<E: TaskError> SchedulerConfig for DefaultSchedulerConfig<E> {
     type SchedulerClock = ProgressiveClock;
 }
 
+#[cfg(feature = "anyhow")]
+pub trait AnyhowSchedulerConfig {}
+
+#[cfg(feature = "anyhow")]
+impl<T: SchedulerConfig<TaskError = anyhow::Error>> AnyhowSchedulerConfig for T {}
+
+#[cfg(feature = "anyhow")]
+pub trait EyreSchedulerConfig {}
+
+#[cfg(feature = "anyhow")]
+impl<T: SchedulerConfig<TaskError = eyre::Error>> EyreSchedulerConfig for T {}
+
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FailoverPolicy {
     Keep,

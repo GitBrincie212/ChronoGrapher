@@ -74,8 +74,14 @@ pub mod prelude {
     #[cfg(feature = "anyhow")]
     pub use crate::scheduler::DefaultLiveAnyhowScheduler;
 
+    #[cfg(feature = "anyhow")]
+    pub use crate::scheduler::AnyhowSchedulerConfig;
+
     #[cfg(feature = "eyre")]
     pub use crate::scheduler::DefaultLiveEyreScheduler;
+
+    #[cfg(feature = "eyre")]
+    pub use crate::scheduler::EyreSchedulerConfig;
 
     // TaskHooks / TaskHookEvents
     pub use crate::task::hooks::{NonObserverTaskHook, TaskHook, events::*};
