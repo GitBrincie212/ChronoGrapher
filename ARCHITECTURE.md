@@ -7,17 +7,22 @@
 6. [Scheduler Composites](#how-schedulers-composites-work)
 
 # Overview & Philosophy
-Chronographer is an unopinionated composable scheduling library built in Rust.
+Chronographer is an unopinionated composable scheduling library / kernel built in Rust.
 
 Core Tenets:
 - **Composability:** Complex behavior is built by combining simple, single-responsibility TaskFrames (for tasks) or
   by replacing various components with your own implementations of them (for schedulers and tasks).
+
 - **Ergonomics:** 2 Levels are present in ChronoGrapher for describing complex workflows, schedulers... etc. The 
   <u>Macros Level</u> providing the most ergonomics and the <u>Base Level</u> for runtime-based flexibility, mix and
   match the use of these 2 levels.
+
 - **Extensibility:** All core components are built to be heavily extended, and they are defined as traits. 
   Various patterns are possible with ChronoGrapher's few "simple" components without the typical bloat.
-- **Efficiency:** Leverages Rust's ownership, various optimized data structures and Rust's async model to build a robust and concurrent core.
+
+- **Performance-First:** Leverages Rust's ownership, various optimized data structures and Rust's async model to build a 
+robust and concurrent core that can reach 4.1 million lightweight Tasks per second with minimal RAM.
+
 - **Language Agnostic:** The core is designed to be the backbone for future language SDKs. Available in Python, Js/Ts, Java... etc.
 
 ChronoGrapher's core design philosophy is defined as:
@@ -26,9 +31,11 @@ ChronoGrapher's core design philosophy is defined as:
 Specifically it is separated to 3 parts:
 - **Minimalism over Bloat** Provide as few but fundamental building blocks / systems which users can compose to build 
 something more complex (vs. Defining many systems each with their own complexities that do only one thing).
+
 - **Emergent over Predefined** The systems in question should be as expressive as possible, favor making the system have 
 multiple patterns which it can be used and favor integration with other systems (vs. Defining disjointed 
 single-purpose systems which require hacky workarounds to do something).
+
 - <b>Simplicity Over Complexity (*)</b> The library should be as simple as possible to use, any feature added onto a system
 introduces complexity for the developer to understand (vs. Frameworks with a sprawling number of complex systems to learn
 for only one thing).
@@ -47,9 +54,11 @@ separate parts (more specifically crates), plus one if you include the website b
   and even derive macros.
 - **``/core``** This layer merges the procedural macro API and the base API as one crate, it additionally defines a prelude
   module for Rust users to easily import and use ChronoGrapher. Apart from that, it does nothing else.
+- **``/utils``** This contains a crate for the utilities of ChronoGrapher which aren't directly meant to be accessed but
+must be shared between other crates (proc, core and base), this includes the cron lexing / parsing.
 - **``/sdks``*** This is where all different SDKs for other programming languages live, they use the base API and
-  build on top of it with bindings such as [PyO3](https://pyo3.rs/v0.28.2/), [NAPI.rs](https://napi.rs)... etc.
-  They match as close to the original API while remaining ergonomic / native to their respective language.
+  build on top of it with bindings such as [PyO3](https://pyo3.rs/v0.28.2/), [NAPI.rs](https://napi.rs)... etc. They match as close to the original API 
+  while remaining ergonomic / native to their respective language.
 
 <strong>(*)</strong> Currently no SDKs apart from Rust have been implemented, until the core of Rust is fully finished.
 Only then progress may start to implement them (to ensure the core is fully finished and won't need any changes to be done
@@ -94,8 +103,8 @@ Whereas the definition of a ``Scheduler`` is:
 At a high level. Tasks contain the following three composites:
 - **TaskFrames** They answer the question of <u>"WHAT code does the Task run"</u>, a simple interpretation is to define
 them as just functions, however they are far more powerful than they may first seem (will be explored soon).
-- **TaskTriggers** They answer the question of <u>"WHEN does the Task run?"</u>, they are much simpler than ``TaskFrames``
-but still a vital part. When triggered they may await for unknown period of time to announce what time they want to schedule
+- **TaskSchedules** They answer the question of <u>"WHEN does the Task run?"</u>, they are much simpler than ``TaskFrames``
+but still a vital part. When scheduled they may await for unknown period of time to announce what time they want to schedule
 the Task.
 - **TaskHooks** While an optional layer on top of Tasks, they are one of the more powerful features. They allow to embed
 extra information onto a Task, listen to certain events, execute various side effects if present, and even communicate with 
@@ -125,7 +134,7 @@ may be updated some time in the future to reflect the final changes but for now 
 For more information, look into [154#](https://github.com/GitBrincie212/ChronoGrapher/issues/154).
 
 The lifecycle of a Task begins with its intermediate temporary representation of ``Task<T1, T2>``. The goal of this
-representation is to act as a container which hosts our TaskFrame, TaskTrigger and various TaskHooks. It indicates no
+representation is to act as a container which hosts our TaskFrame, TaskSchedule and various TaskHooks. It indicates no
 ownership and is present in a typed form.
 
 Its storage model is inefficient but simple as its only temporary and not an actual long-lived object. It should be noted
@@ -142,7 +151,7 @@ This ``TaskHandle`` allows not only interacting with the ``Task`` (its contents 
 lifecycle via scheduler-based operations such as scheduling, running, cancelling or even removing said Task.
 
 Unlike the intermediate representation via ``Task<T1, T2>``, the handle is cheap to clone and shareable between threads,
-but its TaskFrame / TaskTrigger are fully erased (only the erased version is accessible).
+but its TaskFrame / TaskSchedule are fully erased (only the erased version is accessible).
 
 ![Lifecycle of Tasks](assets/architecture/diagram2.svg)
 
@@ -151,8 +160,8 @@ Multiple instances may be scheduled at a time, the current number of instances c
 
 These instances can be canceled at any time via ``cancel(...)`` or ``cancel_all(...)``. There are additional methods but
 these are the most important, after an instance is scheduled it goes through the process of:
-1. ``Scheduler`` triggers the ``TaskTrigger`` to decide a new time (waits around as well).
-2. Once ``TaskTrigger`` announces the new time, it pushes the Task, and it's time to ``SchedulerEngine`` to organize.
+1. ``Scheduler`` schedules the ``TaskSchedule`` to decide a new time (waits around as well).
+2. Once ``TaskSchedule`` announces the new time, it pushes the Task, and it's time to ``SchedulerEngine`` to organize.
 3. Once it notices the Task is due, it alerts the ``SchedulerTaskDispatcher`` to dispatch the current Task.
 4. When the ``SchedulerTaskDispatcher`` sets up its environment, it runs the Task emitting relevant events in the process
 and executing the workflow defined via ``TaskFrame``.
@@ -164,14 +173,14 @@ A Task may be removed via ``remove(...)`` where it fully removes the Task, cance
 
 # How Task's Composites Work
 Now it is time to discuss the finer details of how a Task is shaped (its individual composites). As discussed there are 3
-composites working in unison, ``TaskFrames``, ``TaskTriggers`` and ``TaskHooks``.
+composites working in unison, ``TaskFrames``, ``TaskSchedules`` and ``TaskHooks``.
 
-## Scheduling Logic Via TaskTriggers
-One of the two vital parts of a Task is scheduling, which is where ``TaskTrigger`` comes in. When invoked it simply waits
+## Scheduling Logic Via TaskSchedules
+One of the two vital parts of a Task is scheduling, which is where ``TaskSchedules`` comes in. When invoked it simply waits
 around and when it feels ready (from calculations or something else) it returns the new time. 
 
 It should be noted when it is the current or pastime, the Scheduler immediately executes the Task.
-TaskTriggers may also await for something external before announcing (such as an API request).
+TaskSchedules may also await for something external before announcing (such as an API request).
 
 ChronoGrapher already provides its own set of scheduling primitives such as:
 - **TaskScheduleImmediate** A primitive which schedules a Task to execute immediately.
