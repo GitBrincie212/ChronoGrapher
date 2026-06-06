@@ -24,7 +24,11 @@ macro_rules! immediate {
 
 #[cfg(feature = "macros")]
 pub mod macros {
-    pub use chronographer_macros::*;
+    pub use chronographer_macros::taskframe;
+    pub use chronographer_macros::task;
+    pub use chronographer_macros::workflow;
+    pub use chronographer_macros::cron;
+    pub use chronographer_macros::every;
     pub use dynamic_taskframe;
     pub use immediate;
 }
