@@ -889,6 +889,82 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
     entry::entry(attrs, item)
 }
 
+/// The [`cron`] proc-macro is an alternative ergonomic way to write CRON-based schedules as opposed
+/// to manually constructing the [`TaskScheduleCron`](chronographer::prelude::TaskScheduleCron)
+/// object from the ground up.
+///
+/// # Expansion Semantics
+/// It utilizes under the hood [`TaskScheduleCron`](chronographer::prelude::TaskScheduleCron) and
+/// parses, validates and lowers the CRON expression into the appropriate
+/// [`CronField`](chronographer::task::schedule::CronField) values at compile-time. Any malformed
+/// expression is reported as a compile-time error pointing at the offending field.
+///
+/// The expanded version typically looks this:
+/// ```ignore
+/// TaskScheduleCron::new([/* CronField per field */])
+/// ```
+///
+/// # Invocation Syntax
+/// This macro uses standard CRON syntax composed of **6 whitespace-separated fields**, sorted from
+/// most significant / shortest period to least significant.
+///
+/// The fields and their valid ranges are listed below in order:
+/// - Second = ``0-59``
+/// - Minute = ``0-59``
+/// - Hour = ``0-23``
+/// - Day of Month = ``1-31``
+/// - Month = ``1-12`` or names (``JAN``..``DEC``)
+/// - Day of Week = ``1-7`` or names (``SUN``..``SAT``, where ``SUN`` = 1)
+///
+/// Month and day-of-week names are case-insensitive, so ``JAN``, ``jan`` and ``Jan`` are all accepted.
+///
+/// ```rust
+/// use chronographer::cron;
+///
+/// cron!(0 0 * * * *) // Every hour, on the hour
+/// cron!(0 30 9 * * *) // Every day at 09:30:00
+/// cron!(0 0 12 * JAN MON) // At noon, on Mondays in January
+/// ```
+///
+/// # Field Expressions
+/// The supported expressions map directly onto the [`CronField`](chronographer::task::schedule::CronField) variants:
+/// - ``*`` A **wildcard**, matches every value of the field.
+/// - ``?`` An **unspecified** value, used for the day-of-month / day-of-week fields.
+/// - ``N`` An **exact** value (e.g. ``5``).
+/// - ``A-B`` A **range** from ``A`` to ``B`` inclusive (e.g. ``9-17``).
+/// - ``EXPR/N`` A **step**, matches every ``N``th value across ``EXPR`` (e.g. ``*/15`` or ``0-30/5``).
+/// - ``A,B,C`` A **list**, matches any of the comma-separated sub-expressions.
+/// - ``L`` The **last** value of the field (last day of month, or last day of week).
+/// - ``NL`` The last given weekday (e.g. ``5L`` for the last occurrence of that weekday).
+/// - ``NW`` The **nearest weekday** to day-of-month ``N``.
+/// - ``A#B`` The **Nth weekday**, the ``B``-th occurrence of weekday ``A`` in the month.
+///
+/// A couple of combined examples are demonstrated below:
+/// ```rust
+/// use chronographer::cron;
+///
+/// cron!(0 */15 * * * *) // Every 15 minutes
+/// cron!(0 0 9-17 * * MON-FRI) // Hourly from 09:00 to 17:00 on weekdays
+/// cron!(0 0 0 L * ?) // At midnight on the last day of the month
+/// cron!(0 0 12 ? * 6#3) // At noon on the third Friday of every month
+/// cron!(0 0 8 15W * ?) // At 08:00 on the nearest weekday to the 15th
+/// cron!(0 0,30 * * * *) // On the hour and the half-hour
+/// ```
+///
+/// # Limitations
+/// The [`cron`] macro covers the second-through-day-of-week granularity only, the year field is
+/// always an implicit wildcard and cannot be set. Anything below a second (milliseconds, nanoseconds...)
+/// cannot be represented either, for sub-second intervals use [`every`] instead.
+///
+/// Identifiers are limited to the recognized month / day-of-week names alongside ``L`` and ``W``,
+/// any other identifier is rejected at compile-time.
+///
+/// # See Also
+/// - [`TaskScheduleCron`](chronographer::prelude::TaskScheduleCron) - The base API equivalent
+/// - [`CronField`](chronographer::task::schedule::CronField) - The lowered representation of each field
+/// - [`every`] - For simpler interval-based schedules, including sub-second granularity
+/// - [`calendar`] - For making schedules with a human-readable calendar expression
+/// - [`TaskSchedule`](chronographer::prelude::TaskSchedule) - The trait that makes schedules possible
 #[proc_macro]
 pub fn cron(input: TokenStream) -> TokenStream {
     cron::cron(input)
