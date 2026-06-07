@@ -904,6 +904,14 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// TaskScheduleCron::new([/* CronField per field */])
 /// ```
 ///
+/// A side effect of compile-time checking is it doesn't affect runtime at all which means a slight
+/// performance boost if creating multiple constant CRON schedules. Even without the performance boost,
+/// the [`cron`] proc-macro **should be preferred in all cases when dealing with a constant CRON expression.**
+///
+/// Alternatively for the rare cases which a runtime-based cron expression is needed, switch to
+/// [`TaskScheduleCron::from_str`](chronographer::prelude::TaskScheduleCron::from_str) to dynamically
+/// construct one at runtime.
+///
 /// # Invocation Syntax
 /// This macro uses standard CRON syntax composed of **6 whitespace-separated fields**, sorted from
 /// most significant / shortest period to least significant.
@@ -913,10 +921,12 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// - Minute = ``0-59``
 /// - Hour = ``0-23``
 /// - Day of Month = ``1-31``
-/// - Month = ``1-12`` or names (``JAN``..``DEC``)
-/// - Day of Week = ``1-7`` or names (``SUN``..``SAT``, where ``SUN`` = 1)
+/// - Month = ``1-12`` or names (``JAN``, ``FEB``, ``MAR``, ..., ``DEC`` where ``JAN`` = 1)
+/// - Day of Week = ``1-7`` or names (``SUN``, ``MON``, ``TUE``, ...,``SAT``, where ``SUN`` = 1)
 ///
 /// Month and day-of-week names are case-insensitive, so ``JAN``, ``jan`` and ``Jan`` are all accepted.
+/// It should also be mentioned that months and day-of-week constants are **ONLY** allowed on their
+/// respective fields.
 ///
 /// ```rust
 /// use chronographer::cron;
@@ -928,16 +938,16 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// # Field Expressions
 /// The supported expressions map directly onto the [`CronField`](chronographer::task::schedule::CronField) variants:
-/// - ``*`` A **wildcard**, matches every value of the field.
-/// - ``?`` An **unspecified** value, used for the day-of-month / day-of-week fields.
-/// - ``N`` An **exact** value (e.g. ``5``).
-/// - ``A-B`` A **range** from ``A`` to ``B`` inclusive (e.g. ``9-17``).
-/// - ``EXPR/N`` A **step**, matches every ``N``th value across ``EXPR`` (e.g. ``*/15`` or ``0-30/5``).
-/// - ``A,B,C`` A **list**, matches any of the comma-separated sub-expressions.
-/// - ``L`` The **last** value of the field (last day of month, or last day of week).
-/// - ``NL`` The last given weekday (e.g. ``5L`` for the last occurrence of that weekday).
-/// - ``NW`` The **nearest weekday** to day-of-month ``N``.
-/// - ``A#B`` The **Nth weekday**, the ``B``-th occurrence of weekday ``A`` in the month.
+/// - ``*`` A **Wildcard**, matches every value of the field.
+/// - ``?`` An **Unspecified** value, used for the day-of-month / day-of-week fields.
+/// - ``<N>`` An **Exact** integer value (e.g. ``5``).
+/// - ``<A>-<B>`` A **Range** from integer ``A`` to integer ``B`` inclusive (e.g. ``9-17``).
+/// - ``<EXPR>/<N>`` A **Step**, matches every integer ``N``th value across any expression ``EXPR`` (e.g. ``*/15`` or ``0-30/5``).
+/// - ``<EXPR1>,<EXPR2>,<EXPR3>`` A **list**, matches any of the comma-separated sub-expressions.
+/// - ``L`` The **Last** value of the field (last day of month, or last day of week).
+/// - ``<N>L`` The last given weekday (e.g. ``5L`` for the last occurrence of that weekday).
+/// - ``<N>W`` The **Nearest Weekday** to day-of-month ``N``.
+/// - ``<A>#<B>`` The **Nth Weekday**, the integer ``B``-th occurrence of weekday integer ``A`` in the month.
 ///
 /// A couple of combined examples are demonstrated below:
 /// ```rust
@@ -951,13 +961,16 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// cron!(0 0,30 * * * *) // On the hour and the half-hour
 /// ```
 ///
-/// # Limitations
-/// The [`cron`] macro covers the second-through-day-of-week granularity only, the year field is
-/// always an implicit wildcard and cannot be set. Anything below a second (milliseconds, nanoseconds...)
-/// cannot be represented either, for sub-second intervals use [`every`] instead.
+/// It is highly recommended to read in detail [Quartz's CRON Trigger Documentation](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html)
+/// as the proc-macro is heavily based on the same syntax structure.
 ///
-/// Identifiers are limited to the recognized month / day-of-week names alongside ``L`` and ``W``,
-/// any other identifier is rejected at compile-time.
+/// # Limitations
+/// Since the [`cron`] macro is based on [Quartz's CRON Trigger](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html),
+/// it is subject to the same limitation as it, including the limitation to not specify anything below
+/// a second (milliseconds, nanoseconds... etc.).
+///
+/// To circumvent this issue, it is recommended to switch schedules. For basic intervals it is best to use
+/// the [`every`] macro and for even more complex schedules, use [`calendar`] macro.
 ///
 /// # See Also
 /// - [`TaskScheduleCron`](chronographer::prelude::TaskScheduleCron) - The base API equivalent
