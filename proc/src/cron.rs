@@ -146,13 +146,7 @@ pub fn tokenize_from_tokens(
     let mut tokens: [Vec<Token>; 6] = std::array::from_fn(|_| Vec::new());
     let mut field_pos: usize = 0;
 
-    // Field boundaries are detected by token-type adjacency rather than span columns,
-    // so this works in both cargo and rust-analyzer proc-macro contexts.
-    //
-    // Rule: two adjacent "value" tokens (with no operator between them) mark a field
-    // boundary, because cron values within a single field are always separated by an
-    // operator (-, /, ,, #).  Exceptions: `NL` (e.g. `1L`) and `NW` (e.g. `15W`) are
-    // suffix forms in the same field, as is `LW` (last weekday).
+
     #[derive(Clone, Copy, PartialEq)]
     enum Prev {
         None,
