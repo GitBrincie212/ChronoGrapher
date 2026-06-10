@@ -22,16 +22,15 @@ impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C>
         key: &SchedulerKey<C>,
         task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
     ) -> impl Future<Output = Result<(), C::TaskError>> + Send {
-        let notifier = Arc::new(Notify::new());
-        self.0.insert(key.clone(), notifier.clone());
+        
+        // TODO: Find a way to remove the Notify when a Task is removed
+        let notifier = self.0
+            .entry(key.clone())
+            .or_insert_with(|| Arc::new(Notify::new()));
 
         async move {
             tokio::select! {
-                result = task.run() => {
-                    self.0.remove(key);
-                    result
-                }
-    
+                result = task.run() => result,
                 _ = notifier.notified() => Ok(()),
             }
         }
