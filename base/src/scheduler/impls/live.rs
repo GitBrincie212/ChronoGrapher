@@ -72,8 +72,8 @@ pub struct SchedulerInitConfig<C: SchedulerConfig> {
     store: C::SchedulerTaskStore,
     engine: C::SchedulerEngine,
 
-    #[builder(default = 64)]
-    workers: usize,
+    #[builder(default, setter(strip_option))]
+    workers: Option<usize>,
 
     #[builder(default = FailoverPolicy::default())]
     failover_policy: FailoverPolicy,
@@ -81,12 +81,20 @@ pub struct SchedulerInitConfig<C: SchedulerConfig> {
 
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
     fn from(config: SchedulerInitConfig<C>) -> Self {
-        let mut cold_workers = Vec::with_capacity(config.workers);
-        let mut hot_workers = Vec::with_capacity(config.workers);
+        let workers = config.workers.unwrap_or_else(|| {
+            let parallelism = std::thread::available_parallelism()
+                .unwrap()
+                .get();
+
+            (parallelism * 4).next_power_of_two()
+        });
+
+        let mut cold_workers = Vec::with_capacity(workers);
+        let mut hot_workers = Vec::with_capacity(workers);
 
         let notifier = Arc::new(Notify::new());
 
-        for _ in 0..config.workers {
+        for _ in 0..workers {
             let (hot_worker, cold_worker) = new_worker::<C>(notifier.clone());
             cold_workers.push(CachePadded::new(cold_worker));
             hot_workers.push(CachePadded::new(hot_worker));
@@ -100,6 +108,7 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
 
             cold_workers: Arc::new(cold_workers),
             hot_workers: Arc::new(hot_workers),
+            worker_len: workers,
 
             global_queue: Arc::new(Injector::new()),
             instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
@@ -116,6 +125,7 @@ pub struct LiveScheduler<C: SchedulerConfig> {
 
     hot_workers: Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
     cold_workers: Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
+    worker_len: usize,
 
     global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
@@ -334,13 +344,13 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         );
 
         let mut lock = self.process.write();
-        for idx in 0..self.hot_workers.len() {
+        for idx in 0..self.worker_len {
             let handle = tokio::spawn(start_worker_process(
                 self.hot_workers.clone(),
                 self.cold_workers.clone(),
                 self.global_queue.clone(),
                 idx,
-                self.hot_workers.len(),
+                self.worker_len,
                 self.store.clone(),
                 self.engine.clone(),
                 self.dispatcher.clone(),
