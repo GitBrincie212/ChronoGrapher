@@ -1,8 +1,8 @@
 use crate::scheduler::impls::utils::{assign_to_trigger_worker, spawn_task};
-use crate::scheduler::live::SchedulerWorker;
+use crate::scheduler::live::SchedulerWorkerHot;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::scheduler::{SchedulerConfig, SchedulerHandlePayload, SchedulerKey};
+use crate::scheduler::{SchedulerConfig, SchedulerHandlePayload, SchedulerKey, SchedulerWorkerCold};
 use crate::task::{ErasedTask, TaskHook};
 use crossbeam::queue::SegQueue;
 use std::any::{Any, type_name};
@@ -50,11 +50,13 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     instruct_queue: &Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     dispatcher: &Arc<C::SchedulerTaskDispatcher>,
     store: &Arc<C::SchedulerTaskStore>,
-    workers: &Arc<Vec<CachePadded<SchedulerWorker<C>>>>,
+    hot_workers: &Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
+    cold_workers: &Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
 ) -> impl Future<Output = ()> + Send + 'static {
     let dispatcher = dispatcher.clone();
     let store = store.clone();
-    let workers = workers.clone();
+    let hot_workers = hot_workers.clone();
+    let cold_workers = cold_workers.clone();
     let instruct_queue = instruct_queue.clone();
 
     async move {
@@ -68,7 +70,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
 
             match instruction {
                 SchedulerHandleInstructions::Reschedule => {
-                    assign_to_trigger_worker::<C>(id.clone(), &workers);
+                    assign_to_trigger_worker::<C>(id.clone(), &hot_workers, &cold_workers);
                 }
 
                 SchedulerHandleInstructions::Halt => {
@@ -80,7 +82,7 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
                 }
 
                 SchedulerHandleInstructions::Execute => {
-                    spawn_task::<C>(id.clone(), &workers);
+                    spawn_task::<C>(id.clone(), &hot_workers, &cold_workers);
                 }
             }
         }

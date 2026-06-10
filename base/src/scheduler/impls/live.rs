@@ -13,6 +13,7 @@ use crossbeam::deque::{Injector, Steal, Stealer, Worker};
 use crossbeam::queue::SegQueue;
 use std::error::Error;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use crossbeam::utils::CachePadded;
 use tokio::join;
 use tokio::sync::Notify;
@@ -34,28 +35,34 @@ pub enum SchedulerWork {
     Dispatch,
 }
 
-pub(crate) struct SchedulerWorker<C: SchedulerConfig> {
+pub(crate) struct SchedulerWorkerHot<C: SchedulerConfig> {
     pub ingress: SegQueue<(SchedulerKey<C>, SchedulerWork)>,
-    pub queue: parking_lot::Mutex<Option<Worker<(SchedulerKey<C>, SchedulerWork)>>>,
     pub stealer: Stealer<(SchedulerKey<C>, SchedulerWork)>,
-    pub notify: Arc<Notify>,
-    // pub pending: CachePadded<AtomicUsize>
 }
 
-impl<C: SchedulerConfig> SchedulerWorker<C> {
-    #[inline(always)]
-    fn new(notify: Arc<Notify>) -> Self {
-        let queue = Worker::new_fifo();
-        let stealer = queue.stealer();
+pub(crate) struct SchedulerWorkerCold<C: SchedulerConfig> {
+    pub queue: parking_lot::Mutex<Option<Worker<(SchedulerKey<C>, SchedulerWork)>>>,
+    pub notify: Arc<Notify>,
+    pub pending: CachePadded<AtomicUsize>
+}
 
-        Self {
+#[inline(always)]
+fn new_worker<C: SchedulerConfig>(notify: Arc<Notify>) -> (SchedulerWorkerHot<C>, SchedulerWorkerCold<C>) {
+    let queue = Worker::new_fifo();
+    let stealer = queue.stealer();
+
+    (
+        SchedulerWorkerHot {
             ingress: SegQueue::new(),
-            // pending: CachePadded::new(AtomicUsize::new(0)),
-            queue: parking_lot::Mutex::new(Some(queue)),
             stealer,
+        },
+
+        SchedulerWorkerCold {
+            queue: parking_lot::Mutex::new(Some(queue)),
             notify,
+            pending: CachePadded::new(AtomicUsize::new(0)),
         }
-    }
+    )
 }
 
 #[derive(TypedBuilder)]
@@ -74,12 +81,15 @@ pub struct SchedulerInitConfig<C: SchedulerConfig> {
 
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
     fn from(config: SchedulerInitConfig<C>) -> Self {
-        let mut workers = Vec::with_capacity(config.workers);
+        let mut cold_workers = Vec::with_capacity(config.workers);
+        let mut hot_workers = Vec::with_capacity(config.workers);
+
         let notifier = Arc::new(Notify::new());
 
         for _ in 0..config.workers {
-            let worker = SchedulerWorker::<C>::new(notifier.clone());
-            workers.push(CachePadded::new(worker));
+            let (hot_worker, cold_worker) = new_worker::<C>(notifier.clone());
+            cold_workers.push(CachePadded::new(cold_worker));
+            hot_workers.push(CachePadded::new(hot_worker));
         }
 
         Self {
@@ -87,7 +97,10 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
             store: Arc::new(config.store),
             dispatcher: Arc::new(config.dispatcher),
             process: Arc::new(parking_lot::RwLock::new(Vec::new())),
-            workers: Arc::new(workers),
+
+            cold_workers: Arc::new(cold_workers),
+            hot_workers: Arc::new(hot_workers),
+
             global_queue: Arc::new(Injector::new()),
             instruction_queue: Arc::new((SegQueue::<SchedulerHandlePayload>::new(), Notify::new())),
             failover_policy: config.failover_policy,
@@ -100,7 +113,10 @@ pub struct LiveScheduler<C: SchedulerConfig> {
     dispatcher: Arc<C::SchedulerTaskDispatcher>,
     engine: Arc<C::SchedulerEngine>,
     process: Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
-    workers: Arc<Vec<CachePadded<SchedulerWorker<C>>>>,
+
+    hot_workers: Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
+    cold_workers: Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
+
     global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     failover_policy: FailoverPolicy,
@@ -154,7 +170,8 @@ async fn apply_failover<C: SchedulerConfig>(
 
 #[inline(always)]
 async fn start_worker_process<C: SchedulerConfig>(
-    workers: Arc<Vec<CachePadded<SchedulerWorker<C>>>>,
+    hot_workers: Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
+    cold_workers: Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
     global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
     idx: usize,
     worker_len: usize,
@@ -165,12 +182,12 @@ async fn start_worker_process<C: SchedulerConfig>(
     processes: Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
 ) {
     let local_worker = {
-        let mut lock = workers[idx].queue.lock();
+        let mut lock = cold_workers[idx].queue.lock();
         lock.take().expect("worker queue was already taken")
     };
 
     loop {
-        while let Some(work) = workers[idx].ingress.pop() {
+        while let Some(work) = hot_workers[idx].ingress.pop() {
             local_worker.push(work);
         }
 
@@ -253,7 +270,7 @@ async fn start_worker_process<C: SchedulerConfig>(
                 continue;
             }
 
-            match workers[victim].stealer.steal_batch_and_pop(&local_worker) {
+            match hot_workers[victim].stealer.steal_batch_and_pop(&local_worker) {
                 Steal::Success(work) => {
                     local_worker.push(work);
                     found_work = true;
@@ -284,13 +301,11 @@ async fn start_worker_process<C: SchedulerConfig>(
         }
 
 
-        /*
-        if workers[idx].pending.swap(0, Ordering::Relaxed) > 0 {
+        if cold_workers[idx].pending.swap(0, Ordering::Relaxed) > 0 {
             continue;
         }
-         */
 
-        workers[idx].notify.notified().await;
+        cold_workers[idx].notify.notified().await;
     }
 }
 
@@ -319,12 +334,13 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         );
 
         let mut lock = self.process.write();
-        for idx in 0..self.workers.len() {
+        for idx in 0..self.hot_workers.len() {
             let handle = tokio::spawn(start_worker_process(
-                self.workers.clone(),
+                self.hot_workers.clone(),
+                self.cold_workers.clone(),
                 self.global_queue.clone(),
                 idx,
-                self.workers.len(),
+                self.hot_workers.len(),
                 self.store.clone(),
                 self.engine.clone(),
                 self.dispatcher.clone(),
@@ -337,14 +353,16 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
 
         lock.push(tokio::spawn(main_loop_logic::<C>(
             &engine_clone,
-            &self.workers,
+            &self.hot_workers,
+            &self.cold_workers,
         )));
 
         lock.push(tokio::spawn(scheduler_handle_instructions_logic::<C>(
             &self.instruction_queue,
             &dispatcher_clone,
             &store_clone,
-            &self.workers,
+            &self.hot_workers,
+            &self.cold_workers,
         )));
     }
 
@@ -374,7 +392,7 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         let erased = Arc::new(task.into_erased());
         let key = self.store.store(erased.clone())?;
         append_scheduler_handler::<C>(key.clone(), &erased, self.instruction_queue.clone()).await;
-        assign_to_trigger_worker::<C>(key.clone(), &self.workers);
+        assign_to_trigger_worker::<C>(key.clone(), &self.hot_workers, &self.cold_workers);
 
         Ok(key)
     }
