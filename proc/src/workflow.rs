@@ -42,8 +42,7 @@ impl WorkflowTransform for WorkflowPrimitive {
             WorkflowPrimitive::Timeout(res) => res.transform(toks),
             WorkflowPrimitive::Threshold(res) => res.transform(toks),
             WorkflowPrimitive::Dependency(res) => res.transform(toks),
-            _ => todo!(),
-            // WorkflowPrimitive::Condition(res) => res.transform(toks),
+            WorkflowPrimitive::Condition(res) => res.transform(toks),
         }
     }
 
@@ -55,8 +54,7 @@ impl WorkflowTransform for WorkflowPrimitive {
             WorkflowPrimitive::Timeout(res) => res.get_type(toks),
             WorkflowPrimitive::Threshold(res) => res.get_type(toks),
             WorkflowPrimitive::Dependency(res) => res.get_type(toks),
-            _ => todo!(),
-            // WorkflowPrimitive::Condition(res) => res.get_type(toks),
+            WorkflowPrimitive::Condition(res) => res.get_type(toks),
         }
     }
 }

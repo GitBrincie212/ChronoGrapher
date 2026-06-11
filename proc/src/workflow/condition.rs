@@ -40,7 +40,6 @@ impl ToTokens for ConditionReturnBehavior {
     }
 }
 
-// TODO: Fix some errors regarding impl TaskFrame when generating the macro
 pub struct ConditionArguments {
     predicate: syn::Ident,
     secondary: Option<TaskFrameConstructor>,
@@ -98,9 +97,12 @@ impl WorkflowTransform for ConditionArguments {
                 quote! { #output }
             })
             .unwrap_or_else(|| quote! {
-                ::chronographer::task::frames::noopframe::NoOperationTaskFrame::<
-                    <#toks as ::chronographer::task::frames::TaskFrame>::Error,
-                    ()
+                ::chronographer::task::frames::conditionframe::ConditionalTaskFrame::<
+                    #toks,
+                    ::chronographer::task::frames::noopframe::NoOperationTaskFrame::<
+                        <#toks as ::chronographer::task::frames::TaskFrame>::Error,
+                        ()
+                    >
                 >
             })
     }

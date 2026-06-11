@@ -87,25 +87,29 @@ impl<T: TaskFrame, T2: TaskFrame> ConditionalTaskFrame<T, T2> {
     }
 }
 
-impl<T: TaskFrame, F: TaskFrame> TaskFrame for ConditionalTaskFrame<T, F> {
+impl<T, F> TaskFrame for ConditionalTaskFrame<T, F>
+where
+    T: TaskFrame<Args = ()>,
+    F: TaskFrame<Args = ()>
+{
     type Error = ConditionalTaskFrameError<T::Error, F::Error>;
-    type Args = (T::Args, F::Args);
+    type Args = ();
     type Workflow = Self;
 
-    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
+    async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
         let result = self.predicate.execute(&ctx.0).await;
 
         if result {
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
             return self
                 .frame
-                .execute(&ctx, &args.0)
+                .execute(&ctx, &())
                 .await
                 .map_err(ConditionalTaskFrameError::PrimaryFailed);
         }
 
         ctx.emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
-        let result = self.fallback.execute(ctx, &args.1).await;
+        let result = self.fallback.execute(ctx, &()).await;
         if self.error_on_false && result.is_ok() {
             return Err(ConditionalTaskFrameError::TaskConditionFail);
         }
