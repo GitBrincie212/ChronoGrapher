@@ -736,8 +736,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// be an identifier or a closure.
 ///
 /// - ``secondary`` A backup TaskFrame to run in case the predicate returns false, its optional and by
-/// default runs nothing. Just like the fallback this follows the exact same expression syntax and
-/// can inherit automatically the workflow or not via ``@``.
+/// default runs nothing. Just like the fallback this follows the exact same expression syntax
 ///
 /// - ``on_false`` A configuration for the workflow primitive to act in case the predicate returns false.
 /// This can either be ``error`` for erroring out or ``success`` to simply skip. **It is important to know**
