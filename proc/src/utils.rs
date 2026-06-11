@@ -7,7 +7,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Attribute, Expr, ExprLit, Lit, Pat, PatType};
+use syn::{Attribute, ExprLit, Lit, Pat, PatType};
 
 pub const LIFETIME_UNSUPPORTED_ERR: &'static str =
     "Lifetimes are unsupported due to 'static lifetime limitations from async";
@@ -93,7 +93,7 @@ pub fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
             let syn::Meta::NameValue(nv) = &attr.meta else {
                 return None;
             };
-            let Expr::Lit(expr_lit) = &nv.value else {
+            let syn::Expr::Lit(expr_lit) = &nv.value else {
                 return None;
             };
             let Lit::Str(lit) = &expr_lit.lit else {
@@ -225,7 +225,7 @@ fn search_suffixes<'a>(target: &str) -> Result<(&'a RangeType, usize), (usize, &
 impl Parse for TimeLiteral {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let lit_span = input.cursor().span();
-        let Ok(lit) = input.parse::<Expr>() else {
+        let Ok(lit) = input.parse::<syn::Expr>() else {
             return Err(syn::Error::new(
                 lit_span,
                 "Expected a positive integer or float literal but got something else",
@@ -233,7 +233,7 @@ impl Parse for TimeLiteral {
         };
 
         let (num, suffix) = match lit {
-            Expr::Lit(ExprLit {
+            syn::Expr::Lit(ExprLit {
                 lit: Lit::Int(lit), ..
             }) => {
                 let num = parse_as_positive_fraction!(lit, lit_span, "positive integer");
@@ -241,7 +241,7 @@ impl Parse for TimeLiteral {
                 (num, lit.suffix().to_string())
             }
 
-            Expr::Lit(ExprLit {
+            syn::Expr::Lit(ExprLit {
                 lit: Lit::Float(lit),
                 ..
             }) => {
@@ -301,6 +301,93 @@ impl Parse for TimeLiteral {
                 };
 
                 Err(syn::Error::new(lit_span, msg))
+            }
+        }
+    }
+}
+
+pub struct TaskFrameConstructor {
+    pub ty: syn::TypePath,
+    pub inner: syn::Expr,
+    pub constructor: Option<syn::Ident>
+}
+
+impl TaskFrameConstructor {
+    pub fn to_token_type(&self) -> TokenStream2 {
+        let ty = &self.ty;
+        match self.constructor.as_ref() {
+            Some(c) if c == "workflow" => quote! { <#ty as ::chronographer::task::frames::TaskFrame>::Workflow },
+            _ => quote! { #ty },
+        }
+    }
+
+    pub fn to_token_construction(&self) -> TokenStream2 {
+        let constructor = &self.inner;
+        quote! { #constructor }
+    }
+}
+
+impl Parse for TaskFrameConstructor {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let expr = input.parse::<syn::Expr>()?;
+        match &expr {
+            syn::Expr::Call(call_expr) => {
+                let syn::Expr::Path(syn::ExprPath { path, .. }) = call_expr.func.as_ref() else {
+                    return Err(input.error(
+                        "Expected an obvious constructor call but got something else",
+                    ));
+                };
+
+                let segments = &path.segments;
+                let segment_len = segments.len();
+                if segment_len < 2 {
+                    return Err(input.error(
+                        "Expected a constructor call such as MyType::new(...)",
+                    ));
+                }
+
+                let type_path = syn::Path {
+                    leading_colon: path.leading_colon,
+                    segments: segments.iter()
+                        .cloned()
+                        .take(segment_len.saturating_sub(1))
+                        .collect(),
+                };
+
+                let ty = syn::TypePath {
+                    qself: None,
+                    path: type_path,
+                };
+
+                Ok(Self {
+                    constructor: Some(segments.last().unwrap().ident.clone()),
+                    ty,
+                    inner: expr,
+                })
+            }
+
+            syn::Expr::Path(pt) => {
+                let type_path = syn::Path {
+                    leading_colon: pt.path.leading_colon,
+                    segments: pt.path.segments.clone()
+                };
+
+                let ty = syn::TypePath {
+                    qself: None,
+                    path: type_path,
+                };
+
+                Ok(Self {
+                    ty,
+                    inner: expr,
+                    constructor: None
+                })
+            }
+
+            _ => {
+                Err(input.error(
+                    "Expected a constructor call such as MyType or MyType::new(...)",
+                ))
             }
         }
     }

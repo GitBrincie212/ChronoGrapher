@@ -492,13 +492,16 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// This workflow primitive can have an infinite number of arguments, with the only restrictions being
 /// they are positional and must be a [`TaskFrames`](chronographer::prelude::TaskFrame) "expression".
 ///
-/// These [`TaskFrames`](chronographer::prelude::TaskFrame) "expressions" are either identifiers
-/// or they can be identifiers prefixed with ``@``, both produce polar opposite results.
+/// These [`TaskFrames`](chronographer::prelude::TaskFrame) "expressions" must be a simple constructor
+/// method which fully exposes the type directly for example, plain ``MyType`` or ``MyType::new()``.
 ///
-/// The former tells ChronoGrapher to include the entire target [`TaskFrame's`](chronographer::prelude::TaskFrame)
-/// workflow (alongside it of course), this concept is called **Workflow Inheritance**.
+/// Generics are also supported as you can specify ``MyType::<T>::new()`` but no construction, in
+/// addition to type aliases. What is not supported though are constants and macros.
 ///
-/// While the latter only includes the target [`TaskFrame's`](chronographer::prelude::TaskFrame) raw code,
+/// ChronoGrapher's [`workflow`] macro is clever in that it can recognize when users call the ``workflow``
+/// method and automatically inherit the workflow (more formerly known as **Workflow Inheritance**).
+///
+/// While using any plain constructor only includes the target [`TaskFrame's`](chronographer::prelude::TaskFrame) raw code,
 /// disregarding completely the workflow logic, present or not.
 ///
 /// ### Examples:
@@ -775,10 +778,9 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// Due to Rust's macro limitations imposed, the [`workflow`] macro cannot support any type of expression
 /// which can produce a non-obvious type in some specific scenarios such as [`TaskFrames`](chronographer::prelude::TaskFrame).
 ///
-/// When it comes to [`TaskFrame`](chronographer::prelude::TaskFrame) "expressions", it is expected for the
-/// input [`TaskFrames`](chronographer::prelude::TaskFrame) to be created from with use of [`taskframe`],
-/// a wok-around for the base API users is to manually define a workflow method (either directly or indirectly
-/// with a trait).
+/// When it comes to [`TaskFrame`](chronographer::prelude::TaskFrame) "expressions", as stated before
+/// they must not have any indirections such as constants and macros that obfuscate the type, however
+/// it should be noted generics in the method's constructors are unsupported (i.e. ``MyType::new::<T>()``).
 ///
 /// Additionally due to the way the workflow annotation macro is set up, some IDEs such as RustRover
 /// may not display the color of the [`workflow`] macro nicely or rarely provide false positive

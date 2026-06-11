@@ -2,6 +2,7 @@ use crate::workflow::utils::{ArgumentParser, WorkflowTransform};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parse::{Parse, ParseStream};
+use crate::utils::TaskFrameConstructor;
 
 // TODO: Work on custom-based error behaviours
 pub enum ConditionReturnBehavior {
@@ -42,7 +43,7 @@ impl ToTokens for ConditionReturnBehavior {
 // TODO: Fix some errors regarding impl TaskFrame when generating the macro
 pub struct ConditionArguments {
     predicate: syn::Ident,
-    secondary: Option<syn::Ident>,
+    secondary: Option<TaskFrameConstructor>,
     on_false: Option<ConditionReturnBehavior>,
 }
 
@@ -64,7 +65,10 @@ impl WorkflowTransform for ConditionArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
         let predicate = &self.predicate;
         let secondary = self.secondary.as_ref()
-            .map(|x| quote! { .fallback(#x) });
+            .map(|secondary| {
+                let output = secondary.to_token_construction();
+                quote! { .fallback(#output) }
+            });
 
         let on_false = self
             .on_false
@@ -89,7 +93,10 @@ impl WorkflowTransform for ConditionArguments {
 
     fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
         self.secondary.as_ref()
-            .map(|x| quote! { #x })
+            .map(|secondary| {
+                let output = secondary.to_token_type();
+                quote! { #output }
+            })
             .unwrap_or_else(|| quote! {
                 ::chronographer::task::frames::noopframe::NoOperationTaskFrame::<
                     <#toks as ::chronographer::task::frames::TaskFrame>::Error,
