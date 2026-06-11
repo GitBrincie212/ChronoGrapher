@@ -33,7 +33,7 @@ async fn truthy_condition_returns_ok() {
     let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
         let ctx = *ctx;
         let frame = frame.clone();
-        async move { frame.execute(&ctx, &((), ())).await }
+        async move { frame.execute(&ctx, &()).await }
     });
 
     let task = Task::new(frame, TaskScheduleImmediate);
@@ -69,7 +69,7 @@ async fn falsey_condition_runs_fallback() {
     let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
         let ctx = *ctx;
         let frame = frame.clone();
-        async move { frame.execute(&ctx, &((), ())).await }
+        async move { frame.execute(&ctx, &()).await }
     });
 
     let task = Task::new(frame, TaskScheduleImmediate);
@@ -98,7 +98,7 @@ async fn falsey_condition_with_error_on_false_returns_error() {
     let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
         let ctx = *ctx;
         let frame = frame.clone();
-        async move { frame.execute(&ctx, &((), ())).await }
+        async move { frame.execute(&ctx, &()).await }
     });
 
     let task = Task::new(frame, TaskScheduleImmediate);
@@ -127,7 +127,7 @@ async fn truthy_condition_with_failing_inner_frame_returns_error() {
     let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
         let ctx = *ctx;
         let frame = frame.clone();
-        async move { frame.execute(&ctx, &((), ())).await }
+        async move { frame.execute(&ctx, &()).await }
     });
 
     let task = Task::new(frame, TaskScheduleImmediate);
@@ -168,7 +168,7 @@ async fn falsey_condition_with_failing_fallback_returns_error() {
     let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
         let ctx = *ctx;
         let frame = frame.clone();
-        async move { frame.execute(&ctx, &((), ())).await }
+        async move { frame.execute(&ctx, &()).await }
     });
 
     let task = Task::new(frame, TaskScheduleImmediate);
