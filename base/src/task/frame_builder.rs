@@ -501,9 +501,10 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     pub fn with_condition(
         self,
         predicate: impl ConditionalFramePredicate + 'static,
-    ) -> TaskFrameBuilder<
-        ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, impl Send + Sync + 'static>>,
-    > {
+    ) -> TaskFrameBuilder<ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, ()>>>
+    where
+        T: TaskFrame<Args = ()>
+    {
         let condition = ConditionalTaskFrame::builder()
             .predicate(predicate)
             .frame(self.0)
@@ -582,11 +583,14 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
     /// - [`with_condition`](TaskFrameBuilder::with_condition) - Wrapper that simply aborts/skips on false condition.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
-    pub fn with_fallback_condition<T2: TaskFrame + 'static>(
+    pub fn with_fallback_condition<T2: TaskFrame<Args = ()> + 'static>(
         self,
         fallback: T2,
         predicate: impl ConditionalFramePredicate + 'static,
-    ) -> TaskFrameBuilder<ConditionalTaskFrame<T, T2>> {
+    ) -> TaskFrameBuilder<ConditionalTaskFrame<T, T2>>
+    where
+        T: TaskFrame<Args = ()>
+    {
         let condition: ConditionalTaskFrame<T, T2> =
             ConditionalTaskFrame::<T, T2>::fallback_builder()
                 .predicate(predicate)
