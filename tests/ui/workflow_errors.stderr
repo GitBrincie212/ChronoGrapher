@@ -1,0 +1,144 @@
+error: Workflow attribute is unsupported outside of Tasks and TaskFrames (via the respective macros)
+ --> ui/workflow_errors.rs:6:5
+  |
+6 |     #[workflow(timeout(20s))]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: unexpected end of input, Expected at least one workflow primitive
+  --> ui/workflow_errors.rs:10:5
+   |
+10 |     #[taskframe]
+   |     ^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `taskframe` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Unknown workflow primitive
+  --> ui/workflow_errors.rs:16:16
+   |
+16 |     #[workflow(frobnicate(10s))]
+   |                ^^^^^^^^^^
+
+error: Expected duration argument but got nothing
+  --> ui/workflow_errors.rs:21:24
+   |
+21 |     #[workflow(timeout())]
+   |                        ^
+
+error: Retries must be a positive non-zero number
+  --> ui/workflow_errors.rs:26:22
+   |
+26 |     #[workflow(retry(0))]
+   |                      ^
+
+error: Expected max argument but got nothing
+  --> ui/workflow_errors.rs:31:22
+   |
+31 |     #[workflow(retry())]
+   |                      ^
+
+error: Function is required to be async
+  --> ui/workflow_errors.rs:36:5
+   |
+36 |     #[taskframe]
+   |     ^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `taskframe` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: Function is required to have at least one argument of type "TaskFrameContext"
+  --> ui/workflow_errors.rs:41:5
+   |
+41 |     #[taskframe]
+   |     ^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `taskframe` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: First argument must be of type "TaskFrameContext"
+  --> ui/workflow_errors.rs:48:30
+   |
+48 |     async fn wrong_ctx(_ctx: &u32) -> Result<(), String> { Ok(()) }
+   |                              ^^^^
+
+error: Return type must be of type Result<(), E> in which E is your desired error type
+  --> ui/workflow_errors.rs:53:55
+   |
+53 |     async fn wrong_return(_ctx: &TaskFrameContext) -> () {}
+   |                                                       ^^
+
+error: First generic argument of Result must be of type ()
+  --> ui/workflow_errors.rs:58:63
+   |
+58 |     async fn wrong_ok_type(_ctx: &TaskFrameContext) -> Result<u32, String> { Ok(0) }
+   |                                                               ^^^
+
+error: Expected max argument but got tries
+  --> ui/workflow_errors.rs:67:33
+   |
+67 |     #[workflow(retry(tries = 3, 2s))]
+   |                                 ^^
+
+error: Workflow attribute is unsupported outside of Tasks and TaskFrames (via the respective macros)
+  --> ui/workflow_errors.rs:77:5
+   |
+77 |     #[workflow(delay(500ms), retry(2))]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: type `retry_zero` should have an upper camel case name
+  --> ui/workflow_errors.rs:27:14
+   |
+27 |     async fn retry_zero(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+   |              ^^^^^^^^^^ help: convert the identifier to upper camel case: `RetryZero`
+   |
+   = note: `#[warn(non_camel_case_types)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: unnecessary braces around block return value
+  --> ui/workflow_errors.rs:27:72
+   |
+27 |     async fn retry_zero(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+   |                                                                        ^^      ^^
+   |
+   = note: `#[warn(unused_braces)]` (part of `#[warn(unused)]`) on by default
+help: remove these braces
+   |
+27 -     async fn retry_zero(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+27 +     async fn retry_zero(_ctx: &TaskFrameContext) -> Result<(), String> Ok(())
+   |
+
+warning: type `duplicate_timeout` should have an upper camel case name
+  --> ui/workflow_errors.rs:63:14
+   |
+63 |     async fn duplicate_timeout(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+   |              ^^^^^^^^^^^^^^^^^ help: convert the identifier to upper camel case: `DuplicateTimeout`
+
+warning: unnecessary braces around block return value
+  --> ui/workflow_errors.rs:63:79
+   |
+63 |     async fn duplicate_timeout(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+   |                                                                               ^^      ^^
+   |
+help: remove these braces
+   |
+63 -     async fn duplicate_timeout(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+63 +     async fn duplicate_timeout(_ctx: &TaskFrameContext) -> Result<(), String> Ok(())
+   |
+
+warning: type `fallback_no_frames` should have an upper camel case name
+  --> ui/workflow_errors.rs:73:14
+   |
+73 |     async fn fallback_no_frames(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+   |              ^^^^^^^^^^^^^^^^^^ help: convert the identifier to upper camel case: `FallbackNoFrames`
+
+warning: unnecessary braces around block return value
+  --> ui/workflow_errors.rs:73:80
+   |
+73 |     async fn fallback_no_frames(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+   |                                                                                ^^      ^^
+   |
+help: remove these braces
+   |
+73 -     async fn fallback_no_frames(_ctx: &TaskFrameContext) -> Result<(), String> { Ok(()) }
+73 +     async fn fallback_no_frames(_ctx: &TaskFrameContext) -> Result<(), String> Ok(())
+   |
