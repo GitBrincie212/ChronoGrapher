@@ -347,7 +347,7 @@ export function ChronoGrapherWireComponent() {
       <div className="z-100 p-0.5 bg-linear-to-b from-fd-foreground from-30% via-fd-muted via-70% to-fd-background rounded-lg">
         <div
           className={
-            "relative size-60 lg:size-68 xl:size-80 2xl:size-96 flex items-center justify-center bg-linear-to-b from-fd-background-100n " +
+            "relative size-60 lg:size-68 xl:size-80 2xl:size-96 flex items-center justify-center bg-linear-to-b from-fd-background/98 " +
             "to-fd-background-100p to-80% rounded-lg **:pointer-events-none **:select-none"
           }
         >
