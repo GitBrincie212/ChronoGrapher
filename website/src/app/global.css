@@ -50,34 +50,34 @@
 }
 
 .dark {
-  --color-fd-background: hsl(240, 18%, 7%);
-  --color-fd-primary: hsl(270, 100%, 86%);
-  --color-fd-primary-foreground: hsl(256, 60%, 6%);
-  --color-fd-brand-primary: hsl(270, 100%, 61%);
-  --color-fd-brand-primary-foreground: hsl(270, 100%, 20%);
-  --color-fd-border: hsla(271, 47%, 54%, 0.3);
-  --color-fd-accent: hsl(256, 23%, 22%);
-  --color-fd-accent-foreground: hsl(270, 40%, 86%);
-  --color-fd-muted: hsl(248, 32%, 13%);
-  --color-fd-foreground: hsl(256, 60%, 90%);
-  --color-fd-muted-foreground: hsl(256, 50%, 75%);
-  --color-fd-secondary: hsl(270, 23%, 20%);
-  --color-fd-secondary-foreground: hsl(256, 60%, 90%);
-  --color-fd-brand-secondary: hsl(333, 100%, 61%);
-  --color-fd-brand-secondary-foreground: hsl(318, 71%, 9%);
-  --color-fd-card: hsl(247, 22%, 8%);
-  --color-fd-card-foreground: hsl(256, 60%, 90%);
-  --color-fd-popover-foreground: hsl(256, 60%, 90%);
-  --color-fd-popover: hsl(248, 21%, 14%);
-  --color-fd-ring: hsl(270, 100%, 86%);
+  --color-fd-background: hsl(264, 28%, 5%);
+  --color-fd-primary: hsl(269, 100%, 86%);
+  --color-fd-primary-foreground: hsl(253, 60%, 3%);
+  --color-fd-brand-primary: hsl(270, 100%, 68%);
+  --color-fd-brand-primary-foreground: hsl(270, 100%, 13%);
+  --color-fd-border: hsla(270, 40%, 34%, 0.3);
+  --color-fd-accent: hsl(269, 56%, 14%);
+  --color-fd-accent-foreground: hsl(261, 100%, 71%);
+  --color-fd-muted: hsl(247, 16%, 10%);
+  --color-fd-foreground: hsl(258, 56%, 96%);
+  --color-fd-muted-foreground: hsl(255, 100%, 86%);
+  --color-fd-secondary: hsl(270, 23%, 10%);
+  --color-fd-secondary-foreground: hsl(255, 33%, 91%);
+  --color-fd-brand-secondary: hsl(333, 100%, 65%);
+  --color-fd-brand-secondary-foreground: hsl(323, 100%, 9%);
+  --color-fd-card: hsl(261, 54%, 5%);
+  --color-fd-card-foreground: hsl(260, 22%, 92%);
+  --color-fd-popover-foreground: hsl(256, 28%, 92%);
+  --color-fd-popover: hsl(285, 35%, 7%);
+  --color-fd-ring: hsl(266, 33%, 92%);
 
   --color-fd-diff-add: rgba(22, 248, 139, 0.1);
   --color-fd-diff-add-symbol: rgb(14, 243, 123);
   --color-fd-success: oklch(0.765 0.219 148.202);
   --color-fd-warning: oklch(0.816 0.155 72.93);
 
-  --color-fd-background-100n: hsl(250, 20%, 6%);
-  --color-fd-background-100p: hsl(252, 9%, 10%);
+  --color-fd-background-100n: hsl(240, 40%, 2%);
+  --color-fd-background-100p: hsl(264, 28%, 8%);
 }
 
 .hljs {
