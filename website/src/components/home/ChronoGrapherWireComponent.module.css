@@ -12,6 +12,12 @@
     }
 
     .wire-container-outer {
+        mask: linear-gradient(180deg, white 0%, transparent 70%)
+    }
+}
+
+@media (max-width: 1280px) {
+    .wire-container-outer {
         mask: linear-gradient(180deg, white 0%, transparent 60%)
     }
 }

@@ -13,7 +13,7 @@ import animate = waapi.animate;
 
 const WIRES = [
   {
-    widthClass: "w-[30rem] lg:w-[40rem] 2xl:w-[60rem]",
+    widthClass: "w-[30rem] lg:w-[40rem] xl:w-[52rem] 2xl:w-[60rem]",
     leftIcon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -56,7 +56,7 @@ const WIRES = [
     ),
   },
   {
-    widthClass: "w-[50rem] lg:w-[60rem] 2xl:w-[100rem]",
+    widthClass: "w-[50rem] lg:w-[60rem] xl:w-[76rem] 2xl:w-[100rem]",
     leftIcon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -101,7 +101,7 @@ const WIRES = [
     ),
   },
   {
-    widthClass: "w-[35rem] lg:w-[45rem] 2xl:w-[70rem]",
+    widthClass: "w-[35rem] lg:w-[45rem] xl:w-[58rem] 2xl:w-[70rem]",
     leftIcon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -143,7 +143,7 @@ const WIRES = [
     ),
   },
   {
-    widthClass: "w-[50rem] lg:w-[55rem] 2xl:w-[90rem]",
+    widthClass: "w-[50rem] lg:w-[55rem] xl:w-[70rem] 2xl:w-[90rem]",
     leftIcon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -194,10 +194,10 @@ function ServiceBlockComponent(props: {
       <div
         className={`relative p-0.5 ${props.left ? "bg-linear-to-r" : "bg-linear-to-l"} from-fd-foreground/30 to-fd-background-100p rounded z-100`}
       >
-        <div className={"size-8 2xl:size-12 rounded bg-fd-background"} />
+        <div className={"size-8 xl:size-10 2xl:size-12 rounded bg-fd-background"} />
         <div
           className={
-            "absolute size-full flex items-center justify-center text-xl 2xl:text-3xl inset-0 opacity-25"
+            "absolute size-full flex items-center justify-center text-xl xl:text-2xl 2xl:text-3xl inset-0 opacity-25"
           }
         >
           {props.children}
@@ -210,11 +210,11 @@ function ServiceBlockComponent(props: {
 function ChipWireComponent(props: { left?: boolean }) {
   const ping = React.useRef<HTMLDivElement>(null);
   const outerPingContainer = React.useRef<HTMLDivElement>(null);
-  const [usesSecondary, setUsesSecondary] = React.useState<boolean>(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: onPingAnimUpdate is a static function, nothing else
   useEffect(() => {
     if (!ping.current) return;
+
     const randLoopDelay = Math.random() * (200 - 100) + 100;
     const randDuration = (Math.random() * (2000 - 1000) + 1000);
     const timeline = createTimeline({
@@ -229,7 +229,7 @@ function ChipWireComponent(props: { left?: boolean }) {
     ping.current.style[moveProp] = "101%";
 
     timeline
-      .set(ping.current, { opacity: 1, onBegin: () => setUsesSecondary(false) })
+      .set(ping.current, { opacity: 1, rotate: 180, "--target-color": "var(--color-fd-brand-primary)" })
       .add(ping.current, {
         [moveProp]: "-8%",
         scale: {
@@ -240,6 +240,7 @@ function ChipWireComponent(props: { left?: boolean }) {
         },
         ease: "outQuad",
       })
+      .set(ping.current, { rotate: 0, "--target-color": "var(--color-fd-brand-secondary)" })
       .add(ping.current, {
         [moveProp]: "101%",
         scale: {
@@ -249,7 +250,6 @@ function ChipWireComponent(props: { left?: boolean }) {
           ease: "easeOutCubic",
         },
         ease: "outQuad",
-        onBegin: () => setUsesSecondary(true),
       });
   }, [ping]);
 
@@ -265,19 +265,18 @@ function ChipWireComponent(props: { left?: boolean }) {
           className={`absolute flex items-center opacity-0 ${props.left ? "left-[101%]" : "right-[101%]"}`}
           ref={ping}
         >
-          <div
-            className={`rounded-full size-4 bg-white border-2 ${usesSecondary ? "border-fd-brand-secondary" : "border-fd-brand-primary"} z-20`}
-          />
-          <div className={`absolute size-24 flex items-center z-10`}>
-            <div className={`blur-md saturate-200 rounded-full size-6 ${usesSecondary ? "bg-fd-brand-secondary" : "bg-fd-brand-primary"}`}/>
+          <div className={"rounded-full size-4 bg-white border-2 z-20"} style={{ borderColor: "var(--target-color)" }}/>
+          <div className={"absolute size-24 flex items-center z-10"}>
+            <div className={"blur-md saturate-200 rounded-full size-6"}  style={{ backgroundColor: "var(--target-color)" }}/>
           </div>
           <div
-            className={`absolute min-h-2 w-18 2xl:w-36 ${
-              usesSecondary
-                ? `${props.left ? "bg-linear-to-l right-full" : "bg-linear-to-r left-full"} from-fd-brand-secondary`
-                : `${props.left ? "bg-linear-to-r left-full" : "bg-linear-to-l right-full"} from-fd-brand-primary`
-            } to-transparent 
-          `}
+            className={"absolute min-h-2 w-18 2xl:w-36"}
+            style={{
+              background: props.left
+                  ? 'linear-gradient(to left, var(--target-color), transparent)'
+                  : 'linear-gradient(to right, var(--target-color), transparent)',
+              [props.left ? 'right' : 'left']: '100%'
+            }}
           />
         </div>
       </div>
@@ -323,7 +322,7 @@ function ChipTransmissionComponent(props: {
         <ChipWireComponent />
         <ChipWireComponent left />
       </div>
-      <div className={"w-66 lg:w-76 2xl:w-104 flex justify-between items-center z-10"}>
+      <div className={"w-66 lg:w-76 xl:w-87 2xl:w-104 flex justify-between items-center z-10"}>
         <div className="size-5 lg:size-6 rounded-full bg-fd-background border-3 border-fd-foreground" />
         <div className="size-5 lg:size-6 rounded-full bg-fd-background border-3 border-fd-foreground" />
       </div>
@@ -344,11 +343,11 @@ export function ChronoGrapherWireComponent() {
   }, []);
 
   return (
-    <div className={`relative opacity-0 -mb-36 lg:-mb-20 2xl:-mb-12 w-full h-full flex flex-col items-center ${styles["wire-container-outer"]}`} ref={parentContainer}>
+    <div className={`relative opacity-0 -mb-36 lg:-mb-28 xl:-mb-18 2xl:-mb-12 w-full h-full flex flex-col items-center ${styles["wire-container-outer"]}`} ref={parentContainer}>
       <div className="z-100 p-0.5 bg-linear-to-b from-fd-foreground from-30% via-fd-muted via-70% to-fd-background rounded-lg">
         <div
           className={
-            "relative size-60 lg:size-68 2xl:size-96 flex items-center justify-center bg-linear-to-b from-fd-background-100n " +
+            "relative size-60 lg:size-68 xl:size-80 2xl:size-96 flex items-center justify-center bg-linear-to-b from-fd-background-100n " +
             "to-fd-background-100p to-80% rounded-lg **:pointer-events-none **:select-none"
           }
         >
