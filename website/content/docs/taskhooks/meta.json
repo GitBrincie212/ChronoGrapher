@@ -1,8 +1,4 @@
 {
   "title": "Introspecting Workflows",
-  "pages": [
-    "index",
-    "introduction",
-    "custom_events"
-  ]
+  "pages": ["index", "introduction", "custom_events"]
 }

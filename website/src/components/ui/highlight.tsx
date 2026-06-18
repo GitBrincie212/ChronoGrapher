@@ -15,7 +15,8 @@ const variants: Record<Color, string> = {
   warn: "dark:text-fd-warning text-[color:color-mix(in_lch,var(--color-fd-warning)_60%,#c98112)] bg-fd-warning/10",
   error: "text-fd-error bg-fd-error/10",
   idea: "dark:text-fd-idea text-[color:color-mix(in_lch,var(--color-fd-idea)_50%,#9e4e00)] bg-fd-idea/25 dark:bg-fd-idea/10",
-  success: "dark:text-fd-success text-[color:color-mix(in_lch,var(--color-fd-success)_50%,#02b84b)] bg-fd-success/25 dark:bg-fd-success/10",
+  success:
+    "dark:text-fd-success text-[color:color-mix(in_lch,var(--color-fd-success)_50%,#02b84b)] bg-fd-success/25 dark:bg-fd-success/10",
   neutral: "text-fd-foreground bg-fd-foreground/10",
   primary: "text-fd-brand-primary bg-fd-brand-primary/10",
   secondary: "text-fd-brand-secondary bg-fd-brand-secondary/10",
