@@ -2,7 +2,7 @@
 
 import type React from "react";
 import Highlight from "src/components/ui/highlight"
-import styles from "./FeatureShowcaseSection.module.css"
+import styles from "./ScalabilityShowcaseSection.module.css"
 import Laptop from "@/assets/Laptop LineArt.png"
 import HDD from "@/assets/HDD LineArt.png"
 import Image from "next/image";
