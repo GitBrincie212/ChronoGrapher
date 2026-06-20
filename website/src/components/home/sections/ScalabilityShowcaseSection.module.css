@@ -1,0 +1,42 @@
+.booster-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+
+    background-color: var(--color-fd-primary);
+    opacity: 0.1;
+
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20width%3D%2223%22%20height%3D%2244%22%20viewBox%3D%220%200%2023%2044%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M0.5%2042.1262L0.5%201.17505L21.7793%2021.6506L0.5%2042.1262Z%22%20stroke%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg%20width%3D%2223%22%20height%3D%2244%22%20viewBox%3D%220%200%2023%2044%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M0.5%2042.1262L0.5%201.17505L21.7793%2021.6506L0.5%2042.1262Z%22%20stroke%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E");
+
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+    -webkit-mask-size: calc(100% / 18) 100%;
+    mask-size: calc(100% / 18) 100%;
+
+    object-fit: fill;
+    animation: booster-bg-animation 15s infinite linear;
+}
+
+.booster-bg-blur-mask {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+
+    --webkit-mask: linear-gradient(to right, white 2%, transparent 80%, white);
+    mask: linear-gradient(to right, white 2%, transparent 80%, white);
+
+    backdrop-filter: blur(10px);
+}
+
+@keyframes booster-bg-animation {
+    0% {
+        -webkit-mask-position: 0 0;
+        mask-position: 0 0;
+    }
+
+    100% {
+        -webkit-mask-position: 100% 0;
+        mask-position: 100% 0;
+    }
+}
