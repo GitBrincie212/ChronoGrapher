@@ -42,6 +42,7 @@
 
   --color-fd-background-100p: hsl(258, 17%, 77%);
   --color-fd-background-100n: hsl(260, 100%, 96%);
+  --color-fd-brand-background: hsla(266, 21%, 71%, 0.5);
 }
 
 @theme static {
@@ -81,6 +82,7 @@
 
   --color-fd-background-100n: hsl(240, 40%, 2%);
   --color-fd-background-100p: hsl(264, 28%, 8%);
+  --color-fd-brand-background: hsl(247, 16%, 10%);
 }
 
 .hljs {
