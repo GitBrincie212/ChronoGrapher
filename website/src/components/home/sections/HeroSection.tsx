@@ -37,7 +37,7 @@ function ChronoGrapherCallToActionText() {
         <Highlight pulse={true} color={"primary"}>
           Scheduler
         </Highlight>
-        , Unlimited{" "}
+        <span> Kernel, Unlimited{" "}</span>
         <Highlight pulse={true} color={"secondary"}>
           Power
         </Highlight>
@@ -67,7 +67,7 @@ export default function HeroSection() {
   }, []);
 
   return (
-    <div className="w-screen h-96 mt-16 mb-48 relative">
+    <div className="w-screen h-96 mt-16 mb-28 relative">
       <ChronoGrapherWireComponent />
       <ChronoGrapherCallToActionText />
       <div
@@ -87,7 +87,7 @@ export default function HeroSection() {
       </div>
       <div
         className={
-          "contents *:border-b *:border-b-background-100p *:absolute *:w-full *:bottom-0"
+          "contents *:border-b *:border-fd-muted-foreground/20 *:absolute *:w-full *:bottom-0"
         }
       >
         <div className={"-mb-32"} />
