@@ -1,14 +1,25 @@
 ---
 title: Tweaking The Website
-description: Get basic idea on how to work and produce for the guidebook and the website
-optional: true
+description: Get basic idea on how to work and produce content for the website
 ---
 
 In this page, we will get a basic overview of how to work with the website (covering the guidebook as well).
 For further information regarding guidebook guidelines, visit [Guidebook Guidelines](/contributing/guidebook_guidelines).
 
+## ChronoGrapher's Tech Stack
+ChronoGrapher's website uses multiple tools to ensure the maintenance its infrastructure, rapid
+development and a smooth user experience:
+- [React](https://react.dev)
+- [Next.js](https://nextjs.org)
+- [Fumadocs](https://fumadocs.dev)
+- [BiomeJS](https://biomejs.dev)
+- [TailwindCSS](https://tailwindcss.com)
+- [TypeScript](https://typescriptlang.org)
+- [AnimeJS](https://animejs.com)
+- [PNPM](https://pnpm.io)
+
 # Website Structure & Components
-The guidebook uses [Fumadocs](https://www.fumadocs.dev) to present its documentation, it is encouraged to check for anything
+The guidebook uses Fumadocs to present its documentation, it is encouraged to check for anything
 specific, however we will get a surface overview of how the guidebook is organized.
 
 <Files>
@@ -135,3 +146,15 @@ represents, the ``THEME MODE`` can be either "dark" or "light" and ``NUMBER`` is
 
 > **Note:** It should be mentioned that file names should be in lowercase.
 
+## Src Folder
+Anything under the ``src/`` directory corresponds with the application logic. It's mostly identical to the typical Next.Js
+project structure with the addition of Fumadocs.
+
+There are four specific folders to look out for:
+- ``app/`` Contains the logic for the website, including styles, pages... etc.
+- ``assets/`` Similar to the ``public/`` folder but used for assets in the website
+- ``components/`` contains React components either for the page or accessible in MDX
+- ``lib/`` Contains utilities used throughout the code
+
+For a more introspective / inclusive guide about the application logic inside ``src/``, it's best to view the docs of
+Fumadocs as well as Next.js documentation.
