@@ -9,6 +9,8 @@ async-trait = "0.1.89"
 tokio = { version = "1.52.0", features = ["full", "test-util"] }
 trybuild = "1.0"
 thiserror = "2.0.18"
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
 
 [dev-dependencies]
 paste = "1.0.15"
