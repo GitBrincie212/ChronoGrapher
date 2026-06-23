@@ -12,7 +12,7 @@ pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
     }
 
     fn retrieve(&self) -> impl Future<Output = Vec<SchedulerKey<C>>> + Send;
-    
+
     fn clock(&self) -> &C::SchedulerClock;
 
     fn schedule(
@@ -20,6 +20,6 @@ pub trait SchedulerEngine<C: SchedulerConfig>: 'static + Send + Sync {
         id: &SchedulerKey<C>,
         time: SystemTime,
     ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send;
-    
+
     fn clear(&self) -> impl Future<Output = ()> + Send;
 }

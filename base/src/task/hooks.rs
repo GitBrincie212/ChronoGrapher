@@ -43,29 +43,28 @@ pub mod events {
     the TypeId isn't.
 */
 
-pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> = LazyLock::new(|| TaskHookContainer(DashMap::new()));
+pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> =
+    LazyLock::new(|| TaskHookContainer(DashMap::new()));
 
 /*
-    The TaskHook registry use a promotion-based system to reduce unnecessary memory allocations for
-    small enough Event -> TaskHook instances, the same idea applies to TaskHookInstances. The reason
-    for the existence of TaskHookInstances is to have a history of the instances (it is a queue essentially).
- */
+   The TaskHook registry use a promotion-based system to reduce unnecessary memory allocations for
+   small enough Event -> TaskHook instances, the same idea applies to TaskHookInstances. The reason
+   for the existence of TaskHookInstances is to have a history of the instances (it is a queue essentially).
+*/
 
 #[derive(Default)]
 pub(crate) enum TaskHookInstances {
     #[default]
     Empty,
     Single(&'static dyn ErasedTaskHook),
-    Multiple(Vec<&'static dyn ErasedTaskHook>)
+    Multiple(Vec<&'static dyn ErasedTaskHook>),
 }
 
 impl TaskHookInstances {
     #[inline(always)]
     fn push(&mut self, hook: &'static dyn ErasedTaskHook) {
         match self {
-            TaskHookInstances::Empty => {
-                *self = TaskHookInstances::Single(hook)
-            },
+            TaskHookInstances::Empty => *self = TaskHookInstances::Single(hook),
             TaskHookInstances::Single(prev_hook) => {
                 *self = TaskHookInstances::Multiple(vec![*prev_hook, hook])
             }
@@ -79,9 +78,11 @@ impl TaskHookInstances {
     #[inline(always)]
     fn get(&self) -> &'static dyn ErasedTaskHook {
         match self {
-            TaskHookInstances::Empty => { unreachable!() },
-            TaskHookInstances::Single(prev_hook) => { *prev_hook }
-            TaskHookInstances::Multiple(hooks) => { unsafe { *hooks.last().unwrap_unchecked() } }
+            TaskHookInstances::Empty => {
+                unreachable!()
+            }
+            TaskHookInstances::Single(prev_hook) => *prev_hook,
+            TaskHookInstances::Multiple(hooks) => unsafe { *hooks.last().unwrap_unchecked() },
         }
     }
 
@@ -94,7 +95,8 @@ impl TaskHookInstances {
             TaskHookInstances::Multiple(mut instances) => {
                 let val = unsafe { instances.pop().unwrap_unchecked() };
                 if instances.len() == 1 {
-                    *self = TaskHookInstances::Single(unsafe { instances.pop().unwrap_unchecked() });
+                    *self =
+                        TaskHookInstances::Single(unsafe { instances.pop().unwrap_unchecked() });
                 } else {
                     *self = TaskHookInstances::Multiple(instances);
                 }
@@ -110,8 +112,12 @@ pub(crate) enum TaskHooksPromotion {
     Empty,
     Single(TypeId, TaskHookInstances),
     Double((TypeId, TaskHookInstances), (TypeId, TaskHookInstances)),
-    Triplet((TypeId, TaskHookInstances), (TypeId, TaskHookInstances), (TypeId, TaskHookInstances)),
-    Multiple(HashMap<TypeId, TaskHookInstances>)
+    Triplet(
+        (TypeId, TaskHookInstances),
+        (TypeId, TaskHookInstances),
+        (TypeId, TaskHookInstances),
+    ),
+    Multiple(HashMap<TypeId, TaskHookInstances>),
 }
 
 impl TaskHooksPromotion {
@@ -131,14 +137,11 @@ impl TaskHooksPromotion {
 
                 *self = TaskHooksPromotion::Double(
                     (*prev_id, prev_instances),
-                    (hook_id, TaskHookInstances::Single(hook))
+                    (hook_id, TaskHookInstances::Single(hook)),
                 );
             }
 
-            TaskHooksPromotion::Double(
-                (id1, hooks1),
-                (id2, hooks2)
-            ) => {
+            TaskHooksPromotion::Double((id1, hooks1), (id2, hooks2)) => {
                 if id1 == &hook_id {
                     hooks1.push(hook);
                     return;
@@ -153,22 +156,18 @@ impl TaskHooksPromotion {
                 *self = TaskHooksPromotion::Triplet(
                     (*id1, prev_instances1),
                     (*id2, prev_instances2),
-                    (hook_id, TaskHookInstances::Single(hook))
+                    (hook_id, TaskHookInstances::Single(hook)),
                 );
             }
 
-            TaskHooksPromotion::Triplet(
-                (id1, hooks1),
-                (id2, hooks2),
-                (id3, hooks3),
-            ) => {
+            TaskHooksPromotion::Triplet((id1, hooks1), (id2, hooks2), (id3, hooks3)) => {
                 if id1 == &hook_id {
                     hooks1.push(hook);
                     return;
                 } else if id2 == &hook_id {
                     hooks2.push(hook);
                     return;
-                }  else if id3 == &hook_id {
+                } else if id3 == &hook_id {
                     hooks3.push(hook);
                     return;
                 }
@@ -186,7 +185,9 @@ impl TaskHooksPromotion {
             }
 
             TaskHooksPromotion::Multiple(map) => {
-                map.entry(hook_id).or_insert_with(TaskHookInstances::default).push(hook);
+                map.entry(hook_id)
+                    .or_insert_with(TaskHookInstances::default)
+                    .push(hook);
             }
         }
     }
@@ -195,20 +196,32 @@ impl TaskHooksPromotion {
     fn fetch(&self, hook_id: &TypeId) -> Option<&'static dyn ErasedTaskHook> {
         match self {
             TaskHooksPromotion::Single(id, instances) => {
-                if *id == *hook_id {return Some(instances.get())}
+                if *id == *hook_id {
+                    return Some(instances.get());
+                }
             }
             TaskHooksPromotion::Double((id1, instances1), (id2, instances2)) => {
-                if *id1 == *hook_id {return Some(instances1.get())}
-                if *id2 == *hook_id {return Some(instances2.get())}
+                if *id1 == *hook_id {
+                    return Some(instances1.get());
+                }
+                if *id2 == *hook_id {
+                    return Some(instances2.get());
+                }
             }
             TaskHooksPromotion::Triplet(
                 (id1, instances1),
                 (id2, instances2),
-                (id3, instances3)
+                (id3, instances3),
             ) => {
-                if *id1 == *hook_id {return Some(instances1.get())}
-                if *id2 == *hook_id {return Some(instances2.get())}
-                if *id3 == *hook_id {return Some(instances3.get())}
+                if *id1 == *hook_id {
+                    return Some(instances1.get());
+                }
+                if *id2 == *hook_id {
+                    return Some(instances2.get());
+                }
+                if *id3 == *hook_id {
+                    return Some(instances3.get());
+                }
             }
             TaskHooksPromotion::Multiple(vals) => {
                 return Some(vals.get(hook_id)?.get());
@@ -223,20 +236,17 @@ impl TaskHooksPromotion {
     #[inline(always)]
     fn remove(&mut self, hook_id: TypeId) -> Option<&'static dyn ErasedTaskHook> {
         match self {
-            TaskHooksPromotion::Double(
-                (id1, instances1),
-                (id2, instances2)
-            ) => {
+            TaskHooksPromotion::Double((id1, instances1), (id2, instances2)) => {
                 if *id1 == hook_id {
                     if let Some(instance) = instances1.pop() {
-                        return Some(instance)
+                        return Some(instance);
                     }
 
                     let hook2 = std::mem::take(instances2);
                     *self = TaskHooksPromotion::Single(*id2, hook2);
                 } else if *id2 == hook_id {
                     if let Some(instance) = instances2.pop() {
-                        return Some(instance)
+                        return Some(instance);
                     }
 
                     let hook1 = std::mem::take(instances1);
@@ -248,42 +258,32 @@ impl TaskHooksPromotion {
             TaskHooksPromotion::Triplet(
                 (id1, instances1),
                 (id2, instances2),
-                (id3, instances3)
+                (id3, instances3),
             ) => {
                 if *id1 == hook_id {
                     if let Some(instance) = instances1.pop() {
-                        return Some(instance)
+                        return Some(instance);
                     }
 
                     let hooks2 = std::mem::take(instances2);
                     let hooks3 = std::mem::take(instances3);
-                    *self = TaskHooksPromotion::Double(
-                        (*id2, hooks2),
-                        (*id3, hooks3)
-                    );
+                    *self = TaskHooksPromotion::Double((*id2, hooks2), (*id3, hooks3));
                 } else if *id2 == hook_id {
                     if let Some(instance) = instances2.pop() {
-                        return Some(instance)
+                        return Some(instance);
                     }
 
                     let hooks1 = std::mem::take(instances1);
                     let hooks3 = std::mem::take(instances3);
-                    *self = TaskHooksPromotion::Double(
-                        (*id1, hooks1),
-                        (*id3, hooks3)
-                    );
-
+                    *self = TaskHooksPromotion::Double((*id1, hooks1), (*id3, hooks3));
                 } else if *id3 == hook_id {
                     if let Some(instance) = instances3.pop() {
-                        return Some(instance)
+                        return Some(instance);
                     }
 
                     let hooks1 = std::mem::take(instances1);
                     let hooks2 = std::mem::take(instances2);
-                    *self = TaskHooksPromotion::Double(
-                        (*id1, hooks1),
-                        (*id2, hooks2)
-                    );
+                    *self = TaskHooksPromotion::Double((*id1, hooks1), (*id2, hooks2));
                 }
 
                 None
@@ -298,11 +298,8 @@ impl TaskHooksPromotion {
                     let (id2, hooks2) = unsafe { drained.next().unwrap_unchecked() };
                     let (id3, hooks3) = unsafe { drained.next().unwrap_unchecked() };
                     drop(drained);
-                    *self = TaskHooksPromotion::Triplet(
-                        (id1, hooks1),
-                        (id2, hooks2),
-                        (id3, hooks3)
-                    );
+                    *self =
+                        TaskHooksPromotion::Triplet((id1, hooks1), (id2, hooks2), (id3, hooks3));
                 }
 
                 instance
@@ -328,12 +325,14 @@ impl TaskHookContainer {
         let erased_hook: &'static dyn ErasedTaskHook =
             Box::leak(Box::new(ErasedTaskHookWrapper::<E>::new(hook.clone())));
 
-        self.0.entry((TypeId::of::<E>(), ctx.0))
+        self.0
+            .entry((TypeId::of::<E>(), ctx.0))
             .or_insert(TaskHooksPromotion::Empty)
             .promote(hook_id, erased_hook);
 
         async move {
-            self.emit::<OnHookAttach<E>>(ctx, &(hook.as_ref() as &dyn TaskHook<E>)).await;
+            self.emit::<OnHookAttach<E>>(ctx, &(hook.as_ref() as &dyn TaskHook<E>))
+                .await;
         }
     }
 
@@ -371,14 +370,11 @@ impl TaskHookContainer {
         let wrapper_box = unsafe { Box::from_raw(wrapper_ptr) };
         drop(wrapper_box);
 
-        self.emit::<OnHookDetach<E>>(ctx, &(typed.as_ref() as &dyn TaskHook<E>)).await;
+        self.emit::<OnHookDetach<E>>(ctx, &(typed.as_ref() as &dyn TaskHook<E>))
+            .await;
     }
 
-    pub async fn emit<E: TaskHookEvent>(
-        &self,
-        ctx: &TaskHookContext,
-        payload: &E::Payload<'_>,
-    ) {
+    pub async fn emit<E: TaskHookEvent>(&self, ctx: &TaskHookContext, payload: &E::Payload<'_>) {
         if let Some(entry) = self.0.get(&(TypeId::of::<E>(), ctx.0)) {
             let val = entry.value();
             match val {
@@ -388,21 +384,14 @@ impl TaskHookContainer {
                     drop(entry);
                     hook.on_emit(ctx, &payload).await;
                 }
-                TaskHooksPromotion::Double(
-                    (_, hook1),
-                    (_, hook2)
-                ) => {
+                TaskHooksPromotion::Double((_, hook1), (_, hook2)) => {
                     let hook1 = hook1.get();
                     let hook2 = hook2.get();
                     drop(entry);
                     hook1.on_emit(ctx, &payload).await;
                     hook2.on_emit(ctx, &payload).await;
                 }
-                TaskHooksPromotion::Triplet(
-                    (_, hook1),
-                    (_, hook2),
-                    (_, hook3)
-                ) => {
+                TaskHooksPromotion::Triplet((_, hook1), (_, hook2), (_, hook3)) => {
                     let hook1 = hook1.get();
                     let hook2 = hook2.get();
                     let hook3 = hook3.get();

@@ -4,7 +4,7 @@ use std::time::Duration;
 struct Entry<T> {
     value: T,
     precomputed: [u8; 5],
-    level: u8
+    level: u8,
 }
 
 pub struct HierarchicalTimingWheel<T> {
@@ -58,11 +58,14 @@ impl<T> HierarchicalTimingWheel<T> {
         let current = target.current() as u8;
         let slot = current.wrapping_add(slots[level]);
 
-        target.insert(slot, Entry {
-            value,
-            precomputed: slots,
-            level: level as u8,
-        });
+        target.insert(
+            slot,
+            Entry {
+                value,
+                precomputed: slots,
+                level: level as u8,
+            },
+        );
     }
 
     pub fn tick(&mut self) -> Vec<T> {

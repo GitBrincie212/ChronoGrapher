@@ -1,3 +1,4 @@
+use crate::task::frames::CountingFrame;
 use chronographer::prelude::FrameDependency;
 use chronographer::task::DependencyTaskFrame;
 use chronographer::task::Task;
@@ -5,7 +6,6 @@ use chronographer::task::TaskScheduleImmediate;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use crate::task::frames::CountingFrame;
 
 fn ok_dependency() -> FrameDependency {
     FrameDependency::external(|| async { true })

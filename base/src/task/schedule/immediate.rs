@@ -1,9 +1,9 @@
 //! A standalone module containing only the [`TaskScheduleImmediate`] scheduling primitive
 
+use crate::task::TaskSchedule;
+use async_trait::async_trait;
 use std::error::Error;
 use std::time::SystemTime;
-use async_trait::async_trait;
-use crate::task::TaskSchedule;
 
 /// [`TaskScheduleImmediate`] is a [`TaskSchedule`] used to immediately execute a [Task](crate::task::Task) up front,
 /// without calculating a future time.

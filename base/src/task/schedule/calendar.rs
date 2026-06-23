@@ -1,9 +1,9 @@
+use crate::task::TaskSchedule;
+use async_trait::async_trait;
 use std::error::Error;
 use std::fmt::Debug;
 use std::ops::{Bound, Deref, RangeBounds};
 use std::time::SystemTime;
-use async_trait::async_trait;
-use crate::task::TaskSchedule;
 
 pub trait TaskCalendarField: Send + Sync {
     fn evaluate(&self, date_fields: &mut [u32], idx: usize);
@@ -310,13 +310,15 @@ impl<
             9 => time::Month::October,
             10 => time::Month::November,
             11 => time::Month::December,
-            _ => {unreachable!()}
+            _ => {
+                unreachable!()
+            }
         };
 
         let date = time::UtcDateTime::new(
             time::Date::from_calendar_date(dates[6] as i32, month, dates[4] as u8)?,
             time::Time::from_hms(dates[3] as u8, dates[2] as u8, dates[1] as u8)?
-                .replace_millisecond(dates[0] as u16)?
+                .replace_millisecond(dates[0] as u16)?,
         );
 
         Ok(SystemTime::from(date))

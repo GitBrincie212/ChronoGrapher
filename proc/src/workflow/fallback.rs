@@ -1,8 +1,8 @@
+use crate::utils::TaskFrameConstructor;
 use crate::workflow::utils::{ArgumentParser, WorkflowTransform};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use crate::utils::TaskFrameConstructor;
 
 pub struct FallbackArguments(Vec<TaskFrameConstructor>);
 

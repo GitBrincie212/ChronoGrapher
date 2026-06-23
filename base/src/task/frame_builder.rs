@@ -503,7 +503,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         predicate: impl ConditionalFramePredicate + 'static,
     ) -> TaskFrameBuilder<ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, ()>>>
     where
-        T: TaskFrame<Args = ()>
+        T: TaskFrame<Args = ()>,
     {
         let condition = ConditionalTaskFrame::builder()
             .predicate(predicate)
@@ -589,7 +589,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         predicate: impl ConditionalFramePredicate + 'static,
     ) -> TaskFrameBuilder<ConditionalTaskFrame<T, T2>>
     where
-        T: TaskFrame<Args = ()>
+        T: TaskFrame<Args = ()>,
     {
         let condition: ConditionalTaskFrame<T, T2> =
             ConditionalTaskFrame::<T, T2>::fallback_builder()

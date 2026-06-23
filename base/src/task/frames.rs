@@ -29,11 +29,13 @@ pub use thresholdframe::*;
 pub use timeoutframe::*;
 
 use crate::errors::TaskError;
-use crate::task::{ErasedTask, NonObserverTaskHook, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
+use crate::scheduler::utils::{SchedulerHandle, SchedulerHandleInstructions};
+use crate::task::{
+    ErasedTask, NonObserverTaskHook, TASKHOOK_REGISTRY, TaskHook, TaskHookContext, TaskHookEvent,
+};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
-use crate::scheduler::utils::{SchedulerHandleInstructions, SchedulerHandle};
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
@@ -46,7 +48,9 @@ pub struct TaskFrameContext(pub(crate) RestrictTaskFrameContext);
 macro_rules! instruct_method {
     ($name: ident, $variant: ident) => {
         pub fn $name(&self) {
-            let hook = self.get_hook::<(), SchedulerHandle>().expect("The SchedulerHandle isn't present when its supposed to be");
+            let hook = self
+                .get_hook::<(), SchedulerHandle>()
+                .expect("The SchedulerHandle isn't present when its supposed to be");
             hook.instruct(SchedulerHandleInstructions::$variant);
         }
     };
@@ -124,7 +128,11 @@ pub trait TaskFrame: 'static + Send + Sync + Sized {
     type Args: Send + Sync + 'static;
     type Workflow: TaskFrame;
 
-    fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    fn execute(
+        &self,
+        ctx: &TaskFrameContext,
+        args: &Self::Args,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
 #[async_trait]
@@ -146,12 +154,20 @@ impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error, T::Args> for T 
 
 #[async_trait]
 pub trait ErasedTaskFrame<Args: Send + Sync + 'static>: 'static + Send + Sync {
-    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &Args) -> Result<(), Box<dyn TaskError>>;
+    async fn erased_execute(
+        &self,
+        ctx: &TaskFrameContext,
+        args: &Args,
+    ) -> Result<(), Box<dyn TaskError>>;
 }
 
 #[async_trait]
 impl<T: TaskFrame<Error: Into<T::Error>>> ErasedTaskFrame<T::Args> for T {
-    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &T::Args) -> Result<(), Box<dyn TaskError>> {
+    async fn erased_execute(
+        &self,
+        ctx: &TaskFrameContext,
+        args: &T::Args,
+    ) -> Result<(), Box<dyn TaskError>> {
         self.execute(ctx, args)
             .await
             .map_err(|x| Box::new(x) as Box<dyn TaskError>)

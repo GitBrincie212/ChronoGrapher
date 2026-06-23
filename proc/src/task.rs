@@ -104,7 +104,8 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded_workflow_toks = workflow_toks.map(|x| quote! { __internal_workflow_spec(#x)});
     let mut expanded_method_init_logic = task_creation.clone();
     let mut task_method_name = syn::Ident::new("new", proc_macro2::Span::call_site());
-    let workflow = quote! { <#taskframe_name #temp as ::chronographer::task::frames::TaskFrame>::Workflow };
+    let workflow =
+        quote! { <#taskframe_name #temp as ::chronographer::task::frames::TaskFrame>::Workflow };
     let mut task_method_return_type = quote! { ::chronographer::task::Task<#workflow> };
     if is_singleton {
         if !fn_sig.generics.params.is_empty() {

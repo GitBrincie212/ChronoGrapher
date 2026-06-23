@@ -2,12 +2,14 @@ use crate::scheduler::impls::utils::{assign_to_trigger_worker, spawn_task};
 use crate::scheduler::live::SchedulerWorkerHot;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::scheduler::{SchedulerConfig, SchedulerHandlePayload, SchedulerKey, SchedulerWorkerCold};
+use crate::scheduler::{
+    SchedulerConfig, SchedulerHandlePayload, SchedulerKey, SchedulerWorkerCold,
+};
 use crate::task::{ErasedTask, TaskHook};
 use crossbeam::queue::SegQueue;
+use crossbeam::utils::CachePadded;
 use std::any::{Any, type_name};
 use std::sync::Arc;
-use crossbeam::utils::CachePadded;
 use tokio::sync::Notify;
 
 pub enum SchedulerHandleInstructions {

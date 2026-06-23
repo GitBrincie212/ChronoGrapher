@@ -1,7 +1,7 @@
-use std::num::NonZeroU16;
+use crate::task::utils::CountingTaskFrame;
 use chronographer::prelude::FrameDependency;
 use chronographer::task::{Task, TaskScheduleImmediate};
-use crate::task::utils::CountingTaskFrame;
+use std::num::NonZeroU16;
 
 #[tokio::test]
 async fn test_basic_dependency() {
@@ -30,10 +30,14 @@ async fn test_basic_dependency() {
 
 #[tokio::test]
 async fn test_and_dependency() {
-    let logical_dep1 = FrameDependency::external(|| async { true }) & FrameDependency::external(|| async { true });
-    let logical_dep2 = FrameDependency::external(|| async { false }) & FrameDependency::external(|| async { true });
-    let logical_dep3 = FrameDependency::external(|| async { true }) & FrameDependency::external(|| async { false });
-    let logical_dep4 = FrameDependency::external(|| async { false }) & FrameDependency::external(|| async { false });
+    let logical_dep1 =
+        FrameDependency::external(|| async { true }) & FrameDependency::external(|| async { true });
+    let logical_dep2 = FrameDependency::external(|| async { false })
+        & FrameDependency::external(|| async { true });
+    let logical_dep3 = FrameDependency::external(|| async { true })
+        & FrameDependency::external(|| async { false });
+    let logical_dep4 = FrameDependency::external(|| async { false })
+        & FrameDependency::external(|| async { false });
 
     assert!(
         logical_dep1.is_resolved().await,
@@ -58,10 +62,14 @@ async fn test_and_dependency() {
 
 #[tokio::test]
 async fn test_or_dependency() {
-    let logical_dep1 = FrameDependency::external(|| async { true }) | FrameDependency::external(|| async { true });
-    let logical_dep2 = FrameDependency::external(|| async { false }) | FrameDependency::external(|| async { true });
-    let logical_dep3 = FrameDependency::external(|| async { true }) | FrameDependency::external(|| async { false });
-    let logical_dep4 = FrameDependency::external(|| async { false }) | FrameDependency::external(|| async { false });
+    let logical_dep1 =
+        FrameDependency::external(|| async { true }) | FrameDependency::external(|| async { true });
+    let logical_dep2 = FrameDependency::external(|| async { false })
+        | FrameDependency::external(|| async { true });
+    let logical_dep3 = FrameDependency::external(|| async { true })
+        | FrameDependency::external(|| async { false });
+    let logical_dep4 = FrameDependency::external(|| async { false })
+        | FrameDependency::external(|| async { false });
 
     assert!(
         logical_dep1.is_resolved().await,
@@ -145,7 +153,7 @@ async fn test_task_identity_run_dependency() -> Result<(), String> {
         !dep2.is_resolved().await,
         "Task dependency with maximum runs should not be resolved"
     );
-    
+
     erased.run().await?;
 
     assert!(
@@ -293,7 +301,7 @@ async fn test_task_failed_run_dependency() -> Result<(), String> {
         !dep2.is_resolved().await,
         "Task dependency with maximum runs should not be resolved"
     );
-    
+
     erased.run().await?;
 
     assert!(

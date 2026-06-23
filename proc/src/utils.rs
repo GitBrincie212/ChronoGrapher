@@ -309,14 +309,16 @@ impl Parse for TimeLiteral {
 pub struct TaskFrameConstructor {
     pub ty: syn::TypePath,
     pub inner: syn::Expr,
-    pub constructor: Option<syn::Ident>
+    pub constructor: Option<syn::Ident>,
 }
 
 impl TaskFrameConstructor {
     pub fn to_token_type(&self) -> TokenStream2 {
         let ty = &self.ty;
         match self.constructor.as_ref() {
-            Some(c) if c == "workflow" => quote! { <#ty as ::chronographer::task::frames::TaskFrame>::Workflow },
+            Some(c) if c == "workflow" => {
+                quote! { <#ty as ::chronographer::task::frames::TaskFrame>::Workflow }
+            }
             _ => quote! { #ty },
         }
     }
@@ -333,22 +335,21 @@ impl Parse for TaskFrameConstructor {
         match &expr {
             syn::Expr::Call(call_expr) => {
                 let syn::Expr::Path(syn::ExprPath { path, .. }) = call_expr.func.as_ref() else {
-                    return Err(input.error(
-                        "Expected an obvious constructor call but got something else",
-                    ));
+                    return Err(
+                        input.error("Expected an obvious constructor call but got something else")
+                    );
                 };
 
                 let segments = &path.segments;
                 let segment_len = segments.len();
                 if segment_len < 2 {
-                    return Err(input.error(
-                        "Expected a constructor call such as MyType::new(...)",
-                    ));
+                    return Err(input.error("Expected a constructor call such as MyType::new(...)"));
                 }
 
                 let type_path = syn::Path {
                     leading_colon: path.leading_colon,
-                    segments: segments.iter()
+                    segments: segments
+                        .iter()
                         .cloned()
                         .take(segment_len.saturating_sub(1))
                         .collect(),
@@ -369,7 +370,7 @@ impl Parse for TaskFrameConstructor {
             syn::Expr::Path(pt) => {
                 let type_path = syn::Path {
                     leading_colon: pt.path.leading_colon,
-                    segments: pt.path.segments.clone()
+                    segments: pt.path.segments.clone(),
                 };
 
                 let ty = syn::TypePath {
@@ -380,15 +381,11 @@ impl Parse for TaskFrameConstructor {
                 Ok(Self {
                     ty,
                     inner: expr,
-                    constructor: None
+                    constructor: None,
                 })
             }
 
-            _ => {
-                Err(input.error(
-                    "Expected a constructor call such as MyType or MyType::new(...)",
-                ))
-            }
+            _ => Err(input.error("Expected a constructor call such as MyType or MyType::new(...)")),
         }
     }
 }

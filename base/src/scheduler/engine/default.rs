@@ -1,6 +1,6 @@
-use crate::scheduler::{SchedulerConfig, SchedulerKey};
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
+use crate::scheduler::{SchedulerConfig, SchedulerKey};
 use crate::utils::hierarchical_timing_wheel::HierarchicalTimingWheel;
 use crossbeam::queue::SegQueue;
 use std::error::Error;
@@ -28,8 +28,7 @@ where
     fn default() -> Self {
         let clock = Arc::new(C::SchedulerClock::default());
 
-        let mut hierarchical_wheel =
-            HierarchicalTimingWheel::<SchedulerKey<C>>::default();
+        let mut hierarchical_wheel = HierarchicalTimingWheel::<SchedulerKey<C>>::default();
 
         let command_batch = Arc::new(SegQueue::new());
         let get_result_queue = Arc::new((SegQueue::new(), Notify::new()));

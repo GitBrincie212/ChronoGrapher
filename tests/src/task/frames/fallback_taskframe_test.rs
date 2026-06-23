@@ -95,9 +95,5 @@ async fn both_primary_and_fallback_fail_returns_error() {
         exec.is_err(),
         "Should propagate error when both primary and fallback fail"
     );
-    assert_eq!(
-        counter.load(Ordering::SeqCst),
-        0,
-        "Counter should be 0"
-    );
+    assert_eq!(counter.load(Ordering::SeqCst), 0, "Counter should be 0");
 }

@@ -1,10 +1,10 @@
 use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_store::SchedulerTaskStore;
 use crate::task::ErasedTask;
+use crossbeam::utils::CachePadded;
+use slotmap::{SlotMap, new_key_type};
 use std::error::Error;
 use std::sync::Arc;
-use crossbeam::utils::CachePadded;
-use slotmap::{new_key_type, SlotMap};
 
 type CachePaddedLock<T> = CachePadded<parking_lot::RwLock<T>>;
 type SlotMapShard<T> = CachePaddedLock<SlotMap<SlotTaskKey, Arc<ErasedTask<T>>>>;
@@ -24,15 +24,11 @@ impl From<TaskKey> for usize {
 }
 
 #[repr(transparent)]
-pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig>(
-    Box<[SlotMapShard<C::TaskError>]>
-);
+pub struct EphemeralSchedulerTaskStore<C: SchedulerConfig>(Box<[SlotMapShard<C::TaskError>]>);
 
 impl<C: SchedulerConfig> Default for EphemeralSchedulerTaskStore<C> {
     fn default() -> Self {
-        let parallelism = std::thread::available_parallelism()
-            .unwrap()
-            .get();
+        let parallelism = std::thread::available_parallelism().unwrap().get();
 
         let shard_count = (parallelism * 4).next_power_of_two();
         let shards = (0..shard_count)
@@ -52,24 +48,24 @@ impl<C: SchedulerConfig> SchedulerTaskStore<C> for EphemeralSchedulerTaskStore<C
     }
 
     fn exists(&self, key: &Self::Key) -> bool {
-        if let Some(shard) = self.0.get(key.shard_idx as usize){
-            return shard.read().contains_key(key.inner)
+        if let Some(shard) = self.0.get(key.shard_idx as usize) {
+            return shard.read().contains_key(key.inner);
         }
         false
     }
 
-    fn store(&self, task: Arc<ErasedTask<C::TaskError>>) -> Result<Self::Key, Box<dyn Error + Send + Sync>> {
+    fn store(
+        &self,
+        task: Arc<ErasedTask<C::TaskError>>,
+    ) -> Result<Self::Key, Box<dyn Error + Send + Sync>> {
         let shard_idx = fastrand::u16(0..self.0.len() as u16);
         let inner = self.0[shard_idx as usize].write().insert(task);
 
-        Ok(TaskKey {
-            shard_idx,
-            inner,
-        })
+        Ok(TaskKey { shard_idx, inner })
     }
 
     fn remove(&self, key: &Self::Key) {
-        if let Some(shard) = self.0.get(key.shard_idx as usize){
+        if let Some(shard) = self.0.get(key.shard_idx as usize) {
             shard.write().remove(key.inner);
         }
     }

@@ -24,11 +24,11 @@ macro_rules! immediate {
 
 #[cfg(feature = "macros")]
 pub mod macros {
-    pub use chronographer_macros::taskframe;
-    pub use chronographer_macros::task;
-    pub use chronographer_macros::workflow;
     pub use chronographer_macros::cron;
     pub use chronographer_macros::every;
+    pub use chronographer_macros::task;
+    pub use chronographer_macros::taskframe;
+    pub use chronographer_macros::workflow;
     pub use dynamic_taskframe;
     pub use immediate;
 }
@@ -64,8 +64,8 @@ pub mod prelude {
     pub use crate::task::schedule::TaskSchedule;
     pub use crate::task::schedule::TaskScheduleCalendar;
     pub use crate::task::schedule::TaskScheduleCron;
-    pub use crate::task::schedule::TaskScheduleInterval;
     pub use crate::task::schedule::TaskScheduleImmediate;
+    pub use crate::task::schedule::TaskScheduleInterval;
 
     // Schedulers
     pub use crate::scheduler::DefaultLiveScheduler;

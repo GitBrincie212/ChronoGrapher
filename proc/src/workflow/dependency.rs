@@ -137,12 +137,10 @@ impl TryInto<AtomicDependency> for &syn::Expr {
                     }
 
                     _ => match expr_call.args.len() {
-                        0 => {
-                            Err(syn::Error::new_spanned(
-                                &expr_call,
-                                "Invalid dependency expression, perhaps you meant to specify an argument?",
-                            ))
-                        },
+                        0 => Err(syn::Error::new_spanned(
+                            &expr_call,
+                            "Invalid dependency expression, perhaps you meant to specify an argument?",
+                        )),
 
                         1 => {
                             let first = expr_call.args.first().unwrap();

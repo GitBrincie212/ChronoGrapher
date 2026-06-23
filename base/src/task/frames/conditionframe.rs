@@ -90,7 +90,7 @@ impl<T: TaskFrame, T2: TaskFrame> ConditionalTaskFrame<T, T2> {
 impl<T, F> TaskFrame for ConditionalTaskFrame<T, F>
 where
     T: TaskFrame<Args = ()>,
-    F: TaskFrame<Args = ()>
+    F: TaskFrame<Args = ()>,
 {
     type Error = ConditionalTaskFrameError<T::Error, F::Error>;
     type Args = ();

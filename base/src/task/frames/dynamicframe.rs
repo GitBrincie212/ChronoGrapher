@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
 use crate::errors::TaskError;
 use crate::task::{TaskFrame, TaskFrameContext};
+use std::marker::PhantomData;
 
 pub struct DynamicTaskFrame<T, Args>(T, PhantomData<Args>);
 
@@ -9,7 +9,7 @@ where
     T: (Fn(&TaskFrameContext, &Args) -> F) + Send + Sync + 'static,
     F: Future<Output = Result<(), E>> + Send + 'static,
     E: TaskError,
-    Args: Send + Sync + 'static
+    Args: Send + Sync + 'static,
 {
     pub fn new(func: T) -> Self {
         Self(func, PhantomData)
@@ -21,12 +21,11 @@ where
     T: (Fn(&TaskFrameContext, &Args) -> F) + Send + Sync + 'static,
     F: Future<Output = Result<(), E>> + Send + 'static,
     E: TaskError,
-    Args: Send + Sync + 'static
+    Args: Send + Sync + 'static,
 {
     type Error = E;
     type Args = Args;
     type Workflow = Self;
-
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         self.0(ctx, args).await

@@ -1,6 +1,6 @@
+use chronographer::task::{ErasedTaskFrame, TaskFrame, TaskFrameContext};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use chronographer::task::{ErasedTaskFrame, TaskFrame, TaskFrameContext};
 
 mod collectionframe_test;
 mod condition_taskframe_test;
@@ -12,18 +12,14 @@ mod noop_operation_taskframe_test;
 mod threshold_taskframe_test;
 mod timeout_taskframe_test;
 
-fn ok_frame(
-    counter: &Arc<AtomicUsize>,
-) -> Arc<dyn ErasedTaskFrame<()>> {
+fn ok_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn ErasedTaskFrame<()>> {
     Arc::new(CountingFrame {
         counter: counter.clone(),
         should_fail: false,
     })
 }
 
-fn failing_frame(
-    counter: &Arc<AtomicUsize>,
-) -> Arc<dyn ErasedTaskFrame<()>> {
+fn failing_frame(counter: &Arc<AtomicUsize>) -> Arc<dyn ErasedTaskFrame<()>> {
     Arc::new(CountingFrame {
         counter: counter.clone(),
         should_fail: true,

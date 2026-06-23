@@ -1,12 +1,12 @@
 //! A standalone module containing only the [`TaskScheduleInterval`] scheduling primitive
 
+use crate::errors::IntervalSecondsOutOfRange;
+use crate::task::TaskSchedule;
+use async_trait::async_trait;
 use std::error::Error;
 use std::fmt::Debug;
 use std::ops::Add;
 use std::time::{Duration, SystemTime};
-use async_trait::async_trait;
-use crate::errors::IntervalSecondsOutOfRange;
-use crate::task::TaskSchedule;
 
 #[cfg(feature = "chrono")]
 use crate::errors::IntervalTimeDeltaOutOfRange;
@@ -154,10 +154,10 @@ impl TaskScheduleInterval {
     /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
     /// - [`chrono::TimeDelta`] - The value used to construct the [`TaskScheduleInterval`] instance.
     /// - [`IntervalTimeDeltaOutOfRange`] - The error when the argument doesn't map to a positive duration.
-    pub fn timedelta(
-        interval: chrono::TimeDelta,
-    ) -> Result<Self, IntervalTimeDeltaOutOfRange> {
-        Ok(Self(interval.to_std().map_err(|_| { IntervalTimeDeltaOutOfRange })?))
+    pub fn timedelta(interval: chrono::TimeDelta) -> Result<Self, IntervalTimeDeltaOutOfRange> {
+        Ok(Self(
+            interval.to_std().map_err(|_| IntervalTimeDeltaOutOfRange)?,
+        ))
     }
 
     /// A constructor for [`TaskScheduleInterval`] via a [`time::Duration`].
@@ -192,8 +192,8 @@ impl TaskScheduleInterval {
     /// - [`TaskScheduleInterval::from_secs_f64`] - A simpler constructor for floating point second-based intervals.
     /// - [every!](chronographer::prelude::every) - A macro with a readable syntax for defining an interval.
     pub fn time_duration(interval: time::Duration) -> Result<Self, IntervalSecondsOutOfRange> {
-        if interval.is_negative() || interval.is_zero()  {
-            return Err(IntervalSecondsOutOfRange)
+        if interval.is_negative() || interval.is_zero() {
+            return Err(IntervalSecondsOutOfRange);
         }
 
         Ok(Self(Duration::try_from(interval).unwrap()))
@@ -315,7 +315,7 @@ impl TaskScheduleInterval {
     ///   when the argument doesn't map to a positive duration.
     pub fn from_secs_f64(interval: f64) -> Result<Self, IntervalSecondsOutOfRange> {
         if interval.is_sign_negative() || !interval.is_finite() {
-            return Err(IntervalSecondsOutOfRange)
+            return Err(IntervalSecondsOutOfRange);
         }
 
         Ok(Self(Duration::from_secs_f64(interval)))

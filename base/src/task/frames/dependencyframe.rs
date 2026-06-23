@@ -1,9 +1,9 @@
-use crate::utils::macros::define_event;
 use crate::errors::{DependencyTaskFrameError, TaskDependenciesUnresolved, TaskError};
+use crate::task::TaskFrame;
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
-use crate::task::TaskFrame;
 use crate::task::{Debug, TaskFrameContext};
+use crate::utils::macros::define_event;
 use async_trait::async_trait;
 use typed_builder::TypedBuilder;
 
@@ -78,7 +78,8 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let is_resolved = self.dependency.is_resolved().await;
 
-        ctx.emit::<OnDependencyValidation>(&(&self.dependency, is_resolved)).await;
+        ctx.emit::<OnDependencyValidation>(&(&self.dependency, is_resolved))
+            .await;
         if !is_resolved {
             return self
                 .dependent_behaviour
@@ -87,6 +88,9 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
                 .map_err(DependencyTaskFrameError::DependenciesInvalidated);
         }
 
-        self.frame.execute(&ctx, args).await.map_err(DependencyTaskFrameError::Inner)
+        self.frame
+            .execute(&ctx, args)
+            .await
+            .map_err(DependencyTaskFrameError::Inner)
     }
 }

@@ -15,8 +15,8 @@ pub use schedule::*;
 
 use crate::errors::TaskError;
 use std::fmt::Debug;
-use std::sync::{Arc, LazyLock};
 use std::sync::atomic::AtomicUsize;
+use std::sync::{Arc, LazyLock};
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
@@ -25,7 +25,7 @@ pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>>;
 pub struct Task<T1> {
     frame: T1,
     schedule: Box<dyn TaskSchedule>,
-    instance_id: usize
+    instance_id: usize,
 }
 
 impl<T1> Task<T1> {
@@ -51,7 +51,7 @@ impl<T1> Task<T1> {
         ctx.detach_hook::<EV, T>().await;
     }
 
-    pub fn schedule(&self) -> &dyn TaskSchedule  {
+    pub fn schedule(&self) -> &dyn TaskSchedule {
         self.schedule.as_ref()
     }
 }
@@ -81,7 +81,7 @@ impl<T1: TaskFrame<Args = ()>> Task<T1> {
         Self {
             frame,
             schedule: Box::new(schedule),
-            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         }
     }
 
@@ -93,7 +93,7 @@ impl<T1: TaskFrame<Args = ()>> Task<T1> {
         ErasedTask {
             frame: Box::new(self.frame),
             schedule: self.schedule,
-            instance_id: self.instance_id
+            instance_id: self.instance_id,
         }
     }
 }
