@@ -1,11 +1,18 @@
 # Contributing
 Before discussing how to contribute to the project, it is heavily appreciated and admired for you
-to consider to contribute to the project, we welcome new contributors with wide open arms as this project
+to consider contributing to the project; we welcome new contributors with wide open arms as this project
 is built from the community. When contributing to this project, please first discuss the change you wish to
 make via issue or any other method with the owners of this project (GitBrincie212) before making a change.
 
 This document provides a guide to making your contribution process and efforts as a smooth sailing and 
-effective experience as possible
+effective experience as possible.
+
+# Temporary Disclaimer
+This document will be a synopsis of the entire contribution process in the future. For now, it has been 
+created to help new contributors get started with the project.
+
+It is advised to check ChronoGrapher's website for more detailed information on the project and how to contribute. 
+To do so, head over to the ``website/`` directory and run the following command ``pnpm i && pnpm run dev`` to start the website.
 
 # Code of Conduct
 By participating in this project, you are expected to uphold our Code of Conduct. Please 
