@@ -1,4 +1,9 @@
 {
   "title": "Introspecting Workflows",
-  "pages": ["index", "introduction", "custom_events"]
+  "pages": [
+    "index",
+    "introduction",
+    "operating_taskhooks",
+    "custom_events"
+  ]
 }
