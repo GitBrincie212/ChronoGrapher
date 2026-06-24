@@ -74,10 +74,10 @@ impl RestrictTaskFrameContext {
         ctx.emit::<EV>(payload).await;
     }
 
-    pub async fn attach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self, hook: Arc<TH>) {
+    pub async fn attach_hook<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) {
         let ctx = TaskHookContext(self.0);
 
-        ctx.attach_hook::<EV, TH>(hook).await;
+        ctx.attach_hook::<EV>(hook).await;
     }
 
     pub async fn detach_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) {
@@ -98,7 +98,7 @@ impl RestrictTaskFrameContext {
             hook
         } else {
             let hook = Arc::new(creator());
-            self.attach_hook::<(), H>(hook.clone()).await;
+            self.attach_hook::<()>(hook.clone()).await;
             hook
         }
     }
