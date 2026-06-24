@@ -1,0 +1,245 @@
+---
+title: Operating On Our TaskHooks
+description: Learn how to attach, fetch or detach at runtime TaskHooks.
+---
+
+In the previous chapter we went through an introduction of TaskHooks. In this chapter we will be seeing how to
+do runtime operations on our TaskHooks.
+
+The way we achieve this is via ``Tasks``, since they are the main host of the ``TaskHooks`` as we discussed in
+previous chapters. However, it depends on where exactly your code lives.
+
+There are three interface, the typical ``Task``, the ``TaskFrameContext`` and ``TaskHookContext``. Both three provide the
+same methods to interact with our TaskHooks (except ``TaskFrameContext`` which provides a bit more).
+
+The reason for three interfaces is our code doesn't directly know the exact ``Task`` that is running,
+the context objects help identify which ``Task``, our ``TaskFrames`` and ``TaskHooks`` (respectively) refer to.
+
+# Attaching TaskHooks
+One of the first TaskHook operations is attaching a TaskHook at runtime, let's assume a situation like below:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use thiserror::Error;
+use chronographer::prelude::*;
+
+#[derive(Error, Debug)]
+pub enum MyErrors {}
+
+// Suppose there exists a MetricsTaskHook, AlertTaskHook and ErrorHandlerTaskHook
+
+#[task(schedule = every!(2s)))]
+async fn SomeTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main(scheduler: DefaultScheduler<MyErrors>) {
+    let task_inst = MyTask::instance();
+    let _ = scheduler.schedule(task_inst).await;
+    // We need to find a way to attach our TaskHooks dynamically at runtime
+}
+```
+</RenderProgrammingLanguageBased>
+
+We can reshape our code to be the following:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use std::sync::Arc;
+use chronographer::prelude::*;
+
+// ...
+
+#[chronographer::main]
+async fn main(scheduler: DefaultScheduler<MyErrors>) {
+    let task_inst = MyTask::instance();
+    let _ = scheduler.schedule(task_inst).await;
+
+    // [!code highlight]
+    // Our TaskHook must be wrapped in an Arc<T>, we will explain why later
+    // [!code highlight]
+    let my_hook = Arc::new(AlertTaskHook);
+    // [!code highlight]
+    task_inst.attach_hook::<OnTaskStart>(my_hook).await;
+}
+```
+
+Our ``attach_hook`` expects one generic which denotes the event we want to subscribe to for our current TaskHook
+instance. For our case its ``OnTaskStart``. Obviously our TaskHook must implement the logic for ``OnTaskStart`` as
+otherwise we can't subscribe.
+
+With this we successfully attached our ``AlertTaskHook`` at runtime. While we could use the ``#[hooks(...)]`` to do this
+for such a simple scenario, the motive was to showcase the runtime version.
+
+It should be noted that just like ``#[hooks(...)]``, we can attach the same TaskHook instance to different events
+via cloning the ``Arc<T>`` and using the ``attach_hook`` method once more with a different event as the generic.
+</RenderProgrammingLanguageBased>
+
+# Fetching Our TaskHooks
+In our [TaskHook Introduction](/docs/taskhooks/introduction), we briefly mentioned the "Stateful Containers" pattern.
+Currently its useless without a way to read and modify our data.
+
+This is where ``get_hook`` comes in picture. This method is not limited to just Stateful ``TaskHooks``, rather it can be
+used for any kind of ``TaskHook``.
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use std::sync::Arc;
+use chronographer::prelude::*;
+
+// ...
+
+#[chronographer::main]
+async fn main(scheduler: DefaultScheduler<MyErrors>) {
+    let task_inst = MyTask::instance();
+    let _ = scheduler.schedule(task_inst).await;
+
+    // <...>
+
+    // [!code highlight]
+    let fetched_hook = task_inst.get_hook::<OnTaskStart, AlertTaskHook>().await;
+}
+```
+
+Our ``get_hook`` expects two generics, the event which we believe our TaskHook is subscribed
+and the TaskHook type itself.
+
+When executing our method, it returns an ``Option<T>`` which inside contains our TaskHook. This can of course be ``Some(T)``
+if our TaskHook does exist and is subscribed or vice versa with ``None``.
+</RenderProgrammingLanguageBased>
+
+Try remove the ``attach_hook`` before fetching the TaskHook instance (or change the event to something else) and see
+what happens (given you've already mocked some of the TaskHooks) and see how ``get_hook`` fails.
+
+<Callout type={"warning"} title={"Attaching Multiple Times Our TaskHook"}>
+    Its possible to attach multiple times the same TaskHook type but with different instances onto the same event.
+    ChronoGrapher keeps a history of all TaskHook instances attached to the current event with their order preserved.
+
+    When fetching a TaskHook with the event, ChronoGrapher simply fetches the last instance that was attached. This can be
+    powerful as different instances of the same TaskHook type can hold different data.
+</Callout>
+
+# Detaching TaskHooks
+The polar opposite of ``attach_hook`` is ``detach_hook`` which detaches our TaskHook from a specified event. The usage is
+very similar to ``attach_hook`` which requires a generic for the event:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use std::sync::Arc;
+use chronographer::prelude::*;
+
+// ...
+
+#[chronographer::main]
+async fn main(scheduler: DefaultScheduler<MyErrors>) {
+    let task_inst = MyTask::instance();
+    let _ = scheduler.schedule(task_inst).await;
+
+    // <...>
+
+    // [!code highlight]
+    task_inst.detach_hook::<OnTaskStart, AlertTaskHook>().await;
+}
+```
+</RenderProgrammingLanguageBased>
+
+Our ``detach_hook`` method just like ``get_hook`` expects two generics, the former indicating the event while the latter
+indicating the TaskHook type we want to detach.
+
+<Callout type={"info"} title={"Gotchas When Detaching TaskHook"}>
+    When detaching a TaskHook, it isn't guaranteed for it to be removed. Rather only if the TaskHook exists and
+    is subscribed to our ``OnTaskStart`` will it then be removed, if either doesn't hold true, it does nothing.
+
+    Additionally, when detaching a TaskHook from an event, it only detaches the last instance. This means that other
+    TaskHook instances of the same type may still exist attached to the event.
+</Callout>
+
+# Useful Patterns Of TaskHook Runtime Operations
+When it comes to the runtime operations, while we saw how our outside code can work with ``TaskHooks``, we haven't looked
+the possibilities when examining through the perspective of ``TaskFrames`` and other ``TaskHooks``.
+
+## TaskFrame-Specific TaskHooks
+Lets return to our ``Task``, we can attach ``TaskHooks`` inside our code:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+// ...
+
+#[task(schedule = every!(2s)))]
+async fn SomeTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    if ctx.get_hook::<OnTaskStart, AlertTaskHook>().is_none() {
+        let hook_inst = Arc::new(AlertTaskHook);
+        ctx.attach_hook::<OnTaskStart>(hook_inst).await;
+    }
+
+    // <...>
+    Ok(())
+}
+
+// ...
+```
+</RenderProgrammingLanguageBased>
+
+This pattern can be useful when a ``Task`` deems important to monitor a specific event once a condition is met or via
+specific configuration (of course we can attach other TaskHooks to multiple events, but this example is made for simplicity).
+
+For now this has limited uses as of now but in later chapters this pattern will become more powerful.
+Specifically a niche of this pattern is **Temporary TaskFrame-Specific TaskHooks**.
+
+## Recursive TaskHooks
+This is a more powerful pattern of ``TaskHook`` runtime-based operations, the way it works is as simple as:
+> When a TaskHook listens to an event, it can attach one or more TaskHook(s)
+
+The key features that make this pattern very powerful are:
+1. You aren't limited to the number of TaskHooks you can attach at a time.
+2. You can attach multiple instances which can listen to different events or the same one.
+3. These other TaskHooks can also recursively attach their own TaskHooks.
+
+To get an idea of how it would look, let's define a simple ``RecursiveTaskHook``:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/main.rs" lineNumbers
+use async_trait::async_trait;
+// ...
+
+pub struct RecursiveTaskHook(usize);
+
+#[async_trait]
+impl<E: TaskHookEvent> TaskHook<E> for RecursiveTaskHook {
+    async fn on_event(&self, ctx: &TaskHookContext, payload: &<E as TaskHookEvent>::Payload<'_>) {
+        // <...>
+
+        // A basic counter to check the recursive depth
+        if self.0 == 10 {
+            return;
+        }
+
+        // This is where the recursive pattern happens:
+        let recursive_inst = Arc::new(RecursiveTaskHook(self.0 + 1));
+        ctx.attach_hook::<E>(recursive_inst).await;
+    }
+}
+
+// ...
+```
+</RenderProgrammingLanguageBased>
+
+It's also possible for our recursive TaskHook to detach these other TaskHooks based on a condition. But we'll leave this
+pattern here for now and let you explore the possibilities.
+
+---
+
+In summary, its useful to know the ``TaskHooks`` runtime-based operations to allow for more flexibility in our code. There
+are three operations we learnt:
+- ``attach_hook``: For attaching a TaskHook instance onto a specific event
+- ``detach_hook``: For detaching the last TaskHook instance based on type from a specific event.
+- ``get_hook``: For getting the last TasksHook instance based on type subscribed to our specific event.
+
+ChronoGrapher keeps a history of all TaskHook instances that are currently subscribed to a specific event, it works as a
+stack and doesn't override previous entries but rather keeps them in-memory.
+
+With the knowledge of just these 3 operations, we can follow patterns such as **TaskFrame-Specific TaskHooks** a and
+more versatile pattern being **Recursive TaskHooks**.
+
+In the next chapter we will learn a fourth operation we haven't mentioned, that being ``emit`` as well as custom events
+and a new pattern <Highlight color={"info"}>Hook-To-Hook Communication</Highlight>.
+
+> TL;DR. ChronoGrapher provides three runtime-based operations, ``attach_hook`` for attaching a TaskHook into an event,
+``detach_hook`` for detaching from an event and ``get_hook`` for fetching an instance based on type and the event. There
+are various patterns possible such as **Recursive TaskHooks**.
