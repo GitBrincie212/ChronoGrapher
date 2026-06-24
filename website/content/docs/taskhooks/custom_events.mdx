@@ -3,13 +3,11 @@ title: Custom Events & TaskHook Communication
 description: Learn how to define your own TaskHookEvents and communicate with other TaskHooks
 ---
 
-In the previous chapter we learnt about the two phases of TaskHooks, the **Implementation Phase** and **Registration Phase**.
+In the previous chapter we learnt runtime-based operations for our TaskHooks, specifically ``attach_hook``, ``detach_hook``
+and ``get_hook`` as well as the patterns which enable.
 
-We saw how to subscribe to events, sharing TaskHook instances between events and Tasks and even adding data for our TaskHook
-to hold, and saw how to carry and share state across events and Tasks.
-
-In this chapter we will focus on the event part of TaskHooks, how to create your very own events,
-how to emit them in your own places and understand Hook-To-Hook communication.
+In this chapter we will focus on the event part of TaskHooks. How to create your very own events, how to emit them in your own places
+(with the fourth runtime-based operation) and understand the <Highlight color={"info"}>Hook-To-Hook Communication</Highlight> pattern.
 
 # Defining a Custom TaskHookEvent
 <RenderProgrammingLanguageBased target_name={"Rust"}>
@@ -68,6 +66,11 @@ async fn DispatchNotificationsTask(ctx: &TaskFrameContext) -> Result<(), MyError
 In the example above we have a ``DispatchNotificationsTask`` task that flushes pending notifications every 2 seconds. Our
 example is mostly simplified for learning reasons, in real code you would handle it with an actual dispatcher.
 
+<Callout type={"error"} title={"Anti-Pattern When Emitting"}>
+    While its possible to emit TaskHookEvents that are defined such as ``OnTaskStart`` or ``OnTaskEnd`` from other places
+    in our code. In most if not all cases its considered an anti-pattern and can lead to unpredictable behaviour.
+</Callout>
+
 ``TaskFrameContext`` contains various methods for us to use, but in our case we will be using `emit` to broadcast our custom event
 along with the number of notifications that were just sent.
 
@@ -98,7 +101,9 @@ impl TaskHook<OnNotificationsSent> for NotificationMetricsHook {
 ``NotificationMetricsHook`` carries a single counter. On each time `OnNotificationsSent` fires, the hook folds the latest
 batch into the running total and prints both.
 
-The last step is to attach this hook to the task, following the scoped singleton pattern from the previous chapter:
+The last step is to attach this hook to the task, following the scoped singleton pattern from the
+[TaskHook Introduction](/docs/taskhooks/introduction) chapter (we can use runtime-based attaching but
+for simplicity let's avoid it):
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
@@ -249,6 +254,9 @@ The third tick acts identically to our first.
 Two TaskHooks embedded in one Task but neither aware of the other's presence, yet they are able to cooperate with each other.
 This is the power of <Highlight color={"info"}>Hook-To-Hook Communication</Highlight>.
 
+This pattern can also be used in conjuction with the **Recursive TaskHooks** pattern we learnt from the previous chapter for
+mass-cordination between child-based TaskHooks.
+
 ---
 
 In the end, we learnt how to define a custom event and emit it for our TaskHooks to listen. We learnt the
@@ -267,12 +275,7 @@ traffic of events and routing them to the correct TaskHooks.
 Without TaskHooks knowing the presence of each other, they can effectively communicate over and share information which
 is why its such a powerful patten to use.
 
-Currently our TaskHooks are always embedded to our Task the moment the Task is created with no way of working with them
-dynamically at runtime, which is what the next chapter will explore.
-
-Specifically how to attach, detach and elabrorating more on how to fetch TaskHook instances and how this system works exactly.
-
-> **TL;DR.** Custom events are plain structs implementing ``TaskHookEvent``, with an associated ``Payload<'a>`` for whatever
+> TL;DR. Custom events are plain structs implementing ``TaskHookEvent``, with an associated ``Payload<'a>`` for whatever
 data the event carries. Any Task can ``emit`` them, and any TaskHook can listen. Because hooks themselves can emit,
 you get the ``Hook-To-Hook Communication`` pattern.
 
