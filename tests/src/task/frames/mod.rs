@@ -11,6 +11,7 @@ mod fallback_taskframe_test;
 mod noop_operation_taskframe_test;
 mod threshold_taskframe_test;
 mod timeout_taskframe_test;
+mod retry_taskframe_test;
 
 fn ok_frame(
     counter: &Arc<AtomicUsize>,
