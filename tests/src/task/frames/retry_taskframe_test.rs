@@ -113,7 +113,7 @@ async fn retry_when_filter_stops_retry() {
     let frame = retry_frame_builder!(
         FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX },
         retries = 3,
-        when = |_err: Option<&String>| async { false }
+        when = |_err: Option<&String>| std::future::ready(false)
     );
 
     let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
@@ -134,7 +134,7 @@ async fn retry_when_filter_always_true_exhausts_retries() {
     let frame = retry_frame_builder!(
         FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX },
         retries = retries,
-        when = |_err: Option<&String>| async { true }
+        when = |_err: Option<&String>| std::future::ready(true)
     );
 
     let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
@@ -305,7 +305,7 @@ async fn linear_backoff_delays_grow() {
 
     let handle = backoff_spawn!(frame);
 
-    // retry=0 delay is 0s, so first two attempts happen back-to-back
+    // retry=0 delay is 0s, so first two attempts to happen back-to-back
     tokio::time::sleep(NS).await;
     assert_eq!(counter.load(Ordering::SeqCst), 2);
 
@@ -335,7 +335,7 @@ async fn linear_backoff_clamped_at_max() {
 
     let handle = backoff_spawn!(frame);
 
-    // retry=0 delay is 0s, so first two attempts happen back-to-back
+    // retry=0 delay is 0s, so first two attempts to happen back-to-back
     tokio::time::sleep(NS).await;
     assert_eq!(counter.load(Ordering::SeqCst), 2);
 
