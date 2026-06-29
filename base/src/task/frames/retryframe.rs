@@ -285,7 +285,11 @@ impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
             }
 
             let delay = self.backoff_strat.compute(retry);
-            tokio::time::sleep(delay).await;
+            if !delay.is_zero() {
+                tokio::time::sleep(delay).await;
+            } else {
+                tokio::task::yield_now().await;
+            }
         }
 
         error
