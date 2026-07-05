@@ -92,10 +92,9 @@ impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
         let mut cold_workers = Vec::with_capacity(workers);
         let mut hot_workers = Vec::with_capacity(workers);
 
-        let notifier = Arc::new(Notify::new());
-
         for _ in 0..workers {
-            let (hot_worker, cold_worker) = new_worker::<C>(notifier.clone());
+            let notifier = Arc::new(Notify::new());
+            let (hot_worker, cold_worker) = new_worker::<C>(notifier);
             cold_workers.push(CachePadded::new(cold_worker));
             hot_workers.push(CachePadded::new(hot_worker));
         }
