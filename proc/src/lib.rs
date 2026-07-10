@@ -8,21 +8,21 @@ mod workflow;
 
 use proc_macro::TokenStream;
 
-/// The [`every`] proc-macro is an alternative ergonomic way to write interval-based schedule as
+/// The [`every`] proc-macro is an alternative ergonomic way to write an interval-based schedule as
 /// opposed to manually constructing the [`TaskScheduleInterval`](chronographer::prelude::TaskScheduleInterval)
 /// object from the ground up.
 ///
 /// # Expansion Semantics
-/// It utilizes under the hood [`TaskScheduleInterval`](chronographer::prelude::TaskScheduleInterval)
+/// It uses under the hood [`TaskScheduleInterval`](chronographer::prelude::TaskScheduleInterval)
 /// and calculates the appropriate time from the time-literal expression at compile-time.
 ///
-/// The translated / expanded version typically looks this:
+/// The translated / expanded version typically looks like this:
 /// ```ignore
 /// TaskScheduleInterval::from_secs_f64(...).unwrap()
 /// ```
 ///
 /// # Invocation Syntax
-/// This macro uses its own syntax in order to form an interval via multiple **Time Literals**. The
+/// This macro uses its own syntax to form an interval via multiple **Time Literals**. The
 /// format of a time literal is a positive number followed by a time prefix.
 ///
 /// The defined time prefixes of this macro are as follows:
@@ -36,7 +36,7 @@ use proc_macro::TokenStream;
 /// every!(4d) // 4 Days via "d"
 /// ```
 ///
-/// The [`every`] macro allows to define more specific times via multiple time literals sorted from most
+/// The [`every`] macro allows defining more specific times via multiple time literals sorted from most
 /// significant / longest to least significant / shortest, the significance order of each time prefix
 /// is listed below:
 /// - Days = ``d``
@@ -58,7 +58,7 @@ use proc_macro::TokenStream;
 /// every!(1d, 1h, 1m, 1s, 1ms) // 1 Day, 1 Hour, 1 Minute, 1 Second & 1 Millisecond
 /// ```
 ///
-/// Finally, the [`every`] macro additionally supports the use of decimals. Though, you can only use it in
+/// Finally, the [`every`] macro additionally supports the use of decimals. Though you can only use it in
 /// the last time field literal, milliseconds do not support this property.
 ///
 /// A couple of examples of decimals are demonstrated below:
@@ -73,10 +73,10 @@ use proc_macro::TokenStream;
 ///
 /// # Limitations
 /// Any lower-order time units (below milliseconds, such as nanoseconds, picoseconds... etc.), CANNOT be represented with
-/// the [`every`] macro, though usually it isn't particularly needed.
+/// the [`every`] macro, though usually it isn't particularly necessary.
 ///
 /// The same thing applies with higher-order time units (above days, such as weeks, months, years, decades... etc.) do
-/// NOT include a time literal. Though a workaround of this issue is utilizing higher values for days such as:
+/// NOT include a time literal. Though a workaround of this issue is using higher values for days such as:
 /// ```rust
 /// use chronographer::every;
 ///
@@ -120,19 +120,19 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// [`task`] macro includes a "clever" auto-append feature in which it adds the "Task" or "TaskFrame" prefix
 /// if not included depending on if it is a "Task" or "TaskFrame" that is currently being expanded to.
 ///
-/// Though it allows the for an escape hatch to override names with two respective attribute parameters
+/// Though it allows for an escape hatch to override names with two respective attribute parameters
 /// (see below for more info about).
 ///
 /// Everything else is almost identical to the [`taskframe`] attribute macro as such it's recommended
 /// to read more about it
 ///
 /// # Valid Targets
-/// The [`task`] macro is applied primarily async functions, these functions cannot be methods (include
-/// &self or &mut self as first argument in a struct / enum / trait).
+/// The [`task`] macro is applied primarily to async functions, these functions cannot be methods (include
+/// &self or &mut self as the first argument in a struct / enum / trait).
 ///
 /// # Attributes & Parameters
 /// The [`task`] macro contains 4 attribute parameters, one of which is required while the other three
-/// are optional and one out of these is an attribute flag:
+/// are optional, and one out of these is an attribute flag:
 /// - **schedule** Specifies the schedule to use, this can be anything (from a type initialization to a macro)
 /// that translates or is something that implements the [`TaskSchedule`](chronographer::prelude::TaskSchedule) trait
 ///
@@ -150,7 +150,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// The [`task`] macro has two ways of expanding, all depending on whenever the [`Task`](chronographer::prelude::Task) is either singleton
 /// or non-singleton / multi-instanced. In both cases it uses the [`taskframe`] macro under the hood.
 ///
-/// For the former where the [`Task`](chronographer::prelude::Task) is a singleton it is similar to:
+/// For the former where the [`Task`](chronographer::prelude::Task) is a singleton, it is similar to:
 /// ```ignore
 /// /* Input:
 /// #[task(schedule = [SCHEDULE])]
@@ -173,7 +173,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Both ``[SCHEDULE]`` and ``[ERROR]`` are placeholders for what kind of schedule to use and the
-/// error type to use respectively. The latter on the other hand typically takes the form of:
+/// error type to use respectively. The latter, on the other hand, typically takes the form of:
 /// ```ignore
 /// /* Input:
 /// #[task(schedule = [SCHEDULE])]
@@ -196,7 +196,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Again, when it comes to the function itself, it is highly recommended to check how [`taskframe`]
-/// works as it borrows the same syntax with a minor caveat (see the limitations below).
+/// works as it borrows the same syntax with a minor issue (see the limitations below).
 ///
 /// # External Interactions
 /// The [`task`] macro preserves every other attribute macro and mounts it onto the generated results,
@@ -210,8 +210,8 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// that subscribed to specific events upon initialization of the [`Task`](chronographer::prelude::Task).
 ///
 /// # Limitations
-/// While [`taskframe`] generics work mostly out of the box, there is a caveat for [`task`].
-/// Due to static-based limitations, there can be no singleton Task with generics. As such either remove
+/// While [`taskframe`] generics work mostly out of the box, there is an issue for [`task`].
+/// Due to static-based limitations, there can be no singleton Task with generics. As such, either remove
 /// the use of generics or make it non-singleton.
 ///
 /// In addition to this, just like [`taskframe`] generics, lifetimes (due to async limitations) and
@@ -231,7 +231,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     task::task(attr, item)
 }
 
-/// The [`taskframe`] attribute macro is an alternative more ergonomic way to write
+/// The [`taskframe`] attribute macro is an alternative, more ergonomic way to write
 /// [`TaskFrames`](chronographer::prelude::TaskFrame) as opposed to manually constructing them via the
 /// Base API and Rust internals from the ground up.
 ///
@@ -246,12 +246,12 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 /// > **NOTE:** The camelCase is done on purpose, since the macro translates it into a struct
 ///
-/// Whe it comes to creating full Tasks objects, it is recommended to check the [`task`] attribute macro,
-/// its interface is almost identical and in fact the [`taskframe`] macro is used under the hood.
+/// When it comes to creating full Tasks objects, it is recommended to check the [`task`] attribute macro,
+/// its interface is almost identical, and in fact the [`taskframe`] macro is used under the hood.
 ///
 /// # Valid Targets
 /// The [`taskframe`] macro is applied primarily async functions, these functions cannot be methods (include
-/// &self or &mut self as first argument in a struct / enum / trait).
+/// &self or &mut self as the first argument in a struct / enum / trait).
 ///
 /// # Attributes & Parameters
 /// The [`taskframe`] contains no attribute parameters (apart from an internal one which under any
@@ -294,7 +294,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// [`TaskFrame`](chronographer::prelude::TaskFrame) requires the arguments to be a tuple in the form of
 /// ``(T1, T2, T3 ... Tn)``.
 ///
-/// Then the user must extract those values and name them themselves which is slightly cumbersome and
+/// Then the user must extract those values and name them themselves, which is slightly cumbersome and
 /// non-ergonomic, as changing the argument structure requires 2 places to change (the Args associated
 /// type and the extraction logic).
 ///
@@ -334,12 +334,12 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// used in our arguments and the latter ``E`` is used for our error.
 ///
 /// Type parameters must implement ``Send``, ``Sync`` and have a lifetime of ``'static`` due to rust
-/// async limitations. *Should be noted generics aren't limited to either arguments or the return type,
-/// they work the same as Rust generics*.
+/// async limitations. *Should be noted generics aren't limited to either arguments or the return type;
+/// They work the same as Rust generics*.
 ///
-/// Additionally, we have one constant parameter ``N`` that is type of usize, this isn't used anywhere
+/// Additionally, we have one constant parameter ``N`` that is a type of usize, this isn't used anywhere
 /// obvious but could theoritically be used in our code. Moreover, we also have a ``where`` clause which is
-/// supported, alternatively we can specify the trait bounds directly if we want to.
+/// supported. Alternatively, we can specify the trait bounds directly if we want to.
 ///
 /// # External Interactions
 /// The [`taskframe`] macro preserves every other attribute macro and mounts it onto the generated results,
@@ -362,7 +362,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     taskframe::taskframe(attrs, item)
 }
 
-/// The [`workflow`] attribute macro is a special macro from the rest macro, like with [`hooks`] it
+/// The [`workflow`] attribute macro is a special macro from the rest macro; Just like with [`hooks`], it
 /// behaves as an annotation working alongside [`task`] and [`taskframe`] rather than a macro which
 /// transforms directly the input provided into something new.
 ///
@@ -370,7 +370,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// stacking on top of each other) which works on top of the function / code they have already written.
 ///
 /// Users can write any kind of workflow via the provided built-in workflow primitives,
-/// from simplest (one workflow primitive) to most complex (with basically an infinite number of these).
+/// from the simplest (one workflow primitive) to the most complex (with basically an infinite number of these).
 ///
 /// Just like the Base API, ordering matters significantly as the workflow will behave drastically
 /// differently under various ordering configurations. Everything is applied from top to bottom.
@@ -403,12 +403,12 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// name of the workflow primitive we want to use and ``...`` are its arguments.
 ///
 /// Unlike typical Rust, workflow primitive arguments can be positional (no argument name, just value) and
-/// named (with the argument's name) or in special occasions contain a variable number of arguments.
+/// named (with the argument's name) or on special occasions contain a variable number of arguments.
 ///
 /// In essence, workflow primitive arguments behave similarly to Python's ``args`` / ``kwargs``, which
 /// means positional arguments should **NOT** be followed after named arguments.
 ///
-/// As previously said, there can be any number workflow primitives. However, the [`workflow`] macro
+/// As previously said, there can be any number of workflow primitives. However, the [`workflow`] macro
 /// imposes a minimum threshold of one workflow primitive (though no upper limit).
 ///
 /// ## Quick Reference
@@ -426,15 +426,15 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The retry workflow primitive behaves identically to [`RetriableTaskFrame`](chronographer::prelude::RetriableTaskFrame),
-/// it allows to retry the workflow up to a specified number of times with a configurable delay and error filter.
+/// it allows retrying the workflow up to a specified number of times with a configurable delay and error filter.
 ///
 /// ### Arguments
 /// - ``max`` The upper bound of times to retry a workflow until it succeeds. Unlike other arguments,
-/// this one is required to be specified, additionally it can be any source of an integer as long as it
+/// this one is required to be specified; Additionally, it can be any source of an integer as long as it
 /// can be converted internally to a ``NonZeroU32``.
 ///
 /// - ``delay`` The delay in-between every retry, this can be as simple as ``immediate``, providing a
-/// constant time / duration literal or even a backoff strategy. Its fully optional to specify and
+/// constant time / duration literal or even a backoff strategy. It's fully optional to specify and
 /// by default immediately retries (zero-delay). The syntaxes of the backoff strategies are as follows:
 ///     1. ``immediate`` The default backoff strategy, it retries immediately
 ///     2. ``constant(value = DURATION)`` Same as using a plain duration / time literal.
@@ -447,10 +447,10 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     ``full``, ``equal`` or ``decorrelated(VALUE)`` which specify how the jitter should behave. It is
 ///     recommended to read more the article [When APIs Fail: A Developer's Journey with Retries, Back Off, and Jitter](https://dev.to/kengowada/when-apis-fail-a-developers-journey-with-retries-back-off-and-jitter-1g2f)
 ///
-/// - ``when`` The error filter composed of a list of patterns encapsulated in brackets (``[...]``)
-/// with optionally an exclamation mark (``!``) as prefix. When used without any exclamation marks it's
-/// a whitelist (one of the pattern must match) whereas with one it turns into a blacklist (none of the
-/// patterns must match). Patterns match based on the error's structure, its fully optional to specify
+/// - ``when`` The error filter is composed of a list of patterns encapsulated in brackets (``[...]``)
+/// with optionally an exclamation mark (``!``) as a prefix. When used without any exclamation marks, it's
+/// a whitelist (one of the patterns must match), whereas with one it turns into a blacklist (none of the
+/// patterns must match). Patterns match based on the error's structure, it's fully optional to specify,
 /// and by default any error is let through.
 ///
 /// ### Examples:
@@ -463,7 +463,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     retry(2, delay = 3s), // Retry up to 2 times with a delay of 3 seconds
 ///     retry(7, linear(2s, 300ms)), // ... with a delay starting from 2 seconds and growing linearly
 ///     retry(3, delay = exponential(2.0)), // ... with a delay exponentially growing by 2^n
-///     retry(11, delay = jitter(equal, 2s)), // ... with an equally-jittered delay of 2 seconds
+///     retry(11, delay = jitter(equal, 2s)), // ... with an equally jittered delay of 2 seconds
 ///     retry(8, when = ["A" | "B"]), // ... with an error filter matching either values "A" or "B"
 ///     retry(1, when = !["C" | "D"]), // ... with an error filter NOT matching either values "C" or "D"
 ///     retry(4, 5s, ["A" | "B" | "C"]), // Retry up to 4 times with a delay of 5 seconds IF matching the errors
@@ -493,7 +493,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// they are positional and must be a [`TaskFrames`](chronographer::prelude::TaskFrame) "expression".
 ///
 /// These [`TaskFrames`](chronographer::prelude::TaskFrame) "expressions" must be a simple constructor
-/// method which fully exposes the type directly for example, plain ``MyType`` or ``MyType::new()``.
+/// method that fully exposes the type directly, for example, plain ``MyType`` or ``MyType::new()``.
 ///
 /// Generics are also supported as you can specify ``MyType::<T>::new()`` but no construction, in
 /// addition to type aliases. What is not supported though are constants and macros.
@@ -549,7 +549,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// it allows the specification of a constant delay before executing the workflow.
 ///
 /// ### Arguments
-/// The workflow primitive accepts only argument that being ``delay`` which is a duration based
+/// The workflow primitive accepts only argument that being ``delay`` which is a duration-based
 /// expression either an identifier to a constant, a macro or a time literal. It specifies the amount of
 /// time to idle before continuing.
 ///
@@ -579,7 +579,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// in that time, it errors out with a timeout error.
 ///
 /// ### Arguments
-/// The workflow primitive accepts only argument that being ``duration`` which is a duration based
+/// The workflow primitive accepts only argument that being ``duration`` which is a duration-based
 /// expression either an identifier to a constant, a macro or a time literal. It specifies the maximum
 /// time allowed for the workflow to run before timeout.
 ///
@@ -606,7 +606,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// The threshold workflow primitive behaves identically to [`ThresholdTaskFrame`](chronographer::prelude::ThresholdTaskFrame),
 /// it allows the specification of an upper time limit in the number of times a workflow is executed
-/// based on a criteria. When the workflow is tempted to run again, it can skip, fail with an error or
+/// based on a criteria. When the workflow is tempted to run again, it can skip, fail with an error, or
 /// do something custom.
 ///
 /// ### Arguments
@@ -656,8 +656,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The dependency workflow primitive behaves identically to [`DependencyTaskFrame`](chronographer::prelude::DependencyTaskFrame),
-/// it allows the specification of a required dependency to be resolved before ultimately running the workflow,
-/// the shape of the dependency can be as simple as a flag to as complex as a boolean expression with Tasks.
+/// it allows the specification of a required dependency to be resolved before ultimately running the workflow.
+/// The shape of the dependency can be as simple as a flag to as complex as a boolean expression with Tasks.
 ///
 /// ### Arguments
 /// This workflow primitive only has two arguments, the former being a required argument to specify and
@@ -674,7 +674,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Finally, when it comes to the "leaf" / "atomic" dependencies themselves, there are two categories,
 /// by specifying an identifier you reference an outside dependency fully whereas you can create a
-/// dependency by utilizing the following "atomic" expressions:
+/// dependency by using the following "atomic" expressions:
 /// - ``MY_TASK(any = INT)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
 /// specifying "any" followed by an integer value (N), creates a Task dependency that must run N times
 /// before resolving.
@@ -740,8 +740,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// - ``on_false`` A configuration for the workflow primitive to act in case the predicate returns false.
 /// This can either be ``error`` for erroring out or ``success`` to simply skip. **It is important to know**
-/// when a secondary TaskFrame runs and fails, its error will be prioritized, if it succeeds then the condition
-/// errors out regardless with its own error.
+/// when a secondary TaskFrame runs and fails, its error will be prioritized, if it succeeds, then the condition
+/// errors out regardless of its own error.
 ///
 /// ### Examples:
 /// ```rust
@@ -749,7 +749,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// #[taskframe]
 /// #[workflow(
-///     condition(MY_PREDICATE), // Run MY_PREDICATE, if it returns true -> run the workflow
+///     condition(MY_PREDICATE), // Run MY_PREDICATE if it returns true -> run the workflow
 ///     condition(|| { true }), // Run the provided closure, if it returns true -> run the workflow
 ///     condition(MY_PREDICATE, on_false = error), // ... if it returns false -> error out
 ///     condition(MY_PREDICATE, MyTaskFrame2), // ... if it returns false -> run MyTaskFrame2
@@ -768,20 +768,20 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// The output typically depends on which macro ([`task`] or [`taskframe`]), the [`workflow`] macro is
 /// attached to, for this reason read more about their expansion semantics in their respective documentation.
 ///
-/// When attaching it anywhere else it infamously produces a compile-time error:
+/// When attaching it anywhere else, it infamously produces a compile-time error:
 /// ```ignore
 /// "Workflow attribute is unsupported outside of Tasks and TaskFrames (via the respective macros)"
 /// ```
 ///
 /// # Limitations
 /// Due to Rust's macro limitations imposed, the [`workflow`] macro cannot support any type of expression
-/// which can produce a non-obvious type in some specific scenarios such as [`TaskFrames`](chronographer::prelude::TaskFrame).
+/// that can produce a non-obvious type in some specific scenarios such as [`TaskFrames`](chronographer::prelude::TaskFrame).
 ///
-/// When it comes to [`TaskFrame`](chronographer::prelude::TaskFrame) "expressions", as stated before
-/// they must not have any indirections such as constants and macros that obfuscate the type, however
+/// When it comes to [`TaskFrame`](chronographer::prelude::TaskFrame) "expressions", as stated before,
+/// they must not have any indirections such as constants and macros that obfuscate the type, however,
 /// it should be noted generics in the method's constructors are unsupported (i.e. ``MyType::new::<T>()``).
 ///
-/// Additionally due to the way the workflow annotation macro is set up, some IDEs such as RustRover
+/// Additionally, due to the way the workflow annotation macro is set up, some IDEs such as RustRover
 /// may not display the color of the [`workflow`] macro nicely or rarely provide false positive
 /// errors (in this case run ``cargo clean``).
 ///
@@ -790,8 +790,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// will not work no matter what and as such require the switch to the base API.
 ///
 /// # See Also
-/// - [`task`] - A macro for defining Tasks, can also consume the workflow annotation.
-/// - [`taskframe`] - A macro for defining TaskFrames, can also consume the workflow annotation.
+/// - [`task`] - A macro for defining Tasks can also consume the workflow annotation.
+/// - [`taskframe`] - A macro for defining TaskFrames can also consume the workflow annotation.
 /// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The base API building block for defining workflows.
 /// - [`TaskFrameBuilder`](chronographer::task::frame_builder::TaskFrameBuilder) - An alternative way to
 /// write workflows in the base API ergonomically.
