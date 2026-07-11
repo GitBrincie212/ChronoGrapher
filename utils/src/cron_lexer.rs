@@ -30,25 +30,25 @@ fn constant_to_numeric(
 ) -> Result<(), (CronExpressionLexerErrors, usize, usize)> {
     // Normalize case once so mixed-case names (e.g. `Mon`, `MoN`) parse the same as `MON`/`mon`.
     let num: u32 = match char_buffer[0..=2].to_ascii_uppercase().as_str() {
-        "SUN" if field_pos == 3 => 1,
-        "MON" if field_pos == 3 => 2,
-        "TUE" if field_pos == 3 => 3,
-        "WED" if field_pos == 3 => 4,
-        "THU" if field_pos == 3 => 5,
-        "FRI" if field_pos == 3 => 6,
-        "SAT" if field_pos == 3 => 7,
-        "JAN" if field_pos == 5 => 1,
-        "FEB" if field_pos == 5 => 2,
-        "MAR" if field_pos == 5 => 3,
-        "APR" if field_pos == 5 => 4,
-        "MAY" if field_pos == 5 => 5,
-        "JUN" if field_pos == 5 => 6,
-        "JUL" if field_pos == 5 => 7,
-        "AUG" if field_pos == 5 => 8,
-        "SEP" if field_pos == 5 => 9,
-        "OCT" if field_pos == 5 => 10,
-        "NOV" if field_pos == 5 => 11,
-        "DEC" if field_pos == 5 => 12,
+        "SUN" if field_pos == 5 => 1,
+        "MON" if field_pos == 5 => 2,
+        "TUE" if field_pos == 5 => 3,
+        "WED" if field_pos == 5 => 4,
+        "THU" if field_pos == 5 => 5,
+        "FRI" if field_pos == 5 => 6,
+        "SAT" if field_pos == 5 => 7,
+        "JAN" if field_pos == 4 => 1,
+        "FEB" if field_pos == 4 => 2,
+        "MAR" if field_pos == 4 => 3,
+        "APR" if field_pos == 4 => 4,
+        "MAY" if field_pos == 4 => 5,
+        "JUN" if field_pos == 4 => 6,
+        "JUL" if field_pos == 4 => 7,
+        "AUG" if field_pos == 4 => 8,
+        "SEP" if field_pos == 4 => 9,
+        "OCT" if field_pos == 4 => 10,
+        "NOV" if field_pos == 4 => 11,
+        "DEC" if field_pos == 4 => 12,
         _ => {
             return Err((
                 CronExpressionLexerErrors::UnknownCharacter,
@@ -132,6 +132,30 @@ pub fn tokenize_from_str(
             continue;
         }
 
+        if char_buffer.is_empty() {
+            let standalone_token = match char {
+                'L' => Some(TokenType::Last),
+                'W' if !matches!(chars.peek(), Some((_, 'E' | 'e'))) => {
+                    Some(TokenType::NearestWeekday)
+                }
+                _ => None,
+            };
+
+            if let Some(token_type) = standalone_token {
+                try_allocate_number(
+                    &mut digit_start,
+                    &mut current_number,
+                    &mut tokens[field_pos],
+                );
+                tokens[field_pos].push(Token {
+                    start: position,
+                    token_type,
+                    span: None,
+                });
+                continue;
+            }
+        }
+
         if char.is_alphabetic() || !char_buffer.is_empty() {
             char_buffer.push(char);
             if char_buffer.len() == 3 {
@@ -141,8 +165,8 @@ pub fn tokenize_from_str(
                     position,
                     &mut tokens[field_pos],
                 )?;
-                continue;
             }
+            continue;
         }
 
         if char.is_ascii_digit() {
@@ -163,15 +187,7 @@ pub fn tokenize_from_str(
             ',' => TokenType::ListSeparator,
             '?' => TokenType::Unspecified,
             '/' => TokenType::Step,
-            'L' => {
-                char_buffer.clear();
-                TokenType::Last
-            }
             '#' => TokenType::NthWeekday,
-            'W' if !matches!(chars.peek(), Some((_, 'E' | 'e'))) => {
-                char_buffer.clear();
-                TokenType::NearestWeekday
-            }
             _ => {
                 return Err((
                     CronExpressionLexerErrors::UnknownCharacter,
