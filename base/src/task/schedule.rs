@@ -1,7 +1,7 @@
-//! This module contains various implementations of scheduling primitives via [`TaskSchedule`](crate::task::TaskSchedule).
+//! This module contains various implementations of scheduling primitives via [`TaskSchedule`](TaskSchedule).
 //!
 //! When it comes to most use cases, the built-in scheduling primitives are most used. However, depending
-//! on your needs, you may implement the [`TaskSchedule`](crate::task::TaskSchedule) trait for a custom schedule.
+//! on your needs, you may implement the [`TaskSchedule`](TaskSchedule) trait for a custom schedule.
 //!
 //! # Exports
 //! - [`TaskScheduleImmediate`] - A primitive which schedules to execute immediately.
@@ -14,7 +14,7 @@
 //! # Example(s)
 //! TODO: Expand upon the Example(s) once you are finished with documenting the other primitives
 //!
-//! Implementing your own custom schedule? Best refer to [`TaskSchedule`](crate::task::TaskSchedule) documentation
+//! Implementing your own custom schedule? Best refer to [`TaskSchedule`](TaskSchedule) documentation
 //!
 //! # See Also
 //! - [`TaskScheduleImmediate`] - A primitive which schedules to execute immediately.
@@ -23,9 +23,8 @@
 //! - [`CronField`] - A field used internally for [`TaskScheduleCron`]
 //! - [`TaskScheduleCalendar`] - A primitive which schedules via a human-readable calendar object.
 //! - [`TaskCalendarField`] - A field of [`TaskScheduleCalendar`] which allows complex scheduling.
-//! - [`TaskSchedule`](crate::task::TaskSchedule) - The trait for managing scheduling / trigger logic.
+//! - [`TaskSchedule`](TaskSchedule) - The trait for managing scheduling / trigger logic.
 
-mod calendar; // skipcq: RS-D1001
 mod cron; // skipcq: RS-D1001
 mod immediate;
 mod interval; // skipcq: RS-D1001
@@ -34,7 +33,6 @@ use std::error::Error;
 use std::time::SystemTime;
 use async_trait::async_trait;
 
-pub use calendar::*;
 pub use cron::*;
 pub use immediate::*;
 pub use interval::*;
