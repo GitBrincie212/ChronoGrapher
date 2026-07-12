@@ -508,7 +508,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         let condition = ConditionalTaskFrame::builder()
             .predicate(predicate)
             .frame(self.0)
-            .error_on_false(false)
+            .on_false_skip()
             .build();
         TaskFrameBuilder(condition)
     }
@@ -596,7 +596,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
                 .predicate(predicate)
                 .frame(self.0)
                 .fallback(fallback)
-                .error_on_false(false)
+                .on_false_skip()
                 .build();
         TaskFrameBuilder(condition)
     }

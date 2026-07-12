@@ -23,7 +23,22 @@ where
 }
 
 #[derive(TypedBuilder)]
-#[builder(build_method(into = ConditionalTaskFrame<T, T2>))]
+#[builder(
+    build_method(into = ConditionalTaskFrame<T, T2>),
+    mutators(
+        pub fn on_false_error(&mut self){
+            self.error_on_false = Box::new(|| true);
+        }
+    
+        pub fn on_false_skip(&mut self){
+            self.error_on_false = Box::new(|| false);
+        }
+    
+        pub fn on_false_custom(&mut self, custom: impl Fn() -> bool + Send + Sync + 'static){
+            self.error_on_false = Box::new(custom);
+        }
+    )
+)]
 pub struct ConditionalTaskFrameConfig<T: TaskFrame, T2: TaskFrame> {
     fallback: T2,
 
@@ -34,8 +49,8 @@ pub struct ConditionalTaskFrameConfig<T: TaskFrame, T2: TaskFrame> {
     }))]
     predicate: Box<dyn ConditionalFramePredicate>,
 
-    #[builder(default = false)]
-    error_on_false: bool,
+    #[builder(via_mutators(init = Box::new(|| false)))]
+    error_on_false: Box<dyn Fn() -> bool + Send + Sync + 'static>,
 }
 
 define_event!(OnTruthyValueEvent, ());
@@ -65,14 +80,14 @@ pub struct ConditionalTaskFrame<T, T2> {
     frame: T,
     fallback: T2,
     predicate: Box<dyn ConditionalFramePredicate>,
-    error_on_false: bool,
+    error_on_false: Box<dyn Fn() -> bool + Send + Sync + 'static>,
 }
 
 #[allow(type_alias_bounds)]
 pub type NonFallbackCFCBuilder<T: TaskFrame> = ConditionalTaskFrameConfigBuilder<
     T,
     NoOperationTaskFrame<T::Error, ()>,
-    ((NoOperationTaskFrame<T::Error, ()>,), (), (), ()),
+    ((NoOperationTaskFrame<T::Error, ()>,), (), (), (Box<dyn Fn() -> bool + Send + Sync + 'static>,)),
 >;
 
 impl<T: TaskFrame> ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, ()>> {
@@ -110,7 +125,7 @@ where
 
         ctx.emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
         let result = self.fallback.execute(ctx, &()).await;
-        if self.error_on_false && result.is_ok() {
+        if (self.error_on_false)() && result.is_ok() {
             return Err(ConditionalTaskFrameError::TaskConditionFail);
         }
 
