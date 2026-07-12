@@ -5,6 +5,7 @@ use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::{BinOp, UnOp};
 
+// TODO: Add support for consecutive failures and consecutive successes
 pub enum TaskRunMetric {
     Failure(syn::LitInt),
     Success(syn::LitInt),
