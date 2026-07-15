@@ -4,26 +4,34 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 
-pub struct TimeoutArguments(ValueSource<TimeLiteral>);
+pub struct TimeoutArguments {
+    duration: ValueSource<TimeLiteral>,
+    on_timeout: Option<syn::Expr>,
+}
 
 impl Parse for TimeoutArguments {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut argument_parser = ArgumentParser::new(input);
         let duration = argument_parser.parse_required("duration")?;
-        Ok(TimeoutArguments(duration))
+        let on_timeout = argument_parser.parse_optional("on_timeout")?;
+        Ok(TimeoutArguments { duration, on_timeout })
     }
 }
 
 impl WorkflowTransform for TimeoutArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
-        let value = &self.0;
+        let duration = &self.duration;
+        let on_timeout = self.on_timeout
+            .as_ref()
+            .map(|x| quote! { .on_timeout(#x) });
 
-        let method_name = match &value {
-            ValueSource::Function(_) => quote! { new_with },
-            _ => quote! { new },
-        };
-
-        quote! { ::chronographer::task::frames::timeoutframe::TimeoutTaskFrame::#method_name( #toks, #value )}
+        quote! {
+            ::chronographer::task::frames::timeoutframe::TimeoutTaskFrame::builder()
+                .frame(#toks)
+                .duration(#duration)
+                #on_timeout
+                .build()
+        }
     }
 
     fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
