@@ -153,6 +153,7 @@ impl<T: TaskFrame<Error: DefaultTimeoutError>> TimeoutTaskFrameBuilder<
 struct MissingTaskFrameParamError;
 impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, TimeoutMissingBuilder, ES> {
     #[deprecated(note = "Missing required parameter for TaskFrame")]
+    #[allow(private_interfaces)]
     pub fn build(self, _err: MissingTaskFrameParamError) -> ! {
         panic!()
     }
@@ -162,11 +163,13 @@ struct MissingDurationParamError;
 struct SpecifiedTaskFrameError;
 impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutPresentBuilder<T>, TimeoutMissingBuilder, ES> {
     #[deprecated(note = "Missing required parameter for Duration")]
+    #[allow(private_interfaces)]
     pub fn build(self, _err: MissingDurationParamError) -> ! {
         panic!()
     }
 
     #[deprecated(note = "Already specified parameter for TaskFrame")]
+    #[allow(private_interfaces)]
     pub fn frame(self, _err: SpecifiedTaskFrameError) -> ! {
         panic!()
     }
@@ -175,16 +178,19 @@ impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutPresentBuilder<T>, Time
 struct SpecifiedDurationParamError;
 impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>, ES> {
     #[deprecated(note = "Missing required parameter for TaskFrame")]
+    #[allow(private_interfaces)]
     pub fn build(self, _err: MissingTaskFrameParamError) -> ! {
         panic!()
     }
 
     #[deprecated(note = "Already specified parameter for Duration")]
+    #[allow(private_interfaces)]
     pub fn duration(self, _err: SpecifiedDurationParamError) -> ! {
         panic!()
     }
 
     #[deprecated(note = "Already specified parameter for TaskFrame")]
+    #[allow(private_interfaces)]
     pub fn duration_fn(self, _err: SpecifiedDurationParamError) -> ! {
         panic!()
     }
@@ -193,11 +199,13 @@ impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, Timeout
 struct SpecifiedErParamError;
 impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync + 'static>>> {
     #[deprecated(note = "Already specified parameter for error")]
+    #[allow(private_interfaces)]
     pub fn error(self, _err: SpecifiedErParamError) -> ! {
         panic!()
     }
 
     #[deprecated(note = "Already specified parameter for error")]
+    #[allow(private_interfaces)]
     pub fn error_fn(self, _err: SpecifiedErParamError) -> ! {
         panic!()
     }
