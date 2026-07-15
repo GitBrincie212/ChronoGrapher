@@ -26,13 +26,13 @@ pub struct TimeoutPresentBuilder<T>(T);
 pub struct TimeoutTaskFrame<T: TaskFrame> {
     frame: T,
     max_duration: Box<dyn Fn() -> Duration + Send + Sync>,
-    error: Box<dyn Fn() -> T::Error + Send + Sync + 'static>,
+    on_timeout: Box<dyn Fn() -> T::Error + Send + Sync + 'static>,
 }
 
 pub struct TimeoutTaskFrameBuilder<T, TS, DS, ES> {
     frame: TS,
     max_duration: DS,
-    error: ES,
+    on_timeout: ES,
     _marker: PhantomData<T>
 }
 
@@ -41,7 +41,7 @@ impl<T: TaskFrame> TimeoutTaskFrame<T> {
         TimeoutTaskFrameBuilder {
             frame: TimeoutMissingBuilder(()),
             max_duration: TimeoutMissingBuilder(()),
-            error: TimeoutMissingBuilder(()),
+            on_timeout: TimeoutMissingBuilder(()),
             _marker: PhantomData,
         }
     }
@@ -52,7 +52,7 @@ impl<T: TaskFrame, D, E> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, D, E>
         TimeoutTaskFrameBuilder {
             frame: TimeoutPresentBuilder(frame),
             max_duration: self.max_duration,
-            error: self.error,
+            on_timeout: self.on_timeout,
             _marker: PhantomData,
         }
     }
@@ -66,7 +66,7 @@ impl<T: TaskFrame, TS, ES> TimeoutTaskFrameBuilder<T, TS, TimeoutMissingBuilder,
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: TimeoutPresentBuilder(Box::new(move || duration)),
-            error: self.error,
+            on_timeout: self.on_timeout,
             _marker: PhantomData,
         }
     }
@@ -78,14 +78,14 @@ impl<T: TaskFrame, TS, ES> TimeoutTaskFrameBuilder<T, TS, TimeoutMissingBuilder,
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: TimeoutPresentBuilder(Box::new(f) as Box<dyn Fn() -> Duration + Send + Sync>),
-            error: self.error,
+            on_timeout: self.on_timeout,
             _marker: PhantomData
         }
     }
 }
 
 impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutMissingBuilder> {
-    pub fn error(
+    pub fn on_timeout(
         self,
         error: T::Error,
     ) -> TimeoutTaskFrameBuilder<
@@ -100,19 +100,19 @@ impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutMissingBuil
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: self.max_duration,
-            error: TimeoutPresentBuilder(Box::new(move || error.clone())),
+            on_timeout: TimeoutPresentBuilder(Box::new(move || error.clone())),
             _marker: PhantomData,
         }
     }
 
-    pub fn error_fn<F>(
+    pub fn on_timeout_fn<F>(
         self,
         f: impl Fn() -> T::Error + Send + Sync + 'static,
     ) -> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync>>> {
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: self.max_duration,
-            error: TimeoutPresentBuilder(Box::new(f) as Box<dyn Fn() -> T::Error + Send + Sync>),
+            on_timeout: TimeoutPresentBuilder(Box::new(f) as Box<dyn Fn() -> T::Error + Send + Sync>),
             _marker: PhantomData,
         }
     }
@@ -129,7 +129,7 @@ impl<T: TaskFrame> TimeoutTaskFrameBuilder<
         TimeoutTaskFrame {
             frame: self.frame.0,
             max_duration: self.max_duration.0,
-            error: self.error.0,
+            on_timeout: self.on_timeout.0,
         }
     }
 }
@@ -145,7 +145,7 @@ impl<T: TaskFrame<Error: DefaultTimeoutError>> TimeoutTaskFrameBuilder<
         TimeoutTaskFrame {
             frame: self.frame.0,
             max_duration: self.max_duration.0,
-            error: Box::new(T::Error::default_timeout_error),
+            on_timeout: Box::new(T::Error::default_timeout_error),
         }
     }
 }
@@ -225,6 +225,6 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
         }
 
         ctx.emit::<OnTimeout>(&duration).await;
-        Err((self.error)())
+        Err((self.on_timeout)())
     }
 }
