@@ -4,10 +4,7 @@
 use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{
-    ConditionalTaskFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame,
-    NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
-};
+use crate::task::{ConditionalTaskFrame, ConstantBackoffStrategy, DefaultTimeoutError, DependencyTaskFrame, FallbackTaskFrame, NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame};
 use std::num::NonZeroU32;
 use std::time::Duration;
 
@@ -341,13 +338,14 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         )
     }
 
-    /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds the specified duration.
+    /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds
+    /// the specified duration. This is a variation that allows specifying an error parameter for the timeout error.
     ///
     /// This wrapper allows the execution to be strictly bound by a time limit. If the inner task takes longer than the
     /// ``max_duration`` parameter, it will be forcefully yielded, canceled, and a timeout error will be propagated up the chain.
     ///
     /// > **Note:** Due to limitations from Rust, the [`TimeoutTaskFrame``] might not cancel in time the operation especially if its CPU-heavy work, for this reason it is
-    /// reccomended to ``yield`` whenever possible. For more information visit the [`TimeoutTaskFrame`] documentation.
+    /// recommended to ``yield`` whenever possible. For more information visit the [`TimeoutTaskFrame`] documentation.
     ///
     /// # Arguments
     /// ``max_duration`` is a type [`Duration`] parameter specifying the maximum amount of time the task is allowed to run before being timed out.
@@ -382,8 +380,72 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`TimeoutTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
-    pub fn with_timeout(self, max_duration: Duration) -> TaskFrameBuilder<TimeoutTaskFrame<T>> {
-        TaskFrameBuilder(TimeoutTaskFrame::new(self.0, max_duration))
+    pub fn with_custom_timeout(self, max_duration: Duration, error: T::Error) -> TaskFrameBuilder<TimeoutTaskFrame<T>>
+    where
+        T::Error: Clone
+    {
+        TaskFrameBuilder(
+            TimeoutTaskFrame::builder()
+                .frame(self.0)
+                .duration(max_duration)
+                .error(error)
+                .build()
+        )
+    }
+
+    /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds
+    /// the specified duration. This is a variation that allows to auto-supply the error for a timeout based on the default timeout error type of
+    /// the inner frame.
+    ///
+    /// This wrapper allows the execution to be strictly bound by a time limit. If the inner task takes longer than the
+    /// ``max_duration`` parameter, it will be forcefully yielded, canceled, and a timeout error will be propagated up the chain.
+    ///
+    /// > **Note:** Due to limitations from Rust, the [`TimeoutTaskFrame``] might not cancel in time the operation especially if its CPU-heavy work, for this reason it is
+    /// recommended to ``yield`` whenever possible. For more information visit the [`TimeoutTaskFrame`] documentation.
+    ///
+    /// # Arguments
+    /// ``max_duration`` is a type [`Duration`] parameter specifying the maximum amount of time the task is allowed to run before being timed out.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a timeout limit.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::time::Duration;
+    /// use chronographer::task::{TaskFrameBuilder, TimeoutTaskFrame};
+    ///
+    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
+    /// #
+    /// # struct MyTaskFrame;
+    /// #
+    /// # impl TaskFrame for MyTaskFrame {
+    /// #     type Error = String;
+    /// #     type Args = ();
+    /// #
+    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
+    /// #         Ok(())
+    /// #     }
+    /// # }
+    ///
+    /// let task: TimeoutTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    ///     .with_timeout(Duration::from_secs(30)) // Give the inner task up to 30 seconds to finish
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`TimeoutTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
+    pub fn with_timeout(self, max_duration: Duration) -> TaskFrameBuilder<TimeoutTaskFrame<T>>
+    where
+        T::Error: DefaultTimeoutError
+    {
+        TaskFrameBuilder(
+            TimeoutTaskFrame::builder()
+                .frame(self.0)
+                .duration(max_duration)
+                .build()
+        )
     }
 
     /// Method wraps the inner [`TaskFrame`] in a [`FallbackTaskFrame`] which will execute a specified fallback task upon failure of the main task.
