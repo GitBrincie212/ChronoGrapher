@@ -130,7 +130,7 @@ when a timeout does occur via ``on_timeout``:
 #[task(schedule = every!(1s)))]
 #[workflow(
     // <...>
-    timeout(5s, on_timeout = constant(MyErrors::TimeoutVariant)), // Constant-value
+    timeout(5s, on_timeout = MyErrors::TimeoutVariant), // Constant-value
     timeout(5s, on_timeout = function(|| MyErrors::TimeoutVariant)), // Function-based
     // <...>
 )]
