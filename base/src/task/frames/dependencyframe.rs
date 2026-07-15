@@ -1,33 +1,56 @@
+use std::marker::PhantomData;
 use crate::utils::macros::define_event;
-use crate::errors::{DependencyTaskFrameError, TaskDependenciesUnresolved, TaskError};
+use crate::errors::TaskError;
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
 use crate::task::TaskFrame;
 use crate::task::{Debug, TaskFrameContext};
-use async_trait::async_trait;
 use typed_builder::TypedBuilder;
 
-#[async_trait]
-pub trait DependentFailBehavior: Send + Sync {
-    async fn execute(&self) -> Result<(), Box<dyn TaskError>>;
+pub trait DefaultDependencyError: TaskError {
+    fn default_dependency_error() -> Self;
 }
 
-#[derive(Default, Clone, Copy)]
-pub struct DependentFailureOnFail;
+pub trait DependencyUnresolve<T: TaskError>: Send + Sync {
+    fn execute(&self) -> Result<(), T>;
+}
 
-#[async_trait]
-impl DependentFailBehavior for DependentFailureOnFail {
-    async fn execute(&self) -> Result<(), Box<dyn TaskError>> {
-        Err(Box::new(TaskDependenciesUnresolved))
+pub struct DependencyUnresolveFail<T: TaskError>(PhantomData<T>);
+
+impl<T: TaskError> Default for DependencyUnresolveFail<T> {
+    fn default() -> Self {
+        DependencyUnresolveFail(PhantomData)
     }
 }
 
-#[derive(Default, Clone, Copy)]
-pub struct DependentSuccessOnFail;
+impl<T: TaskError> Clone for DependencyUnresolveFail<T> {
+    fn clone(&self) -> Self {
+        DependencyUnresolveFail(PhantomData)
+    }
+}
 
-#[async_trait]
-impl DependentFailBehavior for DependentSuccessOnFail {
-    async fn execute(&self) -> Result<(), Box<dyn TaskError>> {
+impl<T: DefaultDependencyError> DependencyUnresolve<T> for DependencyUnresolveFail<T> {
+    fn execute(&self) -> Result<(), T> {
+        Err(T::default_dependency_error())
+    }
+}
+
+pub struct DependencyUnresolveSkip<T: TaskError>(PhantomData<T>);
+
+impl<T: TaskError> Default for DependencyUnresolveSkip<T> {
+    fn default() -> Self {
+        DependencyUnresolveSkip(PhantomData)
+    }
+}
+
+impl<T: TaskError> Clone for DependencyUnresolveSkip<T> {
+    fn clone(&self) -> Self {
+        DependencyUnresolveSkip(PhantomData)
+    }
+}
+
+impl<T: TaskError> DependencyUnresolve<T> for DependencyUnresolveSkip<T> {
+    fn execute(&self) -> Result<(), T> {
         Ok(())
     }
 }
@@ -40,10 +63,10 @@ pub struct DependencyTaskFrameConfig<T: TaskFrame> {
     dependency: FrameDependency,
 
     #[builder(
-        default = Box::new(DependentFailureOnFail),
-        setter(transform = |ts: impl DependentFailBehavior + 'static| Box::new(ts) as Box<dyn DependentFailBehavior>)
+        default = Box::new(DependencyUnresolveSkip::<T::Error>::default()),
+        setter(transform = |ts: impl DependencyUnresolve<T::Error> + 'static| Box::new(ts) as Box<dyn DependencyUnresolve<_>>)
     )]
-    dependent_behaviour: Box<dyn DependentFailBehavior>,
+    dependent_behaviour: Box<dyn DependencyUnresolve<T::Error>>,
 }
 
 impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T> {
@@ -61,7 +84,7 @@ define_event!(OnDependencyValidation, (&'a FrameDependency, bool));
 pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,
     dependency: FrameDependency,
-    dependent_behaviour: Box<dyn DependentFailBehavior>,
+    dependent_behaviour: Box<dyn DependencyUnresolve<T::Error>>,
 }
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
@@ -71,7 +94,7 @@ impl<T: TaskFrame> DependencyTaskFrame<T> {
 }
 
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
-    type Error = DependencyTaskFrameError<T::Error>;
+    type Error = T::Error;
     type Args = T::Args;
     type Workflow = Self;
 
@@ -80,13 +103,9 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
 
         ctx.emit::<OnDependencyValidation>(&(&self.dependency, is_resolved)).await;
         if !is_resolved {
-            return self
-                .dependent_behaviour
-                .execute()
-                .await
-                .map_err(DependencyTaskFrameError::DependenciesInvalidated);
+            return self.dependent_behaviour.execute()
         }
 
-        self.frame.execute(&ctx, args).await.map_err(DependencyTaskFrameError::Inner)
+        self.frame.execute(&ctx, args).await
     }
 }
