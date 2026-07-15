@@ -66,7 +66,7 @@ pub struct DependencyTaskFrameConfig<T: TaskFrame> {
         default = Box::new(DependencyUnresolveSkip::<T::Error>::default()),
         setter(transform = |ts: impl DependencyUnresolve<T::Error> + 'static| Box::new(ts) as Box<dyn DependencyUnresolve<_>>)
     )]
-    dependent_behaviour: Box<dyn DependencyUnresolve<T::Error>>,
+    unresolve: Box<dyn DependencyUnresolve<T::Error>>,
 }
 
 impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T> {
@@ -74,7 +74,7 @@ impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T>
         Self {
             frame: config.frame,
             dependency: config.dependency,
-            dependent_behaviour: config.dependent_behaviour,
+            unresolve: config.unresolve,
         }
     }
 }
@@ -84,7 +84,7 @@ define_event!(OnDependencyValidation, (&'a FrameDependency, bool));
 pub struct DependencyTaskFrame<T: TaskFrame> {
     frame: T,
     dependency: FrameDependency,
-    dependent_behaviour: Box<dyn DependencyUnresolve<T::Error>>,
+    unresolve: Box<dyn DependencyUnresolve<T::Error>>,
 }
 
 impl<T: TaskFrame> DependencyTaskFrame<T> {
@@ -103,7 +103,7 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
 
         ctx.emit::<OnDependencyValidation>(&(&self.dependency, is_resolved)).await;
         if !is_resolved {
-            return self.dependent_behaviour.execute()
+            return self.unresolve.execute()
         }
 
         self.frame.execute(&ctx, args).await
