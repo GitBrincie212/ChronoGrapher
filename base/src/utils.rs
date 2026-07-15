@@ -1,12 +1,6 @@
 pub mod timing_wheel;
 pub use timing_wheel::*;
 
-use crossbeam::utils::CachePadded;
-use slotmap::SlotMap;
-
-pub(crate) type CachePaddedLock<T> = CachePadded<parking_lot::RwLock<T>>;
-pub(crate) type SlotMapShard<K, V> = CachePaddedLock<SlotMap<K, V>>;
-
 pub(crate) mod macros {
     macro_rules! define_event {
         ($(#[$($attrss:tt)*])* $name: ident, $payload: ty) => {
