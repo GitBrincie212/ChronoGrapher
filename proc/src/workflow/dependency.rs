@@ -278,10 +278,10 @@ impl ToTokens for UnresolveBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let expanded = match self {
             UnresolveBehavior::Fail => {
-                quote! { chronographer::task::frames::dependencyframe::DependentFailureOnFail }
+                quote! { chronographer::task::frames::dependencyframe::DependencyUnresolveFail::<_>::default() }
             }
             UnresolveBehavior::Skip => {
-                quote! { chronographer::task::frames::dependencyframe::DependentSuccessOnFail }
+                quote! { chronographer::task::frames::dependencyframe::DependencyUnresolveSkip::<_>::default() }
             }
             UnresolveBehavior::Custom(expr) => quote! { #expr },
         };
@@ -356,7 +356,7 @@ impl WorkflowTransform for DependencyArguments {
         let expanded_unresolve_behavior = self
             .unresolve_behavior
             .as_ref()
-            .map(|x| quote! { .dependent_behaviour(#x) });
+            .map(|x| quote! { .unresolve(#x) });
 
         quote! {
             ::chronographer::task::frames::dependencyframe::DependencyTaskFrame::builder()
