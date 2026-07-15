@@ -200,13 +200,13 @@ struct SpecifiedErParamError;
 impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync + 'static>>> {
     #[deprecated(note = "Already specified parameter for error")]
     #[allow(private_interfaces)]
-    pub fn error(self, _err: SpecifiedErParamError) -> ! {
+    pub fn on_timeout(self, _err: SpecifiedErParamError) -> ! {
         panic!()
     }
 
     #[deprecated(note = "Already specified parameter for error")]
     #[allow(private_interfaces)]
-    pub fn error_fn(self, _err: SpecifiedErParamError) -> ! {
+    pub fn on_timeout_fn(self, _err: SpecifiedErParamError) -> ! {
         panic!()
     }
 }
