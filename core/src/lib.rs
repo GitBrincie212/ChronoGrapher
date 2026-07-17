@@ -23,6 +23,31 @@ macro_rules! immediate {
 }
 
 #[cfg(feature = "macros")]
+#[macro_export]
+macro_rules! event {
+    ($vis: vis $name:ident($($value:ty),*)) => {
+        #[derive(Default)]
+        $vis struct $name;
+
+        impl $crate::prelude::TaskHookEvent for $name {
+            type Payload<'a> = ($($value),*) where Self: 'a;
+        }
+    };
+
+    ($vis: vis $name:ident<'a>($($value:ty),*)) => {
+        event!($vis $name($($value),*));
+    };
+
+    ($vis: vis $name:ident { $($key:ident: $value:ty ),* }) => {
+        event!($vis $name($($value),*));
+    };
+
+    ($vis: vis $name:ident<'a> { $($key:ident: $value:ty ),* }) => {
+        event!($vis $name($($value),*));
+    };
+}
+
+#[cfg(feature = "macros")]
 pub mod macros {
     pub use chronographer_macros::taskframe;
     pub use chronographer_macros::task;
@@ -31,6 +56,7 @@ pub mod macros {
     pub use chronographer_macros::every;
     pub use dynamic_taskframe;
     pub use immediate;
+    pub use event;
 }
 
 pub mod prelude {
