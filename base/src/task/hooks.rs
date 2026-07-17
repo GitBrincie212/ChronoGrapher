@@ -8,6 +8,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, LazyLock};
+use crate::task::{Sealed, TaskHookLayer};
 
 pub mod events {
     pub use crate::task::OnTaskEnd;
@@ -547,5 +548,25 @@ impl TaskHookContext {
 
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
         TASKHOOK_REGISTRY.get::<E, T>(self.0)
+    }
+}
+
+impl Sealed for TaskHookContext {}
+
+impl TaskHookLayer for TaskHookContext {
+    fn attach<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output=()> + Send {
+        self.attach_hook(hook)
+    }
+
+    fn get<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
+        self.get_hook::<EV, T>()
+    }
+
+    fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output=()> + Send {
+        self.emit::<EV>(payload)
+    }
+
+    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output=()> + Send {
+        self.detach_hook::<EV, T>()
     }
 }

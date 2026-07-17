@@ -29,7 +29,7 @@ pub use thresholdframe::*;
 pub use timeoutframe::*;
 
 use crate::errors::TaskError;
-use crate::task::{ErasedTask, NonObserverTaskHook, TaskHook, TaskHookContext, TaskHookEvent, TASKHOOK_REGISTRY};
+use crate::task::{ErasedTask, NonObserverTaskHook, Sealed, TaskHook, TaskHookContext, TaskHookEvent, TaskHookLayer, TASKHOOK_REGISTRY};
 use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -155,5 +155,25 @@ impl<T: TaskFrame<Error: Into<T::Error>>> ErasedTaskFrame<T::Args> for T {
         self.execute(ctx, args)
             .await
             .map_err(|x| Box::new(x) as Box<dyn TaskError>)
+    }
+}
+
+impl Sealed for TaskFrameContext {}
+
+impl TaskHookLayer for TaskFrameContext {
+    fn attach<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output=()> + Send {
+        self.attach_hook(hook)
+    }
+
+    fn get<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
+        self.get_hook::<EV, T>()
+    }
+
+    fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output=()> + Send {
+        self.deref().emit::<EV>(payload)
+    }
+
+    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output=()> + Send {
+        self.detach_hook::<EV, T>()
     }
 }

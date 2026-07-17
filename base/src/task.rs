@@ -97,3 +97,33 @@ impl<T1: TaskFrame<Args = ()>> Task<T1> {
         }
     }
 }
+
+pub(crate) trait Sealed {}
+
+#[allow(private_interfaces)]
+pub trait TaskHookLayer: Sealed + Send + Sync {
+    fn attach<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output=()> + Send;
+    fn get<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>>;
+    fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output=()> + Send;
+    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output=()> + Send;
+}
+
+impl<TF: TaskFrame> Sealed for Task<TF> {}
+
+impl<TF: TaskFrame> TaskHookLayer for Task<TF> {
+    fn attach<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output=()> + Send {
+        self.attach_hook(hook)
+    }
+
+    fn get<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
+        self.get_hook::<EV, T>()
+    }
+
+    fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output=()> + Send {
+        self.emit_hook_event::<EV>(payload)
+    }
+
+    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output=()> + Send {
+        self.detach_hook::<EV, T>()
+    }
+}
