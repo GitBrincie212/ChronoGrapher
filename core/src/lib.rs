@@ -54,6 +54,7 @@ pub mod macros {
     pub use chronographer_macros::workflow;
     pub use chronographer_macros::cron;
     pub use chronographer_macros::every;
+    pub use chronographer_macros::hook;
     pub use dynamic_taskframe;
     pub use immediate;
     pub use event;

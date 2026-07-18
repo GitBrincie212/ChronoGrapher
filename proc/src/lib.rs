@@ -5,6 +5,7 @@ mod utils;
 mod task;
 mod taskframe;
 mod workflow;
+mod hook;
 
 use proc_macro::TokenStream;
 
@@ -257,7 +258,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// The [`taskframe`] contains no attribute parameters (apart from an internal one which under any
 /// circumstances should **NOT** be used due to being an antipattern).
 ///
-/// # Expansion Semantics
+/// # Expansion Semanticse
 /// The [`taskframe`] syntax is almost if not identical to a pure Rust function, when the macro expands
 /// it typically takes the form of:
 /// ```ignore
@@ -810,6 +811,278 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
     workflow::workflow(attrs, item)
+}
+
+/// The [`hook`] attribute macro is a special macro from most macros; It is similar in spirit to [`workflow`]
+/// but unlike the [`workflow`] macro annotation. This macro can act both as a macro annotation and as
+/// atypical attribute macro depending on the context.
+///
+/// With that said, it allows users to write ergonomically [`TaskHooks`](chronographer::prelude::TaskHook),
+/// both implementing / defining them and even registering / attaching them.
+///
+/// The system allows for almost identical levels of flexibility just like the Base API but achieved with
+/// less boilerplate and more readability in both implementation and attachment phases.
+///
+/// The bare minimal of both implementation and attachment of a TaskHook looks as follows:
+/// ```rust
+/// use chronographer::prelude;
+///
+/// // ============== [IMPLEMENTATION PHASE (START)] ==============
+///
+/// #[derive(Default)]
+/// struct MyTaskHook;
+///
+/// #[hook]
+/// impl MyTaskHook {
+///    async fn OnTaskStart(&self, ctx: &TaskHookContext) { /* ... */ }
+///    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* ... */ }
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, _retry: u32, _error: Option<&dyn TaskError>) { /* ... */ }
+/// }
+///
+/// // ============== [IMPLEMENTATION PHASE (END)] ==============
+/// //
+/// // ============== [ATTACHMENT PHASE (START)] ================
+///
+/// #[task(schedule = every!(2s))]
+/// #[hook(
+///     // Auto-attachment
+///     auto(MyTaskHook),
+///
+///     // Manual Listening (Same code as above basically)
+///     my_inst = MyTaskHook::default(),
+///     OnTaskStart: my_inst,
+///     OnTaskEnd: my_inst,
+///     OnRetryAttemptEnd: my_inst
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+///
+/// // ============== [ATTACHMENT PHASE (END)] ==================
+/// ```
+///
+/// # Valid Targets
+/// The [`hook`] macro can either be applied as an attribute macro to a simple ``impl`` block containing
+/// one identifier that being the TaskHook to generate the implementation-phase. Or alternatively as
+/// a macro annotation in an async function utilizing the [`task`] macro to generate the attachment-phase.
+///
+/// # Attributes & Parameters
+/// Depending on where the macro is used, a different syntax is available for use. The most simple phase
+/// of the two in terms of attributes & parameters is the implementation phase.
+///
+/// It contains only one parameter that being ``auto_attach``. It can either be explicitly specified
+/// by itself, be assigned a value (an identifier) or have as prefix an exclamation mark (!), by default,
+/// it is enabled with the usual method name of "auto_attach".
+///
+/// Explicitly enabling it is the same as the default whereas with assignment an identifier it both enables
+/// the option and overrides the method name of "auto_attach" to a different one. Whereas the third option
+/// disables the option altogether.
+///
+/// The purpose of ``auto_attach`` when it is enabled as an option (either overriding the name or not) is
+/// to provide a method to allow automatically-attaching default events of a TaskHook onto a Task.
+///
+/// The macro can also be used in an async function inside the ``impl`` block with the attribute macro
+/// ``#[hook]`` as a macro annotation. It provides a ``default`` on/off toggle and a ``listen`` parameter
+/// which are explained below.
+///
+/// ---
+///
+/// While in the attachment-phase, traditional parameters in the sense of a static config are non-existent.
+/// The macro embeds a full mini DSL to express connections between TaskHook instances and events to listen
+/// to that specific Task.
+///
+/// The DSL consists of statements which are separated by commas, each statement has the following grammar:
+///
+/// - ``auto(<TYPE> | <TYPE>::<IDENT>)``: Attaches automatically the default events that ``<TYPE>`` TaskHook
+/// provides assuming of course the TaskHook has the auto-attach method (default name is "auto_attach").
+/// If the name is overridden, the alternative syntax may be used via ``<IDENT>`` to specify the method name.
+///
+/// - ``<IDENT> = <VALUE>``: Assigns a TaskHook instance with ``<VALUE>`` as a constructor and the
+/// ``<IDENT>`` refers to the instance just like atypical variable assignment.
+///
+/// - ``<TYPE>: <VALUE>``: Listens to the specific event ``<TYPE>`` with the instance ``<VALUE>`` either
+/// being an identifier which references an existing instance or some other expression that creates a new
+/// instance only for that event.
+///
+/// # Expansion Semantics
+/// The expansion of the [`hooks`] macro heavily depends on the context it is used in. However, for the
+/// implementation phase it typically looks something like:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// /* Input:
+/// #[hook]
+/// impl MyTaskHook {
+///    async fn OnTaskStart(&self, ctx: &TaskHookContext) { /* <...> */ }
+///    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* <...> */ }
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, retry: u32, error: Option<&dyn TaskError>) { /* <...> */ }
+///    async fn OnMyCustomEvent(&self, ctx: &TaskHookContext, param1: String, param2: Vec<u8>) { /* <...> */ }
+/// }
+/// */
+///
+/// impl MyTaskHook {
+///     pub async fn auto_attach(hooks_layer: &impl TaskHookLayer, instance: impl Deref<Target=Arc<Self>>) {
+///         hooks_layer.attach::<OnTaskStart>(instance.clone()).await;
+///         hooks_layer.attach::<OnTaskEnd>(instance.clone()).await;
+///         hooks_layer.attach::<OnRetryAttemptEnd>(instance.clone()).await;
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl TaskHook<OnTaskStart> for MyTaskHook {
+///     async fn on_event(&self, ctx: &TaskHookContext, _payload: &<OnTaskStart as TaskHookEvent>::Payload<'_>) {
+///         /* <...> */
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl TaskHook<OnTaskEnd> for MyTaskHook {
+///     async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskEnd as TaskHookEvent>::Payload<'_>) {
+///         let error: &Option<&dyn TaskError> = payload;
+///         /* <...> */
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl TaskHook<OnRetryAttemptEnd> for MyTaskHook {
+///     async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnRetryAttemptEnd as TaskHookEvent>::Payload<'_>) {
+///         let (retry, error): &(u32, Option<&dyn TaskError>) = payload;
+///         /* <...> */
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl TaskHook<OnMyCustomEvent> for MyTaskHook {
+///     async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnMyCustomEvent as TaskHookEvent>::Payload<'_>) {
+///         let (param1, param2): &(String, Vec<u8>) = payload;
+///         /* <...> */
+///     }
+/// }
+/// ```
+///
+/// Each async method corresponds to a trait implementation of ``TaskHook<E>`` where ``E`` is the method name
+/// or the event you are listening to. Do note that visibility modifiers (``pub``, ``pub(crate)``... etc.)
+/// are fully optional.
+///
+/// In our example we have basic names but the macro also allows to listen to generic-based events:
+/// ```rust
+/// #[hook]
+/// impl MyTaskHook {
+///    async fn OnHookAttach<OnTaskStart>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<OnTaskStart>) { /* <...> */ }
+///    async fn OnHookDetach<E: TaskHookEvent>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<E>) { /* <...> */ }
+///    async fn __anonymous__<E: TaskLifecycleEvents>(&self, ctx: &TaskHookContext) { /* <...> */ }
+/// }
+/// ```
+///
+/// There are three variations for listening to generic-based events, each with their own syntax:
+/// - ``MyGenericEvent<MySpecificEvent>`` Narrows the generic the ``MyGenericEvent<T>`` has to only be ``MySpecificEvent``
+/// (while obviously following the bounds set by the generic event), apart from that, it acts identically to ``OnTaskStart``,
+/// ``OnTaskEnd, ``OnMyCustomEvent``... etc.
+///
+/// - ``MyGenericEvent<E: Bound1 + Bound2 ...>``Expresses any kind of event inside ``MyGenericEvent<T>`` as long as the
+/// event parameter has the bounds. The event generic must also follow the given bounds set by ``MyGenericEvent<T>``.
+///
+/// - ``__anonymous__<E: Bound1 + Bound2 ...>`` Unlike the above case which narrows to ``MyGenericEvent<T>``. This form
+/// freely expresses any kind of event as long as it's in the bounds you set.
+///
+/// > **Note 1#:** The bottom two variants have a key limitation regarding the ``auto_attach``. This topic
+/// is explained below and summarized in the limitations section
+///
+/// > **Note 2#:** The first case may look like an unbounded generic of any kind of event, but it behaves
+/// completely different. If you need to represent every single type of event use ``E: TaskHookEvent`` instead.
+///
+/// With the trait implementations for the specific events out, the macro also generates the auto_attach
+/// method as seen above with every event we've written attached by default. We can specify our own defaults,
+/// however, by embedding the ``#[hook(...)]`` macro annotation and using the ``default`` boolean parameter.
+///
+/// Rewriting our previous simple code with this mind, it transforms to:
+/// ```rust
+/// #[hook]
+/// impl MyTaskHook {
+///
+///    #[hook(default)]
+///    async fn OnTaskStart(&self, ctx: &TaskHookContext) { /* <...> */ }
+///
+///    #[hook(default)]
+///    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* <...> */ }
+///
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, retry: u32, error: Option<&dyn TaskError>) { /* <...> */ }
+///
+///    #[hook(default)]
+///    async fn OnMyCustomEvent(&self, ctx: &TaskHookContext, param1: String, param2: Vec<u8>) { /* <...> */ }
+///
+/// }
+/// ```
+/// Now our auto-attach method only attaches ``OnTaskStart``, ``OnTaskEnd`` and ``OnMyCustomEvent`` and not
+/// ``OnRetryAttemptEnd``. Currently, our generic-based events (except the first case) disallow auto-attachement,
+/// the ``default`` parameter solves this elegantly via:
+/// ```rust
+/// #[hook]
+/// impl MyTaskHook {
+///    #[hook(default)]
+///    async fn OnHookAttach<OnTaskStart>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<OnTaskStart>) { /* <...> */ }
+///
+///    #[hook(default = [OnMyCustomEvent, OnTaskStart, OnTaskEnd])]
+///    async fn OnHookDetach<E: TaskHookEvent>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<E>) { /* <...> */ }
+///
+///    #[hook(default = [OnRetryAttemptStart, OnRetryAttemptEnd])]
+///    async fn __anonymous__<E: TaskLifecycleEvents>(&self, ctx: &TaskHookContext) { /* <...> */ }
+/// }
+/// ```
+/// In the above example, the first case doesn't need additional parameters as there is one singular event
+/// to take care of. Whereas in the other two, there can be an unknown number of events and thus needs
+/// specification for which are the defaults.
+///
+/// Though there is a specific edge-case where there is a multitude of basic events but only a very few
+/// number of ambigious generic-based events. Providing defaults might be impossible, and thus you may need
+/// to provide defaults for the rest to discard it. To combat this, use ``#[hooks(!default)]``
+///
+/// An additional parameter which can be used is the ``listen``, unlike ``default`` it can be assigned a value.
+/// Do note, this value denotes the event to listen to and is prioritized over the method's name when it exists,
+/// which allows for better self-documenting code in some cases:
+/// ```rust
+/// #[hook]
+/// impl MyTaskHook {
+///
+///    #[hook(listen = OnTaskStart)]
+///    async fn initialization_phase(&self, ctx: &TaskHookContext) { /* <...> */ }
+///
+///    #[hook(default, listen = OnTaskEnd)]
+///    async fn shutdown_phase(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* <...> */ }
+///
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, retry: u32, error: Option<&dyn TaskError>) { /* <...> */ }
+///
+///    #[hook(default)]
+///    async fn OnMyCustomEvent(&self, ctx: &TaskHookContext, param1: String, param2: Vec<u8>) { /* <...> */ }
+///
+/// }
+/// ```
+///
+/// ---
+///
+/// In terms of the attacement-phase. The expansion essentially involves variables for the instances,
+/// attaching the corresponding instances to their specified events along with the handling auto-attachement.
+///
+/// # Limitations
+/// The [`hook`] macro cannot provide an auto-attach if the ``impl`` block contains ambigious generic-based
+/// methods with an unknown number of defaults. The solution is either to disable it fully via ``#[hook(!auto_attach)]``
+/// at the top of the ``impl`` block.
+///
+/// Or alternatively specify defaults for those generic-based methods via the macro annotation ``#[hooks(default = [...])]``
+/// which resides at the top of the function that hosts the ambigious generic-based event.
+///
+/// Another limitation is the fact the macro cannot represent stateful container based [`TaskHooks`](chronographer::prelude::TaskHook)
+/// which can be easily solved via implementing the [`NonObserverTaskHook`](chronographer::prelude::NonObserverTaskHook) trait.
+///
+/// # See Also
+/// - [`TaskHook`](chronographer::prelude::TaskHook) - One of the base API building block for this macro.
+/// - [`TaskHookEvent`](chronographer::prelude::TaskHookEvent) - Another base API building block for this macro.
+/// - [`NonObserverTaskHook`](chronographer::prelude::NonObserverTaskHook) - For specifying stateful-container based TaskHooks.
+/// - [`task`] - Works with this macro to allow for the attachement phase.
+/// - [`workflow`] - A closely-related "cousin" to this macro but for describing workflows.
+#[proc_macro_attribute]
+pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    hook::hook(attrs, item)
 }
 
 /// The [`main`] attribute macro is an alternative more ergonomic way to write the main function
