@@ -1,0 +1,290 @@
+---
+title: Generic-Based Events & THEGs
+description: Learn how to define your own generic-based events & THEGs and how to use them
+---
+
+In the previous chapter we explored the creation of basic custom events and emitting them. However, we barely scratched
+the surface of events and their capabilities. This chapter aims to expand upon the events.
+
+# Defining Generic-Based Events
+Generic-based events in short are events which have one or more generics. There are two types of generics, either the typical
+generics of event-based generics. For the former you can define it as follows:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[derive(TaskHookEvent)]
+pub struct OnNotificationsSent<T: Send + Sync> {
+    messages_sent: usize,
+    notification_type: T
+}
+
+// <...>
+```
+</RenderProgrammingLanguageBased>
+
+While event-generics typically have as bound (directly or not) ``TaskHookEvent``. They can be defined like so:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[derive(TaskHookEvent)]
+pub struct OnEventBroadcast<T: TaskHookEvent>(T::Payload);
+
+// <...>
+```
+
+<Callout title={"PhantomData In Generics"} type={"info"}>
+    There may be cases where the actual generic itself may not be used directly in the payload but somewhere else (for
+    example event emission). To solve this, you can add a field like ``_marker: PhantomData<T>`` or just ``PhantomData<T>``
+    and ChronoGrapher is smart enough to understand it doesn't belong in the payload.
+</Callout>
+</RenderProgrammingLanguageBased>
+
+
+# Listening To Generic-Based Events
+When it comes to listening to generic-based events, there are various approaches used to accomplish this. The most simple
+of all is <Highlight color={"info"}>Narrow Generic-Based Listening</Highlight> which can be achieved as follows:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+// <...>
+
+#[hook]
+impl MyNotificationTaskHook {
+    async fn OnNotificationsSent<u8>(&self, ctx: &TaskHookContext, payload: OnNotificationsSentPayload<u8>) {
+        // <...>
+    }
+
+    async fn OnNotificationsSent<String>(&self, ctx: &TaskHookContext, payload: OnNotificationsSentPayload<String>) {
+    // <...>
+    }
+
+    async fn OnNotificationsSent<Vec<u8>>(&self, ctx: &TaskHookContext, payload: OnNotificationsSentPayload<Vec<u8>>) {
+        // <...>
+    }
+}
+```
+</RenderProgrammingLanguageBased>
+
+The above example can only listen to a select few permutations of the ``OnNotificationsSent<T>`` event. As shown above there
+can be multiple of these, not just one. However, you can generalize this with <Highlight color={"neutral"}>Broad Generic-Based Listening</Highlight>:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+// <...>
+
+#[hook]
+impl MyNotificationTaskHook {
+    async fn OnNotificationsSent<E: Send + Sync>(&self, ctx: &TaskHookContext, payload: OnNotificationsSentPayload<E>) {
+        // <...>
+    }
+}
+```
+
+But try to run the above, you will encounter a compiler error along the lines of:
+<Callout type={"error"}>
+Broad-based generics are not allowed when auto-attachment is enabled
+</Callout>
+
+There are multiple ways of solving the issue. Returning back to the ``default`` parameter for the ``#[hook(...)]`` macro we
+mentioned in a [Previous Chapter](/docs/taskhooks/introduction) there is a third permutation of it and that allows us to
+specify discrete values for the generic:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+// <...>
+
+#[hook]
+impl MyNotificationTaskHook {
+    // [!code ++]
+    #[hook(default = [u8, String, Vec<u8>])]
+    async fn OnNotificationsSent<E: Send + Sync>(&self, ctx: &TaskHookContext, payload: OnNotificationsSentPayload<E>) {
+        // <...>
+    }
+}
+```
+
+Now you will notice the code compiles successfully and moreover the default events for auto-attachment are ``OnNotificationsSent<u8>``,
+``OnNotificationsSent<String>`` and ``OnNotificationsSent<Vec<u8>>``. If there are more generics in the mix, you can group them via
+``<...>`` instead each default permutation, for example:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[derive(TaskHookEvent)]
+pub struct DualGenericEvent<T1, T2>(PhantomData<(T1, T2)>);
+
+// <...>
+
+#[hook]
+impl MyNotificationTaskHook {
+    // [!code highlight]
+    #[hook(default = [<u8, String>, <String, Vec<u8>>, <Vec<u8>, u8>])]
+    async fn DualGenericEvent<T1: Send + Sync, T2: Send + Sync>(
+            &self,
+            ctx: &TaskHookContext,
+            payload: OnNotificationsSentPayload<T1, T2>
+    ) {
+        // <...>
+    }
+}
+```
+
+Alternatively if there are no sensible defaults, you can disable the event as a default for auto-attachment (or
+since its only one event in this case, disable auto-attachment entirely):
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+// <...>
+
+#[hook]
+impl MyNotificationTaskHook {
+    // [!code highlight]
+    #[hook(!default)]
+    async fn OnNotificationsSent<E: Send + Sync>(&self, ctx: &TaskHookContext, payload: OnNotificationsSentPayload<E>) {
+        // <...>
+    }
+}
+```
+
+Finally there is a third approach which is closely related to <Highlight color={"neutral"}>Broad Generic-Based Listening</Highlight> without
+the need to use a generic-based event, instead targeting every kind of event as long as its stays in bounds:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+// <...>
+
+#[hook]
+impl MyNotificationTaskHook {
+    #[hook(!default)]
+    // [!code highlight]
+    async fn __anonymous__<E: TaskHookEvent>(&self, ctx: &TaskHookContext) {
+        // <...>
+    }
+}
+```
+</RenderProgrammingLanguageBased>
+
+# THEGs - TaskHookEvent Groups
+``TaskHookEvent`` Groups or better known as THEGs are closely related to traditional ``TaskHookEvents`` we've seen so far.
+They aren't discrete values like ``OnTaskStart`` or ``OnTaskEnd``. Rather they represent a collection of these discrete
+values.
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+    In essence they are basically super traits of TaskHookEvent which other events that want to be part of this group implement
+    this trait. Apart from that its as normal as any trait in Rust.
+</RenderProgrammingLanguageBased>
+
+THEGs can be either of two categories, closed-form THEGs include only a subset of events and cannot host other foreign events.
+Whereas open-form THEGs have this ability. To define the former you can write the following:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[derive(TaskHookEvent)]
+pub enum MyClosedFormTHEG {
+    MyEventA,
+    MyEventB
+}
+```
+
+Each variant (``MyEventA`` and ``MyEventB``) of the enum expands to its own event with its own payload and such whereas
+``MyClosedFormTHEG`` expands to a sealed trait.
+</RenderProgrammingLanguageBased>
+
+While expressing the latter is as simple as writing:
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[derive(TaskHookEvent)]
+pub trait MyOpenFormTHEG {}
+```
+
+This simply expands to a corresponding trait with no implementations. Though they can be specified (no limits in the
+number of them) like so:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+// [!code highlight]
+#[derive(TaskHookEvent(MyEventA, MyEventB))]
+pub trait MyOpenFormTHEG {}
+```
+
+However manually specifying a large number of them proves to be annoying. As such alternatively you can modify your THEG
+to depend on other THEGs or typical trait bounds as demonstrated below:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[derive(TaskHookEvent(MyEventA, MyEventB))]
+// [!code highlight]
+pub trait MyOpenFormTHEG: MyBound1 + MyBound2 {}
+```
+
+Via ``<...>`` in the parameters of the macro, you can specify trait bounds to blanket implement them as opposed to requiring
+these trait bounds as well. Finally you can specify the common / base payload type on both forms:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+// Closed-Form Specification
+#[derive(TaskHookEvent)]
+// [!code highlight]
+#[payload(u8, String)]
+pub enum MyClosedFormTHEG {
+    MyEventA,
+    MyEventB
+}
+
+// Open-Form Specification
+#[derive(TaskHookEvent(MyEventA, MyEventB))]
+// [!code highlight]
+#[payload(u8, String)]
+pub trait MyOpenFormTHEG: MyBound1 + MyBound2 {}
+```
+</RenderProgrammingLanguageBased>
+
+# Combining The Two Features
+The power of the two comes in when you combine them, either for listening to generic-based events that are part of a THEG
+group as demonstrated below in this example (narrows more the type of events):
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/events.rs" lineNumbers
+#[hook(!auto_attach)]
+impl MyTaskHook {
+    async fn OnMyGenericEvent<E: MyTHEG>(&self, ctx: &TaskHookContext) {
+        // <...>
+    }
+
+    async fn __anonymous__<E: MyTHEG>(&self, ctx: &TaskHookContext) {
+        // <...>
+    }
+}
+```
+</RenderProgrammingLanguageBased>
+
+Or even do the opposite by specifying a THEG with a generic (in fact ChronoGrapher does the same thing for ``OnHookAttach<T>``
+and ``OnHookDetach<T>``):
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+```rust title="src/events.rs" lineNumbers
+#[derive(TaskHookEvent(MyEventA, MyEventB))]
+pub trait MyOpenFormTHEG<T: Send + Sync>: MyBound1 + MyBound2 {}
+```
+</RenderProgrammingLanguageBased>
+---
+
+In summary events are more customizable than first-presented by utilizing generic-based events and THEGs. The former is
+simply an event with a generic that can have bounds whereas the latter is a collection of various events.
+
+Listening to a generic-based event can be done through **Narrow Generic-Based Listening** where you specify the value in
+the generic or **Broad Generic-Based Listening** where you specify a THEG or other trait bounds.
+
+On the other hand, THEGs can be either closed-form or open-form where the former includes ONLY the specified events whereas
+the latter can include an unknown number of event (with a specified number of events already included inside).
+
+These two aren't isolated concepts in a vaccum as they can be combined. With the chapter series closing, we will explore
+in the fututre the ``Scheduler`` territory and how everything connects.
+
+> TL;DR. Generic-based events are events with a generic parameter (either normal or THEG-based). You can listen through
+**Narrow Generic-Based Listening** for values or **Broad Generic-Based Listening** for collections of values.
+THEGs are the collections which can either be closed-form or open-form.
