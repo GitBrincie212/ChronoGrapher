@@ -1,7 +1,4 @@
-use crate::utils::{
-    LIFETIME_UNSUPPORTED_ERR, extract_arg_name, extract_docs, extract_workflow,
-    handle_generics_phantom_data,
-};
+use crate::utils::{LIFETIME_UNSUPPORTED_ERR, extract_arg_name, extract_docs, extract_workflow, handle_generics_phantom_data, map_fn_args_pairs, ParsedContextArgument, ParsedArguments};
 use crate::workflow::WorkflowSpec;
 use crate::workflow::utils::WorkflowTransform;
 use proc_macro::TokenStream;
@@ -21,13 +18,10 @@ const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &'static str =
     "First argument must be of type \"TaskFrameContext\"";
 const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &'static str =
     "Expected a simple identifier as argument name for the context";
-const SIMPLE_IDENTIFIER_FOR_ARG_ERR: &'static str =
-    "Expected a simple identifier as an argument name";
 const FIRST_ARG_REF_TASKFRAME_ERR: &'static str =
     "First argument must be a reference of type \"TaskFrameContext\"";
 const METHOD_MACRO_USE_ERR: &'static str =
     "Using the task attribute macro in methods is unsupported";
-const USE_OF_REF_SELF_ERR: &'static str = "Invalid syntax, cannot use &self or &mut self";
 const INVALID_RETURN_TYPE_ERROR: &'static str =
     "Return type must be of type Result<(), E> in which E is your desired error type";
 const FIRST_GENERIC_RETURN_ERR: &'static str =
@@ -76,12 +70,7 @@ impl Parse for TaskFrameMacroArguments {
     }
 }
 
-fn extract_arguments(
-    fn_args: &mut Punctuated<FnArg, Comma>,
-) -> syn::Result<(
-    Punctuated<proc_macro2::Ident, Comma>,
-    Punctuated<Type, Comma>,
-)> {
+fn extract_arguments(fn_args: &mut Punctuated<FnArg, Comma>) -> syn::Result<(ParsedContextArgument, ParsedArguments)> {
     let mut fn_args = fn_args.pairs_mut();
     let ctx_arg = fn_args.next().ok_or(syn::Error::new(
         proc_macro2::Span::call_site(),
@@ -129,26 +118,10 @@ fn extract_arguments(
         }
     };
 
-    let mut names = Punctuated::new();
-    let mut types = Punctuated::new();
-    while let Some(argument) = fn_args.next() {
-        match argument.value() {
-            FnArg::Typed(pt) => {
-                let arg_name = extract_arg_name(pt, SIMPLE_IDENTIFIER_FOR_ARG_ERR)?;
-                let arg_type = &*pt.ty;
-                names.push(arg_name.clone());
-                types.push(arg_type.clone());
-            }
-
-            FnArg::Receiver(_) => {
-                return Err(syn::Error::new_spanned(ctx_arg, USE_OF_REF_SELF_ERR));
-            }
-        }
-    }
-
-    names.push(ctx_name.clone());
-    types.push(ctx_type.clone());
-    Ok((names, types))
+    Ok((
+        (ctx_name.clone(), ctx_type.clone()),
+        map_fn_args_pairs(&mut fn_args)?
+    ))
 }
 
 fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
@@ -259,18 +232,13 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let fn_args = &mut fn_sig.inputs;
     let fn_output = &fn_sig.output;
 
-    let (mut arg_names, mut arg_types) = match extract_arguments(fn_args) {
+    let (
+        (ctx_name, ctx_type),
+        (arg_names, arg_types)
+    ) = match extract_arguments(fn_args) {
         Ok(res) => res,
         Err(e) => return e.to_compile_error().into(),
     };
-
-    let ctx_name = arg_names.pop().unwrap();
-    let ctx_type = arg_types.pop().unwrap();
-
-    if arg_types.len() == 1 {
-        arg_types.pop_punct();
-        arg_names.pop_punct();
-    }
 
     let result = match extract_error(fn_output) {
         Ok(res) => res,
