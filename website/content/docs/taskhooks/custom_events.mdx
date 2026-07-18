@@ -14,28 +14,42 @@ In this chapter we will focus on the event part of TaskHooks. How to create your
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-event!(OnNotificationsSent(usize));
+#[derive(TaskHookEvent)]
+pub struct OnNotificationsSent(usize);
 ```
-In our example above, we have defined ``OnNotificationsSent`` as a ``TaskHookEvent``, by utilizing the ``event!`` macro and
-which automatically defines the struct and implements the ``TaskHookEvent`` trait.
+In our example above, we have defined ``OnNotificationsSent`` as a ``TaskHookEvent``, by utilizing the derive macro and
+which automatically implements the ``TaskHookEvent`` trait.
+
+We can modify our version to be named as well for self-documenting reasons, which also generates a payload type
+under the hood (unlike our previous example) encompassing our data:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[derive(TaskHookEvent)]
+pub struct OnNotificationsSent {
+    messages_sent: usize
+}
+```
 
 In our previous chapter you may have noticed various additional parameters apart from ``&self`` and ``ctx`` for our TaskHooks.
 These are the payload parameters which lives inside the parenthesis and denotes to the listeners how many notifications were sent.
 
-For self-documenting code there is a permutation of this via:
-```rust title="src/events.rs" lineNumbers
-use chronographer::prelude::*;
+<Callout title={"Inlining & Lifetime Of The Payload Type"} type={"idea"}>
+    Since ChronoGrapher can generate a different payload type, it can break argument unpacking in some code. To combat this
+    you can inline the payload type directly onto the event while still keeping the code self-documenting via:
+    ```rust title="src/events.rs" lineNumbers
+    #[derive(TaskHookEvent(inline))]
+    pub struct OnNotificationsSent {
+        messages_sent: usize
+    };
+    ```
 
-event!(OnNotificationsSent { messages_sent: usize });
-```
-
-<Callout title={"Lifetime Parameter Of The Payload"} type={"idea"}>
-    The event's payload additionally includes a lifetime for the entire scope of listeners. Which can be utilized via:
+    Additionally the event's payload includes a lifetime for the entire scope of listeners. Which can be utilized via:
     ```rust title="src/events.rs" lineNumbers
     use chronographer::prelude::*;
 
-    event!(OnNotificationsSent<'a>(&'a usize));
-    event!(OnNotificationsSent<'a> { messages_sent: &'a usize })
+    #[derive(TaskHookEvent)]
+    pub struct OnNotificationsSent<'a>(&'a usize);
     ```
 
     The reason the payload contains a lifetime parameter is data will be shared across TaskHooks and hence it may need to
@@ -169,7 +183,8 @@ We begin by declaring the new event, exactly the same way we declared ``OnNotifi
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-event!(OnHighVolumeBurst { messages_sent: usize });
+#[derive(TaskHookEvent)]
+pub struct OnHighVolumeBurst(usize);
 ```
 </RenderProgrammingLanguageBased>
 
@@ -277,9 +292,8 @@ Each TaskHook can emit its own set of events which other TaskHooks listen to, ou
 traffic of events and routing them to the correct TaskHooks.
 
 Without TaskHooks knowing the presence of each other, they can effectively communicate over and share information which
-is why its such a powerful patten to use.
+is why its such a powerful patten to use. In the next chapter we will learn about generic-based events and THEGs.
 
 > TL;DR. Custom events are plain structs implementing ``TaskHookEvent``, with an associated ``Payload<'a>`` for whatever
 data the event carries. Any Task can ``emit`` them, and any TaskHook can listen. Because hooks themselves can emit,
 you get the ``Hook-To-Hook Communication`` pattern.
-
