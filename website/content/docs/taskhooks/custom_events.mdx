@@ -12,29 +12,39 @@ In this chapter we will focus on the event part of TaskHooks. How to create your
 # Defining a Custom TaskHookEvent
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/events.rs" lineNumbers
-use chronographer::prelude::TaskHookEvent;
+use chronographer::prelude::*;
 
-#[derive(Default)]
-pub struct OnNotificationsSent;
-
-impl TaskHookEvent for OnNotificationsSent {
-    type Payload<'a> = usize where Self: 'a;
-}
+event!(OnNotificationsSent(usize));
 ```
-In our example above, we have defined ``OnNotificationsSent`` as a TaskHookEvent, by creating a typical struct and
-implementing the ``TaskHookEvent`` trait. This trait requires the ``Default`` trait as such, we derived it.
+In our example above, we have defined ``OnNotificationsSent`` as a ``TaskHookEvent``, by utilizing the ``event!`` macro and
+which automatically defines the struct and implements the ``TaskHookEvent`` trait.
 
-In our previous chapter you may have noticed a payload parameter for our TaskHooks. This payload parameter is the
-associated type ``Payload<'a>``. Here we set it to ``usize`` so listeners receive how many notifications were sent.
+In our previous chapter you may have noticed various additional parameters apart from ``&self`` and ``ctx`` for our TaskHooks.
+These are the payload parameters which lives inside the parenthesis and denotes to the listeners how many notifications were sent.
 
-<Callout title={"Lifetime Parameter 'a"} type={"info"}>
+For self-documenting code there is a permutation of this via:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+event!(OnNotificationsSent { messages_sent: usize });
+```
+
+<Callout title={"Lifetime Parameter Of The Payload"} type={"idea"}>
+    The event's payload additionally includes a lifetime for the entire scope of listeners. Which can be utilized via:
+    ```rust title="src/events.rs" lineNumbers
+    use chronographer::prelude::*;
+
+    event!(OnNotificationsSent<'a>(&'a usize));
+    event!(OnNotificationsSent<'a> { messages_sent: &'a usize })
+    ```
+
     The reason the payload contains a lifetime parameter is data will be shared across TaskHooks and hence it may need to
-    hold references to objects, which need a lifetime and hence ``'a`` can be used.
+    hold references to objects, which needs a lifetime and hence ``'a`` can be used.
 </Callout>
 </RenderProgrammingLanguageBased>
 
-Payloads are used to hand out extra information onto the TaskHook about the event, they are a transport layer between the cause
-of the event and the listeners (the TaskHooks). This data can be anything from a simple number, to an array of strings, to a handler... etc.
+Payloads are used to hand out extra information onto the ``TaskHook`` about the event, they are a transport layer between the cause
+of the event and the listeners (the ``TaskHooks``). This data can be anything from a simple number, to an array of strings, to a handler... etc.
 
 # Emitting Custom Events
 Currently, our event is useless, as there is no place to emit it and alert our TaskHooks an action has been taken.
@@ -81,6 +91,7 @@ at a time). We will define our TaskHook as such:
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Default)]
@@ -88,9 +99,9 @@ pub struct NotificationMetricsHook {
     total_sent: AtomicUsize,
 }
 
-#[async_trait]
-impl TaskHook<OnNotificationsSent> for NotificationMetricsHook {
-    async fn on_event(&self, _ctx: &TaskHookContext, payload: &<OnNotificationsSent as TaskHookEvent>::Payload<'_>) {
+#[hook]
+impl NotificationMetricsHook {
+    async fn OnNotificationsSent(&self, ctx: &TaskHookContext, messages_sent: usize) {
         let total = self.total_sent.fetch_add(*payload, Ordering::Relaxed) + *payload;
         println!("Dispatched: {} notifications | Running total: {total}", payload);
     }
@@ -98,7 +109,7 @@ impl TaskHook<OnNotificationsSent> for NotificationMetricsHook {
 ```
 </RenderProgrammingLanguageBased>
 
-``NotificationMetricsHook`` carries a single counter. On each time `OnNotificationsSent` fires, the hook folds the latest
+``NotificationMetricsHook`` carries a single counter. Each time `OnNotificationsSent` fires, the hook folds the latest
 batch into the running total and prints both.
 
 The last step is to attach this hook to the task, following the scoped singleton pattern from the
@@ -156,12 +167,9 @@ We begin by declaring the new event, exactly the same way we declared ``OnNotifi
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/events.rs" lineNumbers
-#[derive(Default)]
-pub struct OnHighVolumeBurst;
+use chronographer::prelude::*;
 
-impl TaskHookEvent for OnHighVolumeBurst {
-    type Payload<'a> = usize where Self: 'a;
-}
+event!(OnHighVolumeBurst { messages_sent: usize });
 ```
 </RenderProgrammingLanguageBased>
 
@@ -172,13 +180,9 @@ As discussed from before, we can emit our events in a TaskHook via the ``TaskHoo
 
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-#[async_trait]
-impl TaskHook<OnNotificationsSent> for NotificationMetricsHook {
-    async fn on_event(
-        &self,
-        ctx: &TaskHookContext,
-        payload: &<OnNotificationsSent as TaskHookEvent>::Payload<'_>
-    ) {
+#[hook]
+impl NotificationMetricsHook {
+    async fn OnNotificationsSent(&self, ctx: &TaskHookContext, messages_sent: usize) {
         let total = self.total_sent.fetch_add(*payload, Ordering::Relaxed) + *payload;
         println!("Dispatched: {} notifications | Running total: {total}", payload);
 
@@ -201,9 +205,9 @@ It listens for `OnHighVolumeBurst` and has no knowledge of whoever emitted it (t
 #[derive(Default)]
 pub struct AlertHook;
 
-#[async_trait]
-impl TaskHook<OnHighVolumeBurst> for AlertHook {
-    async fn on_event(&self, _ctx: &TaskHookContext, payload: &<OnHighVolumeBurst as TaskHookEvent>::Payload<'_>) {
+#[hook]
+impl AlertHook {
+    async fn OnHighVolumeBurst(&self, ctx: &TaskHookContext, messages_sent: usize) {
         println!("ALERT: high-volume burst of {payload} notifications detected.");
     }
 }
