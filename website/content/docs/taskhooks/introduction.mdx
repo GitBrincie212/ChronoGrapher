@@ -20,66 +20,49 @@ and even other TaskHooks triggering their own events.
 In the same previous code lets define our ``TaskHook`` like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=1
-use async_trait::async_trait;
+use chronographer::prelude::*;
 
+#[derive(Default)]
 pub struct MyCoolTaskHook;
 
-#[async_trait]
-impl TaskHook<OnTaskStart> for MyCoolTaskHook {
-    async fn on_event(
-        &self,
-        ctx: &TaskHookContext,
-        payload: &<OnTaskStart as TaskHookEvent>::Payload
-    ) {
+#[hook]
+impl MyCoolTaskHook {
+    async fn OnTaskStart(&self, ctx: &TaskHookContext) {
         println!("Interested \"OnTaskStart\" event triggered!");
     }
-}
 
-#[async_trait]
-impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
-    async fn on_event(
-        &self,
-        ctx: &TaskHookContext,
-        payload: &<OnTaskEnd as TaskHookEvent>::Payload
-    ) {
-        println!("Interested \"OnTaskEnd\" event triggered! With error = {:?}", payload);
+    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) {
+        println!("Interested \"OnTaskEnd\" event triggered! With error = {:?}", error);
     }
 }
 ```
-Let's take a step back and analyze what is happening, we can observe we declared a struct named ``MyCoolTaskHook``
-and later down the line we implement ``TaskHook<OnTaskStart>``.
 
-The ``OnTaskStart`` is an event defined by ChronoGrapher which allows to listen to when a Task is about to start.
-
-> Should be noted that we have an ``async_trait`` macro for convenience which must be used, it requires a third-party
-crate called simply ``async_trait`` to be installed.
+<Callout title={"Requirement of \"async_trait\" for TaskHooks"} type={"warning"}>
+    Everything related to TaskHooks requires a third party called ``async_trait``, simply install it and the
+    ``#[hook(...)]`` macro takes care of utilizing it without explicitly including it for ergonomics.
+</Callout>
 </RenderProgrammingLanguageBased>
+We observe how we defined our ``MyCoolTaskHook`` that acts as the TaskHook and <u>subscribed to two events, those being
+    ``OnTaskStart`` and ``OnTaskEnd`` represented via the methods</u>. Both events are defined by ChronoGrapher which allow us to
+listen to when a Task is about to start or end respectively.
 
-TaskHook has a generic, this generic declares what event it listens to, for our case it listens only to the event
-``OnTaskStart``. After that we implement an ``on_event`` method.
+Each method contains the code to execute when we listen to the event, or commonly called the
+<Highlight color={"neutral"}>Side Effects</Highlight>, this method contains the ``self`` instance, a context object and
+optionally a payload if the event itself includes it (you can avoid specifying it in the arguments even if it exists).
 
-This method contains the code to execute when we listen to the event, or commonly called the
-<Highlight color={"neutral"}>Side Effects</Highlight>, this method contains the ``self`` instance, a context object and a payload.
+The ``self`` is just an instance of our ``TaskHook``, it works typically like any object. Whereas the context object gives us
+detailed information about the event in question as well as an entrypoint to interact with the ``Task``.
 
-The ``self`` is just an instance of our ``TaskHook``, it works typically like any struct, the context object gives us
-detailed information about the event in question such as which ``TaskFrame`` triggered it.
-
-Finally, the payload is extra metadata associated with the event, every event has its own payload which gives detailed
-information about what exactly happened, in our case its empty.
-
-<RenderProgrammingLanguageBased target_name={"Rust"}>
-    We again implement the ``TaskHook`` with the generic, this time being ``TaskHook<OnTaskEnd>``, the only difference is
-    the payload being ``Option<TaskError>`` which indicates if the Task failed or succeeded.
-
-    The ``OnTaskEnd`` is an event defined by ChronoGrapher which allows to listen to when a Task is has ended.
-</RenderProgrammingLanguageBased>
+Finally, the payload is extra metadata associated with the event, most event have their own payload which give detailed
+information about what exactly happened. In the case of ``OnTaskStart``, its non-existent since no information is needed
+whereas for ``OnTaskEnd`` it's needed to know whenever or not the ``Task`` failed and how.
 
 With that said, in the first phase we have declared our TaskHook to listen and execute different code for the events
 ``OnTaskStart`` and ``OnTaskEnd``, we are not done, however.
 
 ## Registration Phase
 
-The second phase or known as **Registration Phase** involves us attaching the TaskHook somewhere, more specifically
+The second phase or known as **Registration Phase** involves us attaching the ``TaskHook`` somewhere, more specifically
 one of our Tasks as currently TaskHooks do nothing.
 
 To achieve this we can change our code in the following way:
@@ -87,13 +70,7 @@ To achieve this we can change our code in the following way:
 ```rust title="src/main.rs" lineNumbers=28
 #[task(schedule = every!(2s)))]
 // [!code ++]
-#[hooks({
-    // [!code ++]
-    OnTaskStart: MyCoolTaskHook,
-    // [!code ++]
-    OnTaskEnd: MyCoolTaskHook
-// [!code ++]
-})]
+#[hook(auto(MyCoolTaskHook))]
 async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 1's Actions");
     Ok(())
@@ -105,19 +82,37 @@ async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     timeout(5s)
 )]
 // [!code ++]
-#[hooks({
+#[hook(
     // [!code ++]
     OnTaskStart: MyCoolTaskHook,
 // [!code ++]
-})]
+)]
 async fn Task2(ctx: &TaskFrameContext) -> Result<(), TaskError> {
     println!("Simulating Task 2's Actions");
     Ok(())
 }
 ```
 </RenderProgrammingLanguageBased>
-This automatically attaches our ``MyCoolTaskHook`` TaskHook to our Task instance (both task1 and task2) when we
-instantiate. You may notice in the terminal the following:
+The above code automatically attaches our ``MyCoolTaskHook`` TaskHook to our Task instance (both task1 and task2) when we
+instantiate.
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+    <Callout title={"Context-Sensitive Nature Of The Macro"} type={"info"}>
+        You may notice the ``#[hook(...)]`` macro is used in two different contexts, both generating the implementation
+        of a ``TaskHook`` and registering said ``TaskHooks`` on various events of a ``Task``.
+
+        Depending on the context of where it's used, it acts differently. The main rule of thumb is if its below a ``#[task(...)]``
+        macro, its attaching. Whereas if its on top of an ``impl`` block (and soon we will see on top of a method) its defining.
+    </Callout>
+
+    For the former case, it utilizes ``auto(...)`` which allows to assign on demand our ``MyCoolTaskHook`` to multiple events
+    based on what default events it specifies (also called <Highlight color={"primary"}>Auto-Attachment</Highlight>.
+    Implicitly every event we define in our ``TaskHook`` is auto-attached by default.
+
+    While, in the latter case, we assign explicitly and manually register those events to our ``MyCoolTaskHook``. The ``auto(...)`` acts
+    as a shorthand to manually registering the above events (``OnTaskStart``, ``OnTaskEnd``).
+</RenderProgrammingLanguageBased>
+
+You may notice in the terminal the following:
 ```zsh title="terminal"
 # After 2 seconds
 Interested "OnTaskStart" event triggered!
@@ -129,17 +124,182 @@ Interested "OnTaskStart" event triggered!
 Simulating Task 2's Actions
 ```
 
-Try removing the ``OnTaskEnd`` entry on ``task1``, notice how it no longer prints the ``OnTaskEnd`` contents?
+Try removing the ``OnTaskEnd`` entry on ``task2``, notice how it no longer prints the ``OnTaskEnd`` contents?
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+    Better yet, try to remove the entire ``#[hook(auto(MyCoolTaskHook))]`` line and see how it doesn't print neither the
+    ``OnTaskStart`` nor ``OnTaskEnd`` for ``task1``.
+</RenderProgrammingLanguageBased>
 
-The "Interested ... event" prints come from our TaskHook, as it is triggered based on these events.
-Try to change task1 to throw an error and notice what the ``TaskHook`` prints.
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+# Auto-Attachment & Gimmicks
+While we briefly looked on how the ``#[hook(...)]`` macro at the top of the ``impl`` block can generate us an auto-attachment
+method which automatically attaches all the events to our ``Task`` in the above example.
+
+We haven't seen ways to configure the events (i.e. The defaults), this is where the third placement option for ``#[hook(...)]``
+comes in picture. We can place this macro in individual methods inside the ``impl`` block of a parent ``#[hook(...)]``.
+
+In this context, there are two parameters. The former is the ``default`` which controls which events are marked as default
+and which aren't. We can modify our code to have as default the ``OnTaskEnd`` event attached:
+```rust title="src/main.rs" lineNumbers=1
+// <...>
+
+#[hook]
+impl MyCoolTaskHook {
+    async fn OnTaskStart(&self, ctx: &TaskHookContext) {
+        println!("Interested \"OnTaskStart\" event triggered!");
+    }
+
+    // [!code ++]
+    #[hook(default)]
+    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) {
+        println!("Interested \"OnTaskEnd\" event triggered! With error = {:?}", error);
+    }
+}
+
+// <...>
+```
+
+Rerun the example and notice how the output changed to no longer including ``OnTaskStart``. Since we have specified a
+default event, ChronoGrapher no longer assumes all events are default and only selects  ``OnTaskEnd`` as default.
+
+There can be more events marked as default this way, however let's suppose a scenario with multiple events:
+```rust title="src/main.rs" lineNumbers=1
+// <...>
+
+#[hook]
+impl MyCoolTaskHook {
+    async fn Event1(&self, ctx: &TaskHookContext) { /* ... */ }
+    async fn Event2(&self, ctx: &TaskHookContext) { /* ... */ }
+    async fn Event3(&self, ctx: &TaskHookContext) { /* ... */ }
+
+    // ...
+
+    async fn EventN(&self, ctx: &TaskHookContext) { /* ... */ }
+}
+
+// <...>
+```
+
+We want to mark as default everything except ``Event3`` but we don't want to append to every other event ``#[hook(default)]``
+to discard it. To solve this we can utilize ``!default`` which discards the event as a default but lets through the rest marked
+manually or automatically:
+```rust title="src/main.rs" lineNumbers=1
+// <...>
+
+#[hook]
+impl MyCoolTaskHook {
+    async fn Event1(&self, ctx: &TaskHookContext) { /* ... */ }
+
+    // [!code ++]
+    #[hook(!default)]
+    async fn Event2(&self, ctx: &TaskHookContext) { /* ... */ }
+
+    async fn Event3(&self, ctx: &TaskHookContext) { /* ... */ }
+
+    // ...
+
+    async fn EventN(&self, ctx: &TaskHookContext) { /* ... */ }
+}
+
+// <...>
+```
+
+The latter parameter of the macro is ``listen``, its more of a cosmetic change (a different way of expressing the code).
+Its use case is mainly for self-documenting code by allowing freedom of expression for the method's name as shown below:
+```rust title="src/main.rs" lineNumbers=1
+// <...>
+
+#[hook]
+impl MyCoolTaskHook {
+    #[hook(listen = OnTaskStart)]
+    async fn start_monitor_temporarily(&self, ctx: &TaskHookContext) { /* ... */ }
+
+    // [!code ++]
+    #[hook(listen = OnTaskEnd)]
+    async fn shutdown_monitor_temporarily(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* ... */ }
+}
+
+// <...>
+```
+
+Lastly we return back to the parent ``#[hook(...)]`` macro at the top of the ``impl`` block. There is also a configuration for it
+as well, specifically the auto-attachment. You can explicitly enable it via:
+```rust title="src/main.rs" lineNumbers=1
+// <...>
+
+// [!code highlight]
+#[hook(auto_attach)]
+impl MyCoolTaskHook {
+    // <...>
+}
+
+// <...>
+```
+
+Alternatively you can even override the name via, though you have to modify the various auto-attachments in the registration phase
+(i.e. ``auto(...)``) to something like:
+```rust title="src/main.rs" lineNumbers=1
+// <...>
+
+// [!code highlight]
+#[hook(auto_attach = my_cool_auto_attach)]
+impl MyCoolTaskHook {
+    // <...>
+}
+
+#[task(schedule = every!(2s)))]
+// [!code highlight]
+#[hook(auto(MyCoolTaskHook, my_cool_auto_attach))]
+async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
+    // <...>
+}
+```
+
+Or even fully disable it (again do note auto-attachment use cases will produce compiler errors):
+```rust title="src/main.rs" lineNumbers=1
+// <...>
+
+// [!code highlight]
+#[hook(!auto_attach)]
+impl MyCoolTaskHook {
+    // <...>
+}
+
+// <...>
+```
+
+The final gimmick of macro is you can have multiple ``impl`` blocks with different events. This allows not only for better
+organization of events but the ability to group them to different auto-attachment methods (though you need to override each of their
+names):
+```rust title="src/main.rs" lineNumbers=1
+// <...>
+
+// [!code highlight]
+#[hook(auto_attach = retry_autoattach)]
+impl MyCoolTaskHook {
+    // <...>
+}
+
+// [!code ++]
+#[hook(auto_attach = tasks_autoattach)]
+// [!code ++]
+impl MyCoolTaskHook {
+    // [!code ++]
+    // <...>
+// [!code ++]
+}
+
+// <...>
+```
+
+</RenderProgrammingLanguageBased>
 
 # Stateful TaskHooks
 TaskHooks aren't limited to behave as a pure function, in fact they can carry data with them which can be read and written
 into (either from itself or from outside parties). As demonstrated below:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=1
-use async_trait::async_trait;
+use chronographer::prelude::*;
 // [!code ++]
 use std::sync::atomic::{AtomicUsize, Ordering}
 
@@ -156,27 +316,16 @@ pub struct MyCoolTaskHook {
 // [!code highlight]
 }
 
-#[async_trait]
-impl TaskHook<OnTaskStart> for MyCoolTaskHook {
-    async fn on_event(
-        &self,
-        ctx: &TaskHookContext,
-        payload: &<OnTaskStart as TaskHookEvent>::Payload
-    ) {
+#[hook]
+impl MyCoolTaskHook {
+    async fn OnTaskStart(&self, ctx: &TaskHookContext) {
         println!("Interested \"OnTaskStart\" event triggered!");
         // [!code ++]
         self.task_starts.fetch_add(1, Ordering::Relaxed);
     }
-}
 
-#[async_trait]
-impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
-    async fn on_event(
-        &self,
-        ctx: &TaskHookContext,
-        payload: &<OnTaskEnd as TaskHookEvent>::Payload
-    ) {
-        println!("Interested \"OnTaskEnd\" event triggered! With error = {:?}", payload);
+    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) {
+        println!("Interested \"OnTaskEnd\" event triggered! With error = {:?}", error);
         // [!code ++]
         self.task_ends.fetch_add(1, Ordering::Relaxed);
     }
@@ -184,7 +333,7 @@ impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
 ```
 </RenderProgrammingLanguageBased>
 
-And for our registration, we will have to modify it like so:
+And for our registration, let's modify it to utilize the manual approach (for guidebook reasons, which will become clear later):
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=28
 #[task(schedule = every!(2s)))]
@@ -202,10 +351,10 @@ async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
 ```
 </RenderProgrammingLanguageBased>
 
-However we quickly stumble upon one problem, in our code when we subscribe the TaskHooks to each event, <u>we create a new
-instance per event</u>, which means our metrics for tasks starting / ending will be incosistent.
+However, we quickly stumble upon one problem, in our code when we subscribe the TaskHooks to each event, <u>we create a new
+instance per event</u>, which means our metrics for tasks starting / ending will be inconsistent.
 
-Try to define getter methods for the "metric values", then when the Tasks have ran, try to fetch it inside the main code
+Try to define getter methods for the "metric values", then when the Tasks run, try to fetch it inside the main code
 after a set amount of time:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
@@ -284,6 +433,11 @@ async fn Task1(ctx: &TaskFrameContext) -> Result<(), TaskError> {
 ```
 </RenderProgrammingLanguageBased>
 </Callout>
+
+<RenderProgrammingLanguageBased target_name={"Rust"}>
+    Though for our simple code, we can keep ``auto(...)`` as it automatically assigns the same instance to multiple events.
+    The reason we went with the manual approach over it is to showcase scenarios where ``auto(...)`` might not be possible to use.
+</RenderProgrammingLanguageBased>
 
 # Stateful Containers
 While TaskHooks are nice for event listening, what happens when you only need to mount additional data onto a Task which
