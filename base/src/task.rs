@@ -100,7 +100,7 @@ impl<T1: TaskFrame<Args = ()>> Task<T1> {
 
 pub(crate) trait Sealed {}
 
-#[allow(private_interfaces)]
+#[allow(private_bounds)]
 pub trait TaskHookLayer: Sealed + Send + Sync {
     fn attach<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output=()> + Send;
     fn get<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>>;
