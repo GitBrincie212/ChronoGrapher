@@ -4,28 +4,28 @@
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">One Unified Scheduling Kernel, Unlimited Power</h1>
 
-ChronoGrapher is the **Scheduling / Orchestration Kernel** (related to job scheduling and workflow orchestration but more 
+ChronoGrapher is the **Scheduling / Orchestration Kernel** (related to job scheduling and workflow orchestration but more
 generalized and adaptive) that brings unified scheduling to your entire stack.
 
 1. **Unified Multi-Language API:** Coordinate workflows across Python, TypeScript/JavaScript, Rust, and Java with a
-  single and beautiful API tailor-made for each programming language, no more awkward glue code needed.
+   single and beautiful API tailor-made for each programming language, no more awkward glue code needed.
 
-2. **Unopinionated by Design:** ChronoGrapher provides core scheduling without forcing features. Major capabilities 
-  offered as optional extensions such as **Cloud Infrastructure Support**, **Distributed Systems**, **Markers API** which 
-  build on top of the core.
+2. **Unopinionated by Design:** ChronoGrapher provides core scheduling without forcing features. Major capabilities
+   offered as optional extensions such as **Cloud Infrastructure Support**, **Distributed Systems**, **Markers API** which
+   build on top of the core.
 
 3. **Hyper-Extensible Architecture:** The best in market when it comes to extensibility, as demonstrated with its
-  extensions / integrations, its core is exceptionally powerful with its design philosophy being 
-  "Minimalism over Bloat, Emergent over Predefined and Simplicity over Complexity".
+   extensions / integrations, its core is exceptionally powerful with its design philosophy being
+   "Minimalism over Bloat, Emergent over Predefined and Simplicity over Complexity".
 
-4. **Scale Effortlessly:** Rust-powered engine scales from a single machine to cloud infrastructure and finally to 
-  distributed clusters seamlessly, ChronoGrapher scales with your ever-growing ambitions.
+4. **Scale Effortlessly:** Rust-powered engine scales from a single machine to cloud infrastructure and finally to
+   distributed clusters seamlessly, ChronoGrapher scales with your ever-growing ambitions.
 
-5. **Adaptive Crash-Resistant Durability:** Never lose task progress and state, with its revolutionary persistence 
-  model. Guaranteeing high durability and low overhead in performance, developers should never worry about failures.
+5. **Adaptive Crash-Resistant Durability:** Never lose task progress and state, with its revolutionary persistence
+   model. Guaranteeing high durability and low overhead in performance, developers should never worry about failures.
    <u>(COMING SOON)</u>
 
-**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust (≥ 1.92v). Other 
+**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust (≥ 1.92v). Other
 languages look similar:
 ```rust
 use chronographer::prelude::*;
@@ -54,24 +54,24 @@ A typical modern stack leverages multiple programming languages. Each requiring 
 - **TypeScript/JavaScript** Agenda, Bree, BullMQ, Bottleneck
 - **Rust:** cron_tab, tokio_task_scheduler, tokio-cron
 - **Java:** Quartz, Spring Scheduler
-- **Misc:** Temporal, Cadence, CRON 
+- **Misc:** Temporal, Cadence, CRON
 
 **The Current Challenge:**
 Most solutions face one or more fundamental limitations:
-- **Language Isolation:** Bound to single ecosystems, either leading to the use of different solutions for every programming 
+- **Language Isolation:** Bound to single ecosystems, either leading to the use of different solutions for every programming
   language with their own APIs to learn, their own tradeoffs... etc. Or alternatively requiring complex and awkward glue-code.
-- **Scalability Issues:**  Difficult to scale and extend beyond what the solution was initially intended for, without 
-  requiring significant re-engineering or weird hacky solutions to common problems. Both approaches are a maintenance nightmare to 
+- **Scalability Issues:**  Difficult to scale and extend beyond what the solution was initially intended for, without
+  requiring significant re-engineering or weird hacky solutions to common problems. Both approaches are a maintenance nightmare to
   developers.
-- **Inconsistent Developer Experience:** Inconsistent poorly-maintained documentation quality and at worst outright outdated, 
-  opinionated patterns with different systems doing the same thing, and an overall steep learning curve across tools. 
+- **Inconsistent Developer Experience:** Inconsistent poorly-maintained documentation quality and at worst outright outdated,
+  opinionated patterns with different systems doing the same thing, and an overall steep learning curve across tools.
 - **Highly Niche:** Some job schedulers and workflow orchestrations are built for one thing in mind, while its good for
   solving that particular problem pretty well, there is no generalized blueprint which can be adapted across industries
   freely.
 
 **The ChronoGrapher Approach:**
-We believe developers deserve better than fragmented scheduling experiences. While no solution is perfect, 
-ChronoGrapher's polyglot architecture, performance-first design, and extensibility focus represent significant 
+We believe developers deserve better than fragmented scheduling experiences. While no solution is perfect,
+ChronoGrapher's polyglot architecture, performance-first design, and extensibility focus represent significant
 breakthroughs in scheduler design, eliminating the need to master multiple disjointed systems.
 <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Core Capabilities / Key Features</h1>
@@ -86,12 +86,12 @@ ChronoGrapher's power comes from its modular task system. Build complex workflow
 ```rust
 #[task(schedule = every!(4s))]
 #[workflow(
-    dependency(
+  dependency(
         HealthCheckTask && (DatabaseCheckTask || SystemUpdateTask)
-    ),  // Run workflow only if dependencies are resolved
-    retry(3, delay = 1s), // If everything fails retry with a delay up to 3 times
-    fallback(HandlePaymentFailure), // If the below "sub-workflow" fails, execute this
-    timeout(30s), // Cannot exceed more than 30 seconds
+  ),  // Run workflow only if dependencies are resolved
+  retry(3, delay = 1s), // If everything fails retry with a delay up to 3 times
+  fallback(HandlePaymentFailure), // If the below "sub-workflow" fails, execute this
+  timeout(30s), // Cannot exceed more than 30 seconds
 )]
 async fn HandleCleanupTask(ctx: &TaskFrameContext) -> Result<(), String> {
   // <...>
@@ -113,72 +113,35 @@ Some of the available workflow primitive types are:
 Fine-grain reactivity for Tasks at a deep level, or append your own stateful containers, or even mix both! Unlimited freedom
 as ``TaskHooks`` are the backbone of extensibility in ChronoGrapher:
 ```rust
-/*
- A basic example for "integration" with Prometheus, it involves us implementing the
- TaskHook<E> trait, dictating the events the hook supports
-*/
+// A basic example for "integration" with Prometheus
 struct PrometheusMetricsHook;
 
-/*
-    In case you don't care which event the TaskHook is being used and the code is the same:
-    
-    impl<E: TaskHookEvent> TaskHook<E> for PrometheusMetricsHook {...}
-    
-    However, if you need to subscribe to an event category without boilerplate. TaskHookEvent Groups (THEGs) 
-    allow this, for our example, it executes the same function for OnTaskStart and OnTaskEnd:
-    
-    impl<E: TaskLifecycleEvents> TaskHook<E> for PrometheusMetricsHook {...}
-*/
-
-impl TaskHook<OnTaskStart> for PrometheusMetricsHook {
-  async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskStart as TaskHookEvent>::Payload<'_>) {
-      // ...Increment the number of running Tasks and update metrics...
+#[hook]
+impl PrometheusMetricsHook {
+  async fn OnTaskStart(&self, ctx: &TaskHookContext) {
+        // ...Increment the number of running Tasks and update metrics...
   }
-}
 
-impl TaskHook<OnTaskEnd> for PrometheusMetricsHook {
-  async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskEnd as TaskHookEvent>::Payload<'_>) {
-      // ...Decrement the number of running Tasks and update metrics...
+  async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) {
+        // ...Decrement the number of running Tasks and update metrics...
   }
-}
 
-impl TaskHook<OnTimeout> for PrometheusMetricsHook {
-    async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTimeout as TaskHookEvent>::Payload<'_>) {
+  async fn OnTimeout(&self, ctx: &TaskHookContext, duration: Duration) {
         // ...Executes when a TimeoutTaskFrame throws a timeout...
-    }
-}
+  }
 
-impl TaskHook<OnHookAttach<OnTaskStart>> for PrometheusMetricsHook {
-    async fn on_event(
-        &self, 
-        ctx: &TaskHookContext,
-        payload: &<OnHookAttach<OnTaskStart> as TaskHookEvent>::Payload<'_>
-    ) {
+  async fn OnHookAttach<OnTaskStart>(ctx: &TaskHookContext, hook: Option<&dyn TaskHook<OnTaskStart>>) {
         // ...You can initialize logic for when it is attached to a OnTaskStart event...
-    }
+  }
 }
 
-// The second phase is actually attaching the hook to the relevant events of a Task
-let hook = Arc::new(PrometheusMetricsHook);
-task.attach_hook::<OnTaskStart>(hook).await;
-task.attach_hook::<OnTimeout>(hook).await;
-
-// Or more ergonomically attaching the hook inside the task macro via hooks annotation:
+// Defining an arbitrary Task and attaching our hook
 #[task(schedule = every!(1s))]
-#[hooks(
-    local_prometheus_instance = PrometheusMetricsHook::default(),
-    OnTaskStart: local_prometheus_instance,
-    OnTimeout: local_prometheus_instance
-)]
+#[hooks(auto(PrometheusMetricsHook::default()))]
 async fn MyTask(ctx: &TaskFrameContext) -> Result<(), String> {
-  todo!()
+    todo!()
 }
 ```
-
-> Temporary Note: Everything up until the hooks annotation proc-macro are considered finished, the rest are being worked 
-on and thus needs more time to materialize. These examples most likely won't work until the macro extension is done, 
-for now simply map the syntax to the base API (the individual structs, traits, enums... etc), this syntax is purely a vision 
-and thus may change over time
 
 TaskHook Events Include:
 - TaskHook attach/detach events
@@ -190,13 +153,13 @@ TaskHook Events Include:
 
 ...
 
-Various patterns can be achieved such as TaskHooks communicating with each other via their own set of events 
-(Hook-To-Hook Communication), registering internal TaskHooks from TaskFrames or elsewhere, and even running conditional 
+Various patterns can be achieved such as TaskHooks communicating with each other via their own set of events
+(Hook-To-Hook Communication), registering internal TaskHooks from TaskFrames or elsewhere, and even running conditional
 code based on the presence of a TaskHook.
 
 ### Millisecond Calendar-Based Schedules
 
-Fine-grain control over when a Task executes via ``TaskSchedule``. Build your own complex schedules or use pre-existing 
+Fine-grain control over when a Task executes via ``TaskSchedule``. Build your own complex schedules or use pre-existing
 ones such as ``TaskScheduleCalendar`` to satisfy your time critical needs:
 
 ```rust
@@ -214,6 +177,11 @@ async fn CalendarBasedTask(ctx: &TaskContext) -> Result<(), String> {
 }
 ```
 
+> Temporary Note: Everything up until the calendar proc-macro is considered finished, while the rest is being worked
+on and thus needs more time to materialize. These examples most likely won't work until the macro extension is done,
+for now simply map the syntax to the base API (the individual structs, traits, enums, etc.). This syntax is purely a vision
+and thus may change over time.
+
 ### Creating Custom Schedulers
 
 The composition-based architecture of ChronoGrapher also applies to Schedulers!
@@ -230,19 +198,19 @@ struct MyCoolScheduler<C: SchedulerConfig>(Scheduler<C>);
 // Testing the scheduler with a virtual clock
 #[cfg(test)]
 mod tests {
-    use super::*;
-    
-    #[tokio::test]
-    async fn test_scheduled_task() {
-        let test_scheduler = MyCoolScheduler::<MyCoolSchedulerConfig>::new(
-          VirtualClock::default()
-        );
-        
-        // Fast-forward time to test scheduling
-        virtual_clock.advance(Duration::from_hours(24)).await;
-        
-        // <...>
-    }
+  use super::*;
+
+  #[tokio::test]
+  async fn test_scheduled_task() {
+    let test_scheduler = MyCoolScheduler::<MyCoolSchedulerConfig>::new(
+      VirtualClock::default()
+    );
+
+    // Fast-forward time to test scheduling
+    virtual_clock.advance(Duration::from_hours(24)).await;
+
+    // <...>
+  }
 }
 ```
 
@@ -256,14 +224,14 @@ pip install chronographer # Python
 npm install chronographer # JS/TS (also available in yarn, bun, pnpm...)
 ```
 
-Just like that. ChronoGrapher is configured for one machine! To scale it more, it is advised to check the 
+Just like that. ChronoGrapher is configured for one machine! To scale it more, it is advised to check the
 multiple integrations and extensions offered by us or other third-parties
 
 With that said, the next steps are:
 - Full Documentation (Coming Soon)
 - API Reference (Coming Soon)
 - Examples Gallery (Coming Soon)
-<img align="center" src="assets/Chronographer Divider.png" />
+  <img align="center" src="assets/Chronographer Divider.png" />
 <h1 align="center">Contributing And License</h1>
 
 > [!IMPORTANT]  
@@ -278,10 +246,10 @@ the license in a nutshell says:
 > - You can view the source, learn from it, and use it for testing and development.
 > - You cannot use this software to run a competing service or product.
 > - The license will automatically convert to the [MIT License](https://opensource.org/license/mit) on
-> the date of the first official beta announcement (made by the owner, GitBrincie212)
+    > the date of the first official beta announcement (made by the owner, GitBrincie212)
 
 When it comes to contributing and forking. Chronographer is free and open source to use, only restricted by the lightweight
-<strong>MIT License (this license only applies to when the project enters beta)</strong>. 
-Contributions are welcome with wide open arms as Chronographer is looking to foster a community, proceed to take a look at 
+<strong>MIT License (this license only applies to when the project enters beta)</strong>.
+Contributions are welcome with wide open arms as Chronographer is looking to foster a community, proceed to take a look at
 [CONTRIBUTING.md](./CONTRIBUTING.md), for more information on how to get started as well as the codebase to learn
 from it. We sincerely and deeply are grateful and thankful for the efforts
