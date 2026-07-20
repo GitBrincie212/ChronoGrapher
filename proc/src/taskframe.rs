@@ -1,4 +1,4 @@
-use crate::utils::{LIFETIME_UNSUPPORTED_ERR, extract_arg_name, extract_docs, extract_workflow, handle_generics_phantom_data, map_fn_args_pairs, ParsedContextArgument, ParsedArguments};
+use crate::utils::{LIFETIME_UNSUPPORTED_ERR, extract_arg_name, extract_docs, extract_annotation, handle_generics_phantom_data, map_fn_args_pairs, ParsedContextArgument, ParsedArguments};
 use crate::workflow::WorkflowSpec;
 use crate::workflow::utils::WorkflowTransform;
 use proc_macro::TokenStream;
@@ -287,7 +287,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let temp = expanded.clone().map(|value| quote! { :: #value });
 
     let docs = extract_docs(&*input.attrs);
-    match extract_workflow(&*input.attrs, &mut macro_args.0, |x| {
+    match extract_annotation(&*input.attrs, "Workflow", &mut macro_args.0, |x| {
         WorkflowSpec::parse.parse2(x)
     }) {
         Ok(()) => {}
