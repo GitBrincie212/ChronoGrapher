@@ -59,8 +59,9 @@ pub(crate) const TIME_LITERAL_RANGES: [RangeType; 5] = [
 pub const TIME_LITERAL_FIELD: [&str; 5] = ["milliseconds", "seconds", "minutes", "hours", "days"];
 pub const TIME_LITERAL_SUFFIXES: [&str; 5] = ["ms", "s", "m", "h", "d"];
 
-pub fn extract_workflow<T>(
+pub fn extract_annotation<T>(
     attrs: &[Attribute],
+    annotation: &str,
     result: &mut Option<T>,
     initializer: impl Fn(TokenStream2) -> syn::Result<T>,
 ) -> syn::Result<()> {
@@ -69,21 +70,21 @@ pub fn extract_workflow<T>(
             continue;
         };
 
-        if path.ident.to_string() != "workflow" {
+        if path.ident.to_string() != annotation.to_lowercase() {
             continue;
         }
 
         if result.is_some() {
             return Err(syn::Error::new_spanned(
                 attr,
-                "Cannot use the workflow macro annotation twice",
+                format!("Cannot use the {} macro annotation twice", annotation.to_lowercase()),
             ));
         }
 
         let syn::Meta::List(list) = &attr.meta else {
             return Err(syn::Error::new_spanned(
                 attr,
-                "Workflow annotation expected a list of values",
+                format!("{annotation} annotation expected a list of values"),
             ));
         };
 
