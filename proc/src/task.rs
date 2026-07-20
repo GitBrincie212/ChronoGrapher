@@ -1,9 +1,11 @@
-use crate::utils::{extract_docs, extract_workflow, handle_generics_phantom_data};
+use crate::utils::{extract_docs, extract_annotation, handle_generics_phantom_data};
 use darling::FromMeta;
 use darling::ast::NestedMeta;
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::parse::{Parse, Parser};
 use syn::parse_macro_input;
+use crate::hook::hook_annotation::HookAnnotationArguments;
 
 #[derive(Debug, FromMeta)]
 struct TaskMacroArguments {
@@ -82,21 +84,32 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     });
 
     let mut workflow_toks = None;
-    match extract_workflow(&*input.attrs, &mut workflow_toks, |x| Ok(x)) {
+    match extract_annotation(&*input.attrs, "Workflow", &mut workflow_toks, |x| Ok(x)) {
+        Ok(()) => {}
+        Err(e) => return e.to_compile_error().into(),
+    };
+
+    let mut hook_annotation_parsed = None;
+    match extract_annotation(&*input.attrs, "Hook", &mut hook_annotation_parsed, |x| {
+        HookAnnotationArguments::parse.parse2(x)
+    }) {
         Ok(()) => {}
         Err(e) => return e.to_compile_error().into(),
     };
 
     let taskframe_creation_method = if workflow_toks.is_some() {
         quote! { workflow }
-    } else {
-        quote! { single }
-    };
+    } else { quote! { single } };
+
     let task_creation = quote! {
-        chronographer::task::Task::new(
+        let task = chronographer::task::Task::new(
             #taskframe_name:: #temp #taskframe_creation_method(),
             #schedule
-        )
+        );
+
+        #hook_annotation_parsed
+
+        task
     };
 
     let docs = extract_docs(&*input.attrs);
@@ -106,6 +119,10 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut task_method_name = syn::Ident::new("new", proc_macro2::Span::call_site());
     let workflow = quote! { <#taskframe_name #temp as ::chronographer::task::frames::TaskFrame>::Workflow };
     let mut task_method_return_type = quote! { ::chronographer::task::Task<#workflow> };
+
+    let constructor_async = hook_annotation_parsed
+        .as_ref()
+        .map(|_| quote! { async });
     if is_singleton {
         if !fn_sig.generics.params.is_empty() {
             return syn::Error::new(
@@ -115,12 +132,20 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
             ).to_compile_error().into();
         }
 
-        expanded_method_init_logic = quote! {
-            static INSTANCE: std::sync::OnceLock<
-            chronographer::task::Task<#workflow>
-            > = std::sync::OnceLock::new();
+        let (
+            singleton_primitive_type,
+            await_expansion,
+            method_type
+        ) = if hook_annotation_parsed.is_none() {
+            (quote! { std::sync::OnceLock }, None, quote! { new })
+        } else { (quote! { tokio::sync::OnceCell }, Some(quote! { .await }), quote! { const_new })};
 
-            INSTANCE.get_or_init(|| #task_creation)
+        expanded_method_init_logic = quote! {
+            static INSTANCE: #singleton_primitive_type<
+            chronographer::task::Task<#workflow>
+            > = #singleton_primitive_type::#method_type();
+
+            INSTANCE.get_or_init(|| #constructor_async { #task_creation }) #await_expansion
         };
 
         task_method_name = syn::Ident::new("instance", proc_macro2::Span::call_site());
@@ -132,7 +157,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
         #fn_vis struct #task_name #generics #phantom_data #where_clause;
 
         impl #generics #impl_end_name {
-            pub fn #task_method_name() -> #task_method_return_type {
+            pub #constructor_async fn #task_method_name() -> #task_method_return_type {
                 #expanded_method_init_logic
             }
         }
