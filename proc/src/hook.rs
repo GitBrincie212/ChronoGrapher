@@ -1,3 +1,5 @@
+pub mod hook_annotation;
+
 use proc_macro::TokenStream;
 use std::collections::HashSet;
 use proc_macro2::TokenStream as TokenStream2;
@@ -652,15 +654,15 @@ pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
         for default in defaults {
             default_attachments_expanded = quote! {
                 #default_attachments_expanded
-                hooks_layer.attach::<#default>(instance.clone()).await;
+                hooks_layer.attach::<#default>(self.clone()).await;
             };
         }
 
         auto_attachment_expanded = Some(quote! {
             impl #parent_generics #taskhook_impl_end_expanded {
                 pub async fn #auto_attach_fn_name(
+                    self: std::sync::Arc<Self>,
                     hooks_layer: &impl ::chronographer::task::TaskHookLayer,
-                    instance: impl std::ops::Deref<Target = std::sync::Arc<Self>>
                 ) {
                     #default_attachments_expanded
                 }
