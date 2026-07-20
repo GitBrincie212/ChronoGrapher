@@ -1,15 +1,20 @@
 use proc_macro::TokenStream;
 use std::collections::HashSet;
-use darling::ast::GenericParamExt;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{bracketed, parse_macro_input, Attribute, FnArg, Token};
-use syn::parse::{Parse, Parser};
+use syn::parse::{Parse, ParseStream, Parser};
 use syn::parse::discouraged::Speculative;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
 use crate::utils::{extract_arg_name, map_fn_args_pairs, ParsedArguments, ParsedContextArgument};
-use crate::workflow::utils::ArgumentParser;
+
+/*
+    Out of all macros, this is by far the worst in terms of readability (in my opinion). I'm sorry in advance,
+    il try to make it better in the future, but for now as a small prototype it does the job.
+
+    TODO: Improve the code quality in the future
+ */
 
 const TASKHOOK_CTX_REQUIRED_ERR: &'static str =
     "Method is required to have at least one argument of type \"TaskHookContext\" after &self";
@@ -155,6 +160,34 @@ fn extract_arguments(fn_args: &mut Punctuated<FnArg, Comma>) -> syn::Result<(Par
     ))
 }
 
+#[derive(Debug)]
+struct HookItemDefaultField(Punctuated<syn::Type, Token![,]>);
+
+impl ToTokens for HookItemDefaultField {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        self.0.to_tokens(tokens);
+    }
+}
+
+impl Parse for HookItemDefaultField {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let fork = input.fork();
+
+        if let Ok(_) = fork.parse::<Token![<]>() {
+            let args = Punctuated::<syn::Type, Comma>::parse_separated_nonempty(&fork)?;
+            let _ = fork.parse::<Token![>]>()?;
+
+            input.advance_to(&fork);
+            return Ok(Self(args));
+        }
+
+        let mut args = Punctuated::new();
+        args.push_value(input.parse()?);
+
+        Ok(Self(args))
+    }
+}
+
 /*
     Quite awkward code for parsing the #[hooks(...)] macro annotation for functions. Might fix this
     in the future, but for mostly prototype reasons I'm keeping it even if it's imperfect.
@@ -167,12 +200,12 @@ fn extract_arguments(fn_args: &mut Punctuated<FnArg, Comma>) -> syn::Result<(Par
 // default           | true,       Vec[]
 // <Unspecified>     | true,       Vec[]
 #[derive(Debug)]
-struct HookItemDefaults(bool, Vec<syn::Type>);
+struct HookItemDefaults(bool, Punctuated<HookItemDefaultField, Comma>);
 
 impl Parse for HookItemDefaults {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            return Ok(HookItemDefaults(true, Vec::new()));
+            return Ok(HookItemDefaults(true, Punctuated::new()));
         }
 
         let mut negate = false;
@@ -189,19 +222,17 @@ impl Parse for HookItemDefaults {
         if negate && !input.is_empty() {
             return Err(input.error("Unexpected token sequence after \"!default\""))
         } else if negate && input.is_empty() {
-            return Ok(HookItemDefaults(false, Vec::new()));
+            return Ok(HookItemDefaults(false, Punctuated::new()));
         } else if input.is_empty() {
-            return Ok(HookItemDefaults(true, Vec::new()));
+            return Ok(HookItemDefaults(true, Punctuated::new()));
         }
 
         let _ = input.parse::<Token![=]>()?;
         let content;
         bracketed!(content in input);
 
-        let mut args_parser = ArgumentParser::new(&content);
-        let rest = args_parser.parse_remaining()?;
-
-        Ok(HookItemDefaults(true, rest))
+        let content = Punctuated::<HookItemDefaultField, Comma>::parse_separated_nonempty(&content)?;
+        Ok(HookItemDefaults(true, content))
     }
 }
 
@@ -272,7 +303,7 @@ impl Parse for HookAnnotationMacroArguments {
         }
 
         Ok(Self {
-            defaults: defaults.unwrap_or(HookItemDefaults(true, Vec::new())),
+            defaults: defaults.unwrap_or(HookItemDefaults(true, Punctuated::new())),
             listen: listen.unwrap_or(HookListen(None))
         })
     }
@@ -312,7 +343,7 @@ impl HookAnnotationMacroArguments {
 fn push_defaults(
     item_defaults_enabled: bool,
     fn_name: &syn::Ident,
-    item_defaults: Vec<syn::Type>,
+    item_defaults: Punctuated<HookItemDefaultField, Comma>,
     defaults: &mut Vec<TokenStream2>,
     event_expanded: &TokenStream2,
     generics: &Punctuated<syn::GenericParam, Comma>
@@ -328,27 +359,72 @@ fn push_defaults(
             };
 
             if ty.colon_token.is_some() {
-                return Err(syn::Error::new_spanned(ty, "Ambiguous event generics are not allowed when specifying default"))
+                return Err(syn::Error::new_spanned(ty, "Broad generics are not allowed without specifying explicit defaults"));
             }
         }
 
         defaults.push(quote! { #event_expanded });
-        return Ok(())
+        return Ok(());
     }
 
-    if let Some(narrow_generic) = generics.iter().find(|x| {
-        x.as_type_param().map(|x| x.colon_token.is_none()).unwrap_or(false)
-    }) {
-        return Err(syn::Error::new_spanned(narrow_generic, "Narrow event generics are not allowed when specifying multiple defaults"))
+    let mut encountered_broad_generic = false;
+    for def in item_defaults.iter() {
+        if def.0.len() != generics.len() {
+            return Err(syn::Error::new_spanned(def, "Generic defaults do not match up with the generic parameters"));
+        }
+
+        for (generic, supplied) in generics.iter().zip(def.0.iter()) {
+            let syn::GenericParam::Type(param) = generic else {
+                continue;
+            };
+
+            if param.colon_token.is_none() {
+                let expected = &param.ident;
+
+                let matches = match supplied {
+                    syn::Type::Path(path) => path.path.is_ident(expected),
+                    syn::Type::Infer(_) => true,
+                    _ => false,
+                };
+
+                if !matches {
+                    return Err(syn::Error::new_spanned(
+                        supplied,
+                        format!("Narrow generic must match with {expected} or use _")
+                    ));
+                }
+
+                continue;
+            }
+
+            encountered_broad_generic = true;
+        }
+
+        if !encountered_broad_generic {
+            return Err(syn::Error::new_spanned(
+                item_defaults.first().unwrap(),
+                "Cannot specify explicit defaults for only narrow-based generics"
+            ));
+        }
     }
 
-    let item_defaults_iter = item_defaults.iter();
-    if item_defaults_enabled && fn_name.to_string().as_str() != "__anonymous__" {
-        defaults.extend(item_defaults_iter.map(|x| quote! { #fn_name < #x > }));
-        return Ok(())
+    if item_defaults_enabled && fn_name != "__anonymous__" {
+        defaults.extend(
+            item_defaults.iter().map(|def| {
+                let args = &def.0;
+                quote! {
+                    #fn_name < #args >
+                }
+            })
+        );
+    } else {
+        defaults.extend(
+            item_defaults.iter().map(|def| {
+                def.0.to_token_stream()
+            })
+        );
     }
 
-    defaults.extend(item_defaults_iter.map(|x| x.to_token_stream()));
     Ok(())
 }
 
@@ -361,7 +437,7 @@ pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as syn::ItemImpl);
     let taskhook_name = match input.self_ty.as_ref() {
         syn::Type::Path(tp) => &tp.path,
-        ty => return syn::Error::new_spanned(ty, "Malformed impl block's name")
+        ty => return syn::Error::new_spanned(ty, "Expected a simple identifier in impl block's name but got something else")
             .into_compile_error()
             .into()
     };
@@ -413,14 +489,27 @@ pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
         let fn_return = &fn_sig.output;
         let fn_generics = &fn_sig.generics;
         let mut fn_name_expanded = fn_name.to_token_stream();
-        let mut item_defaults = Vec::new();
-        let mut item_defaults_enabled = true;
+        let mut item_defaults = Punctuated::new();
+        let mut item_defaults_enabled = matches!(macro_args, HookMacroArguments::Enabled(_));
 
         match HookAnnotationMacroArguments::parse_attrs(&func.attrs) {
             Ok(Some(args)) => {
                 let args_defaults = args.defaults;
                 item_defaults_enabled = args_defaults.0;
                 item_defaults = args_defaults.1;
+
+                for def in &item_defaults {
+                    if def.0.len() != fn_generics.params.len() {
+                        return syn::Error::new_spanned(
+                            &def.0,
+                            format!(
+                                "Expected {} generic argument(s), but got {} instead",
+                                fn_generics.params.len(),
+                                def.0.len(),
+                            ),
+                        ).into_compile_error().into()
+                    }
+                }
 
                 fn_name_expanded = args.listen.0
                     .map(|x| x.to_token_stream())
@@ -490,23 +579,19 @@ pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
             Err(e) => return e.to_compile_error().into(),
         };
 
-        let mut impl_child_generics_expanded: Option<TokenStream2> = None;
+        let impl_child_generics: Punctuated<_, Comma> = Punctuated::from_iter(
+            fn_generics.params.iter()
+                .filter(|x| {
+                    if let syn::GenericParam::Type(ty) = x {
+                        return ty.colon_token.is_some()
+                    };
+
+                    return true;
+                })
+                .chain(parent_generics.params.iter())
+        );
+
         let mut event_expanded: TokenStream2 = quote! { #fn_name };
-        if !fn_generics.params.is_empty() || !parent_generics.params.is_empty() {
-            let impl_child_generics: Punctuated<_, Comma> = Punctuated::from_iter(
-                fn_generics.params.iter()
-                    .filter(|x| {
-                        if let syn::GenericParam::Type(ty) = x {
-                            return ty.colon_token.is_some()
-                        };
-
-                        return true;
-                    })
-                    .chain(parent_generics.params.iter())
-            );
-
-            impl_child_generics_expanded = Some(quote! { < #impl_child_generics > });
-        }
 
         if !fn_generics.params.is_empty() {
             let param_names = fn_generics.params
@@ -547,7 +632,7 @@ pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
         let expanded = quote! {
             #[::async_trait::async_trait]
-            impl #impl_child_generics_expanded ::chronographer::task::hooks::TaskHook<#event_expanded> for #taskhook_impl_end_expanded {
+            impl <#impl_child_generics> ::chronographer::task::hooks::TaskHook<#event_expanded> for #taskhook_impl_end_expanded {
                 async fn on_event(&self, #ctx_name: #ctx_type, #payload_name: &<#event_expanded as ::chronographer::task::hooks::TaskHookEvent>::Payload<'_>) {
                     #payload_extraction
                     #fn_block
