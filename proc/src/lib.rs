@@ -223,10 +223,10 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// - [`Task`](chronographer::prelude::Task) - The base API "equivalent" used internally
 /// - [`taskframe`] - The macro closely related to [`task`] for producing TaskFrames
 /// - [`workflow`] - The macro used for defining workflows, has close relations with [`task`] and [`taskframe`]
-/// - [`hooks`] - The macro used for attaching TaskHooks to events, and has close relations with [`task`]
+/// - [`hook`] - The macro used for attaching TaskHooks to events, and has close relations with [`task`]
 /// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The trait that makes TaskFrames possible
 /// - [`TaskSchedule`](chronographer::prelude::TaskSchedule) - The trait that makes schedules possible
-/// - [`TaskHook`](chronographer::prelude::Task) - The system used for the [`hooks`] macro
+/// - [`TaskHook`](chronographer::prelude::Task) - The system used for the [`hook`] macro
 #[proc_macro_attribute]
 pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     task::task(attr, item)
@@ -363,7 +363,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     taskframe::taskframe(attrs, item)
 }
 
-/// The [`workflow`] attribute macro is a special macro from the rest macro; Just like with [`hooks`], it
+/// The [`workflow`] attribute macro is a special macro from the rest macro; Just like with [`hook`], it
 /// behaves as an annotation working alongside [`task`] and [`taskframe`] rather than a macro which
 /// transforms directly the input provided into something new.
 ///
@@ -905,7 +905,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// instance only for that event.
 ///
 /// # Expansion Semantics
-/// The expansion of the [`hooks`] macro heavily depends on the context it is used in. However, for the
+/// The expansion of the [`hook`] macro heavily depends on the context it is used in. However, for the
 /// implementation phase it typically looks something like:
 /// ```rust
 /// use chronographer::prelude::*;
@@ -1035,7 +1035,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Though there is a specific edge-case where there is a multitude of basic events but only a very few
 /// number of ambigious generic-based events. Providing defaults might be impossible, and thus you may need
-/// to provide defaults for the rest to discard it. To combat this, use ``#[hooks(!default)]``
+/// to provide defaults for the rest to discard it. To combat this, use ``#[hook(!default)]``
 ///
 /// An additional parameter which can be used is the ``listen``, unlike ``default`` it can be assigned a value.
 /// Do note, this value denotes the event to listen to and is prioritized over the method's name when it exists,
@@ -1068,7 +1068,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// methods with an unknown number of defaults. The solution is either to disable it fully via ``#[hook(!auto_attach)]``
 /// at the top of the ``impl`` block.
 ///
-/// Or alternatively specify defaults for those generic-based methods via the macro annotation ``#[hooks(default = [...])]``
+/// Or alternatively specify defaults for those generic-based methods via the macro annotation ``#[hook(default = [...])]``
 /// which resides at the top of the function that hosts the ambigious generic-based event.
 ///
 /// Another limitation is the fact the macro cannot represent stateful container based [`TaskHooks`](chronographer::prelude::TaskHook)
