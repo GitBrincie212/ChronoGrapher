@@ -6,6 +6,7 @@ mod task;
 mod taskframe;
 mod workflow;
 mod hook;
+mod event;
 
 use proc_macro::TokenStream;
 
@@ -1255,4 +1256,9 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn cron(input: TokenStream) -> TokenStream {
     cron::cron(input)
+}
+
+#[proc_macro_attribute]
+pub fn event(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    event::event(attrs, item)
 }
