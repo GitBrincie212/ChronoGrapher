@@ -5,7 +5,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, Parser};
 use syn::parse_macro_input;
-use crate::hook::hook_annotation::HookAnnotationArguments;
+use crate::hook::hook_attachment_annotation::HookAnnotationArguments;
 
 #[derive(Debug, FromMeta)]
 struct TaskMacroArguments {
