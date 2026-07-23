@@ -521,13 +521,13 @@ define_hook_event!(OnHookAttach);
 
 define_hook_event!(OnHookDetach);
 
-pub trait TaskHookLifecycleEvents<'a, E: TaskHookEvent>:
-    TaskHookEvent<Payload<'a> = &'a dyn TaskHook<E>>
+pub trait TaskHookLifecycleEvents<E: TaskHookEvent>:
+    for<'a> TaskHookEvent<Payload<'a> = &'a dyn TaskHook<E>>
 {
 }
 
-impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<'a, E> for OnHookAttach<E> {}
-impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<'a, E> for OnHookDetach<E> {}
+impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookAttach<E> {}
+impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
