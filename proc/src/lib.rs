@@ -1258,6 +1258,326 @@ pub fn cron(input: TokenStream) -> TokenStream {
     cron::cron(input)
 }
 
+/// The [`event`] attribute macro is an alternative, more ergonomic way to write
+/// [`TaskHookEvents`](chronographer::prelude::TaskHookEvent) as opposed to manually implementing the traits
+/// via the Base API from the ground up.
+///
+/// Unlike most macros, this one has multiple targets which it can be embedded to, depending on which, it
+/// will mean different things entirely. The most basic of all is embedding it in a ``struct``:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub struct MyEvent;
+/// ```
+///
+/// When it comes to listening and acting upon those events, it's recommended to use the [`hook`] macro
+/// and read more about its "Implementation Phase" there.
+///
+/// # Valid Targets
+/// The [`event`] macro can be applied to ``structs``, ``enums`` or ``traits``. Each with their own sets
+/// of parameters, limitations and expansion semantics as discussed below.
+///
+/// # Attributes & Parameters
+/// The [`event`] macro contains different parameters per target (``structs``, ``enums`` and ``traits``) use:
+///
+/// 1. The most basic is when using it in a ``struct`` in which it contains only 2 optional parameters, those being
+/// ``inline`` and  ``payload_name_override``. The former inlines the payload directly as a tuple (if it
+/// contains named fields, if it doesn't then it will error out). Whereas the latter modifies the name of the payload,
+/// by default it's in the form ``[NAME]Payload``, the parameter changes this form to something more explicit. **Be
+/// wary that both parameters are mutually exclusive and including them will produce an error**.
+///
+/// 2. When it comes to using it in ``enums``. There is only one singular parameter, that being ``payload``
+/// which defines a common payload type required for all variants in the ``enum`` to provide.
+///
+/// 3. Finally for ``traits``, there are again two parameters. Those being ``payload`` which expects a common
+/// payload shape and ``blanket`` for implementing automatically it onto the discrete events.
+///
+/// # Expansion Semantics
+/// Again, depending on the target the macro is applied to, the code is expanded to different forms
+/// with their own semantics. Different features are available per target as well.
+///
+/// ## Struct Expansion
+/// When it comes to ``structs``. They expand to a singular discrete event with an optional payload (if there
+/// are any fields). The basic example above can be expanded with a payload shape of our choice via:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// // Anonymous-field styled (directly inlined)
+/// #[event]
+/// pub struct MyMessageEvent(u8, String);
+///
+/// // Named-field styled (must be explicitly inlined)
+/// #[event]
+/// pub struct MyMessageEvent {
+///     pub code: u8,
+///     pub message: String
+/// }
+/// ```
+///
+/// The macro expansions typically look something like this (with the features discussed below, its
+/// shape can slightly change in appearance, however the intent is the same):
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[derive(Default)]
+/// pub struct MyMessageEvent;
+///
+/// impl TaskHookEvent for MyMessageEvent {
+///     type Payload<'a> = (u8, String) where Self: 'a;
+/// }
+/// ```
+///
+/// > **NOTE:** Since events are markers rather than a typical object, the macro is slightly intrusive,
+/// applying any derives will be transferred over to the payload type if it exists.
+///
+/// While the primary example (the anonymous-field one) directly inlines the payload type to the event,
+/// the secondary however (the named-field one), produces a different type acting as the payload type.
+///
+/// Notice how there are visibility for the named-field example. Since it produces a different payload
+/// type, these are helpful for encapsulation by implementing on top your own getters / setters... etc.
+/// However, there may be a case where you want to keep this self-documenting style but directly inline the payload.
+///
+/// This can be achieved by using the ``inline`` parameter:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// // The names and visibility modifiers aren't included
+/// #[event(inline)]
+/// pub struct MyMessageEvent {
+///     pub code: u8,
+///     pub message: String
+/// }
+/// ```
+///
+/// To modify the name of the payload, you can also use ``payload_name_override``:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(payload_name_override = MyNewEventPayloadName)]
+/// pub struct MyMessageEvent {
+///     pub code: u8,
+///     pub message: String
+/// }
+/// ```
+///
+/// You can also specify generics in the event which can be used in the payload type or act as unused.
+/// ChronoGrapher is smart to embed ``PhantomData`` as even if unused in the payload, the generic is still
+/// useful when emitting and listening to said event:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub struct MyMessageEvent<T: Send + Sync + 'static>(u8, String, T);
+///
+/// #[event]
+/// pub struct MyMessageEvent<T: Send + Sync + 'static> {
+///     pub code: u8,
+///     pub message: String,
+///     pub shape: T
+/// }
+/// ```
+///
+/// More generics can be specified, along with constant parameters. However, the macro also allows the
+/// specification of a lifetime parameter while using it in the payload, mirroring directly to the payload's lifetime.
+/// Specifying more lifetime parameters will produce an error:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub struct MyMessageEvent<'a>(u8, &'a str);
+///
+/// #[event]
+/// pub struct MyMessageEvent<'a> {
+///     pub code: u8,
+///     pub message: &'a str
+/// }
+/// ```
+///
+/// ## Enum Expansion
+/// With ``enums``, however, the expansion semantics differ heavily. As opposed to defining a singular event.
+/// You define a **Closed-Form THEG** (a sealed trait with its bound being the
+/// [`TaskHookEvent`](chronographer::prelude::TaskHookEvent) trait) with specific discrete events inside
+/// of it.
+///
+/// Any outside event trying to implement this THEG will be promptly rejected by the compiler. The
+/// most straightforward simple example of defining a closed-form THEG can be written as:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub enum MyClosedFormTHEG {
+///     Event1,
+///     Event2,
+///     Event3,
+///     // <...>
+/// }
+/// ```
+///
+/// The above code not only generates ``MyClosedFormTHEG`` as a trait with a sealed trait required as a
+/// bound. It additionally defines the events, the expansion typically looks as follows (again, with slight
+/// variations depending on the shape):
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// trait SealedMyClosedFormTHEG {}
+/// pub trait MyClosedFormTHEG: SealedMyClosedFormTHEG + TaskHookEvent {}
+///
+/// #[event]
+/// pub struct Event1;
+/// impl SealedMyClosedFormTHEG for Event1 {}
+/// impl MyClosedFormTHEG for Event1 {}
+///
+///
+/// #[event]
+/// pub struct Event2;
+/// impl SealedMyClosedFormTHEG for Event2 {}
+/// impl MyClosedFormTHEG for Event2 {}
+///
+/// #[event]
+/// pub struct Event3;
+/// impl SealedMyClosedFormTHEG for Event3 {}
+/// impl MyClosedFormTHEG for Event3 {}
+///
+/// // <...>
+/// ```
+///
+/// Since each variant acts as the definition of an event, this means the syntax is almost identical
+/// (with a slight caveat explained soon) to applying the macro in individual ``structs``:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub enum MyClosedFormTHEG {
+///     Event1,
+///     Event2(u8, String),
+///     Event3 {
+///         code: u8,
+///         error: String
+///     },
+///
+///     #[event(inline)]
+///     Event4 {
+///         bytes: Vec<u8>,
+///         cursor: usize
+///     }
+///     // <...>
+/// }
+/// ```
+///
+/// It's possible to define a common payload type via the ``payload = ...`` parameter. This enforces
+/// each variant to include this payload shape in some way or form:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(payload = (u8, u16))]
+/// pub enum MyClosedFormTHEG {
+///     Event1(u8, u16),
+///
+///     #[event(inline)]
+///     Event2 {
+///         value1: u8,
+///         value2: u16
+///     }
+/// }
+/// ```
+///
+/// Lastly, generics can be mounted at the top of the enum. **HOWEVER,** due to Rust limitations,
+/// generics in individual variants are not possible. When using generics on the enum, all variants
+/// will also include these generic(s):
+///
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// // Yes this can be used in the payload parameter as well
+/// #[event(payload = T)]
+/// pub enum MyClosedFormTHEG<T: Send + Sync + 'static> {
+///     Event1(T),
+///
+///     #[event(inline)]
+///     Event2 {
+///         value: T,
+///     }
+/// }
+/// ```
+///
+/// Do note, due to the enum limitation when using the payload lifetime parameter. It <u>has to be used</u>
+/// on all variants in some way or form. You can always include private parameters such as ``PhantomData``
+/// or ``&'a ()`` if it's useless to a particular event. Though it requires named fields.
+///
+/// ## Trait Expansion
+/// The last target on the list are ``traits``. Just like ``enums`` they define **THEGs** however, unlike
+/// ``enums``, ``traits`` do the opposite and describe this THEG as an **Open-Form**. This means any kind
+/// of event can implement it if it so desires.
+///
+/// Due to this, as always their expansion semantics as well as the syntax itself (plus parameters) differ.
+/// Kicking things off with a basic example, they can be defined as:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub trait MyOwnTHEG {}
+/// ```
+///
+/// This simply translates to:
+/// ```rust
+/// pub trait MyTHEG: TaskHookEvent {}
+/// ```
+///
+/// By itself, without utilizing any of its features, it's useless. As such the first parameter that
+/// can be used is called ``blanket``. It allows to implement the THEG directly to those discrete events:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(blanket = [OnTaskStart, OnTaskEnd])]
+/// pub trait MyOwnTHEG {}
+/// ```
+///
+/// Just like the ``enum`` case, it also includes ``payload`` as another parameter to define the
+/// common payload shape all implementations of this THEG require:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(payload = u8)]
+/// pub trait MyOwnTHEG {}
+/// ```
+///
+/// Like all cases, generics can be used along with the payload lifetime parameter. Unlike the ``enum``
+/// case, generics are only defined for the THEG. Thus, each event implementing the trait can have its
+/// own generics and such.
+///
+/// It should be noted however, when defining the payload parameter. The trait **WON'T** require it,
+/// the macro is smart about this and will include it in the form of ``for<'a>`` to avoid bloat.
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(payload = &'b T)]
+/// pub trait MyOwnTHEG<'b, T: Send + Sync + 'static> {}
+/// ```
+///
+/// Finally, trait bounds can also be added to the THEG which limit it the various events which can implement it.
+/// They work the same as typical Rust trait bounds, thus in order to implement for all events of this trait
+/// bound, you must provide your own blanket implementation:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// // You can provide discrete events to auto-implement
+/// #[event(blanket = [OnTaskStart, OnTaskEnd])]
+/// pub trait MyOwnTHEG: TaskLifecycleEvents {}
+/// ```
+///
+/// # Limitations
+/// When it comes to generics in the ``enum`` case. Due to Rust's macro limitations, you cannot define
+/// generics per variant. The usual workaround is to either accept it or use the Base API. However, in
+/// the future there will be a third option utilizing the macro.
+///
+/// In all cases, you cannot specify more than one lifetime parameter as that one lifetime parameter acts
+/// as the payload, any subsequent ones will result promptly in a compile-time error.
+///
+/// # See Also
+/// - [`TaskHookEvent`](chronographer::prelude::TaskHookEvent) - The base API equivalent,
+/// - [`TaskHook`](chronographer::prelude::TaskHook) - The consumer of the events.
+/// - [`hook`] - Used for listening and attaching to those events for [`TaskHook`](chronographer::prelude::TaskHook).
 #[proc_macro_attribute]
 pub fn event(attrs: TokenStream, item: TokenStream) -> TokenStream {
     event::event(attrs, item)
