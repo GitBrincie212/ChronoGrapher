@@ -10,7 +10,8 @@ pub fn event(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as syn::Item);
 
     match item {
-        syn::Item::Mod(mod_item) => todo!(),
+        // TODO: Add support for "mod" blocks acting as open-form THEGs in the future
+
         syn::Item::Trait(trait_item) => event_trait::parse_event_trait(attrs, trait_item)
             .unwrap_or_else(|err| err.into_compile_error().into()),
 
