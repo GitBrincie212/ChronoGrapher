@@ -44,6 +44,20 @@ pub enum Payload {
     NamedFields(Punctuated<PayloadField, Comma>),
 }
 
+impl Payload {
+    pub(crate) fn anonymize(self) -> Self {
+        match self {
+            Payload::NamedFields(fields) => Payload::UnnamedFields(
+                fields.into_iter()
+                    .map(|x| x.ty)
+                    .collect()
+            ),
+
+            slf => slf
+        }
+    }
+}
+
 impl ToTokens for Payload {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let expanded = match self {
@@ -53,6 +67,25 @@ impl ToTokens for Payload {
         };
 
         tokens.append_all(expanded)
+    }
+}
+
+impl Parse for Payload {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        if input.peek(syn::token::Brace) {
+            let content;
+            syn::braced!(content in input);
+            let fields = Punctuated::<PayloadField, Comma>::parse_terminated(&content)?;
+            return Ok(Payload::NamedFields(fields));
+        } else if input.peek(syn::token::Paren) {
+            let content;
+            syn::parenthesized!(content in input);
+            let fields = Punctuated::<syn::Type, Comma>::parse_terminated(&content)?;
+            return Ok(Payload::UnnamedFields(fields))
+        }
+
+        let ty: syn::Type = input.parse()?;
+        Ok(Payload::Type(ty))
     }
 }
 

@@ -7,12 +7,16 @@ use syn::{GenericParam, ItemEnum, Token};
 use syn::parse::{Parse, Parser};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use crate::event::utils::{parse_individual_event, IndividualEventMacroArguments, Payload, PayloadField};
+use crate::event::utils::{parse_individual_event, IndividualEventMacroArguments, Payload};
 
 struct EventEnumMacroArguments(Option<Payload>);
 
 impl Parse for EventEnumMacroArguments {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self(None));
+        }
+
         let ident: syn::Ident = input.parse()?;
         if ident != "payload" {
             return Err(input.error("Expected \"payload\" as the only parameter but got something else"));
@@ -20,26 +24,12 @@ impl Parse for EventEnumMacroArguments {
 
         input.parse::<Token![=]>()?;
 
-        let payload = if input.peek(syn::token::Brace) {
-            let content;
-            syn::braced!(content in input);
-            let fields = Punctuated::<PayloadField, Comma>::parse_terminated(&content)?;
-            Some(Payload::NamedFields(fields))
-        } else if input.peek(syn::token::Paren) {
-            let content;
-            syn::parenthesized!(content in input);
-            let fields = Punctuated::<syn::Type, Comma>::parse_terminated(&content)?;
-            Some(Payload::UnnamedFields(fields))
-        } else {
-            let ty: syn::Type = input.parse()?;
-            Some(Payload::Type(ty))
-        };
-
+        let payload = input.parse::<Payload>()?.anonymize();
         if !input.is_empty() {
             return Err(input.error("Unexpected subsequent tokens found"))
         }
 
-        Ok(Self(payload))
+        Ok(Self(Some(payload)))
     }
 }
 
