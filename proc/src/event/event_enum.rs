@@ -1,114 +1,45 @@
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
 use std::collections::HashSet;
 use darling::ast::{GenericParamExt, NestedMeta};
 use darling::FromMeta;
-use quote::{quote, ToTokens, TokenStreamExt};
+use quote::quote;
 use syn::{GenericParam, ItemEnum, Token};
 use syn::parse::{Parse, Parser};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use crate::event::utils::{parse_individual_event, IndividualEventMacroArguments};
+use crate::event::utils::{parse_individual_event, IndividualEventMacroArguments, Payload, PayloadField};
 
-struct PayloadField {
-    ident: syn::Ident,
-    ty: syn::Type,
-}
-
-impl Parse for PayloadField {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let ident = input.parse::<syn::Ident>()?;
-        let _ = input.parse::<Token![:]>()?;
-        let ty = input.parse::<syn::Type>()?;
-
-        Ok(Self { ident, ty })
-    }
-}
-
-impl ToTokens for PayloadField {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let ident = &self.ident;
-        let ty = &self.ty;
-
-        tokens.append_all(quote! { #ident: #ty });
-    }
-}
-
-enum Payload {
-    Type(syn::Type),
-    UnnamedFields(Punctuated<syn::Type, Comma>),
-    NamedFields(Punctuated<PayloadField, Comma>),
-}
-
-impl ToTokens for Payload {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let expanded = match self {
-            Payload::Type(ty) => ty.to_token_stream(),
-            Payload::UnnamedFields(fields) => quote! { ( #fields ) },
-            Payload::NamedFields(fields) => quote! { { #fields } },
-        };
-
-        tokens.append_all(expanded)
-    }
-}
-
-struct EventEnumMacroArguments {
-    payload: Option<Payload>,
-    payload_name_override: Option<syn::Ident>,
-}
+struct EventEnumMacroArguments(Option<Payload>);
 
 impl Parse for EventEnumMacroArguments {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut payload = None;
-        let mut payload_name_override = None;
-
-        while !input.is_empty() {
-            let ident: syn::Ident = input.parse()?;
-            if ident != "payload" && ident != "payload_name_override" {
-                return Err(input.error("Expected either \"payload\" or \"payload_name_override\" as parameters but got something else"));
-            }
-
-            if ident == "payload_name_override" {
-                if payload_name_override.is_some() {
-                    return Err(input.error("Duplicate definition of \"payload_name_override\" parameter"));
-                }
-
-                input.parse::<Token![=]>()?;
-                payload_name_override = Some(input.parse()?);
-                continue;
-            }
-
-            if payload.is_some() {
-                return Err(input.error("Duplicate definition of \"payload\" parameter"));
-            }
-
-            input.parse::<Token![=]>()?;
-            if input.peek(syn::token::Brace) {
-                let content;
-                syn::braced!(content in input);
-                let fields = Punctuated::<PayloadField, Comma>::parse_terminated(&content)?;
-                payload = Some(Payload::NamedFields(fields));
-                continue;
-            } else if input.peek(syn::token::Paren) {
-                let content;
-                syn::parenthesized!(content in input);
-                let fields = Punctuated::<syn::Type, Comma>::parse_terminated(&content)?;
-                payload = Some(Payload::UnnamedFields(fields));
-                continue;
-            }
-
-            let ty: syn::Type = input.parse()?;
-            payload = Some(Payload::Type(ty));
-
-            if !input.is_empty() {
-                input.parse::<Token![,]>()?;
-            }
+        let ident: syn::Ident = input.parse()?;
+        if ident != "payload" {
+            return Err(input.error("Expected \"payload\" as the only parameter but got something else"));
         }
 
-        Ok(EventEnumMacroArguments {
-            payload,
-            payload_name_override,
-        })
+        input.parse::<Token![=]>()?;
+
+        let payload = if input.peek(syn::token::Brace) {
+            let content;
+            syn::braced!(content in input);
+            let fields = Punctuated::<PayloadField, Comma>::parse_terminated(&content)?;
+            Some(Payload::NamedFields(fields))
+        } else if input.peek(syn::token::Paren) {
+            let content;
+            syn::parenthesized!(content in input);
+            let fields = Punctuated::<syn::Type, Comma>::parse_terminated(&content)?;
+            Some(Payload::UnnamedFields(fields))
+        } else {
+            let ty: syn::Type = input.parse()?;
+            Some(Payload::Type(ty))
+        };
+
+        if !input.is_empty() {
+            return Err(input.error("Unexpected subsequent tokens found"))
+        }
+
+        Ok(Self(payload))
     }
 }
 
@@ -119,14 +50,7 @@ pub fn parse_event_enum(attr: TokenStream, item: ItemEnum) -> syn::Result<TokenS
     let theg_vis = item.vis;
     let theg_attrs = item.attrs;
 
-    let args = EventEnumMacroArguments::parse.parse2(attr.into())?;
-
-    if args.payload.is_none() && args.payload_name_override.is_some() {
-        return Err(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "Cannot override common payload name while not enabling it",
-        ))
-    }
+    let payload_arg = EventEnumMacroArguments::parse.parse2(attr.into())?.0;
 
     let mut lifetimes = theg_generics.lifetimes();
     let payload_lt = lifetimes.next()
@@ -214,7 +138,7 @@ pub fn parse_event_enum(attr: TokenStream, item: ItemEnum) -> syn::Result<TokenS
         names_list.insert(variant_name.to_string());
     }
 
-    let taskhook_event = if let Some(payload) = args.payload {
+    let taskhook_event = if let Some(payload) = payload_arg {
         quote! { for<#payload_lt> ::chronographer::task::hooks::TaskHookEvent<Payload<#payload_lt> = #payload> }
     } else { quote! { ::chronographer::task::hooks::TaskHookEvent }};
 
