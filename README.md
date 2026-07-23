@@ -143,14 +143,14 @@ async fn MyTask(ctx: &TaskFrameContext) -> Result<(), String> {
 }
 ```
 
-TaskHook Events Include:
+TaskHookEvents Include:
 - TaskHook attach/detach events
 - Task start and end events
 - Retries starting and finishing events
 - Timeout events
 - Dependency resolution status events
 - Conditional branching decisions
-
+- Your very own custom events
 ...
 
 Various patterns can be achieved such as TaskHooks communicating with each other via their own set of events
