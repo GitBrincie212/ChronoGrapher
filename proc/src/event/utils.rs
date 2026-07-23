@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use darling::ast::GenericParamExt;
 use darling::FromMeta;
 use darling::util::Flag;
@@ -89,6 +90,14 @@ impl Parse for Payload {
     }
 }
 
+pub fn get_ident_from_generic<'a>(generic: impl Deref<Target = &'a GenericParam>) -> syn::Ident{
+    match generic.deref() {
+        GenericParam::Lifetime(lt) => lt.lifetime.ident.clone(),
+        GenericParam::Type(ty) => ty.ident.clone(),
+        GenericParam::Const(ct) => ct.ident.clone()
+    }
+}
+
 pub fn parse_individual_event(
     args: IndividualEventMacroArguments,
     event_attrs: &[syn::Attribute],
@@ -116,11 +125,7 @@ pub fn parse_individual_event(
         .collect::<Punctuated<_, Comma>>();
 
     let other_generics = other_generics_impl.iter()
-        .map(|&param| match param {
-            GenericParam::Type(ty) => ty.ident.clone(),
-            GenericParam::Const(ct) => ct.ident.clone(),
-            _ => unreachable!()
-        })
+        .map(get_ident_from_generic)
         .collect::<Punctuated<_, Comma>>();
 
     let event_phantom_data = if !other_generics.is_empty() {

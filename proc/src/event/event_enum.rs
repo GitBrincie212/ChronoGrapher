@@ -2,12 +2,12 @@ use proc_macro::TokenStream;
 use std::collections::HashSet;
 use darling::ast::{GenericParamExt, NestedMeta};
 use darling::FromMeta;
-use quote::quote;
-use syn::{GenericParam, ItemEnum, Token};
+use quote::{quote, ToTokens};
+use syn::{ItemEnum, Token};
 use syn::parse::{Parse, Parser};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use crate::event::utils::{parse_individual_event, IndividualEventMacroArguments, Payload};
+use crate::event::utils::{get_ident_from_generic, parse_individual_event, IndividualEventMacroArguments, Payload};
 
 struct EventEnumMacroArguments(Option<Payload>);
 
@@ -66,19 +66,7 @@ pub fn parse_event_enum(attr: TokenStream, item: ItemEnum) -> syn::Result<TokenS
 
     let theg_where_clause = theg_generics.where_clause.as_ref();
     let theg_ty_generics = other_theg_generics.iter()
-        .map(|x| match x {
-            GenericParam::Type(ty) => {
-                let ident = ty.ident.clone();
-                quote! { #ident }
-            },
-
-            GenericParam::Const(ct) => {
-                let ident = ct.ident.clone();
-                quote! { #ident }
-            },
-
-            _ => unreachable!()
-        })
+        .map(|x| get_ident_from_generic(&x).to_token_stream())
         .collect::<Punctuated<_, Comma>>();
 
     let mut expanded_variants = Vec::new();

@@ -1,11 +1,11 @@
 use proc_macro::TokenStream;
 use darling::ast::GenericParamExt;
-use quote::{quote, ToTokens};
-use syn::{bracketed, GenericParam, ItemTrait, Token};
+use quote::quote;
+use syn::{bracketed, ItemTrait};
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use crate::event::utils::Payload;
+use crate::event::utils::{get_ident_from_generic, Payload};
 
 struct EventTraitMacroArguments {
     blanket: Option<Punctuated<syn::Type, Comma>>,
@@ -39,7 +39,7 @@ impl Parse for EventTraitMacroArguments {
                 };
             }
 
-            let comma = input.parse::<Token![,]>();
+            let comma = input.parse::<syn::Token![,]>();
             if !input.is_empty() { comma?; }
         }
 
@@ -79,11 +79,7 @@ pub fn parse_event_trait(attr: TokenStream, item: ItemTrait) -> syn::Result<Toke
         .collect::<Punctuated<_, Comma>>();
 
     let other_params = other_params_impl.iter()
-        .map(|x| match x {
-            GenericParam::Type(ty) => ty.ident.clone(),
-            GenericParam::Const(ct) => ct.ident.clone(),
-            _ => unreachable!()
-        })
+        .map(get_ident_from_generic)
         .collect::<Punctuated<_, Comma>>();
 
     if let Some(lt) = lifetimes.next() {
