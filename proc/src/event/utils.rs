@@ -2,8 +2,9 @@ use darling::ast::GenericParamExt;
 use darling::FromMeta;
 use darling::util::Flag;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{quote, ToTokens};
-use syn::{GenericParam, Lifetime, LifetimeParam};
+use quote::{quote, ToTokens, TokenStreamExt};
+use syn::{GenericParam, Lifetime, LifetimeParam, Token};
+use syn::parse::Parse;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
 
@@ -11,6 +12,48 @@ use syn::token::Comma;
 pub struct IndividualEventMacroArguments {
     pub inline: Flag,
     pub payload_name_override: Option<syn::Ident>,
+}
+
+pub struct PayloadField {
+    ident: syn::Ident,
+    ty: syn::Type,
+}
+
+impl Parse for PayloadField {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let ident = input.parse::<syn::Ident>()?;
+        let _ = input.parse::<Token![:]>()?;
+        let ty = input.parse::<syn::Type>()?;
+
+        Ok(Self { ident, ty })
+    }
+}
+
+impl ToTokens for PayloadField {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let ident = &self.ident;
+        let ty = &self.ty;
+
+        tokens.append_all(quote! { #ident: #ty });
+    }
+}
+
+pub enum Payload {
+    Type(syn::Type),
+    UnnamedFields(Punctuated<syn::Type, Comma>),
+    NamedFields(Punctuated<PayloadField, Comma>),
+}
+
+impl ToTokens for Payload {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        let expanded = match self {
+            Payload::Type(ty) => ty.to_token_stream(),
+            Payload::UnnamedFields(fields) => quote! { ( #fields ) },
+            Payload::NamedFields(fields) => quote! { { #fields } },
+        };
+
+        tokens.append_all(expanded)
+    }
 }
 
 pub fn parse_individual_event(
