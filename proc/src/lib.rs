@@ -259,7 +259,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// The [`taskframe`] contains no attribute parameters (apart from an internal one which under any
 /// circumstances should **NOT** be used due to being an antipattern).
 ///
-/// # Expansion Semanticse
+/// # Expansion Semantics
 /// The [`taskframe`] syntax is almost if not identical to a pure Rust function, when the macro expands
 /// it typically takes the form of:
 /// ```ignore
