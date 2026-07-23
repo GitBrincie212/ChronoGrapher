@@ -13,7 +13,7 @@ generics of event-based generics. For the former you can define it as follows:
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent)]
+#[event]
 pub struct OnNotificationsSent<T: Send + Sync> {
     messages_sent: usize,
     notification_type: T
@@ -28,7 +28,7 @@ While event-generics typically have as bound (directly or not) ``TaskHookEvent``
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent)]
+#[event]
 pub struct OnEventBroadcast<T: TaskHookEvent>(T::Payload);
 
 // <...>
@@ -113,8 +113,8 @@ Now you will notice the code compiles successfully and moreover the default even
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent)]
-pub struct DualGenericEvent<T1, T2>(PhantomData<(T1, T2)>);
+#[event]
+pub struct DualGenericEvent<T1: Send + Sync + 'static, T2: Send + Sync + 'static>;
 
 // <...>
 
@@ -187,7 +187,7 @@ Whereas open-form THEGs have this ability. To define the former you can write th
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent)]
+#[event]
 pub enum MyClosedFormTHEG {
     MyEventA,
     MyEventB
@@ -203,48 +203,54 @@ While expressing the latter is as simple as writing:
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent)]
+#[event]
 pub trait MyOpenFormTHEG {}
 ```
 
-This simply expands to a corresponding trait with no implementations. Though they can be specified (no limits in the
-number of them) like so:
+The above simply expands to a corresponding trait with no implementations. Though discrete events can be specified
+(no limits in the number of them) like so:
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
 // [!code highlight]
-#[derive(TaskHookEvent(MyEventA, MyEventB))]
+#[event(blanket = [MyEventA, MyEventB])]
 pub trait MyOpenFormTHEG {}
 ```
 
-However manually specifying a large number of them proves to be annoying. As such alternatively you can modify your THEG
-to depend on other THEGs or typical trait bounds as demonstrated below:
+However manually specifying a large number of them proves to be annoying. As such alternatively you can specify your own
+blanket implementation via typical Rust syntax:
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent(MyEventA, MyEventB))]
+#[event]
+pub trait MyOpenFormTHEG: MyBound1 + MyBound2 {}
+
+impl<T: MyBound1 + MyBound2 + TaskHookEvent> MyOpenFormTHEG for T {}
+```
+
+Just like the atypical Rust traits, you can specify bounds to enforce:
+```rust title="src/events.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[event(blanket = [MyEventA, MyEventB])]
 // [!code highlight]
 pub trait MyOpenFormTHEG: MyBound1 + MyBound2 {}
 ```
 
-Via ``<...>`` in the parameters of the macro, you can specify trait bounds to blanket implement them as opposed to requiring
-these trait bounds as well. Finally you can specify the common / base payload type on both forms:
+Finally you can specify the common / base payload type on both forms:
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
 // Closed-Form Specification
-#[derive(TaskHookEvent)]
 // [!code highlight]
-#[payload(u8, String)]
+#[event(payload = (u8, String))]
 pub enum MyClosedFormTHEG {
     MyEventA,
     MyEventB
 }
 
 // Open-Form Specification
-#[derive(TaskHookEvent(MyEventA, MyEventB))]
-// [!code highlight]
-#[payload(u8, String)]
+#[event(blanket = [MyEventA, MyEventB], payload = (u8, String))]
 pub trait MyOpenFormTHEG: MyBound1 + MyBound2 {}
 ```
 </RenderProgrammingLanguageBased>
@@ -271,7 +277,7 @@ Or even do the opposite by specifying a THEG with a generic (in fact ChronoGraph
 and ``OnHookDetach<T>``):
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/events.rs" lineNumbers
-#[derive(TaskHookEvent(MyEventA, MyEventB))]
+#[event(blanket = [MyEventA, MyEventB])]
 pub trait MyOpenFormTHEG<T: Send + Sync>: MyBound1 + MyBound2 {}
 ```
 </RenderProgrammingLanguageBased>

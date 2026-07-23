@@ -14,7 +14,7 @@ In this chapter we will focus on the event part of TaskHooks. How to create your
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent)]
+#[event]
 pub struct OnNotificationsSent(usize);
 ```
 In our example above, we have defined ``OnNotificationsSent`` as a ``TaskHookEvent``, by utilizing the derive macro and
@@ -25,7 +25,7 @@ under the hood (unlike our previous example) encompassing our data:
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent)]
+#[event]
 pub struct OnNotificationsSent {
     messages_sent: usize
 }
@@ -38,7 +38,7 @@ These are the payload parameters which lives inside the parenthesis and denotes 
     Since ChronoGrapher can generate a different payload type, it can break argument unpacking in some code. To combat this
     you can inline the payload type directly onto the event while still keeping the code self-documenting via:
     ```rust title="src/events.rs" lineNumbers
-    #[derive(TaskHookEvent(inline))]
+    #[event(inline)]
     pub struct OnNotificationsSent {
         messages_sent: usize
     };
@@ -48,7 +48,7 @@ These are the payload parameters which lives inside the parenthesis and denotes 
     ```rust title="src/events.rs" lineNumbers
     use chronographer::prelude::*;
 
-    #[derive(TaskHookEvent)]
+    #[event]
     pub struct OnNotificationsSent<'a>(&'a usize);
     ```
 
@@ -108,7 +108,7 @@ at a time). We will define our TaskHook as such:
 use chronographer::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-#[derive(Default)]
+#[event]
 pub struct NotificationMetricsHook {
     total_sent: AtomicUsize,
 }
@@ -183,7 +183,7 @@ We begin by declaring the new event, exactly the same way we declared ``OnNotifi
 ```rust title="src/events.rs" lineNumbers
 use chronographer::prelude::*;
 
-#[derive(TaskHookEvent)]
+#[event]
 pub struct OnHighVolumeBurst(usize);
 ```
 </RenderProgrammingLanguageBased>
