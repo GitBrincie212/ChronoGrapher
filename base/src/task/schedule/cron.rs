@@ -380,11 +380,11 @@ impl CronField {
 /// # use std::error::Error;
 ///
 /// # fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-/// let expr1 = cron!("* * * * * *"); // Every second
-/// let expr2 = cron!("0 0 12 * * ?"); // Every day at 12:00 PM
-/// let expr3 = cron!("0 0/5 14 * * ?"); // Every 5 minutes from 2:00 PM - 2:55 PM
-/// let expr4 = cron!("0 15 10 ? * MON-FRI"); // Every Monday, Tuesday, Wednesday, Thursday and Friday at 10:15 AM
-/// let expr5 = cron!("0 15 10 ? * 6L"); // Every month at last friday at 10:15 AM
+/// let expr1 = cron!(* * * * * *); // Every second
+/// let expr2 = cron!(0 0 12 * * ?); // Every day at 12:00 PM
+/// let expr3 = cron!(0 0/5 14 * * ?); // Every 5 minutes from 2:00 PM - 2:55 PM
+/// let expr4 = cron!(0 15 10 ? * MON-FRI); // Every Monday, Tuesday, Wednesday, Thursday and Friday at 10:15 AM
+/// let expr5 = cron!(0 15 10 ? * 6 L); // Every month at last friday at 10:15 AM
 /// # Ok(())
 /// # }
 /// ```
@@ -545,7 +545,7 @@ impl TaskScheduleCron {
             }
 
             if !self.matches_day(dt) {
-                dt = (dt.date() + Duration::from_hours(24))
+                dt = (dt.date().checked_add(time::Duration::hours(24))?)
                     .with_hms(0, 0, 0)
                     .ok()?
                     .as_utc();
@@ -555,7 +555,7 @@ impl TaskScheduleCron {
             if !self.hour.matches(dt.hour() as u32) {
                 dt = match self.hour.next_valid(dt.hour() as u32, 23) {
                     Some(next_hour) => dt.date().with_hms(next_hour as u8, 0, 0).ok()?.as_utc(),
-                    None => (dt.date() + Duration::from_hours(24))
+                    None => (dt.date().checked_add(time::Duration::hours(24))?)
                         .with_hms(0, 0, 0)
                         .ok()?
                         .as_utc(),
@@ -578,7 +578,7 @@ impl TaskScheduleCron {
                                 .with_hms(hour as u8, self.minute.min() as u8, 0)
                                 .ok()?
                                 .as_utc(),
-                            None => (dt.date() + Duration::from_hours(24))
+                            None => (dt.date().checked_add(time::Duration::hours(24))?)
                                 .with_hms(0, 0, 0)
                                 .ok()?
                                 .as_utc(),
@@ -612,7 +612,7 @@ impl TaskScheduleCron {
                                 .ok()?
                                 .as_utc()
                         } else {
-                            (dt.date() + Duration::from_hours(24))
+                            (dt.date().checked_add(time::Duration::hours(24))?)
                                 .with_hms(0, 0, 0)
                                 .ok()?
                                 .as_utc()
@@ -634,7 +634,7 @@ impl TaskScheduleCron {
         if current > 2099 {
             return None;
         }
-        self.year.next_valid(current, 99).map(|y| y + 2026)
+        self.year.next_valid(current, 2099)
     }
 
     fn matches_day(&self, dt: UtcDateTime) -> bool {
@@ -650,8 +650,12 @@ impl TaskScheduleCron {
 
         if dom_specified && dow_specified {
             day_matches && weekday_matches
+        } else if dom_specified {
+            day_matches
+        } else if dow_specified {
+            weekday_matches
         } else {
-            day_matches || weekday_matches
+            true
         }
     }
 }
