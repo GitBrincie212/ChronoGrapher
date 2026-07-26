@@ -1,3 +1,5 @@
+"use client";
+
 import type React from "react";
 
 export default function SectionWire(props: {
@@ -10,7 +12,7 @@ export default function SectionWire(props: {
   iconColorClass: string
 }) {
   return (
-    <div className={"w-full relative h-max"} style={{ height: `${props.height}rem` }}>
+    <div className={"w-full relative"} style={{ height: `${props.height}rem` }}>
       <div className={`contents *:z-5 ${props.leftRight ? "*:border-l *:left-0" : "*:border-r *:right-0"} *:border-fd-muted-foreground/20 *:absolute *:h-full`}>
           <div className={props.leftRight ? "ml-[5.1rem]" : "mr-[7.85rem]"} />
           <div className={props.leftRight ? "ml-[4.85rem]" : "mr-[8.15rem]"}/>
@@ -29,10 +31,12 @@ export default function SectionWire(props: {
               </div>
               <h1 className={"font-bold text-md md:text-lg lg:text-xl"}>{props.title}</h1>
           </div>
-          <div className={`w-[70ch] mb-10 text-xs md:text-sm lg:text-md ${props.leftRight ? "" : "text-end"}`}>
+          <div className={`w-[70ch] font-[VioletSans] mb-10 text-xs md:text-sm lg:text-md ${props.leftRight ? "" : "text-end"}`}>
             {props.description}
           </div>
-          {props.children}
+          <div className={"w-full flex-1 min-h-0"}>
+              {props.children}
+          </div>
         </div>
       </div>
       <div
