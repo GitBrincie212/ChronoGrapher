@@ -9,7 +9,10 @@ import React from "react";
 const POLYGLOT_TITLE_EXAMPLES = [
     "\"Hello ChronoGrapher!\" – Simple Hello World Script",
     "Complex Workflow Orchestration Made Easy & Intuitive",
-    "Deep & Granular Observability Via TaskHooks"
+    "Deep & Granular Observability Via TaskHooks",
+    "#4",
+    "#5",
+    "#6",
 ]
 
 const POLYGLOT_CODE_EXAMPLES = [
@@ -116,11 +119,11 @@ export function PolyglotShowcaseAccordionBtn(props: {
         props.setActiveIndex(props.index);
       }}>
         <div className={
-          `${props.index === props.activeIndex ? "opacity-100" : "opacity-0"} transition 
+          `${props.index === props.activeIndex ? "opacity-100" : "opacity-0"} transition
           rounded-[0.2rem] duration-300 ${styles.polyglotStrippedBG}`}
         />
         <div className={
-          `-z-10 absolute blur-[0.08rem] top-0 scale-105 scale-y-150 ${props.index === props.activeIndex ? "opacity-50" : "opacity-0"} transition 
+          `-z-10 absolute blur-[0.08rem] top-0 scale-105 scale-y-150 ${props.index === props.activeIndex ? "opacity-50" : "opacity-0"} transition
           rounded-[0.2rem] delay-25 ${styles.polyglotStrippedBG} ${styles.glowPolyglotStrippedBG}`}
         />
       </button>
@@ -160,13 +163,16 @@ export default function PolyglotShowcaseSection() {
       }
       iconColorClass={"bg-fd-brand-primary/5 dark:bg-fd-brand-primary/20 border-fd-brand-primary text-fd-brand-primary"}
     >
-      <div className={"w-full h-full flex justify-between pl-24"}>
-        <div className={"w-3xl flex flex-col -mt-24"}>
-          <h1 className={"text-lg text-start font-bold mb-1"}>{POLYGLOT_TITLE_EXAMPLES[activeIndex]}</h1>
+      <div className={"w-full h-full flex justify-between gap-6 pl-24 self-stretch"}>
+        <div className={"flex w-full max-w-3xl flex-col -mt-16 shrink-0"}>
+          <h2 className={"text-base text-start font-bold mb-2"}>{POLYGLOT_TITLE_EXAMPLES[activeIndex]}</h2>
           <DynamicCodeBlock lang={"rust"} codeblock={{
             "data-line-numbers": true,
             keepBackground: false,
-            className: "w-full h-full mb-3 dark:bg-fd-background-100p border-fd-brand-primary/40 rounded-lg text-start overflow-scroll"
+            className: "w-full mb-3 text-sm dark:bg-fd-background-100p border border-fd-brand-primary/40 rounded-lg text-start",
+            viewportProps: {
+              className: "max-h-80",
+            },
           }} code={POLYGLOT_CODE_EXAMPLES[activeIndex]} />
           <div className={"flex justify-center w-full h-4 gap-2 pr-8 pl-1"}>
             <PolyglotShowcaseAccordionBtn index={0} activeIndex={activeIndex} setActiveIndex={setActiveIndex} />
@@ -177,8 +183,8 @@ export default function PolyglotShowcaseSection() {
             <PolyglotShowcaseAccordionBtn index={5} activeIndex={activeIndex} setActiveIndex={setActiveIndex} />
           </div>
         </div>
-        <div className={"w-fit h-full -mt-8"}>
-          <Image className={"w-fit h-[calc(100%+2.5rem)] object-cover"} src={PolyglotIllustration} alt={""} unoptimized={true} />
+        <div className={"w-fit h-full -mt-8 shrink-0"}>
+          <Image className={"w-fit h-[calc(100%+2.5rem)] max-w-md object-contain object-right"} src={PolyglotIllustration} alt={""} unoptimized={true} />
         </div>
       </div>
     </SectionWire>
