@@ -12,8 +12,8 @@ function FeatureShowcaseBlock(props: {
   return (
     <div
       className={
-        "w-96 h-42 rounded-lg ring-2 ring-fd-muted-foreground/40 overflow-hidden " +
-        "ring-offset-2 ring-offset-fd-background bg-fd-muted-foreground/10 " +
+        "w-96 h-42 rounded-lg ring-2 ring-fd-background-100p/85 overflow-hidden " +
+        "ring-offset-2 ring-offset-fd-background bg-fd-background-100p/65 " +
         "backdrop-blur-sm dark:backdrop-blur-md relative"
       }
     >
