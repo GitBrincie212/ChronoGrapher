@@ -24,7 +24,11 @@ impl<E: TaskError, Args: 'static + Send + Sync> TaskFrame for NoOperationTaskFra
     type Args = Args;
     type Workflow = Self;
 
-    async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
+    async fn execute(
+        &self,
+        _ctx: &TaskFrameContext,
+        _args: &Self::Args,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use std::{time::{Duration, SystemTime, UNIX_EPOCH},};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use chronographer::task::{TaskSchedule, TaskScheduleImmediate};
 

@@ -27,15 +27,15 @@ async fn test_exact_minute() {
 #[tokio::test]
 async fn test_exact_hour() {
     let schedule = cron!(0 0 12 * * *);
-    let now = ts(JAN_1_2026); 
+    let now = ts(JAN_1_2026);
     let next = schedule.schedule(now).await.unwrap();
-    assert_eq!(next, ts(JAN_1_2026 + 12 * 3600)); 
+    assert_eq!(next, ts(JAN_1_2026 + 12 * 3600));
 }
 
 #[tokio::test]
 async fn test_step() {
     let schedule = cron!(0 0/5 * * * *);
-    let now = ts(JAN_1_2026); 
+    let now = ts(JAN_1_2026);
     let next = schedule.schedule(now).await.unwrap();
-    assert_eq!(next, ts(JAN_1_2026 + 5 * 60)); 
+    assert_eq!(next, ts(JAN_1_2026 + 5 * 60));
 }

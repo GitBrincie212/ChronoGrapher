@@ -7,23 +7,23 @@ use syn::parse::{Parse, ParseBuffer, ParseStream};
 use syn::{LitInt, Token, bracketed, parenthesized};
 
 pub enum JitterType {
-    FullJitter,
-    EqualJitter,
-    DecorrelatedJitter(ValueSource<LitInt>),
+    Full,
+    Equal,
+    Decorrelated(ValueSource<LitInt>),
 }
 
 impl Parse for JitterType {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let value = input.parse::<syn::Ident>()?;
         match value.to_string().as_str() {
-            "full" => Ok(JitterType::FullJitter),
-            "equal" => Ok(JitterType::EqualJitter),
+            "full" => Ok(JitterType::Full),
+            "equal" => Ok(JitterType::Equal),
             "decorrelated" => {
                 let content;
                 parenthesized!(content in input);
 
                 let value = content.parse()?;
-                Ok(JitterType::DecorrelatedJitter(value))
+                Ok(JitterType::Decorrelated(value))
             }
 
             _ => Err(syn::Error::new(input.span(), "Unknown jitter type")),
@@ -34,23 +34,23 @@ impl Parse for JitterType {
 pub enum RetryDelay {
     Constant(ValueSource<TimeLiteral>),
     Immediate,
-    Custom(syn::Expr),
+    Custom(Box<syn::Expr>),
 
     Linear {
-        factor: syn::Expr,
-        start: Option<syn::Expr>,
-        clamp: Option<syn::Expr>,
+        factor: Box<syn::Expr>,
+        start: Option<Box<syn::Expr>>,
+        clamp: Option<Box<syn::Expr>>,
     },
 
     Exponential {
-        start: syn::Expr,
-        factor: syn::Expr,
-        clamp: Option<syn::Expr>,
+        start: Box<syn::Expr>,
+        factor: Box<syn::Expr>,
+        clamp: Option<Box<syn::Expr>>,
     },
 
     Jitter {
         jitter_type: JitterType,
-        factor: syn::Expr,
+        factor: Box<syn::Expr>,
         delay: Box<RetryDelay>,
     },
 }
@@ -104,13 +104,13 @@ impl ToTokens for RetryDelay {
                 factor,
             } => {
                 let expanded_method = match jitter_type {
-                    JitterType::FullJitter => quote! {
+                    JitterType::Full => quote! {
                         chronographer::task::frames::retryframe::JitterBackoffStrategy::new_full(#delay, #factor)
                     },
-                    JitterType::EqualJitter => quote! {
+                    JitterType::Equal => quote! {
                         chronographer::task::frames::retryframe::JitterBackoffStrategy::new_equal(#delay, #factor)
                     },
-                    JitterType::DecorrelatedJitter(max) => quote! {
+                    JitterType::Decorrelated(max) => quote! {
                         chronographer::prelude::new_decorrelated(#delay, #factor, #max)
                     },
                 };
@@ -127,7 +127,7 @@ impl Parse for RetryDelay {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(syn::Ident) {
             let ident: syn::Ident = input.parse()?;
-            if ident.to_string() == "immediate" {
+            if ident == "immediate" {
                 return Ok(RetryDelay::Immediate);
             }
 
@@ -153,8 +153,8 @@ impl Parse for RetryDelay {
                     content.parse::<Token![,]>()?;
                     let factor: syn::Expr = content.parse()?;
                     Ok(Self::Exponential {
-                        start,
-                        factor,
+                        start: Box::new(start),
+                        factor: Box::new(factor),
                         clamp: None,
                     })
                 }

@@ -1,8 +1,8 @@
-use std::marker::PhantomData;
 use crate::errors::TaskError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
 use crate::utils::macros::define_event;
+use std::marker::PhantomData;
 use std::time::Duration;
 
 define_event!(OnTimeout, Duration);
@@ -33,11 +33,16 @@ pub struct TimeoutTaskFrameBuilder<T, TS, DS, ES> {
     frame: TS,
     max_duration: DS,
     on_timeout: ES,
-    _marker: PhantomData<T>
+    _marker: PhantomData<T>,
 }
 
 impl<T: TaskFrame> TimeoutTaskFrame<T> {
-    pub fn builder() -> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, TimeoutMissingBuilder, TimeoutMissingBuilder> {
+    pub fn builder() -> TimeoutTaskFrameBuilder<
+        T,
+        TimeoutMissingBuilder,
+        TimeoutMissingBuilder,
+        TimeoutMissingBuilder,
+    > {
         TimeoutTaskFrameBuilder {
             frame: TimeoutMissingBuilder(()),
             max_duration: TimeoutMissingBuilder(()),
@@ -59,10 +64,16 @@ impl<T: TaskFrame, D, E> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, D, E>
 }
 
 impl<T: TaskFrame, TS, ES> TimeoutTaskFrameBuilder<T, TS, TimeoutMissingBuilder, ES> {
+    #[allow(clippy::type_complexity)]
     pub fn duration(
         self,
         duration: Duration,
-    ) -> TimeoutTaskFrameBuilder<T, TS, TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync>>, ES> {
+    ) -> TimeoutTaskFrameBuilder<
+        T,
+        TS,
+        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync>>,
+        ES,
+    > {
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: TimeoutPresentBuilder(Box::new(move || duration)),
@@ -71,20 +82,29 @@ impl<T: TaskFrame, TS, ES> TimeoutTaskFrameBuilder<T, TS, TimeoutMissingBuilder,
         }
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn duration_fn<F>(
         self,
         f: impl Fn() -> Duration + Send + Sync + 'static,
-    ) -> TimeoutTaskFrameBuilder<T, TS, TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync>>, ES> {
+    ) -> TimeoutTaskFrameBuilder<
+        T,
+        TS,
+        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync>>,
+        ES,
+    > {
         TimeoutTaskFrameBuilder {
             frame: self.frame,
-            max_duration: TimeoutPresentBuilder(Box::new(f) as Box<dyn Fn() -> Duration + Send + Sync>),
+            max_duration: TimeoutPresentBuilder(
+                Box::new(f) as Box<dyn Fn() -> Duration + Send + Sync>
+            ),
             on_timeout: self.on_timeout,
-            _marker: PhantomData
+            _marker: PhantomData,
         }
     }
 }
 
 impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutMissingBuilder> {
+    #[allow(clippy::type_complexity)]
     pub fn on_timeout(
         self,
         error: T::Error,
@@ -105,25 +125,34 @@ impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutMissingBuil
         }
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn on_timeout_fn<F>(
         self,
         f: impl Fn() -> T::Error + Send + Sync + 'static,
-    ) -> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync>>> {
+    ) -> TimeoutTaskFrameBuilder<
+        T,
+        TS,
+        DS,
+        TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync>>,
+    > {
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: self.max_duration,
-            on_timeout: TimeoutPresentBuilder(Box::new(f) as Box<dyn Fn() -> T::Error + Send + Sync>),
+            on_timeout: TimeoutPresentBuilder(
+                Box::new(f) as Box<dyn Fn() -> T::Error + Send + Sync>
+            ),
             _marker: PhantomData,
         }
     }
 }
 
-impl<T: TaskFrame> TimeoutTaskFrameBuilder<
-    T,
-    TimeoutPresentBuilder<T>,
-    TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>,
-    TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync + 'static>>
->
+impl<T: TaskFrame>
+    TimeoutTaskFrameBuilder<
+        T,
+        TimeoutPresentBuilder<T>,
+        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>,
+        TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync + 'static>>,
+    >
 {
     pub fn build(self) -> TimeoutTaskFrame<T> {
         TimeoutTaskFrame {
@@ -134,12 +163,13 @@ impl<T: TaskFrame> TimeoutTaskFrameBuilder<
     }
 }
 
-impl<T: TaskFrame<Error: DefaultTimeoutError>> TimeoutTaskFrameBuilder<
-    T,
-    TimeoutPresentBuilder<T>,
-    TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>,
-    TimeoutMissingBuilder
->
+impl<T: TaskFrame<Error: DefaultTimeoutError>>
+    TimeoutTaskFrameBuilder<
+        T,
+        TimeoutPresentBuilder<T>,
+        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>,
+        TimeoutMissingBuilder,
+    >
 {
     pub fn build(self) -> TimeoutTaskFrame<T> {
         TimeoutTaskFrame {
@@ -151,7 +181,9 @@ impl<T: TaskFrame<Error: DefaultTimeoutError>> TimeoutTaskFrameBuilder<
 }
 
 struct MissingTaskFrameParamError;
-impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, TimeoutMissingBuilder, ES> {
+impl<T: TaskFrame, ES>
+    TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, TimeoutMissingBuilder, ES>
+{
     #[deprecated(note = "Missing required parameter for TaskFrame")]
     #[allow(private_interfaces)]
     pub fn build(self, _err: MissingTaskFrameParamError) -> ! {
@@ -161,7 +193,9 @@ impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, Timeout
 
 struct MissingDurationParamError;
 struct SpecifiedTaskFrameError;
-impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutPresentBuilder<T>, TimeoutMissingBuilder, ES> {
+impl<T: TaskFrame, ES>
+    TimeoutTaskFrameBuilder<T, TimeoutPresentBuilder<T>, TimeoutMissingBuilder, ES>
+{
     #[deprecated(note = "Missing required parameter for Duration")]
     #[allow(private_interfaces)]
     pub fn build(self, _err: MissingDurationParamError) -> ! {
@@ -176,7 +210,14 @@ impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutPresentBuilder<T>, Time
 }
 
 struct SpecifiedDurationParamError;
-impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>, ES> {
+impl<T: TaskFrame, ES>
+    TimeoutTaskFrameBuilder<
+        T,
+        TimeoutMissingBuilder,
+        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>,
+        ES,
+    >
+{
     #[deprecated(note = "Missing required parameter for TaskFrame")]
     #[allow(private_interfaces)]
     pub fn build(self, _err: MissingTaskFrameParamError) -> ! {
@@ -197,7 +238,14 @@ impl<T: TaskFrame, ES> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, Timeout
 }
 
 struct SpecifiedErParamError;
-impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync + 'static>>> {
+impl<T: TaskFrame, TS, DS>
+    TimeoutTaskFrameBuilder<
+        T,
+        TS,
+        DS,
+        TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync + 'static>>,
+    >
+{
     #[deprecated(note = "Already specified parameter for error")]
     #[allow(private_interfaces)]
     pub fn on_timeout(self, _err: SpecifiedErParamError) -> ! {
@@ -218,7 +266,7 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let duration = (self.max_duration)();
-        let result = tokio::time::timeout(duration, self.frame.execute(ctx, &args)).await;
+        let result = tokio::time::timeout(duration, self.frame.execute(ctx, args)).await;
 
         if let Ok(inner) = result {
             return inner;

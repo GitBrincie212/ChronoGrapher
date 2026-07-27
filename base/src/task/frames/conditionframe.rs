@@ -87,7 +87,12 @@ pub struct ConditionalTaskFrame<T, T2> {
 pub type NonFallbackCFCBuilder<T: TaskFrame> = ConditionalTaskFrameConfigBuilder<
     T,
     NoOperationTaskFrame<T::Error, ()>,
-    ((NoOperationTaskFrame<T::Error, ()>,), (), (), (Box<dyn Fn() -> bool + Send + Sync + 'static>,)),
+    (
+        (NoOperationTaskFrame<T::Error, ()>,),
+        (),
+        (),
+        (Box<dyn Fn() -> bool + Send + Sync + 'static>,),
+    ),
 >;
 
 impl<T: TaskFrame> ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, ()>> {
@@ -105,7 +110,7 @@ impl<T: TaskFrame, T2: TaskFrame> ConditionalTaskFrame<T, T2> {
 impl<T, F> TaskFrame for ConditionalTaskFrame<T, F>
 where
     T: TaskFrame<Args = ()>,
-    F: TaskFrame<Args = ()>
+    F: TaskFrame<Args = ()>,
 {
     type Error = ConditionalTaskFrameError<T::Error, F::Error>;
     type Args = ();
@@ -118,7 +123,7 @@ where
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
             return self
                 .frame
-                .execute(&ctx, &())
+                .execute(ctx, &())
                 .await
                 .map_err(ConditionalTaskFrameError::PrimaryFailed);
         }

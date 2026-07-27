@@ -1,7 +1,7 @@
-pub mod event_struct;
 pub mod event_enum;
-pub mod utils;
+pub mod event_struct;
 pub mod event_trait;
+pub mod utils;
 
 use proc_macro::TokenStream;
 use syn::parse_macro_input;

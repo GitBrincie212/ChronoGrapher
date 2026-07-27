@@ -11,10 +11,10 @@ use crate::scheduler::{
 use crate::task::{Task, TaskFrame};
 use crossbeam::deque::{Injector, Steal, Stealer, Worker};
 use crossbeam::queue::SegQueue;
+use crossbeam::utils::CachePadded;
 use std::error::Error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crossbeam::utils::CachePadded;
 use tokio::join;
 use tokio::sync::Notify;
 use tokio::task::JoinHandle;
@@ -40,14 +40,18 @@ pub(crate) struct SchedulerWorkerHot<C: SchedulerConfig> {
     pub stealer: Stealer<(SchedulerKey<C>, SchedulerWork)>,
 }
 
+type WorkerQueue<C> = Worker<(SchedulerKey<C>, SchedulerWork)>;
+
 pub(crate) struct SchedulerWorkerCold<C: SchedulerConfig> {
-    pub queue: parking_lot::Mutex<Option<Worker<(SchedulerKey<C>, SchedulerWork)>>>,
+    pub queue: parking_lot::Mutex<Option<WorkerQueue<C>>>,
     pub notify: Arc<Notify>,
-    pub pending: CachePadded<AtomicUsize>
+    pub pending: CachePadded<AtomicUsize>,
 }
 
 #[inline(always)]
-fn new_worker<C: SchedulerConfig>(notify: Arc<Notify>) -> (SchedulerWorkerHot<C>, SchedulerWorkerCold<C>) {
+fn new_worker<C: SchedulerConfig>(
+    notify: Arc<Notify>,
+) -> (SchedulerWorkerHot<C>, SchedulerWorkerCold<C>) {
     let queue = Worker::new_fifo();
     let stealer = queue.stealer();
 
@@ -56,12 +60,11 @@ fn new_worker<C: SchedulerConfig>(notify: Arc<Notify>) -> (SchedulerWorkerHot<C>
             ingress: SegQueue::new(),
             stealer,
         },
-
         SchedulerWorkerCold {
             queue: parking_lot::Mutex::new(Some(queue)),
             notify,
             pending: CachePadded::new(AtomicUsize::new(0)),
-        }
+        },
     )
 }
 
@@ -82,9 +85,7 @@ pub struct SchedulerInitConfig<C: SchedulerConfig> {
 impl<C: SchedulerConfig> From<SchedulerInitConfig<C>> for LiveScheduler<C> {
     fn from(config: SchedulerInitConfig<C>) -> Self {
         let workers = config.workers.unwrap_or_else(|| {
-            let parallelism = std::thread::available_parallelism()
-                .unwrap()
-                .get();
+            let parallelism = std::thread::available_parallelism().unwrap().get();
 
             (parallelism * 4).next_power_of_two()
         });
@@ -178,6 +179,7 @@ async fn apply_failover<C: SchedulerConfig>(
 }
 
 #[inline(always)]
+#[allow(clippy::too_many_arguments)]
 async fn start_worker_process<C: SchedulerConfig>(
     hot_workers: Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
     cold_workers: Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
@@ -279,7 +281,10 @@ async fn start_worker_process<C: SchedulerConfig>(
                 continue;
             }
 
-            match hot_workers[victim].stealer.steal_batch_and_pop(&local_worker) {
+            match hot_workers[victim]
+                .stealer
+                .steal_batch_and_pop(&local_worker)
+            {
                 Steal::Success(work) => {
                     local_worker.push(work);
                     found_work = true;
@@ -308,7 +313,6 @@ async fn start_worker_process<C: SchedulerConfig>(
         if found_work {
             continue;
         }
-
 
         if cold_workers[idx].pending.swap(0, Ordering::Relaxed) > 0 {
             continue;
@@ -407,10 +411,12 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
     }
 
     fn remove(&self, key: &Self::Handle) -> impl Future<Output = ()> + Send {
-        std::future::ready(self.store.remove(key))
+        self.store.remove(key);
+        std::future::ready(())
     }
 
     fn clear(&self) -> impl Future<Output = ()> + Send {
-        std::future::ready(self.store.clear())
+        self.store.clear();
+        std::future::ready(())
     }
 }

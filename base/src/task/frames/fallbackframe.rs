@@ -1,7 +1,7 @@
-use crate::utils::macros::define_event;
 use crate::errors::TaskError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
+use crate::utils::macros::define_event;
 
 define_event!(OnFallbackEvent, &'a dyn TaskError);
 
@@ -16,7 +16,7 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
 impl<T, T2> TaskFrame for FallbackTaskFrame<T, T2>
 where
     T: TaskFrame,
-    T2: TaskFrame<Args = T::Error>
+    T2: TaskFrame<Args = T::Error>,
 {
     type Error = T2::Error;
     type Args = T::Args;

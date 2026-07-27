@@ -1,7 +1,7 @@
 use chronographer::task::{
     ConstantBackoffStrategy, ExponentialBackoffStrategy, JitterBackoffStrategy,
-    LinearBackoffStrategy, RetriableTaskFrame, Task, TaskFrame,
-    TaskFrameContext, TaskScheduleImmediate,
+    LinearBackoffStrategy, RetriableTaskFrame, Task, TaskFrame, TaskFrameContext,
+    TaskScheduleImmediate,
 };
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -36,7 +36,11 @@ impl TaskFrame for FailNTimesFrame {
     type Args = ();
     type Workflow = Self;
 
-    async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
+    async fn execute(
+        &self,
+        _ctx: &TaskFrameContext,
+        _args: &Self::Args,
+    ) -> Result<(), Self::Error> {
         let attempt = self.counter.fetch_add(1, Ordering::SeqCst);
         if attempt < self.fail_times {
             return Err("frame failed".to_string());
@@ -48,7 +52,10 @@ impl TaskFrame for FailNTimesFrame {
 macro_rules! backoff_spawn {
     ($frame:expr) => {
         tokio::spawn(async move {
-            Task::new($frame, TaskScheduleImmediate).into_erased().run().await
+            Task::new($frame, TaskScheduleImmediate)
+                .into_erased()
+                .run()
+                .await
         })
     };
 }
@@ -60,9 +67,18 @@ async fn retry_succeeds_eventually() {
     let counter = Arc::new(AtomicUsize::new(0));
     let fail_times = 2;
 
-    let frame = retry_frame_builder!(FailNTimesFrame { counter: counter.clone(), fail_times }, retries = 3);
+    let frame = retry_frame_builder!(
+        FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times
+        },
+        retries = 3
+    );
 
-    let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
+    let result = Task::new(frame, TaskScheduleImmediate)
+        .into_erased()
+        .run()
+        .await;
 
     assert!(result.is_ok(), "should succeed after retries");
     assert_eq!(
@@ -72,15 +88,23 @@ async fn retry_succeeds_eventually() {
     );
 }
 
-
 #[tokio::test]
 async fn retry_exhausted_returns_err() {
     let counter = Arc::new(AtomicUsize::new(0));
     let retries = 3u32;
 
-    let frame = retry_frame_builder!(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX }, retries = retries);
+    let frame = retry_frame_builder!(
+        FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX
+        },
+        retries = retries
+    );
 
-    let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
+    let result = Task::new(frame, TaskScheduleImmediate)
+        .into_erased()
+        .run()
+        .await;
 
     assert!(result.is_err(), "should fail after retries exhausted");
     assert_eq!(
@@ -94,9 +118,18 @@ async fn retry_exhausted_returns_err() {
 async fn retry_skipped_on_success() {
     let counter = Arc::new(AtomicUsize::new(0));
 
-    let frame = retry_frame_builder!(FailNTimesFrame { counter: counter.clone(), fail_times: 0 }, retries = 3);
+    let frame = retry_frame_builder!(
+        FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: 0
+        },
+        retries = 3
+    );
 
-    let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
+    let result = Task::new(frame, TaskScheduleImmediate)
+        .into_erased()
+        .run()
+        .await;
 
     assert!(result.is_ok(), "should succeed on first attempt");
     assert_eq!(
@@ -111,12 +144,18 @@ async fn retry_when_filter_stops_retry() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = retry_frame_builder!(
-        FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX },
+        FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX
+        },
         retries = 3,
         when = |_err: Option<&String>| std::future::ready(false)
     );
 
-    let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
+    let result = Task::new(frame, TaskScheduleImmediate)
+        .into_erased()
+        .run()
+        .await;
 
     assert!(result.is_ok(), "when=false stops retry and swallows error");
     assert_eq!(
@@ -132,12 +171,18 @@ async fn retry_when_filter_always_true_exhausts_retries() {
     let retries = 3u32;
 
     let frame = retry_frame_builder!(
-        FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX },
+        FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX
+        },
         retries = retries,
         when = |_err: Option<&String>| std::future::ready(true)
     );
 
-    let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
+    let result = Task::new(frame, TaskScheduleImmediate)
+        .into_erased()
+        .run()
+        .await;
 
     assert!(result.is_err(), "when=true should not suppress retries");
     assert_eq!(
@@ -157,7 +202,11 @@ impl TaskFrame for SelectiveErrorFrame {
     type Args = ();
     type Workflow = Self;
 
-    async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
+    async fn execute(
+        &self,
+        _ctx: &TaskFrameContext,
+        _args: &Self::Args,
+    ) -> Result<(), Self::Error> {
         let attempt = self.counter.fetch_add(1, Ordering::SeqCst);
         if attempt == self.stop_at {
             Err("stop".to_string())
@@ -172,7 +221,10 @@ async fn retry_when_filter_inspects_error_value_stops_on_match() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = retry_frame_builder!(
-        SelectiveErrorFrame { counter: counter.clone(), stop_at: 1 },
+        SelectiveErrorFrame {
+            counter: counter.clone(),
+            stop_at: 1
+        },
         retries = 5,
         when = |err: Option<&String>| {
             let should_retry = err.map(|e| e == "retry").unwrap_or(false);
@@ -180,10 +232,20 @@ async fn retry_when_filter_inspects_error_value_stops_on_match() {
         }
     );
 
-    let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
+    let result = Task::new(frame, TaskScheduleImmediate)
+        .into_erased()
+        .run()
+        .await;
 
-    assert!(result.is_ok(), "filter returning false should swallow error and return Ok");
-    assert_eq!(counter.load(Ordering::SeqCst), 2, "should stop after hitting the non-retriable error");
+    assert!(
+        result.is_ok(),
+        "filter returning false should swallow error and return Ok"
+    );
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        2,
+        "should stop after hitting the non-retriable error"
+    );
 }
 
 #[tokio::test]
@@ -191,7 +253,10 @@ async fn retry_when_filter_retries_past_matching_errors() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = retry_frame_builder!(
-        SelectiveErrorFrame { counter: counter.clone(), stop_at: 3 },
+        SelectiveErrorFrame {
+            counter: counter.clone(),
+            stop_at: 3
+        },
         retries = 5,
         when = |err: Option<&String>| {
             let should_retry = err.map(|e| e == "retry").unwrap_or(false);
@@ -199,9 +264,15 @@ async fn retry_when_filter_retries_past_matching_errors() {
         }
     );
 
-    let result = Task::new(frame, TaskScheduleImmediate).into_erased().run().await;
+    let result = Task::new(frame, TaskScheduleImmediate)
+        .into_erased()
+        .run()
+        .await;
 
-    assert!(result.is_ok(), "filter should allow retries until non-retriable error");
+    assert!(
+        result.is_ok(),
+        "filter should allow retries until non-retriable error"
+    );
     assert_eq!(counter.load(Ordering::SeqCst), 4);
 }
 
@@ -211,7 +282,10 @@ async fn constant_backoff_delays_between_retries() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = RetriableTaskFrame::builder()
-        .frame(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX })
+        .frame(FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX,
+        })
         .retries(NonZeroU32::new(2).unwrap())
         .backoff(ConstantBackoffStrategy::new(Duration::from_millis(100)))
         .build();
@@ -236,7 +310,10 @@ async fn exponential_backoff_delays_grow() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = RetriableTaskFrame::builder()
-        .frame(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX })
+        .frame(FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX,
+        })
         .retries(NonZeroU32::new(3).unwrap())
         .backoff(ExponentialBackoffStrategy::new(2.0))
         .build();
@@ -264,9 +341,15 @@ async fn exponential_backoff_clamped_at_max() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = RetriableTaskFrame::builder()
-        .frame(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX })
+        .frame(FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX,
+        })
         .retries(NonZeroU32::new(3).unwrap())
-        .backoff(ExponentialBackoffStrategy::new_with(3.0, Duration::from_secs(5)))
+        .backoff(ExponentialBackoffStrategy::new_with(
+            3.0,
+            Duration::from_secs(5),
+        ))
         .build();
 
     let handle = backoff_spawn!(frame);
@@ -295,12 +378,17 @@ async fn linear_backoff_delays_grow() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = RetriableTaskFrame::builder()
-        .frame(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX })
+        .frame(FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX,
+        })
         .retries(NonZeroU32::new(3).unwrap())
-        .backoff(LinearBackoffStrategy::builder()
-            .factor(Duration::from_secs(2))
-            .start(Duration::from_secs(1))
-            .build())
+        .backoff(
+            LinearBackoffStrategy::builder()
+                .factor(Duration::from_secs(2))
+                .start(Duration::from_secs(1))
+                .build(),
+        )
         .build();
 
     let handle = backoff_spawn!(frame);
@@ -324,13 +412,18 @@ async fn linear_backoff_clamped_at_max() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = RetriableTaskFrame::builder()
-        .frame(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX })
+        .frame(FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX,
+        })
         .retries(NonZeroU32::new(3).unwrap())
-        .backoff(LinearBackoffStrategy::builder()
-            .factor(Duration::from_secs(2))
-            .start(Duration::from_secs(1))
-            .clamp(Duration::from_secs(3))
-            .build())
+        .backoff(
+            LinearBackoffStrategy::builder()
+                .factor(Duration::from_secs(2))
+                .start(Duration::from_secs(1))
+                .clamp(Duration::from_secs(3))
+                .build(),
+        )
         .build();
 
     let handle = backoff_spawn!(frame);
@@ -354,7 +447,10 @@ async fn jitter_full_delay_within_max() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = RetriableTaskFrame::builder()
-        .frame(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX })
+        .frame(FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX,
+        })
         .retries(NonZeroU32::new(1).unwrap())
         .backoff(JitterBackoffStrategy::new_full(
             ConstantBackoffStrategy::new(Duration::from_secs(4)),
@@ -379,7 +475,10 @@ async fn jitter_equal_delay_within_range() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = RetriableTaskFrame::builder()
-        .frame(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX })
+        .frame(FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX,
+        })
         .retries(NonZeroU32::new(1).unwrap())
         .backoff(JitterBackoffStrategy::new_equal(
             ConstantBackoffStrategy::new(Duration::from_secs(4)),
@@ -407,7 +506,10 @@ async fn jitter_decorrelated_delay_within_max() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = RetriableTaskFrame::builder()
-        .frame(FailNTimesFrame { counter: counter.clone(), fail_times: usize::MAX })
+        .frame(FailNTimesFrame {
+            counter: counter.clone(),
+            fail_times: usize::MAX,
+        })
         .retries(NonZeroU32::new(1).unwrap())
         .backoff(JitterBackoffStrategy::new_decorrelated(
             ConstantBackoffStrategy::new(Duration::from_secs(2)),

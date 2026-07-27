@@ -1,10 +1,10 @@
+use crate::task::{OnTaskEnd, Task, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent};
+use async_trait::async_trait;
 use std::num::NonZeroU16;
 use std::ops::{BitAnd, BitOr, Not};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
-use async_trait::async_trait;
-use crate::task::{OnTaskEnd, Task, TaskFrame, TaskHook, TaskHookContext, TaskHookEvent};
 
 type ExternalFn = Box<dyn Fn() -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>;
 
@@ -13,13 +13,15 @@ enum DependencyInner {
     External(ExternalFn),
     LogicalAnd(Box<DependencyInner>, Box<DependencyInner>),
     LogicalOr(Box<DependencyInner>, Box<DependencyInner>),
-    LogicalNot(Box<DependencyInner>)
+    LogicalNot(Box<DependencyInner>),
 }
 
 impl DependencyInner {
     fn is_resolved(&self) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
         match self {
-            DependencyInner::Flag(flag) => Box::pin(std::future::ready(flag.load(Ordering::Relaxed))),
+            DependencyInner::Flag(flag) => {
+                Box::pin(std::future::ready(flag.load(Ordering::Relaxed)))
+            }
             DependencyInner::External(func) => func(),
             DependencyInner::LogicalAnd(dep1, dep2) => {
                 Box::pin(async move { dep1.is_resolved().await && dep2.is_resolved().await })
@@ -27,16 +29,14 @@ impl DependencyInner {
             DependencyInner::LogicalOr(dep1, dep2) => {
                 Box::pin(async move { dep1.is_resolved().await || dep2.is_resolved().await })
             }
-            DependencyInner::LogicalNot(dep1) => {
-                Box::pin(async move { !dep1.is_resolved().await })
-            }
+            DependencyInner::LogicalNot(dep1) => Box::pin(async move { !dep1.is_resolved().await }),
         }
     }
 }
 
 pub struct FrameDependency {
     inner: DependencyInner,
-    disabled: AtomicBool
+    disabled: AtomicBool,
 }
 
 macro_rules! impl_monitor_based_dependency {
@@ -45,7 +45,11 @@ macro_rules! impl_monitor_based_dependency {
 
         #[async_trait]
         impl TaskHook<OnTaskEnd> for DependencyTaskMonitor {
-            async fn on_event(&self, _ctx: &TaskHookContext, payload: &<OnTaskEnd as TaskHookEvent>::Payload<'_>) {
+            async fn on_event(
+                &self,
+                _ctx: &TaskHookContext,
+                payload: &<OnTaskEnd as TaskHookEvent>::Payload<'_>,
+            ) {
                 let $payload = payload;
                 let $flag = &self.0;
                 let $countdown = &self.1;
@@ -59,7 +63,7 @@ macro_rules! impl_monitor_based_dependency {
 
         FrameDependency {
             inner: DependencyInner::Flag(flag),
-            disabled: AtomicBool::new(false)
+            disabled: AtomicBool::new(false),
         }
     }};
 }
@@ -74,7 +78,10 @@ impl FrameDependency {
         })
     }
 
-    pub async fn successful_runs(task: &Task<impl TaskFrame>, value: NonZeroU16) -> FrameDependency {
+    pub async fn successful_runs(
+        task: &Task<impl TaskFrame>,
+        value: NonZeroU16,
+    ) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, payload, task, value) -> {
             if payload.is_some() {
                 return;
@@ -101,7 +108,7 @@ impl FrameDependency {
     }
 
     pub fn external<F: Future<Output = bool> + Send>(
-        value: impl Fn() -> F + Send + Sync + 'static
+        value: impl Fn() -> F + Send + Sync + 'static,
     ) -> FrameDependency {
         let value = Arc::new(value);
 
@@ -111,7 +118,7 @@ impl FrameDependency {
 
                 Box::pin(async move { value().await })
             })),
-            
+
             disabled: AtomicBool::new(false),
         }
     }
@@ -143,7 +150,7 @@ impl BitAnd for FrameDependency {
     fn bitand(self, rhs: Self) -> Self::Output {
         FrameDependency {
             inner: DependencyInner::LogicalAnd(Box::new(self.inner), Box::new(rhs.inner)),
-            disabled: AtomicBool::new(false)
+            disabled: AtomicBool::new(false),
         }
     }
 }
@@ -154,7 +161,7 @@ impl BitOr for FrameDependency {
     fn bitor(self, rhs: Self) -> Self::Output {
         FrameDependency {
             inner: DependencyInner::LogicalOr(Box::new(self.inner), Box::new(rhs.inner)),
-            disabled: AtomicBool::new(false)
+            disabled: AtomicBool::new(false),
         }
     }
 }
@@ -165,7 +172,7 @@ impl Not for FrameDependency {
     fn not(self) -> Self::Output {
         FrameDependency {
             inner: DependencyInner::LogicalNot(Box::new(self.inner)),
-            disabled: AtomicBool::new(false)
+            disabled: AtomicBool::new(false),
         }
     }
 }

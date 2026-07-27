@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
-use crate::utils::macros::define_event;
 use crate::errors::TaskError;
+use crate::task::TaskFrame;
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
-use crate::task::TaskFrame;
 use crate::task::{Debug, TaskFrameContext};
+use crate::utils::macros::define_event;
+use std::marker::PhantomData;
 use typed_builder::TypedBuilder;
 
 pub trait DefaultDependencyError: TaskError {
@@ -101,11 +101,12 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let is_resolved = self.dependency.is_resolved().await;
 
-        ctx.emit::<OnDependencyValidation>(&(&self.dependency, is_resolved)).await;
+        ctx.emit::<OnDependencyValidation>(&(&self.dependency, is_resolved))
+            .await;
         if !is_resolved {
-            return self.unresolve.execute()
+            return self.unresolve.execute();
         }
 
-        self.frame.execute(&ctx, args).await
+        self.frame.execute(ctx, args).await
     }
 }

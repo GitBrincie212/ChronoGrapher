@@ -1,14 +1,12 @@
-
 use chronographer_utils::cron_lexer::{Token, TokenType};
 use chronographer_utils::errors::CronExpressionLexerErrors;
-use proc_macro2::{Ident, TokenTree};
 use chronographer_utils::{
     cron_parser::{AstNode, AstTreeNode, CronParser},
     validator::validate_ast_node,
 };
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, TokenTree};
 use quote::quote;
-
 
 pub fn cron(input: TokenStream) -> TokenStream {
     let input2: proc_macro2::TokenStream = input.into();
@@ -145,7 +143,6 @@ pub fn tokenize_from_tokens(
 ) -> Result<[Vec<Token>; 6], (CronExpressionLexerErrors, proc_macro2::Span)> {
     let mut tokens: [Vec<Token>; 6] = std::array::from_fn(|_| Vec::new());
     let mut field_pos: usize = 0;
-
 
     #[derive(Clone, Copy, PartialEq)]
     enum Prev {

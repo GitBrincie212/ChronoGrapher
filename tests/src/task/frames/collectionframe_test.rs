@@ -1,3 +1,4 @@
+use crate::task::frames::{failing_frame, ok_frame};
 use async_trait::async_trait;
 use chronographer::prelude::*;
 use chronographer::task::{
@@ -7,7 +8,6 @@ use chronographer::task::{
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::task::frames::{failing_frame, ok_frame};
 
 struct FixedSelectAccessor(usize);
 
@@ -201,10 +201,9 @@ async fn parallel_all_fail_returns_error() {
     );
 
     let task = Task::new(frame, TaskScheduleImmediate);
-    task.into_erased()
-        .run()
-        .await
-        .expect_err("When all parallel frames fail with QuitOnFailure, the collection should return an error");
+    task.into_erased().run().await.expect_err(
+        "When all parallel frames fail with QuitOnFailure, the collection should return an error",
+    );
 
     assert!(counter.load(Ordering::SeqCst) >= 1);
 }
@@ -236,7 +235,11 @@ async fn selection_exec_selects_failing_frame_returns_error() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let frame = CollectionTaskFrame::new(
-        vec![ok_frame(&counter), failing_frame(&counter), ok_frame(&counter)],
+        vec![
+            ok_frame(&counter),
+            failing_frame(&counter),
+            ok_frame(&counter),
+        ],
         SelectionExecStrategy::new(FixedSelectAccessor(1)),
     );
 
@@ -246,7 +249,11 @@ async fn selection_exec_selects_failing_frame_returns_error() {
         .await
         .expect_err("Selecting a failing frame should propagate the error");
 
-    assert_eq!(counter.load(Ordering::SeqCst), 1, "Only the selected frame should have run");
+    assert_eq!(
+        counter.load(Ordering::SeqCst),
+        1,
+        "Only the selected frame should have run"
+    );
 }
 
 #[tokio::test]

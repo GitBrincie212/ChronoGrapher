@@ -1,5 +1,5 @@
-use crate::task::TaskHookEvent;
 use crate::errors::{TaskError, TaskSelectionIndexOutOfBounds};
+use crate::task::TaskHookEvent;
 use crate::task::{ErasedTaskFrame, RestrictTaskFrameContext, TaskFrame, TaskFrameContext};
 use crate::utils::macros::{define_event, define_event_group};
 use async_trait::async_trait;
@@ -167,15 +167,12 @@ impl<P: CollectionExecPolicy<CollectionTaskError> + Send + Sync + 'static> Colle
             let frame = handle.collection.taskframes[idx].clone();
             let ctx = *handle.ctx;
             js.spawn(async move {
-                ctx.emit::<OnChildTaskFrameStart>(&(idx, frame.as_ref())).await;
+                ctx.emit::<OnChildTaskFrameStart>(&(idx, frame.as_ref()))
+                    .await;
                 let result = frame.erased_execute(&ctx, &()).await;
                 match result {
                     Ok(()) => ctx.emit::<OnChildTaskFrameEnd>(&None).await,
-                    Err(ref err) => {
-                        ctx
-                            .emit::<OnChildTaskFrameEnd>(&Some(err.as_ref()))
-                            .await
-                    }
+                    Err(ref err) => ctx.emit::<OnChildTaskFrameEnd>(&Some(err.as_ref())).await,
                 }
 
                 (idx, result)

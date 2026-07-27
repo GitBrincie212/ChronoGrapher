@@ -1,5 +1,5 @@
+use quote::{ToTokens, TokenStreamExt, quote};
 use std::collections::{HashMap, HashSet};
-use quote::{quote, ToTokens, TokenStreamExt};
 use syn::__private::TokenStream2;
 use syn::parenthesized;
 use syn::parse::Parse;
@@ -28,10 +28,10 @@ impl Parse for HookAnnotationStatement {
             return Ok(HookAnnotationStatement::ManualBasedListen(ident, expr));
         }
 
-        let is_auto = ident.to_string() == "auto";
-        let is_custom = ident.to_string() == "fn";
+        let is_auto = ident == "auto";
+        let is_custom = ident == "fn";
         if !is_auto && !is_custom {
-            return Err(input.error("Expected either \"auto\" or \"fn\" but got something else\""))
+            return Err(input.error("Expected either \"auto\" or \"fn\" but got something else\""));
         }
 
         let content;
@@ -41,17 +41,25 @@ impl Parse for HookAnnotationStatement {
             return Ok(HookAnnotationStatement::AutoBasedListen(content.parse()?));
         }
 
-        Ok(HookAnnotationStatement::FunctionBasedListen(content.parse()?))
+        Ok(HookAnnotationStatement::FunctionBasedListen(
+            content.parse()?,
+        ))
     }
 }
 
 impl HookAnnotationStatement {
     pub fn to_tokens(&self, tokens: &mut TokenStream2, task: syn::Ident) {
         let expanded = match self {
-            HookAnnotationStatement::InstanceCreation(ident, expr) => quote! {let #ident = std::sync::Arc::from(#expr); },
-            HookAnnotationStatement::ManualBasedListen(ident, expr) => quote! {#task.attach_hook::<#ident>(#expr).await; },
+            HookAnnotationStatement::InstanceCreation(ident, expr) => {
+                quote! {let #ident = std::sync::Arc::from(#expr); }
+            }
+            HookAnnotationStatement::ManualBasedListen(ident, expr) => {
+                quote! {#task.attach_hook::<#ident>(#expr).await; }
+            }
             HookAnnotationStatement::FunctionBasedListen(expr) => quote! { #expr(&#task).await; },
-            HookAnnotationStatement::AutoBasedListen(expr) => quote! { std::sync::Arc::from(#expr).auto_attach(&#task).await; },
+            HookAnnotationStatement::AutoBasedListen(expr) => {
+                quote! { std::sync::Arc::from(#expr).auto_attach(&#task).await; }
+            }
         };
 
         tokens.append_all(expanded);
@@ -80,8 +88,13 @@ impl Parse for HookAnnotationArguments {
                         continue;
                     };
 
-                    if pt.path.segments.len() == 1 && !instances.contains_key(&pt.path.segments[0].ident) {
-                        return Err(input.error(format!("Invalid manual attachment for non-existent instance \"{}\"", pt.path.segments[0].ident)));
+                    if pt.path.segments.len() == 1
+                        && !instances.contains_key(&pt.path.segments[0].ident)
+                    {
+                        return Err(input.error(format!(
+                            "Invalid manual attachment for non-existent instance \"{}\"",
+                            pt.path.segments[0].ident
+                        )));
                     };
                 }
 
@@ -90,13 +103,20 @@ impl Parse for HookAnnotationArguments {
                         continue;
                     };
 
-                    if pt.path.segments.len() == 1 && !instances.contains_key(&pt.path.segments[0].ident) {
-                        return Err(input.error(format!("Invalid manual attachment for non-existent instance \"{}\"", pt.path.segments[0].ident)));
+                    if pt.path.segments.len() == 1
+                        && !instances.contains_key(&pt.path.segments[0].ident)
+                    {
+                        return Err(input.error(format!(
+                            "Invalid manual attachment for non-existent instance \"{}\"",
+                            pt.path.segments[0].ident
+                        )));
                     };
 
                     let name = &pt.path.segments[0].ident;
                     if auto_instances.contains(name) {
-                        return Err(input.error(format!("Duplicate auto-attachment for identical instance \"{name}\"")));
+                        return Err(input.error(format!(
+                            "Duplicate auto-attachment for identical instance \"{name}\""
+                        )));
                     }
 
                     auto_instances.insert(name.clone());
@@ -113,7 +133,10 @@ impl Parse for HookAnnotationArguments {
 impl ToTokens for HookAnnotationArguments {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         for value in &self.0 {
-            value.to_tokens(tokens, syn::Ident::new("task", proc_macro2::Span::call_site()));
+            value.to_tokens(
+                tokens,
+                syn::Ident::new("task", proc_macro2::Span::call_site()),
+            );
         }
     }
 }

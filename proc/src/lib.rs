@@ -1,12 +1,12 @@
-mod entry;
-mod every;
 mod cron;
-mod utils;
+mod entry;
+mod event;
+mod every;
+mod hook;
 mod task;
 mod taskframe;
+mod utils;
 mod workflow;
-mod hook;
-mod event;
 
 use proc_macro::TokenStream;
 
@@ -136,17 +136,17 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// The [`task`] macro contains 4 attribute parameters, one of which is required while the other three
 /// are optional, and one out of these is an attribute flag:
 /// - **schedule** Specifies the schedule to use, this can be anything (from a type initialization to a macro)
-/// that translates or is something that implements the [`TaskSchedule`](chronographer::prelude::TaskSchedule) trait
+///   that translates or is something that implements the [`TaskSchedule`](chronographer::prelude::TaskSchedule) trait
 ///
 /// - **non_singleton** Fully optional, specifies the [`Task`](chronographer::prelude::Task) to be non-singleton,
-/// with this set, developers can use the ``new()`` method to create new [`Task`](chronographer::prelude::Task)
-/// instances as opposed to ``instance()`` for getting the global singleton instance
+///   with this set, developers can use the ``new()`` method to create new [`Task`](chronographer::prelude::Task)
+///   instances as opposed to ``instance()`` for getting the global singleton instance
 ///
 /// - **task_name_override** Fully optional, overrides the name of the generated [`Task`](chronographer::prelude::Task)
-/// (not its [`TaskFrame`](chronographer::prelude::TaskFrame)), disables the clever auto-append feature
+///   (not its [`TaskFrame`](chronographer::prelude::TaskFrame)), disables the clever auto-append feature
 ///
 /// - **taskframe_name_override** Fully optional, overrides the name of the [`TaskFrame`](chronographer::prelude::TaskFrame)
-/// (not its [`Task`](chronographer::prelude::Task)), disables the clever auto-append feature
+///   (not its [`Task`](chronographer::prelude::Task)), disables the clever auto-append feature
 ///
 /// # Expansion Semantics
 /// The [`task`] macro has two ways of expanding, all depending on whenever the [`Task`](chronographer::prelude::Task) is either singleton
@@ -432,28 +432,28 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ### Arguments
 /// - ``max`` The upper bound of times to retry a workflow until it succeeds. Unlike other arguments,
-/// this one is required to be specified; Additionally, it can be any source of an integer as long as it
-/// can be converted internally to a ``NonZeroU32``.
+///   this one is required to be specified; Additionally, it can be any source of an integer as long as it
+///   can be converted internally to a ``NonZeroU32``.
 ///
 /// - ``delay`` The delay in-between every retry, this can be as simple as ``immediate``, providing a
-/// constant time / duration literal or even a backoff strategy. It's fully optional to specify and
-/// by default immediately retries (zero-delay). The syntaxes of the backoff strategies are as follows:
-///     1. ``immediate`` The default backoff strategy, it retries immediately
-///     2. ``constant(value = DURATION)`` Same as using a plain duration / time literal.
-///     3. ``linear(factor = DURATION_EXPR, start? = DURATION_EXPR, clamp? = DURATION_EXPR)`` Adjusts the delay between retries
-///     based on a linear functon from the growth factor, the start and an upper bound (clamp).
-///     4. ``exponential (factor = FLOAT_EXPR, start? = DURATION_EXPR, clamp? = DURATION_EXPR)`` Adjusts the delay between
-///     retries based on an exponential function with the factor as base, the start and an upper bound (clamp).
-///     5. ``jitter(jitter_type = JITTER_TYPE, backoff = RETRY_DELAY)`` Adjusts the delay between retries
-///     based on a jittered result from the supplied backoff's results. This jitter type can be either
-///     ``full``, ``equal`` or ``decorrelated(VALUE)`` which specify how the jitter should behave. It is
-///     recommended to read more the article [When APIs Fail: A Developer's Journey with Retries, Back Off, and Jitter](https://dev.to/kengowada/when-apis-fail-a-developers-journey-with-retries-back-off-and-jitter-1g2f)
+///   constant time / duration literal or even a backoff strategy. It's fully optional to specify and
+///   by default immediately retries (zero-delay). The syntaxes of the backoff strategies are as follows:
+///   1. ``immediate`` The default backoff strategy, it retries immediately
+///   2. ``constant(value = DURATION)`` Same as using a plain duration / time literal.
+///   3. ``linear(factor = DURATION_EXPR, start? = DURATION_EXPR, clamp? = DURATION_EXPR)`` Adjusts the delay between retries
+///      based on a linear functon from the growth factor, the start and an upper bound (clamp).
+///   4. ``exponential (factor = FLOAT_EXPR, start? = DURATION_EXPR, clamp? = DURATION_EXPR)`` Adjusts the delay between
+///      retries based on an exponential function with the factor as base, the start and an upper bound (clamp).
+///   5. ``jitter(jitter_type = JITTER_TYPE, backoff = RETRY_DELAY)`` Adjusts the delay between retries
+///      based on a jittered result from the supplied backoff's results. This jitter type can be either
+///      ``full``, ``equal`` or ``decorrelated(VALUE)`` which specify how the jitter should behave. It is
+///      recommended to read more the article [When APIs Fail: A Developer's Journey with Retries, Back Off, and Jitter](https://dev.to/kengowada/when-apis-fail-a-developers-journey-with-retries-back-off-and-jitter-1g2f)
 ///
 /// - ``when`` The error filter is composed of a list of patterns encapsulated in brackets (``[...]``)
-/// with optionally an exclamation mark (``!``) as a prefix. When used without any exclamation marks, it's
-/// a whitelist (one of the patterns must match), whereas with one it turns into a blacklist (none of the
-/// patterns must match). Patterns match based on the error's structure, it's fully optional to specify,
-/// and by default any error is let through.
+///   with optionally an exclamation mark (``!``) as a prefix. When used without any exclamation marks, it's
+///   a whitelist (one of the patterns must match), whereas with one it turns into a blacklist (none of the
+///   patterns must match). Patterns match based on the error's structure, it's fully optional to specify,
+///   and by default any error is let through.
 ///
 /// ### Examples:
 /// ```rust
@@ -613,27 +613,27 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ### Arguments
 /// - ``max`` The upper bound of times to run a workflow. Unlike other arguments, this one is required to
-/// be specified, additionally it can be any source of an integer as long as it can be converted internally
-/// to a ``NonZeroUsize``.
+///   be specified, additionally it can be any source of an integer as long as it can be converted internally
+///   to a ``NonZeroUsize``.
 ///
 /// - ``when_reach`` A configuration for the threshold on how to react when the upper threshold limit
-/// has been reached and the workflow is tempted to run again, the value has to implements the
-/// [`ThresholdLogic`](chronographer::task::frames::thresholdframe::ThresholdLogic). Its fully optional
-/// to specify and by default it skips it with success. The syntax is as follows:
-///     1. ``skip`` Used by default, skips the workflow fully as success
-///     2. ``error`` Error out with a special-defined error from ChronoGrapher
-///     3. ``custom(EXPR)`` A custom-based reach behavior with its own internal algorithm to determine
-///     the corresponding behavior.
+///   has been reached and the workflow is tempted to run again, the value has to implements the
+///   [`ThresholdLogic`](chronographer::task::frames::thresholdframe::ThresholdLogic). Its fully optional
+///   to specify and by default it skips it with success. The syntax is as follows:
+///   1. ``skip`` Used by default, skips the workflow fully as success
+///   2. ``error`` Error out with a special-defined error from ChronoGrapher
+///   3. ``custom(EXPR)`` A custom-based reach behavior with its own internal algorithm to determine
+///      the corresponding behavior.
 ///
 /// - ``count`` A configuration for the threshold on how to count each run towards the threshold
-/// based on criteria, the value has to implements the
-/// [`ThresholdReachBehaviour`](chronographer::task::frames::thresholdframe::ThresholdReachBehaviour).
-/// Its fully optional to specify and by default it counts any kind of run towards the threshold. The
-/// syntax is as follows:
-///     1. ``identity``  Used by default, it counts any kind of run as valid
-///     2. ``successes`` Counts any kind of <u>successful</u> run.
-///     3. ``failures`` Counts any kind of <u>failed</u> runs with any shape of error.
-///     4. ``custom`` A custom criteria that identifies when to count or not a specific run.
+///   based on criteria, the value has to implements the
+///   [`ThresholdReachBehaviour`](chronographer::task::frames::thresholdframe::ThresholdReachBehaviour).
+///   Its fully optional to specify and by default it counts any kind of run towards the threshold. The
+///   syntax is as follows:
+///   1. ``identity``  Used by default, it counts any kind of run as valid
+///   2. ``successes`` Counts any kind of <u>successful</u> run.
+///   3. ``failures`` Counts any kind of <u>failed</u> runs with any shape of error.
+///   4. ``custom`` A custom criteria that identifies when to count or not a specific run.
 ///
 /// ### Examples:
 /// ```rust
@@ -678,23 +678,23 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// by specifying an identifier you reference an outside dependency fully whereas you can create a
 /// dependency by using the following "atomic" expressions:
 /// - ``MY_TASK(any = INT)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
-/// specifying "any" followed by an integer value (N), creates a Task dependency that must run N times
-/// before resolving.
+///   specifying "any" followed by an integer value (N), creates a Task dependency that must run N times
+///   before resolving.
 ///
 /// - ``MY_TASK(success = INT)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
-/// specifying "success" followed by an integer value (N), creates a Task dependency that must run N successful
-/// times before resolving.
+///   specifying "success" followed by an integer value (N), creates a Task dependency that must run N successful
+///   times before resolving.
 ///
 /// - ``MY_TASK(failures = INT)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
-/// specifying "failures" followed by an integer value (N), creates a Task dependency that must run N failed
-/// times before resolving.
+///   specifying "failures" followed by an integer value (N), creates a Task dependency that must run N failed
+///   times before resolving.
 ///
 /// - ``MY_TASK(custom = ...)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
-/// specifying "custom" followed by an expression, creates a Task dependency that resolves based on a
-/// custom criteria.
+///   specifying "custom" followed by an expression, creates a Task dependency that resolves based on a
+///   custom criteria.
 ///
 /// - ``dynamic(...)`` Creates a dynamic dependency with a closure as an argument inside that runs
-/// when tempted to resolve.
+///   when tempted to resolve.
 ///
 /// Finally, the second argument is a configuration that specifies how to react whe dependencies aren't
 /// resolved. Its optional and by default it simply skips the workflow with success via ``skip``.
@@ -734,16 +734,16 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ### Arguments
 /// - ``predicate`` The predicate function to run evaluating whenever or not to continue running the
-/// workflow. Unlike other arguments, this one is required to be specified. The predicate must either
-/// be an identifier or a closure.
+///   workflow. Unlike other arguments, this one is required to be specified. The predicate must either
+///   be an identifier or a closure.
 ///
 /// - ``secondary`` A backup TaskFrame to run in case the predicate returns false, its optional and by
-/// default runs nothing. Just like the fallback this follows the exact same expression syntax
+///   default runs nothing. Just like the fallback this follows the exact same expression syntax
 ///
 /// - ``on_false`` A configuration for the workflow primitive to act in case the predicate returns false.
-/// This can either be ``error`` for erroring out or ``success`` to simply skip. **It is important to know**
-/// when a secondary TaskFrame runs and fails, its error will be prioritized, if it succeeds, then the condition
-/// errors out regardless of its own error.
+///   This can either be ``error`` for erroring out or ``success`` to simply skip. **It is important to know**
+///   when a secondary TaskFrame runs and fails, its error will be prioritized, if it succeeds, then the condition
+///   errors out regardless of its own error.
 ///
 /// ### Examples:
 /// ```rust
@@ -796,19 +796,19 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// - [`taskframe`] - A macro for defining TaskFrames can also consume the workflow annotation.
 /// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The base API building block for defining workflows.
 /// - [`TaskFrameBuilder`](chronographer::task::frame_builder::TaskFrameBuilder) - An alternative way to
-/// write workflows in the base API ergonomically.
+///   write workflows in the base API ergonomically.
 /// - [`RetriableTaskFrame`](chronographer::prelude::RetriableTaskFrame) - The base API equivalent of
-/// the ``retry`` workflow primitive.
+///   the ``retry`` workflow primitive.
 /// - [`FallbackTaskFrame`](chronographer::prelude::FallbackTaskFrame) - The base API equivalent of
-/// the ``fallback`` workflow primitive.
+///   the ``fallback`` workflow primitive.
 /// - [`DelayTaskFrame`](chronographer::prelude::DelayTaskFrame) - The base API equivalent of
-/// the ``delay`` workflow primitive.
+///   the ``delay`` workflow primitive.
 /// - [`TimeoutTaskFrame`](chronographer::prelude::TimeoutTaskFrame) - The base API equivalent of
-/// the ``timeout`` workflow primitive.
+///   the ``timeout`` workflow primitive.
 /// - [`DependencyTaskFrame`](chronographer::prelude::DependencyTaskFrame) - The base API equivalent of
-/// the ``dependency`` workflow primitive.
+///   the ``dependency`` workflow primitive.
 /// - [`ConditionalTaskFrame`](chronographer::prelude::ConditionalTaskFrame) - The base API equivalent of
-/// the ``condition`` workflow primitive.
+///   the ``condition`` workflow primitive.
 #[proc_macro_attribute]
 pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
     workflow::workflow(attrs, item)
@@ -895,15 +895,15 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// The DSL consists of statements which are separated by commas, each statement has the following grammar:
 ///
 /// - ``auto(<TYPE> | <TYPE>::<IDENT>)``: Attaches automatically the default events that ``<TYPE>`` TaskHook
-/// provides assuming of course the TaskHook has the auto-attach method (default name is "auto_attach").
-/// If the name is overridden, the alternative syntax may be used via ``<IDENT>`` to specify the method name.
+///   provides assuming of course the TaskHook has the auto-attach method (default name is "auto_attach").
+///   If the name is overridden, the alternative syntax may be used via ``<IDENT>`` to specify the method name.
 ///
 /// - ``<IDENT> = <VALUE>``: Assigns a TaskHook instance with ``<VALUE>`` as a constructor and the
-/// ``<IDENT>`` refers to the instance just like atypical variable assignment.
+///   ``<IDENT>`` refers to the instance just like atypical variable assignment.
 ///
 /// - ``<TYPE>: <VALUE>``: Listens to the specific event ``<TYPE>`` with the instance ``<VALUE>`` either
-/// being an identifier which references an existing instance or some other expression that creates a new
-/// instance only for that event.
+///   being an identifier which references an existing instance or some other expression that creates a new
+///   instance only for that event.
 ///
 /// # Expansion Semantics
 /// The expansion of the [`hook`] macro heavily depends on the context it is used in. However, for the
@@ -977,20 +977,20 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// There are three variations for listening to generic-based events, each with their own syntax:
 /// - ``MyGenericEvent<MySpecificEvent>`` Narrows the generic the ``MyGenericEvent<T>`` has to only be ``MySpecificEvent``
-/// (while obviously following the bounds set by the generic event), apart from that, it acts identically to ``OnTaskStart``,
-/// ``OnTaskEnd, ``OnMyCustomEvent``... etc.
+///   (while obviously following the bounds set by the generic event), apart from that, it acts identically to ``OnTaskStart``,
+///   ``OnTaskEnd, ``OnMyCustomEvent``... etc.
 ///
 /// - ``MyGenericEvent<E: Bound1 + Bound2 ...>``Expresses any kind of event inside ``MyGenericEvent<T>`` as long as the
-/// event parameter has the bounds. The event generic must also follow the given bounds set by ``MyGenericEvent<T>``.
+///   event parameter has the bounds. The event generic must also follow the given bounds set by ``MyGenericEvent<T>``.
 ///
 /// - ``__anonymous__<E: Bound1 + Bound2 ...>`` Unlike the above case which narrows to ``MyGenericEvent<T>``. This form
-/// freely expresses any kind of event as long as it's in the bounds you set.
+///   freely expresses any kind of event as long as it's in the bounds you set.
 ///
 /// > **Note 1#:** The bottom two variants have a key limitation regarding the ``auto_attach``. This topic
-/// is explained below and summarized in the limitations section
+/// > is explained below and summarized in the limitations section
 ///
 /// > **Note 2#:** The first case may look like an unbounded generic of any kind of event, but it behaves
-/// completely different. If you need to represent every single type of event use ``E: TaskHookEvent`` instead.
+/// > completely different. If you need to represent every single type of event use ``E: TaskHookEvent`` instead.
 ///
 /// With the trait implementations for the specific events out, the macro also generates the auto_attach
 /// method as seen above with every event we've written attached by default. We can specify our own defaults,
@@ -1282,16 +1282,16 @@ pub fn cron(input: TokenStream) -> TokenStream {
 /// The [`event`] macro contains different parameters per target (``structs``, ``enums`` and ``traits``) use:
 ///
 /// 1. The most basic is when using it in a ``struct`` in which it contains only 2 optional parameters, those being
-/// ``inline`` and  ``payload_name_override``. The former inlines the payload directly as a tuple (if it
-/// contains named fields, if it doesn't then it will error out). Whereas the latter modifies the name of the payload,
-/// by default it's in the form ``[NAME]Payload``, the parameter changes this form to something more explicit. **Be
-/// wary that both parameters are mutually exclusive and including them will produce an error**.
+///    ``inline`` and  ``payload_name_override``. The former inlines the payload directly as a tuple (if it
+///    contains named fields, if it doesn't then it will error out). Whereas the latter modifies the name of the payload,
+///    by default it's in the form ``[NAME]Payload``, the parameter changes this form to something more explicit. **Be
+///    wary that both parameters are mutually exclusive and including them will produce an error**.
 ///
 /// 2. When it comes to using it in ``enums``. There is only one singular parameter, that being ``payload``
-/// which defines a common payload type required for all variants in the ``enum`` to provide.
+///    which defines a common payload type required for all variants in the ``enum`` to provide.
 ///
 /// 3. Finally for ``traits``, there are again two parameters. Those being ``payload`` which expects a common
-/// payload shape and ``blanket`` for implementing automatically it onto the discrete events.
+///    payload shape and ``blanket`` for implementing automatically it onto the discrete events.
 ///
 /// # Expansion Semantics
 /// Again, depending on the target the macro is applied to, the code is expanded to different forms
@@ -1329,7 +1329,7 @@ pub fn cron(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// > **NOTE:** Since events are markers rather than a typical object, the macro is slightly intrusive,
-/// applying any derives will be transferred over to the payload type if it exists.
+/// > applying any derives will be transferred over to the payload type if it exists.
 ///
 /// While the primary example (the anonymous-field one) directly inlines the payload type to the event,
 /// the secondary however (the named-field one), produces a different type acting as the payload type.

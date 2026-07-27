@@ -1,3 +1,4 @@
+use crate::task::frames::CountingFrame;
 use chronographer::task::DelayTaskFrame;
 use chronographer::task::Task;
 use chronographer::task::schedule::TaskScheduleImmediate;
@@ -6,7 +7,6 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::time::Instant;
-use crate::task::frames::CountingFrame;
 
 const TOLERANCE: Duration = Duration::from_millis(2);
 
@@ -15,7 +15,10 @@ const LARGE: Duration = Duration::from_hours(24);
 
 async fn run_delayed(delay: Duration) -> Result<Duration, String> {
     let counter = Arc::new(AtomicUsize::new(0));
-    let frame = CountingFrame { counter, should_fail: false };
+    let frame = CountingFrame {
+        counter,
+        should_fail: false,
+    };
     let final_frame = DelayTaskFrame::new(frame, delay);
     let task = Task::new(final_frame, TaskScheduleImmediate);
     let start = Instant::now();
@@ -81,15 +84,16 @@ async fn task_execution_with_delay_and_failing_frame_returns_error() {
     let final_frame = DelayTaskFrame::new(frame, delay);
     let task = Task::new(final_frame, TaskScheduleImmediate);
 
-    let handle = tokio::spawn(async move {
-        task.into_erased().run().await
-    });
+    let handle = tokio::spawn(async move { task.into_erased().run().await });
 
     tokio::task::yield_now().await;
     tokio::time::advance(delay).await;
 
     let exec = handle.await.unwrap();
-    assert!(exec.is_err(), "Error from inner frame should propagate even after delay");
+    assert!(
+        exec.is_err(),
+        "Error from inner frame should propagate even after delay"
+    );
     assert_eq!(
         counter.load(Ordering::SeqCst),
         1,
@@ -115,6 +119,9 @@ async fn zero_duration_delay_executes_immediately() {
     tokio::time::advance(Duration::ZERO).await;
 
     let exec = handle.await.unwrap();
-    assert!(exec.is_ok(), "Zero duration delay should still execute successfully");
+    assert!(
+        exec.is_ok(),
+        "Zero duration delay should still execute successfully"
+    );
     assert_eq!(counter.load(Ordering::SeqCst), 1);
 }

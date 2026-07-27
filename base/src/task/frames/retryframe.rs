@@ -82,11 +82,11 @@ pub struct LinearBackoffStrategyConfig {
     clamp: Option<Duration>,
 }
 
-impl Into<LinearBackoffStrategy> for LinearBackoffStrategyConfig {
-    fn into(self) -> LinearBackoffStrategy {
-        let start = self.start.as_secs_f64();
-        let factor = self.factor.as_secs_f64();
-        let clamp = self.clamp.map(|x| x.as_secs_f64()).unwrap_or(f64::INFINITY);
+impl From<LinearBackoffStrategyConfig> for LinearBackoffStrategy {
+    fn from(value: LinearBackoffStrategyConfig) -> Self {
+        let start = value.start.as_secs_f64();
+        let factor = value.factor.as_secs_f64();
+        let clamp = value.clamp.map(|x| x.as_secs_f64()).unwrap_or(f64::INFINITY);
 
         LinearBackoffStrategy {
             start,
@@ -117,9 +117,9 @@ impl RetryBackoffStrategy for LinearBackoffStrategy {
 
 #[derive(Clone, Copy)]
 enum JitterType {
-    FullJitter,
-    EqualJitter,
-    DecorrelatedJitter(f64),
+    Full,
+    Equal,
+    Decorrelated(f64),
 }
 
 #[derive(Clone, Copy)]
@@ -134,7 +134,7 @@ impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
         Self {
             backoff: strat,
             factor,
-            jitter_type: JitterType::FullJitter,
+            jitter_type: JitterType::Full,
         }
     }
 
@@ -142,7 +142,7 @@ impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
         Self {
             backoff: strat,
             factor,
-            jitter_type: JitterType::EqualJitter,
+            jitter_type: JitterType::Equal,
         }
     }
 
@@ -150,7 +150,7 @@ impl<T: RetryBackoffStrategy> JitterBackoffStrategy<T> {
         Self {
             backoff: strat,
             factor,
-            jitter_type: JitterType::DecorrelatedJitter(max),
+            jitter_type: JitterType::Decorrelated(max),
         }
     }
 }
@@ -162,14 +162,14 @@ impl<T: RetryBackoffStrategy> RetryBackoffStrategy for JitterBackoffStrategy<T> 
         let base_secs = base.as_secs_f64();
 
         let secs = match self.jitter_type {
-            JitterType::FullJitter => fastrand::f64() * base_secs,
+            JitterType::Full => fastrand::f64() * base_secs,
 
-            JitterType::EqualJitter => {
+            JitterType::Equal => {
                 let half = base_secs / 2.0;
                 half + (fastrand::f64() * half)
             }
 
-            JitterType::DecorrelatedJitter(max) => {
+            JitterType::Decorrelated(max) => {
                 // TODO: This is an approximation, might get fixed in the future
                 let upper = (base_secs * 3.0).min(max);
 
@@ -271,7 +271,7 @@ impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
         for retry in 0u32..=self.retries.get() {
             ctx.emit::<OnRetryAttemptStart>(&retry).await;
 
-            error = self.frame.execute(&ctx, &args).await;
+            error = self.frame.execute(ctx, args).await;
             let erased_err = error.as_ref().map_err(|x| x as &dyn TaskError).err();
 
             ctx.emit::<OnRetryAttemptEnd>(&(retry, erased_err)).await;

@@ -22,7 +22,7 @@ async fn task_finishing_before_timeout_returns_ok() {
         counter: counter.clone(),
         should_fail: false,
     };
-    
+
     let frame = TimeoutTaskFrame::builder()
         .frame(frame)
         .duration(LARGE_DURATION)
