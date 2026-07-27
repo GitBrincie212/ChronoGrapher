@@ -1,0 +1,50 @@
+name: Performance Audit CI
+
+on:
+  workflow_run:
+    workflows:
+      - Quality Audit CI
+      - Security Audit CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success'
+
+    name: Performance Suite
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Cargo Codspeed
+        run: cargo install cargo-codspeed
+
+      - name: Build CodSpeed Benchmark Target
+        run: cargo codspeed build -p chronographer_base
+
+      - name: Run CodSpeed Benchmarks
+        uses: CodSpeedHQ/action@v4
+        with:
+          mode: walltime
+          run: cargo codspeed run
