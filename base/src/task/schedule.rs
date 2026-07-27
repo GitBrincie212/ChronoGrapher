@@ -29,9 +29,9 @@ mod cron; // skipcq: RS-D1001
 mod immediate;
 mod interval; // skipcq: RS-D1001
 
+use async_trait::async_trait;
 use std::error::Error;
 use std::time::SystemTime;
-use async_trait::async_trait;
 
 pub use cron::*;
 pub use immediate::*;

@@ -1,12 +1,12 @@
 use crate::COUNTER;
 use chronographer::errors::TaskError;
 use chronographer::prelude::{DefaultSchedulerConfig, Scheduler, Task, TaskScheduleInterval};
+use chronographer::scheduler::LiveScheduler;
 use chronographer::task::TaskFrameContext;
+use chronographer::taskframe;
 use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use chronographer::scheduler::LiveScheduler;
-use chronographer::taskframe;
 
 #[taskframe]
 async fn MyTaskFrame(_ctx: &TaskFrameContext) -> Result<(), Box<dyn TaskError>> {

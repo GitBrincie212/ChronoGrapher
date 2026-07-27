@@ -7,7 +7,7 @@ use syn::{LitInt, parenthesized};
 pub enum ThresholdReachBehavior {
     Error,
     Skip,
-    Custom(syn::Expr),
+    Custom(Box<syn::Expr>),
 }
 
 impl Parse for ThresholdReachBehavior {
@@ -48,7 +48,7 @@ pub enum ThresholdCountBehavior {
     Failures,
     // ConsecutiveSuccesses,
     // ConsecutiveFailures,
-    Custom(syn::Expr),
+    Custom(Box<syn::Expr>),
 }
 
 impl Parse for ThresholdCountBehavior {

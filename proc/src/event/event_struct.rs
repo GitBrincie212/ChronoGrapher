@@ -1,8 +1,8 @@
-use proc_macro::TokenStream;
-use darling::ast::NestedMeta;
+use crate::event::utils::{IndividualEventMacroArguments, parse_individual_event};
 use darling::FromMeta;
+use darling::ast::NestedMeta;
+use proc_macro::TokenStream;
 use syn::ItemStruct;
-use crate::event::utils::{parse_individual_event, IndividualEventMacroArguments};
 
 pub fn parse_event_struct(attr: TokenStream, item: ItemStruct) -> syn::Result<TokenStream> {
     let event_name = item.ident;
@@ -13,13 +13,14 @@ pub fn parse_event_struct(attr: TokenStream, item: ItemStruct) -> syn::Result<To
 
     let attr_args: Vec<NestedMeta> = NestedMeta::parse_meta_list(attr.into())?;
     let args = IndividualEventMacroArguments::from_list(&attr_args)?;
-    
+
     Ok(parse_individual_event(
         args,
         &event_attrs,
         &event_vis,
         &event_name,
         &event_generics,
-        &event_fields
-    )?.into())
+        &event_fields,
+    )?
+    .into())
 }

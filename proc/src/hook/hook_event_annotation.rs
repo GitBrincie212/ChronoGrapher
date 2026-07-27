@@ -3,8 +3,8 @@ use quote::ToTokens;
 use syn::parse::discouraged::Speculative;
 use syn::parse::{Parse, Parser};
 use syn::punctuated::Punctuated;
-use syn::{bracketed, Attribute, Token};
 use syn::token::Comma;
+use syn::{Attribute, Token, bracketed};
 
 #[derive(Debug)]
 pub struct HookItemDefaultField(pub(crate) Punctuated<syn::Type, Token![,]>);
@@ -19,7 +19,7 @@ impl Parse for HookItemDefaultField {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let fork = input.fork();
 
-        if let Ok(_) = fork.parse::<Token![<]>() {
+        if fork.parse::<Token![<]>().is_ok() {
             let args = Punctuated::<syn::Type, Comma>::parse_separated_nonempty(&fork)?;
             let _ = fork.parse::<Token![>]>()?;
 
@@ -46,7 +46,10 @@ impl Parse for HookItemDefaultField {
 // default           | true,       Vec[]
 // <Unspecified>     | true,       Vec[]
 #[derive(Debug)]
-pub struct HookItemDefaults(pub(crate) bool, pub(crate) Punctuated<HookItemDefaultField, Comma>);
+pub struct HookItemDefaults(
+    pub(crate) bool,
+    pub(crate) Punctuated<HookItemDefaultField, Comma>,
+);
 
 impl Parse for HookItemDefaults {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
@@ -62,11 +65,11 @@ impl Parse for HookItemDefaults {
 
         let ident = input.parse::<syn::Ident>()?;
         if ident.to_string().as_str() != "default" {
-            return Err(input.error("Unknown ident, did you mean to use \"default\" instead?"))
+            return Err(input.error("Unknown ident, did you mean to use \"default\" instead?"));
         }
 
         if negate && !input.is_empty() {
-            return Err(input.error("Unexpected token sequence after \"!default\""))
+            return Err(input.error("Unexpected token sequence after \"!default\""));
         } else if negate && input.is_empty() {
             return Ok(HookItemDefaults(false, Punctuated::new()));
         } else if input.is_empty() {
@@ -77,7 +80,8 @@ impl Parse for HookItemDefaults {
         let content;
         bracketed!(content in input);
 
-        let content = Punctuated::<HookItemDefaultField, Comma>::parse_separated_nonempty(&content)?;
+        let content =
+            Punctuated::<HookItemDefaultField, Comma>::parse_separated_nonempty(&content)?;
         Ok(HookItemDefaults(true, content))
     }
 }
@@ -93,7 +97,9 @@ impl Parse for HookListen {
 
         let parsed_ident = input.parse::<syn::Ident>()?;
         if parsed_ident.to_string().as_str() != "listen" {
-            return Err(input.error("Unknown token sequence, did you mean to specify the \"listen\" parameter?"))
+            return Err(input.error(
+                "Unknown token sequence, did you mean to specify the \"listen\" parameter?",
+            ));
         }
 
         let _ = input.parse::<Token![=]>()?;
@@ -106,13 +112,13 @@ impl Parse for HookListen {
 #[derive(Debug)]
 pub struct HookAnnotationMacroArguments {
     pub(crate) defaults: HookItemDefaults,
-    pub(crate) listen: HookListen
+    pub(crate) listen: HookListen,
 }
 
 impl Parse for HookAnnotationMacroArguments {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            return Err(input.error("Must specify either the \"default\" or \"listen\" parameter, or alternatively remove the annotation to specify none"))
+            return Err(input.error("Must specify either the \"default\" or \"listen\" parameter, or alternatively remove the annotation to specify none"));
         }
 
         let mut listen = None;
@@ -126,9 +132,9 @@ impl Parse for HookAnnotationMacroArguments {
 
             first_loop = false;
             let fork = input.fork();
-            if let Ok(hook_defaults ) = fork.parse::<HookItemDefaults>() {
+            if let Ok(hook_defaults) = fork.parse::<HookItemDefaults>() {
                 if defaults.is_some() {
-                    return Err(input.error("Already specified the \"default\" parameter, did you mean to use \"listen\"?"))
+                    return Err(input.error("Already specified the \"default\" parameter, did you mean to use \"listen\"?"));
                 }
 
                 defaults = Some(hook_defaults);
@@ -138,19 +144,21 @@ impl Parse for HookAnnotationMacroArguments {
 
             let hook_listen = input.parse::<HookListen>()?;
             if listen.is_some() {
-                return Err(input.error("Already specified the \"listen\" parameter, did you mean to use \"default\"?"))
+                return Err(input.error(
+                    "Already specified the \"listen\" parameter, did you mean to use \"default\"?",
+                ));
             }
 
             listen = Some(hook_listen);
         }
 
         if listen.is_none() && defaults.is_none() {
-            return Err(input.error("Must specify either the \"default\" or \"listen\" parameter, or alternatively remove the annotation to specify none"))
+            return Err(input.error("Must specify either the \"default\" or \"listen\" parameter, or alternatively remove the annotation to specify none"));
         }
 
         Ok(Self {
             defaults: defaults.unwrap_or(HookItemDefaults(true, Punctuated::new())),
-            listen: listen.unwrap_or(HookListen(None))
+            listen: listen.unwrap_or(HookListen(None)),
         })
     }
 }
@@ -163,7 +171,7 @@ impl HookAnnotationMacroArguments {
                 continue;
             };
 
-            if path.ident.to_string() != "hook" {
+            if path.ident != "hook" {
                 continue;
             }
 
@@ -174,10 +182,7 @@ impl HookAnnotationMacroArguments {
                 ));
             }
 
-            let list = attr.meta
-                .require_list()?
-                .tokens
-                .clone();
+            let list = attr.meta.require_list()?.tokens.clone();
 
             result = Some(HookAnnotationMacroArguments::parse.parse2(list)?);
         }

@@ -1,8 +1,8 @@
 pub mod clock; // skipcq: RS-D1001
 pub mod engine; // skipcq: RS-D1001
+pub mod impls;
 pub mod task_dispatcher; // skipcq: RS-D1001
-pub mod task_store; // skipcq: RS-D1001
-pub mod impls; // skipcq: RS-D1001
+pub mod task_store; // skipcq: RS-D1001 // skipcq: RS-D1001
 
 pub use impls::*;
 
@@ -10,15 +10,16 @@ use crate::errors::TaskError;
 use crate::scheduler::clock::*;
 use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
-use crate::scheduler::task_store::{EphemeralSchedulerTaskStore,SchedulerTaskStore };
+use crate::scheduler::task_store::{EphemeralSchedulerTaskStore, SchedulerTaskStore};
 use crate::scheduler::utils::SchedulerHandleInstructions;
+use crate::task::{Task, TaskFrame};
 use std::any::Any;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use crate::task::{Task, TaskFrame};
 
-pub type SchedulerKey<C> = <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::Key;
+pub type SchedulerKey<C> =
+    <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::Key;
 
 pub(crate) type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 
@@ -61,7 +62,7 @@ pub enum FailoverPolicy {
     #[default]
     Terminate,
     Deallocate,
-    ShutdownScheduler
+    ShutdownScheduler,
 }
 
 pub trait Scheduler<C: SchedulerConfig>: Sync + Send + 'static {

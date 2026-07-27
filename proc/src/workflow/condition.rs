@@ -1,14 +1,14 @@
+use crate::utils::TaskFrameConstructor;
 use crate::workflow::utils::{ArgumentParser, WorkflowTransform};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parenthesized;
 use syn::parse::{Parse, ParseStream};
-use crate::utils::TaskFrameConstructor;
 
 pub enum ConditionReturnBehavior {
     Error,
     Skip,
-    Custom(syn::Expr)
+    Custom(Box<syn::Expr>),
 }
 
 impl Parse for ConditionReturnBehavior {
@@ -21,11 +21,16 @@ impl Parse for ConditionReturnBehavior {
                 parenthesized!(content in input);
 
                 let expr = content.parse()?;
-                if matches!(expr, syn::Expr::Macro(_) | syn::Expr::Path(_) | syn::Expr::Closure(_)) {
-                    return Ok(Self::Custom(expr))
+                if matches!(
+                    expr,
+                    syn::Expr::Macro(_) | syn::Expr::Path(_) | syn::Expr::Closure(_)
+                ) {
+                    return Ok(Self::Custom(Box::new(expr)));
                 }
 
-                Err(input.error("Expected a macro, function or closure expression but got something else"))
+                Err(input.error(
+                    "Expected a macro, function or closure expression but got something else",
+                ))
             }
             _ => Err(input.error("Unknown condition return behaviour")),
         }
@@ -68,11 +73,10 @@ impl WorkflowTransform for ConditionArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
         let predicate = &self.predicate;
         let on_false = &self.on_false;
-        let secondary = self.secondary.as_ref()
-            .map(|secondary| {
-                let output = secondary.to_token_construction();
-                quote! { .fallback(#output) }
-            });
+        let secondary = self.secondary.as_ref().map(|secondary| {
+            let output = secondary.to_token_construction();
+            quote! { .fallback(#output) }
+        });
 
         let builder_method = if secondary.is_some() {
             quote! { fallback_builder }
@@ -91,19 +95,22 @@ impl WorkflowTransform for ConditionArguments {
     }
 
     fn get_type(&self, toks: TokenStream2) -> TokenStream2 {
-        self.secondary.as_ref()
+        self.secondary
+            .as_ref()
             .map(|secondary| {
                 let output = secondary.to_token_type();
                 quote! { #output }
             })
-            .unwrap_or_else(|| quote! {
-                ::chronographer::task::frames::conditionframe::ConditionalTaskFrame::<
-                    #toks,
-                    ::chronographer::task::frames::noopframe::NoOperationTaskFrame::<
-                        <#toks as ::chronographer::task::frames::TaskFrame>::Error,
-                        ()
+            .unwrap_or_else(|| {
+                quote! {
+                    ::chronographer::task::frames::conditionframe::ConditionalTaskFrame::<
+                        #toks,
+                        ::chronographer::task::frames::noopframe::NoOperationTaskFrame::<
+                            <#toks as ::chronographer::task::frames::TaskFrame>::Error,
+                            ()
+                        >
                     >
-                >
+                }
             })
     }
 }
