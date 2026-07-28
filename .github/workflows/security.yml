@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 jobs:
   security_audit:
+    name: Security Audit
     runs-on: ubuntu-latest
     if: |
       contains(github.event.head_commit.modified, 'Cargo.toml') ||
