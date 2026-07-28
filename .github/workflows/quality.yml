@@ -23,8 +23,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
-      - name: Install Mozilla's sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+      - name: Install Swatinem's Rust Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -46,8 +46,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
-      - name: Install Mozilla's sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+      - name: Install Swatinem's Rust Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@1.92.0
@@ -67,8 +67,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+      - name: Install Swatinem's Rust Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Install Clippy & RustFMT
         uses: dtolnay/rust-toolchain@stable
@@ -90,8 +90,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+      - name: Install Swatinem's Rust Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Run Doctests
         run: cargo test --doc --all-features --workspace

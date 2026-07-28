@@ -30,8 +30,8 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Install sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+      - name: Install Swatinem's Rust Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
