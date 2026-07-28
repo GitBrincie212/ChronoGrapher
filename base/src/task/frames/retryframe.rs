@@ -86,7 +86,10 @@ impl From<LinearBackoffStrategyConfig> for LinearBackoffStrategy {
     fn from(value: LinearBackoffStrategyConfig) -> Self {
         let start = value.start.as_secs_f64();
         let factor = value.factor.as_secs_f64();
-        let clamp = value.clamp.map(|x| x.as_secs_f64()).unwrap_or(f64::INFINITY);
+        let clamp = value
+            .clamp
+            .map(|x| x.as_secs_f64())
+            .unwrap_or(f64::INFINITY);
 
         LinearBackoffStrategy {
             start,

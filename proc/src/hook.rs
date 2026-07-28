@@ -22,8 +22,7 @@ use syn::{FnArg, Token, parse_macro_input};
 const TASKHOOK_CTX_REQUIRED_ERR: &str =
     "Method is required to have at least one argument of type \"TaskHookContext\" after &self";
 const TASKHOOK_SELF_REQUIRED_ERR: &str = "Method is required to have at least two arguments of &self and the other of type \"TaskHookContext\" after";
-const EXPECTED_SELF_ARGUMENT_ERR: &str =
-    "Expected argument of &self but got something else";
+const EXPECTED_SELF_ARGUMENT_ERR: &str = "Expected argument of &self but got something else";
 const SECOND_ARG_NOT_TASKHOOK_CTX_ERR: &str =
     "Second argument must be of type \"TaskFrameContext\"";
 const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &str =

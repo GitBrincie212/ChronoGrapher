@@ -196,10 +196,9 @@ impl TaskHooksPromotion {
     #[inline(always)]
     fn fetch(&self, hook_id: &TypeId) -> Option<&'static dyn ErasedTaskHook> {
         match self {
-            TaskHooksPromotion::Single(id, instances)
-                if *id == *hook_id => {
-                    return Some(instances.get());
-                }
+            TaskHooksPromotion::Single(id, instances) if *id == *hook_id => {
+                return Some(instances.get());
+            }
             TaskHooksPromotion::Double((id1, instances1), (id2, instances2)) => {
                 if *id1 == *hook_id {
                     return Some(instances1.get());

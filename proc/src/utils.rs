@@ -367,7 +367,8 @@ impl Parse for TaskFrameConstructor {
                     leading_colon: path.leading_colon,
                     segments: segments
                         .iter()
-                        .take(segment_len.saturating_sub(1)).cloned()
+                        .take(segment_len.saturating_sub(1))
+                        .cloned()
                         .collect(),
                 };
 

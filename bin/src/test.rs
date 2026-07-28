@@ -1,10 +1,6 @@
-use chronographer::every;
-use chronographer::prelude::TaskScheduleCron;
-use std::str::FromStr;
+use chronographer::prelude::*;
 
-#[tokio::main]
-async fn main() {
-    let abc = every!(3d 1s);
+#[event(payload = &'b T)]
+pub trait MyOwnTHEG<'b, T: Send + Sync + 'static> {}
 
-    let val = TaskScheduleCron::from_str("*/3 LW L-3 3L * *").unwrap();
-}
+fn main() {}
