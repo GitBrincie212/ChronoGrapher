@@ -9,8 +9,15 @@ env:
 
 jobs:
   compile_stable:
-    runs-on: [macos-latest, windows-latest, ubuntu-latest]
     name: Stable Compilation Suite
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout Code
@@ -32,9 +39,9 @@ jobs:
       # TODO: features more rigorously via a set of edge cases
 
   compile-msrv:
+    name: MSRV Compilation Suite
     runs-on: ubuntu-latest
 
-    name: MSRV Compilation Suite
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -53,9 +60,9 @@ jobs:
       # TODO: Again, same with the compile_stable job
 
   linting_formatting:
+    name: Linting & Formatting Suite
     runs-on: ubuntu-latest
 
-    name: Linting & Formatting Suite
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -75,10 +82,10 @@ jobs:
         run: cargo fmt --all --check
 
   unit_tests:
-    runs-on: ubuntu-latest
-    needs: linting_formatting
-
     name: Unit Tests Suite
+    runs-on: ubuntu-latest
+    needs: [linting_formatting, compile-msrv, compile_stable]
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
