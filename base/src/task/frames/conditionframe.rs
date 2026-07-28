@@ -1,3 +1,4 @@
+use crate::errors::ConditionalTaskFrameError;
 use crate::task::TaskFrame;
 use crate::task::noopframe::NoOperationTaskFrame;
 use crate::task::{RestrictTaskFrameContext, TaskFrameContext, TaskHookEvent};
@@ -22,7 +23,22 @@ where
 }
 
 #[derive(TypedBuilder)]
-#[builder(build_method(into = ConditionalTaskFrame<T, T2>), )]
+#[builder(
+    build_method(into = ConditionalTaskFrame<T, T2>),
+    mutators(
+        pub fn on_false_error(&mut self){
+            self.error_on_false = Box::new(|| true);
+        }
+    
+        pub fn on_false_skip(&mut self){
+            self.error_on_false = Box::new(|| false);
+        }
+    
+        pub fn on_false_custom(&mut self, custom: impl Fn() -> bool + Send + Sync + 'static){
+            self.error_on_false = Box::new(custom);
+        }
+    )
+)]
 pub struct ConditionalTaskFrameConfig<T: TaskFrame, T2: TaskFrame> {
     fallback: T2,
 
@@ -32,6 +48,9 @@ pub struct ConditionalTaskFrameConfig<T: TaskFrame, T2: TaskFrame> {
         Box::new(s) as Box<dyn ConditionalFramePredicate>
     }))]
     predicate: Box<dyn ConditionalFramePredicate>,
+
+    #[builder(via_mutators(init = Box::new(|| false)))]
+    error_on_false: Box<dyn Fn() -> bool + Send + Sync + 'static>,
 }
 
 define_event!(OnTruthyValueEvent, ());
@@ -52,21 +71,28 @@ impl<T: TaskFrame, T2: TaskFrame> From<ConditionalTaskFrameConfig<T, T2>>
             frame: config.frame,
             fallback: config.fallback,
             predicate: config.predicate,
+            error_on_false: config.error_on_false,
         }
     }
 }
 
-pub struct ConditionalTaskFrame<T: TaskFrame, T2> {
+pub struct ConditionalTaskFrame<T, T2> {
     frame: T,
     fallback: T2,
     predicate: Box<dyn ConditionalFramePredicate>,
+    error_on_false: Box<dyn Fn() -> bool + Send + Sync + 'static>,
 }
 
 #[allow(type_alias_bounds)]
 pub type NonFallbackCFCBuilder<T: TaskFrame> = ConditionalTaskFrameConfigBuilder<
     T,
     NoOperationTaskFrame<T::Error, ()>,
-    ((NoOperationTaskFrame<T::Error, ()>,), (), ()),
+    (
+        (NoOperationTaskFrame<T::Error, ()>,),
+        (),
+        (),
+        (Box<dyn Fn() -> bool + Send + Sync + 'static>,),
+    ),
 >;
 
 impl<T: TaskFrame> ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, ()>> {
@@ -84,9 +110,9 @@ impl<T: TaskFrame, T2: TaskFrame> ConditionalTaskFrame<T, T2> {
 impl<T, F> TaskFrame for ConditionalTaskFrame<T, F>
 where
     T: TaskFrame<Args = ()>,
-    F: TaskFrame<Args = (), Error = T::Error>,
+    F: TaskFrame<Args = ()>,
 {
-    type Error = T::Error;
+    type Error = ConditionalTaskFrameError<T::Error, F::Error>;
     type Args = ();
     type Workflow = Self;
 
@@ -97,11 +123,17 @@ where
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
             return self
                 .frame
-                .execute(&ctx, &())
+                .execute(ctx, &())
                 .await
+                .map_err(ConditionalTaskFrameError::PrimaryFailed);
         }
 
         ctx.emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
-        self.fallback.execute(ctx, &()).await
+        let result = self.fallback.execute(ctx, &()).await;
+        if (self.error_on_false)() && result.is_ok() {
+            return Err(ConditionalTaskFrameError::TaskConditionFail);
+        }
+
+        result.map_err(ConditionalTaskFrameError::SecondaryFailed)
     }
 }
