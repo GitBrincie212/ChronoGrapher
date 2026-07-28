@@ -373,7 +373,7 @@ export function ChronoGrapherWireComponent() {
             "to-fd-background-100p to-80% rounded-lg **:pointer-events-none **:select-none"
           }
         >
-          <div className="w-full h-full *:p-6 *:lg:p-8 *:2xl:p-14 mask-b-from-20% from-white to-transparent saturate-75">
+          <div className="relative w-full h-full *:p-6 *:lg:p-8 *:2xl:p-14 mask-b-from-20% from-white to-transparent saturate-75">
             <Image
               src={
                 useFumadocsTheme() === "light"
@@ -382,6 +382,7 @@ export function ChronoGrapherWireComponent() {
               }
               alt={"ChronoGrapher Logo"}
               fill
+              priority
             />
           </div>
           <div className="z-10 absolute opacity-30 w-full h-full mix-blend-overlay *:p-6 *:lg:p-8 *:2xl:p-14 mask-b-from-20% from-white to-transparent">
