@@ -29,11 +29,11 @@ where
         pub fn on_false_error(&mut self){
             self.error_on_false = Box::new(|| true);
         }
-    
+
         pub fn on_false_skip(&mut self){
             self.error_on_false = Box::new(|| false);
         }
-    
+
         pub fn on_false_custom(&mut self, custom: impl Fn() -> bool + Send + Sync + 'static){
             self.error_on_false = Box::new(custom);
         }
