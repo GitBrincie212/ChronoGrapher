@@ -33,7 +33,7 @@ impl Display for CollectionTaskError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!(
             "{} inside CollectionTaskFrame at index {}",
-            &self.error, self.index
+            self.error, self.index
         ))
     }
 }

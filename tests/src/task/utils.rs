@@ -11,18 +11,6 @@ pub struct CountingTaskFrame {
 }
 
 impl CountingTaskFrame {
-    pub fn identity(&self) -> usize {
-        self.success_counter.load(Ordering::Acquire) + self.failure_counter.load(Ordering::Acquire)
-    }
-
-    pub fn successes(&self) -> usize {
-        self.success_counter.load(Ordering::Acquire)
-    }
-
-    pub fn failures(&self) -> usize {
-        self.failure_counter.load(Ordering::Acquire)
-    }
-
     pub fn enable_failure(&self) {
         self.error.store(true, Ordering::Release);
     }
