@@ -160,8 +160,7 @@ pub fn parse_individual_event(
                     return false;
                 };
 
-                list.path.segments.len() == 1
-                    && list.path.segments[0].ident == "derive"
+                list.path.segments.len() == 1 && list.path.segments[0].ident == "derive"
             });
 
             payload_struct_ty = Some(quote! {
@@ -208,8 +207,7 @@ pub fn parse_individual_event(
             return true;
         };
 
-        !(list.path.segments.len() == 1
-            && list.path.segments[0].ident == "derive")
+        !(list.path.segments.len() == 1 && list.path.segments[0].ident == "derive")
     });
 
     Ok(quote! {

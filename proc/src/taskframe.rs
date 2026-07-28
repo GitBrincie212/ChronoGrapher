@@ -1,4 +1,8 @@
-use crate::utils::{LIFETIME_UNSUPPORTED_ERR, ParsedArguments, ParsedContextArgument, extract_annotation, extract_arg_name, extract_docs, handle_generics_phantom_data, map_fn_args_pairs, ImplEndTokenStream, PhantomDataTokenStream, NormalizedTypeParamsTokenStream};
+use crate::utils::{
+    ImplEndTokenStream, LIFETIME_UNSUPPORTED_ERR, NormalizedTypeParamsTokenStream, ParsedArguments,
+    ParsedContextArgument, PhantomDataTokenStream, extract_annotation, extract_arg_name,
+    extract_docs, handle_generics_phantom_data, map_fn_args_pairs,
+};
 use crate::workflow::WorkflowSpec;
 use crate::workflow::utils::WorkflowTransform;
 use proc_macro::TokenStream;
@@ -14,20 +18,16 @@ use syn::{
 
 const TASKFRAME_CTX_REQUIRED_ERR: &str =
     "Function is required to have at least one argument of type \"TaskFrameContext\"";
-const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &str =
-    "First argument must be of type \"TaskFrameContext\"";
+const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &str = "First argument must be of type \"TaskFrameContext\"";
 const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &str =
     "Expected a simple identifier as argument name for the context";
 const FIRST_ARG_REF_TASKFRAME_ERR: &str =
     "First argument must be a reference of type \"TaskFrameContext\"";
-const METHOD_MACRO_USE_ERR: &str =
-    "Using the task attribute macro in methods is unsupported";
+const METHOD_MACRO_USE_ERR: &str = "Using the task attribute macro in methods is unsupported";
 const INVALID_RETURN_TYPE_ERROR: &str =
     "Return type must be of type Result<(), E> in which E is your desired error type";
-const FIRST_GENERIC_RETURN_ERR: &str =
-    "First generic argument of Result must be of type ()";
-const SECOND_GENERIC_RETURN_ERR: &str =
-    "Second generic argument of Result must be an error type";
+const FIRST_GENERIC_RETURN_ERR: &str = "First generic argument of Result must be of type ()";
+const SECOND_GENERIC_RETURN_ERR: &str = "Second generic argument of Result must be an error type";
 const ASYNC_REQUIRED_ERR: &str = "Function is required to be async";
 const ABI_UNSUPPORTED_ERR: &str = "ABI functions are unsupported";
 
@@ -190,10 +190,7 @@ type DeriveGenericResult = syn::Result<(
     NormalizedTypeParamsTokenStream,
 )>;
 
-fn derive_with_generics(
-    name: &syn::Ident,
-    fn_sig: &syn::Signature,
-) -> DeriveGenericResult {
+fn derive_with_generics(name: &syn::Ident, fn_sig: &syn::Signature) -> DeriveGenericResult {
     let (impl_end_name, phantom_data, normalized_type_params) =
         handle_generics_phantom_data(name, fn_sig)?;
 
