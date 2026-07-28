@@ -74,7 +74,7 @@ jobs:
           components: clippy, rustfmt
 
       - name: Run Clippy
-        run: cargo clippy --all-features --locked -- -D warnings
+        run: cargo clippy --workspace --exclude bin --all-targets --all-features --locked -- -D warnings
 
       - name: Format The Code
         run: cargo fmt --all --check
