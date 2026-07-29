@@ -79,8 +79,8 @@ jobs:
       - name: Format The Code
         run: cargo fmt --all --check
 
-  unit_tests:
-    name: Unit Tests Suite
+  tests:
+    name: Code-Related Tests Suite
     runs-on: ubuntu-latest
     needs: [linting_formatting, compile-msrv, compile_stable]
 
