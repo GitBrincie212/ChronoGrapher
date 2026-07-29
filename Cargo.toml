@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["base", "benches", "bin", "core", "proc", "tests"]
-exclude = ["tests", "benches", "bin"]
+members = ["base", "benches", "bin", "core", "proc", "tests/unit", "tests/fuzz"]
+exclude = ["benches", "bin", "tests/unit", "tests/fuzz"]
 
 [profile.release]
 strip = true
