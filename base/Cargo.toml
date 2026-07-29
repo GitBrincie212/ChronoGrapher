@@ -2,11 +2,12 @@
 name = "chronographer_base"
 version = "0.1.0"
 edition = "2024"
+publish = false
 license-file = "../LICENSE"
 homepage = "https://github.com/GitBrincie212/ChronoGrapher"
 authors = ["McBrincie212"]
 description = "The core library (acts as a foundation) for the ChronoGrapher scheduling / workflow orchestration platform"
-readme = "README.md"
+readme = "../README.md"
 repository = "https://github.com/GitBrincie212/ChronoGrapher"
 keywords = ["ChronoGrapher", "scheduler", "scheduling", "workflow", "orchestration"]
 categories = ["embedded", "asynchronous"]
