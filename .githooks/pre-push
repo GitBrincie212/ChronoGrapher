@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-cargo clippy --workspace --exclude bin --all-targets --all-features --locked -- -D warnings
+cargo clippy --workspace --exclude chronographer_bin --all-targets --all-features --locked -- -D warnings
 
 # TODO: Uncomment these once unit tests & doctests run successfully
 # cargo test --doc --all-features --workspace
