@@ -1,0 +1,70 @@
+use chronographer::scheduler::clock::{AdvanceableSchedulerClock, SchedulerClock, VirtualClock};
+use std::time::{Duration, UNIX_EPOCH};
+
+// A small value to avoid floating precision errors
+const EPSILON: Duration = Duration::from_millis(1);
+
+macro_rules! assert_approx {
+    ($left:expr, $right:expr, $epsilon:expr) => {{
+        let left_val = $left;
+        let right_val = $right;
+        let epsilon_val = $epsilon;
+        let diff = if left_val > right_val {
+            left_val.duration_since(right_val).unwrap()
+        } else {
+            right_val.duration_since(left_val).unwrap()
+        };
+        assert!(
+            diff <= epsilon_val,
+            "assertion failed: `(left ≈ right)` \
+             (left: `{:?}`, right: `{:?}`, difference: `{:?}`, epsilon: `{:?}`)",
+            left_val,
+            right_val,
+            diff,
+            epsilon_val
+        );
+    }};
+}
+
+#[tokio::test]
+async fn test_initial_epoch() {
+    let clock = VirtualClock::from_epoch();
+    assert_approx!(clock.now(), UNIX_EPOCH, EPSILON);
+}
+
+#[tokio::test]
+async fn test_custom_time() {
+    let time0 = UNIX_EPOCH + Duration::from_secs(45);
+    let clock = VirtualClock::new(time0);
+    assert_approx!(clock.now(), time0, EPSILON);
+}
+
+#[tokio::test]
+async fn test_advance() {
+    let clock = VirtualClock::from_epoch();
+    clock.advance(Duration::from_secs(1));
+    assert_eq!(clock.now(), UNIX_EPOCH + Duration::from_secs(1));
+    clock.advance(Duration::from_secs(100));
+    assert_eq!(clock.now(), UNIX_EPOCH + Duration::from_secs(101));
+}
+
+#[tokio::test]
+async fn test_advance_to() {
+    let clock = VirtualClock::from_epoch();
+    let target = UNIX_EPOCH + Duration::from_secs(19);
+    clock.advance_to(target);
+    assert_approx!(clock.now(), target, EPSILON);
+    let target = UNIX_EPOCH + Duration::from_secs(235);
+    clock.advance_to(target);
+    assert_approx!(clock.now(), target, EPSILON);
+}
+
+#[tokio::test]
+async fn test_idle_to_simple_no_arc() {
+    let clock = VirtualClock::from_epoch();
+    let target = UNIX_EPOCH + Duration::from_secs(5);
+    clock.advance(Duration::from_secs(5));
+    clock.idle_to(target).await;
+    let now = clock.now();
+    assert_approx!(now, target, EPSILON);
+}
