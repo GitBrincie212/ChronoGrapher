@@ -28,7 +28,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Install Swatinem's Rust Cache
+      - name: Install Steinem's Rust Cache
         uses: Swatinem/rust-cache@v2
 
       - name: Install Rust
@@ -38,7 +38,7 @@ jobs:
         run: cargo install cargo-codspeed
 
       - name: Build CodSpeed Benchmark Target
-        run: cargo codspeed build -p chronographer_base
+        run: cargo codspeed build -p chronographer
 
       - name: Run CodSpeed Benchmarks
         uses: CodSpeedHQ/action@v4
