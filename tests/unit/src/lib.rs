@@ -1,4 +1,4 @@
 #![cfg(test)]
 mod macros;
-mod schedule;
+mod scheduler;
 mod task;
