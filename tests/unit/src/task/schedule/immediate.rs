@@ -8,7 +8,7 @@ async fn test_schedule_immediate() {
     let now = SystemTime::now();
     let resolve = instance.schedule(now).await.unwrap();
 
-    assert_eq!(resolve, now)
+    assert_eq!(resolve, now, "TaskScheduleImmediate should return the current time back")
 }
 
 #[tokio::test]
@@ -19,6 +19,6 @@ async fn test_stateless() {
     let resolve = instance.schedule(t1).await.unwrap();
     let resolve2 = instance.schedule(t2).await.unwrap();
 
-    assert_eq!(resolve, t1);
-    assert_eq!(resolve2, t2);
+    assert_eq!(resolve, t1, "TaskScheduleImmediate should return the UNIX epoch time back");
+    assert_eq!(resolve2, t2, "TaskScheduleImmediate should return the modified UNIX epoch time");
 }
