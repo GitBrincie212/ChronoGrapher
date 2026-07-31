@@ -153,6 +153,7 @@ fn spawn_idled_task(
     (task, rx)
 }
 
+// TODO: The test is mostly incorrect, though I suspect there may also be a bug in the VirtualClock itselfr
 #[tokio::test]
 async fn test_multi_idle_to_mixed_time() {
     let clock = Arc::new(VirtualClock::from_epoch());
