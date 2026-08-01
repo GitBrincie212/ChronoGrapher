@@ -89,3 +89,11 @@
   /* biome-ignore lint/complexity/noImportantStyles: Used to remove the background of HighlightJS */
   background: transparent !important;
 }
+
+@media (min-width: 64rem) {
+  #nd-home-layout #nd-nav nav > .flex-1 > ul:last-child {
+    margin-left: auto;
+    padding-left: 1rem;
+    border-left: 1px solid var(--color-fd-border);
+  }
+}
