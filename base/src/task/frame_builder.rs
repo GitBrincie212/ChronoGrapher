@@ -501,7 +501,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         self,
         fallback: T2,
     ) -> TaskFrameBuilder<FallbackTaskFrame<T, T2>> {
-        TaskFrameBuilder(FallbackTaskFrame::new(self.0, fallback))
+        TaskFrameBuilder(FallbackTaskFrame::singular(self.0, fallback))
     }
 
     /// Method wraps the inner [`TaskFrame`] in a [`ConditionalTaskFrame`] which conditionally executes the task based on a provided predicate function.
