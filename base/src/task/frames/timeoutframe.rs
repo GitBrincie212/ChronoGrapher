@@ -42,7 +42,7 @@ define_event!(
     /// # Is Emittable?
     /// Since the event is intended for only [`TimeoutTaskFrame`], the event is **NOT** emittable from
     /// outside code (primarily for encapsulation reasons). It's recommended to either make your own
-    /// event for your own timeouts (or anything else) if you planned to emit it.
+    /// event for your own timeouts (or anything else) if you plan to emit it.
     ///
     /// # See Also
     /// - [`TimeoutDuration`] - The configured duration object
@@ -108,15 +108,6 @@ pub struct TimeoutPresentBuilder<T>(T);
 /// The [`TimeoutTaskFrame`] is a wrapper-based / decorator [`TaskFrame`] (workflow primitive) which handles
 /// timing out its nested [`TaskFrame`] / workflow after a certain configured amount of time has passed.
 ///
-/// # Workflow-Primitive Equivalent
-/// The workflow primitive equivalent for [`TimeoutTaskFrame`] inside the [`workflow`](chronographer::prelude::workflow)
-/// macro is ``timeout(...)`` which accepts one required argument being ``duration``, either being a
-/// function or a constant-based [`Duration`], this configures the maximum time allowed for the sub-workflow.
-///
-/// Additionally, the timeout error can be specified as an optional parameter via ``on_timeout``. By default,
-/// it assumes the error type implements [`DefaultTimeoutError`] (if not, it will error out). The parameter
-/// is useful for overriding the default timeout error.
-///
 /// # Decorating / Wrapping Behavior
 /// When wrapping [`TimeoutTaskFrame`] onto a workflow with a maximum configured duration. It runs it immediately
 /// while measuring in the background the time it takes. If it completes sooner than the threshold it
@@ -145,6 +136,21 @@ pub struct TimeoutPresentBuilder<T>(T);
 /// When it comes to creating a [`TimeoutTaskFrame`], one can use the builder via [`TimeoutTaskFrame::builder`]
 /// and initializing the appropriate parameters from there and then simply building it.
 ///
+/// Another way to achieve this is via the [`workflow`](chronographer::prelude::workflow) macro. as the
+/// workflow primitive equivalent for [`TimeoutTaskFrame`] inside the macro is ``timeout(...)`` which accepts one
+/// required argument being ``duration``, either being a function or a constant-based [`Duration`], this configures
+/// the maximum time allowed for the sub-workflow.
+///
+/// Additionally, the timeout error can be specified as an optional parameter via ``on_timeout``. By default,
+/// it assumes the error type implements [`DefaultTimeoutError`] (if not, it will error out). The parameter
+/// is useful for overriding the default timeout error. For more information it's recommended to check the
+/// [`workflow`](chronographer::prelude::workflow) macro itself.
+///
+/// Finally, you can use [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) and specify the builder
+/// method [`TaskFrameBuilder::with_timeout`](chronographer::task::TaskFrameBuilder::with_timeout) for
+/// supporting default timeout errors and [`TaskFrameBuilder::with_custom_timeout`](chronographer::task::TaskFrameBuilder::with_custom_timeout)
+/// for overriding the error type.
+///
 /// # Trait Implementation(s)
 /// Apart from [`TaskFrame`] which [`TimeoutTaskFrame`] implements. There is no other prominent trait
 /// which it currently implements.
@@ -160,7 +166,7 @@ pub struct TimeoutPresentBuilder<T>(T);
 /// }
 /// # let inner: TimeoutTaskFrame<MyTaskFrame> = MyTaskFrame::workflow();
 /// ```
-/// Wraps ``MyTaskFrame`` inside [`TimeoutTaskFrame`] with a configured timeout of 5 seconds to run
+/// Wraps ``MyTaskFrame`` inside the ``timeout`` ([`TimeoutTaskFrame`]) with a configured timeout of 5 seconds to run
 /// and the default timeout error being used (for String, being ``"Timeout Occurred"``). The same script can
 /// be re-written in the Base API as the following:
 /// ```rust
@@ -237,7 +243,8 @@ pub struct TimeoutPresentBuilder<T>(T);
 ///
 /// # See Also
 /// - [`TimeoutTaskFrame::builder`] - The constructor / builder for configuring it in Base API.
-/// - [`workflow`] - Contains an equivalent more ergonomic workflow primitive simply by the name of ``timeout(...)``.
+/// - [`workflow`](chronographer::prelude::workflow) - Contains an equivalent more ergonomic workflow primitive simply by the name of ``timeout(...)``.
+/// - [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) A middle-ground between the macro and the base API
 /// - [`TaskFrame`] - The core trait that [`TimeoutTaskFrame`] implements and uses.
 /// - [`OnTimeout`] - The event the [`TimeoutTaskFrame`] fires when a timeout is noticed.
 /// - [`DefaultTimeoutError`] - A trait which provides a default error for timeout automatically.
@@ -256,8 +263,10 @@ pub struct TimeoutTaskFrameBuilder<T, TS, DS, ES> {
 
 impl<T: TaskFrame> TimeoutTaskFrame<T> {
     /// The builder constructor used as one way to configure a [`TimeoutTaskFrame`] instance. For better
-    /// ergonomics and fewer boilerplate it's best to use the [`workflow`] macro. Refer on both [`workflow`]
-    /// and [`TimeoutTaskFrame`] for more information about this alternative.
+    /// ergonomics and fewer boilerplate it's best to use the [`workflow`](chronographer::prelude::workflow) macro
+    /// or by utilizing the [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder). Refer on
+    /// both [`workflow`](chronographer::prelude::workflow), [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder)
+    /// and [`TimeoutTaskFrame`] respectively for more information.
     ///
     /// # Returns
     /// The constructor method returns the builder for configuring the individual parameters.
@@ -273,7 +282,8 @@ impl<T: TaskFrame> TimeoutTaskFrame<T> {
     ///
     /// # See Also
     /// - [`TimeoutTaskFrame`] - The result from building it.
-    /// - [`workflow`] - An alternative more ergonomic way of constructing [`TimeoutTaskFrame`]
+    /// - [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) A middle-ground between the macro and the base API
+    /// - [`workflow`](chronographer::prelude::workflow) - An alternative more ergonomic way of constructing [`TimeoutTaskFrame`]
     pub fn builder() -> TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, TimeoutMissingBuilder, TimeoutMissingBuilder> {
         TimeoutTaskFrameBuilder {
             frame: TimeoutMissingBuilder(()),
@@ -461,7 +471,7 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
             return inner;
         }
 
-        ctx.emit::<OnTimeout>(&duration).await;
+        ctx.emit::<OnTimeout>(&TimeoutDuration(duration)).await;
         Err((self.on_timeout)())
     }
 }
