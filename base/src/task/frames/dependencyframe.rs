@@ -11,6 +11,26 @@ pub trait DefaultDependencyError: TaskError {
     fn default_dependency_error() -> Self;
 }
 
+impl DefaultDependencyError for String {
+    fn default_dependency_error() -> Self {
+        "Unresolved Dependencies".to_string()
+    }
+}
+
+#[cfg(feature = "anyhow")]
+impl DefaultDependencyError for anyhow::Error {
+    fn default_dependency_error() -> Self {
+        anyhow::anyhow!("Unresolved Dependencies")
+    }
+}
+
+#[cfg(feature = "eyre")]
+impl DefaultDependencyError for eyre::Error {
+    fn default_dependency_error() -> Self {
+        eyre::eyre!("Unresolved Dependencies")
+    }
+}
+
 pub trait DependencyUnresolve<T: TaskError>: Send + Sync {
     fn execute(&self) -> Result<(), T>;
 }

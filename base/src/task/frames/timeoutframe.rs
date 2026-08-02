@@ -145,6 +145,10 @@ pub struct TimeoutPresentBuilder<T>(T);
 /// When it comes to creating a [`TimeoutTaskFrame`], one can use the builder via [`TimeoutTaskFrame::builder`]
 /// and initializing the appropriate parameters from there and then simply building it.
 ///
+/// # Trait Implementation(s)
+/// Apart from [`TaskFrame`] which [`TimeoutTaskFrame`] implements. There is no other prominent trait
+/// which it currently implements.
+///
 /// # Example(s)
 /// ```rust
 /// use chronographer::prelude::*;
