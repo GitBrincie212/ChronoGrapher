@@ -114,7 +114,7 @@ pub type TripleFallback<T1, T2, T3, T4> = FallbackTaskFrame<T1, FallbackTaskFram
 /// by the secondary / fallback [`TaskFrame`] (usually it's the primary error)
 ///
 /// # Events
-/// The [`FallbackError`] fires only one event that being [`OnFallback`] which is emitted when the
+/// The [`FallbackTaskFrame`] fires only one event that being [`OnFallback`] which is emitted when the
 /// primary workflow fails with an error and before the secondary / fallback workflow runs. This event
 /// contains as payload a reference to the primary error itself that being [`FallbackError`] which is a
 /// thin-wrapper around a reference to [`TaskError`].
@@ -133,7 +133,7 @@ pub type TripleFallback<T1, T2, T3, T4> = FallbackTaskFrame<T1, FallbackTaskFram
 /// to check the [`workflow`](chronographer::prelude::workflow) macro itself.
 ///
 /// Finally, you can use [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) and specify one or multiple times
-/// the builder method [`TaskFrameBuilder::with_fallback`](chronographer::task::TaskFrameBuilder::from_fallback)
+/// the builder method [`TaskFrameBuilder::with_fallback`](chronographer::task::TaskFrameBuilder::with_fallback)
 /// for each fallback, executing in order from bottom up.
 ///
 /// # Trait Implementation(s)
@@ -240,7 +240,6 @@ pub type TripleFallback<T1, T2, T3, T4> = FallbackTaskFrame<T1, FallbackTaskFram
 ///     MyFallbackTaskFrame2::single()
 /// );
 ///
-/// # type DoubleFallback<T1, T2, T3> = FallbackTaskFrame<T1, FallbackTaskFrame<T2, T3>>;
 /// # let inner: DoubleFallback<MyTaskFrame, RetriableTaskFrame<MyFallbackTaskFrame1>, MyFallbackTaskFrame2> = workflow;
 /// ```
 ///
@@ -251,8 +250,8 @@ pub type TripleFallback<T1, T2, T3, T4> = FallbackTaskFrame<T1, FallbackTaskFram
 /// - [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) A middle-ground between the macro and the base API
 /// - [`workflow`](chronographer::prelude::workflow) - Contains an equivalent more ergonomic workflow primitive simply
 ///   by the name of ``fallback(...)``.
-/// - [`TaskFrame`] - The core trait that [`FallbackTaskFrame`] implements and uses.
 /// - [`OnFallback`] - The event the [`FallbackTaskFrame`] fires when the primary workflow fails.
+/// - [`TaskFrame`] - The core trait that [`FallbackTaskFrame`] implements and uses.
 pub struct FallbackTaskFrame<T, T2>(T, T2);
 
 impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
