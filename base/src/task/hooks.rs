@@ -21,7 +21,7 @@ pub mod events {
     pub use crate::task::frames::OnDelayEnd;
     pub use crate::task::frames::OnDelayStart;
     pub use crate::task::frames::OnDependencyValidation;
-    pub use crate::task::frames::OnFallbackEvent;
+    pub use crate::task::frames::OnFallback;
     pub use crate::task::frames::OnFalseyValueEvent;
     pub use crate::task::frames::OnRetryAttemptEnd;
     pub use crate::task::frames::OnRetryAttemptStart;
