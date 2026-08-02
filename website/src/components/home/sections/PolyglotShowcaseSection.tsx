@@ -10,7 +10,7 @@ const POLYGLOT_TITLE_EXAMPLES = [
     "\"Hello ChronoGrapher!\" – Simple Hello World Script",
     "Complex Workflow Orchestration Made Easy & Intuitive",
     "Deep & Granular Observability Via TaskHooks",
-    "#4",
+    "New Horizons Of Flexibility In Scheduling",
     "#5",
     "#6",
 ]
@@ -43,7 +43,8 @@ const POLYGLOT_CODE_EXAMPLES = [
     "// <...>",
 
     "use chronographer::prelude::*;\n\n" +
-    "event!(OnMyCustomEvent(String, u8))\n\n" +
+    "#[event]\n" +
+    "pub struct OnMyCustomEvent(u8, String);\n\n" +
     "#[derive(Default)]\n" +
     "pub struct MyTaskHook;\n\n" +
     "#[hook]\n" +
@@ -61,36 +62,32 @@ const POLYGLOT_CODE_EXAMPLES = [
     "#[hook(auto(MyTaskHook::default()))]\n" +
     "async fn MyTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {\n" +
     "    // <...>\n" +
-    "    ctx.emit::<OnMyCustomEvent>(\"Test\".to_string(), 1)\n" +
+    "    ctx.emit::<OnMyCustomEvent>(&(\"Test\".to_string(), 1))\n" +
     "    Ok(())\n" +
     "}\n\n" +
     "// <...>",
 
     "use chronographer::prelude::*;\n\n" +
-    "// Replace MyErrors with your own application-specific ones\n" +
-    "#[task(schedule = every!(2s))]\n" +
-    "async fn MyTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {\n" +
-    "    println!(\"Hello ChronoGrapher!\");\n" +
-    "    Ok(())\n" +
-    "}\n\n" +
-    "#[chronographer::main]\n" +
-    "async fn main(scheduler: DefaultScheduler<MyErrors>) {\n" +
-    "    let task_inst = MyTask::instance();\n" +
-    "    scheduler.schedule(task_inst).await.unwrap();\n" +
-    "}",
-
-    "use chronographer::prelude::*;\n\n" +
-    "// Replace MyErrors with your own application-specific ones\n" +
-    "#[task(schedule = every!(2s))]\n" +
-    "async fn MyTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {\n" +
-    "    println!(\"Hello ChronoGrapher!\");\n" +
-    "    Ok(())\n" +
-    "}\n\n" +
-    "#[chronographer::main]\n" +
-    "async fn main(scheduler: DefaultScheduler<MyErrors>) {\n" +
-    "    let task_inst = MyTask::instance();\n" +
-    "    scheduler.schedule(task_inst).await.unwrap();\n" +
-    "}",
+    "// Execute on an interval with every!(...)\n" +
+    "every!(1d 5h 2s) // Every 1 day, 5 hours and 2 seconds\n" +
+    "every!(1d, 2.5h) // Every 1 day and 2.5 hours\n\n" +
+    "// Execute on exactly specified times via exact!(...)\n" +
+    "exact!(10:00) // Runs 10:00 AM every morning\n" +
+    "exact!(01-01-2030) // Runs 1st January 2030 every second\n" +
+    "exact!(31-12-** 23:59:59) // Runs every December before new year's eve at 11:59 PM\n\n" +
+    "// Want more expression? Use cron!(...) with its QUARTZ cron-style syntax\n" +
+    "cron!(0 30 12 ? * *) // Run at 12:30 PM every day\n" +
+    "cron!(0 0 17 * * ? 2028) // Run at 5:00 PM every day during the year 2028\n" +
+    "cron!(0 * 19 * * ?) // Run every minute from 7:00 PM - 7:59 PM every day\n\n" +
+    "// Still not enough? Synthesize your own schedule!(...)\n" +
+    "schedule!(\n" +
+    "   year(_) = 2027 // Constant values\n" +
+    "   month(_) = every(2) // Interval-based\n" +
+    "   day(x) = x * 2 where x % 2 == 0 // Dynamic values with constraints\n" +
+    "   hour(_) = minute() // Reference to other fields\n" +
+    "   minute(x) && second(y) = x * y // Bound fields\n" +
+    ")\n\n" +
+    "// <...>",
 
     "use chronographer::prelude::*;\n\n" +
     "// Replace MyErrors with your own application-specific ones\n" +
@@ -164,14 +161,14 @@ export default function PolyglotShowcaseSection() {
       iconColorClass={"bg-fd-brand-primary/5 dark:bg-fd-brand-primary/20 border-fd-brand-primary text-fd-brand-primary"}
     >
       <div className={"w-full h-full flex justify-between gap-6 pl-24 self-stretch"}>
-        <div className={"flex w-full max-w-3xl flex-col -mt-16 shrink-0"}>
+        <div className={"flex w-full max-w-3xl flex-col -mt-24 shrink-0"}>
           <h2 className={"text-base text-start font-bold mb-2"}>{POLYGLOT_TITLE_EXAMPLES[activeIndex]}</h2>
           <DynamicCodeBlock lang={"rust"} codeblock={{
             "data-line-numbers": true,
             keepBackground: false,
             className: "w-full mb-3 text-sm dark:bg-fd-background-100p border border-fd-brand-primary/40 rounded-lg text-start",
             viewportProps: {
-              className: "max-h-80",
+              className: "h-72",
             },
           }} code={POLYGLOT_CODE_EXAMPLES[activeIndex]} />
           <div className={"flex justify-center w-full h-4 gap-2 pr-8 pl-1"}>
