@@ -57,6 +57,8 @@ pub mod prelude {
     pub use crate::task::dependencyframe::DependencyTaskFrame;
     pub use crate::task::dynamicframe::DynamicTaskFrame;
     pub use crate::task::fallbackframe::FallbackTaskFrame;
+    pub use crate::task::fallbackframe::DoubleFallback;
+    pub use crate::task::fallbackframe::TripleFallback;
     pub use crate::task::retryframe::RetriableTaskFrame;
     pub use crate::task::thresholdframe::ThresholdTaskFrame;
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
