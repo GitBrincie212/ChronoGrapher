@@ -20,7 +20,7 @@ impl WorkflowTransform for FallbackArguments {
         for expr in self.0.iter() {
             let output = &expr.to_token_construction();
             curr = quote! {
-                ::chronographer::task::frames::fallbackframe::FallbackTaskFrame::new(
+                ::chronographer::task::frames::fallbackframe::FallbackTaskFrame::singular(
                     #curr,
                     #output
                 )
