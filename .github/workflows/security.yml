@@ -1,15 +1,21 @@
 name: Security Audit CI
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deny.toml'
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'deny.toml'
 
 jobs:
   security_audit:
     name: Security Audit
     runs-on: ubuntu-latest
-    if: |
-      contains(github.event.head_commit.modified, 'Cargo.toml') ||
-      contains(github.event.head_commit.modified, 'Cargo.lock') ||
-      contains(github.event.head_commit.modified, 'deny.toml')
 
     steps:
       - name: Checkout Code
