@@ -2,6 +2,7 @@
 name = "chronographer"
 version = "0.1.0"
 edition = "2024"
+license = "BUSL-1.1"
 license-file = "../LICENSE"
 homepage = "https://github.com/GitBrincie212/ChronoGrapher"
 authors = ["McBrincie212"]
