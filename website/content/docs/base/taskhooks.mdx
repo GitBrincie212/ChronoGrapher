@@ -1,0 +1,248 @@
+---
+title: Events & TaskHooks
+description: Learn how to make your own TaskHooks and Events.
+---
+
+In the previous chapter we learnt about TaskFrames and the built-in workflow primitives in the base API as well as
+how to construct a workflow primitive.
+
+In this chapter we will focus on the observability side of ChronoGrapher, that being ``TaskHooks`` and ``TaskHookEvents``.
+Diving into how to create a ``TaskHook``, a ``TaskHookEvent`` as well as a THEG in the base API.
+
+# TaskHook Equivalent
+In the previous chapter series we've learnt about observability in ChronoGrapher. More specifically about ``TaskHooks`` and
+their two phases the "Implementation / Definition Phase" and the "Attachment Phase".
+
+It should be noted, features in the macro such as auto-attachment and attachment upon Task creation aren't natively supported
+in Base API. Thus requiring a bit of boilerplate code to get around.
+
+## Implementation Phase
+The former phase translated in Base API is similar in spirit to the macro as shown:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+use async_trait::async_trait;
+
+// Same example as the one with #[hook] macro
+#[derive(Default)]
+pub struct MyCoolTaskHook;
+
+#[async_trait]
+impl TaskHook<OnTaskStart> for MyCoolTaskHook {
+    async fn on_event(
+        &self,
+        _ctx: &TaskHookContext,
+        _payload: &<OnTaskStart as TaskHookEvent>::Payload
+    ) {
+        println!("Interested \"OnTaskStart\" event triggered!");
+    }
+}
+
+#[async_trait]
+impl TaskHook<OnTaskEnd> for MyCoolTaskHook {
+    async fn on_event(
+        &self,
+        _ctx: &TaskHookContext,
+        payload: &<OnTaskEnd as TaskHookEvent>::Payload
+    ) {
+        println!("Interested \"OnTaskEnd\" event triggered! With error = {:?}", payload);
+    }
+}
+```
+
+For generic-based events and THEGs the idea is to use a blanket implementation of the ``TaskHook`` trait for
+``MyCoolTaskHook`` with the necessary bound of ``TaskHookEvent``. Try to remove the previous implementations and
+define this singular implementation:
+```rust title="src/main.rs" lineNumbers
+// <...>
+
+#[async_trait]
+impl<E: TaskHookEvent> TaskHook<E> for MyCoolTaskHook {
+    async fn on_event(
+        &self,
+        _ctx: &TaskHookContext,
+        _payload: &<E as TaskHookEvent>::Payload
+    ) {
+        println!("Interested event triggered");
+    }
+}
+```
+
+You can use in-place of ``TaskHookEvent`` a THEG in order to restrict the possible events. Additionally, you can use
+generic-based events such as ``OnHookAttach`` / ``OnHookDetach`` via:
+```rust title="src/main.rs" lineNumbers
+// <...>
+
+#[async_trait]
+impl<E: TaskHookEvent> TaskHook<OnHookAttach<E>> for MyCoolTaskHook {
+    async fn on_event(
+        &self,
+        _ctx: &TaskHookContext,
+        _payload: &<OnHookAttach<E> as TaskHookEvent>::Payload
+    ) {
+        println!("Hook has been attached to or detached from an event");
+    }
+}
+```
+
+One use case we saw in the previous chapter series with the Base API are **Stateful Containers** which utilize the trait alias
+``NonObserverTaskHook`` to define a ``TaskHook`` that only mounts data.
+
+## Registration Phase
+For the latter phase (Attachment Phase), this involves the subsequent uses of ``attach_hook`` method upon the creation
+of our ``Task`` object. Let's return to our previous singleton ``Task`` example but modify a few things.
+
+The main work-around is using tokio ``OnceCell`` since ``LazyLock`` and ``OnceLock`` do not support async operations.
+Unlike our ``LazyLock`` example, we need to define a function that fetches the instance like so:
+```rust title="src/main.rs" lineNumbers
+// [!code ++]
+use tokio::sync::OnceCell;
+
+// [!code ++]
+pub async fn get_mytask() -> Task<MyTaskFrame> {
+    // [!code ++]
+    static MY_TASK: OnceCell<Task<MyTaskFrame>> = OnceCell::const_new();
+    // [!code ++]
+
+    // [!code ++]
+    MY_TASK.get_or_init(|| async {
+        let task = Task::new(MyTaskFrame, every!(2s));
+
+        // [!code ++]
+        // You could directly inline ``Arc<MyCoolTaskHook>`` creation when attaching since
+        // [!code ++]
+        // our TaskHook doesn't hold any state per instance
+        // [!code ++]
+        let instance = Arc::new(MyCoolTaskHook);
+        // [!code ++]
+        task.attach_hook::<OnTaskStart>(instance.clone()).await;
+        // [!code ++]
+        task.attach_hook::<OnTaskEnd>(instance).await;
+        // [!code ++]
+
+        // [!code ++]
+        task
+    // [!code ++]
+    }).await
+// [!code ++]
+}
+```
+
+# TaskHookEvent Equivalent
+Events are simpler to define, as the Base API equivalent is ``TaskHookEvent``, here is an example for a simple event:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+// The Default trait is required for events
+#[derive(Default)]
+pub struct MyTaskHookEvent;
+
+impl TaskHookEvent for MyTaskHookEvent {
+    type Payload<'a> = () where Self: 'a;
+}
+```
+
+In the above example we define an event without any payload. Effectively the same as using the ``#[event]`` macro on a
+unit struct. For inlined payloads, it's as simple as expanding the tuple with entries and for separate named payload types
+one can define a struct acting as the payload and use that as the payload.
+
+## Defining THEGs
+
+For open-form THEGs it also doesn't involve much more than a simple trait with super trait being ``TaskHookEvent``:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+pub trait MyTHEG: TaskHookEvent {}
+```
+
+For common payload types, in order to avoid specifying a lifetime, it's incentivized to use ``for<'a>``:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+// [!code highlight]
+pub trait MyTHEG: for<'a> TaskHookEvent<Payload<'a> = &'a str> {}
+```
+
+For closed-form THEGs you can use a sealed trait, while Rust doesn't support them natively. You can emulate them via:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+// [!code ++]
+trait MyTHEGSealed {}
+// [!code ++]
+impl MyTHEGSealed for OnTaskStart {}
+// [!code ++]
+impl MyTHEGSealed for OnTaskEnd {}
+// [!code ++]
+// <...>
+
+// [!code highlight]
+pub trait MyTHEG: TaskHookEvent + MyTHEGSealed {}
+
+// [!code ++]
+impl MyTHEG for OnTaskStart {}
+// [!code ++]
+impl MyTHEG for OnTaskEnd {}
+// [!code ++]
+// <...>
+```
+
+A use case for defining a THEG via base API is to allow for each event to include its own generics due to the limitations of
+the macro not allowing each variant to have its own generic parameters via:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[event]
+pub struct MyEvent1;
+
+#[event]
+pub struct MyEvent2<T: Send + Sync + 'static>(T);
+
+#[event]
+pub struct MyEvent3<T1: Send + Sync + 'static, T2: Send + Sync + 'static>;
+
+// [!code highlight]
+pub trait MyTHEG: TaskHookEvent + MyTHEGSealed {}
+
+// [!code ++]
+impl MyTHEG for MyEvent1 {}
+// [!code ++]
+
+// [!code ++]
+impl<T> MyTHEG for MyEvent2<T>
+// [!code ++]
+where
+    // [!code ++]
+    T: Send + Sync + 'static
+// [!code ++]
+{}
+// [!code ++]
+
+// [!code ++]
+impl<T1, T2> MyTHEG for MyEvent3<T1, T2>
+// [!code ++]
+where
+    // [!code ++]
+    T1: Send + Sync + 'static,
+    // [!code ++]
+    T2: Send + Sync + 'static
+// [!code ++]
+{}
+// [!code ++]
+// <...>
+```
+
+---
+
+In conclusion, we've seen how to define our own ``TaskHook`` via implementing the ``TaskHook<E>`` trait once or multiple
+times (alternatively we can use ``NonObserverTaskHook`` to mount data only) where ``E`` is our event.
+
+For attaching said ``TaskHooks`` onto our Task, we utilize ``attach_hook`` inside our Task's creation code before returning
+it. Lastly for events we simply implement the ``TaskHookEvent`` trait (or require it as a bound for THEGs), optionally
+specifying a payload type via the associated ``Payload<'a>`` type.
+
+At last, we have covered the Base API which finishes this series for the ``Task`` side. From now on we will be moving towards
+the ``Scheduler`` discussing its own set of components.
+
+> TL;DR. When it comes to TaskHooks, it involves implementing once or multiple times the ``TaskHook<E>`` trait where ``E``
+is our event, attaching them involves an ``attach_hook`` call per event in the Task creation code. Lastly for events, requires
+either implementing ``TaskHookEvent`` or having it as a trait bound and optionally specifying the associated type for the payload.
