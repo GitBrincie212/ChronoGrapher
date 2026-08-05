@@ -1,20 +1,47 @@
 use crate::task::frames::CountingFrame;
-use chronographer::prelude::DynamicTaskFrame;
-use chronographer::task::ConditionalTaskFrame;
-use chronographer::task::RestrictTaskFrameContext;
-use chronographer::task::Task;
-use chronographer::task::TaskFrame;
-use chronographer::task::TaskScheduleImmediate;
+use chronographer::prelude::*;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use chronographer::task::{ConditionalTaskFrame, TaskFrame};
+
+// Slight utility for unit tests to run closures directly inlined
+pub struct ClosureFrame<F> {
+    func: F,
+}
+
+impl<F, Fut, E> ClosureFrame<F>
+where
+    F: Fn(&TaskFrameContext) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<(), E>> + Send + 'static,
+    E: TaskError,
+{
+    pub fn new(func: F) -> Self {
+        Self { func }
+    }
+}
+
+impl<F, Fut, E> TaskFrame for ClosureFrame<F>
+where
+    F: Fn(&TaskFrameContext) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<(), E>> + Send + 'static,
+    E: TaskError,
+{
+    type Error = E;
+    type Args = ();
+    type Workflow = Self;
+
+    async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
+        (self.func)(ctx).await
+    }
+}
 
 #[tokio::test]
 async fn truthy_condition_returns_ok() {
     let counter = Arc::new(AtomicUsize::new(0));
 
     let counter_clone = counter.clone();
-    let frame = DynamicTaskFrame::new(move |_ctx, _args: &()| {
+    let frame = ClosureFrame::new(move |_ctx| {
         let c = counter_clone.clone();
         async move {
             c.fetch_add(1, Ordering::SeqCst);
@@ -28,13 +55,6 @@ async fn truthy_condition_returns_ok() {
         .frame(frame)
         .predicate(predicate)
         .build();
-
-    let frame = Arc::new(frame);
-    let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
-        let ctx = *ctx;
-        let frame = frame.clone();
-        async move { frame.execute(&ctx, &()).await }
-    });
 
     let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased().run().await.unwrap();
@@ -65,13 +85,6 @@ async fn falsey_condition_runs_fallback() {
         .predicate(predicate)
         .build();
 
-    let frame = Arc::new(frame);
-    let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
-        let ctx = *ctx;
-        let frame = frame.clone();
-        async move { frame.execute(&ctx, &()).await }
-    });
-
     let task = Task::new(frame, TaskScheduleImmediate);
     task.into_erased().run().await.unwrap();
 
@@ -93,13 +106,6 @@ async fn falsey_condition_with_error_on_false_returns_error() {
         .predicate(predicate)
         .on_false_error()
         .build();
-
-    let frame = Arc::new(frame);
-    let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
-        let ctx = *ctx;
-        let frame = frame.clone();
-        async move { frame.execute(&ctx, &()).await }
-    });
 
     let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
@@ -124,7 +130,7 @@ async fn truthy_condition_with_failing_inner_frame_returns_error() {
         .build();
 
     let frame = Arc::new(frame);
-    let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
+    let frame = ClosureFrame::new(move |ctx| {
         let ctx = *ctx;
         let frame = frame.clone();
         async move { frame.execute(&ctx, &()).await }
@@ -163,13 +169,6 @@ async fn falsey_condition_with_failing_fallback_returns_error() {
         .fallback(fallback)
         .predicate(predicate)
         .build();
-
-    let frame = Arc::new(frame);
-    let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
-        let ctx = *ctx;
-        let frame = frame.clone();
-        async move { frame.execute(&ctx, &()).await }
-    });
 
     let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
