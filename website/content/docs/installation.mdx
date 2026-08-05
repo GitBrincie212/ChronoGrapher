@@ -30,8 +30,11 @@ or by simply running the command:
 cargo add chronographer
 ```
 
+Additionally [tokio](https://tokio.rs/) is needed which can be added following the same process via ``cargo add tokio``
+or manually including it in the ``Cargo.toml`` file.
+
 We recommend installing [thiserror](https://docs.rs/thiserror/latest/), it allows for better error handling,
-simply run ``cargo add thiserror`` to install the crate in your project.
+simply run ``cargo add thiserror`` (or manually) to install the crate in your project.
 
 Throughout the guidebook, we will be using ``thiserror``, however these concepts should transfer over for Rust users using
 their own error approach or any other crate / utility for error handling.
