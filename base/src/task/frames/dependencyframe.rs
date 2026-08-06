@@ -8,7 +8,7 @@ use crate::task::TaskFrame;
 use crate::task::{Debug, TaskFrameContext};
 use typed_builder::TypedBuilder;
 
-/// A trait which depends on the subtrait [`TaskError`] which allows the specification of a default dependency error
+/// A super trait that depends on [`TaskError`] which allows the specification of a default dependency error
 /// for the [`DependencyTaskFrame`].
 ///
 /// # Required Method(s)
@@ -55,21 +55,23 @@ impl DefaultDependencyError for eyre::Error {
     }
 }
 
-/// A trait which allows specification of a custom logic for unresolved dependencies.
+/// A trait which allows specification of a custom logic to decide whenever or not [`DependencyTaskFrame`]
+/// should return an error or success for any unresolved dependencies.
 /// 
 /// # Required Method(s)
 /// The only one required method to implement is [`DependencyUnresolve::execute`] which performs
 /// the actual logic of the implementor.
 /// 
 /// # Implementation(s)
-/// There are two main implementations of this trait those being [`DependencyUnresolveFail`] which will fail when the dependencies
-/// aren't resolved and [`DependencyUnresolveSkip`] which in that case just silently skips the workflow.
+/// There are two main implementations of this trait those being [`DependencyUnresolveFail`] which will
+/// fail when the dependencies aren't resolved and [`DependencyUnresolveSkip`] which in that case just
+/// silently skips the workflow.
 /// 
 /// # Object Safety / Dynamic Dispatching
 /// This trait is object safe (dyn compatible).
 /// 
 /// # Generic(s)
-/// The only generic is `T`, the error type which must implement [`TaskError`] trait and is returned by the
+/// The only generic is ``T``, the error type which must implement [`TaskError`] trait and is returned by the
 /// method [`DependencyUnresolve::execute`].
 /// 
 /// # See Also
@@ -83,7 +85,9 @@ pub trait DependencyUnresolve<T: TaskError>: Send + Sync {
     fn execute(&self) -> Result<(), T>;
 }
 
-/// Implementation of the [`DependencyUnresolve`] trait which fails when the dependency is not resolved.
+/// Implementation of the [`DependencyUnresolve`] trait which fails when the dependency is unresolved.
+/// The counterpart implementation for skipping the workflow when unresolved dependencies are met
+/// is [`DependencyUnresolveSkip`].
 /// 
 /// # Constructor(s)
 /// The primary way of constructing a [`DependencyUnresolveFail`] is via the [`DependencyUnresolveFail::default`]
@@ -94,11 +98,12 @@ pub trait DependencyUnresolve<T: TaskError>: Send + Sync {
 /// when a dependency is unresolved.
 /// 
 /// # Generic(s)
-/// The only generic is `T`, the error type which must implement [`TaskError`] trait and is returned by the
-/// method [`DependencyUnresolve::execute`].
+/// The only generic is ``T``, the error type which must implement [`TaskError`] trait and is returned by
+/// the method [`DependencyUnresolve::execute`].
 /// 
 /// # See Also
 /// - [`TaskError`] - The trait of the generic which describes the errors for workflows.
+/// - [`DependencyUnresolveSkip`] - The counterpart which skips the workflow when unresolved dependencies are met
 /// - [`DependencyUnresolve`] - The trait that allows to be executed when a dependency is unresolved.
 pub struct DependencyUnresolveFail<T: TaskError>(PhantomData<T>);
 
@@ -120,7 +125,9 @@ impl<T: DefaultDependencyError> DependencyUnresolve<T> for DependencyUnresolveFa
     }
 }
 
-/// Implementation of the [`DependencyUnresolve`] trait which silently skips the workflow when the dependency is not resolved.
+/// Implementation of the [`DependencyUnresolve`] trait which silently skips the workflow when the
+/// dependency is unresolved. The counterpart implementation for failing the workflow when unresolved dependencies
+/// are met is [`DependencyUnresolveFail`].
 /// 
 /// # Constructor(s)
 /// The primary way of constructing a [`DependencyUnresolveSkip`] is via the [`DependencyUnresolveSkip::default`]
@@ -131,11 +138,12 @@ impl<T: DefaultDependencyError> DependencyUnresolve<T> for DependencyUnresolveFa
 /// when a dependency is unresolved.
 /// 
 /// # Generic(s)
-/// The only generic is `T`, the error type which must implement [`TaskError`] trait and is returned by the
-/// method [`DependencyUnresolve::execute`].
+/// The only generic is ``T``, the error type which must implement [`TaskError`] trait and is returned
+/// by the method [`DependencyUnresolve::execute`].
 /// 
 /// # See Also
 /// - [`TaskError`] - The trait of the generic which describes the errors for workflows.
+/// - [`DependencyUnresolveFail`] - The counterpart which fails the workflow when unresolved dependencies are met
 /// - [`DependencyUnresolve`] - The trait that allows to be executed when a dependency is unresolved.
 pub struct DependencyUnresolveSkip<T: TaskError>(PhantomData<T>);
 
@@ -154,112 +162,6 @@ impl<T: TaskError> Clone for DependencyUnresolveSkip<T> {
 impl<T: TaskError> DependencyUnresolve<T> for DependencyUnresolveSkip<T> {
     fn execute(&self) -> Result<(), T> {
         Ok(())
-    }
-}
-
-/// Represents intermediate configuration of [`DependencyTaskFrame`].
-/// 
-/// # Constructor(s)
-/// The primary way to create this struct is by calling [`DependencyTaskFrameConfig::builder`]
-/// which returns its builder, [`DependencyTaskFrameConfigBuilder`].
-/// 
-/// # Generic(s)
-/// The only generic is `T`, the type of the nested frame which must implement [`TaskFrame`] trait.
-/// 
-/// # See Also
-/// - [`DependencyTaskFrame`] - The result of the builder of this struct.
-/// - [`TaskFrame`] - The basis (its trait implementation) for the [`DependencyTaskFrame`]
-/// - [`FrameDependency`] - Represents a dependency required for the workflow.
-/// - [`DependencyUnresolve`] - A trait which provides a default behaviour when the dependency isn't resolved.
-/// - [`DependencyUnresolveSkip`] - One of the implementors of the [`DependencyUnresolve`] trait which is used here as a
-/// default logic for unresolved dependencies.
-#[derive(TypedBuilder)]
-#[builder(build_method(into = DependencyTaskFrame<T>))]
-pub struct DependencyTaskFrameConfig<T: TaskFrame> {
-    /// Sets the primary [`TaskFrame`] / workflow.
-    /// 
-    /// # Argument(s)
-    /// The only argument this method accepts is [`TaskFrame`] which is the primary workflow.
-    /// 
-    /// # Returns
-    /// This method returns the [`DependencyTaskFrameConfigBuilder`] to chain more setters if needed
-    /// and build the [`DependencyTaskFrame`].
-    /// 
-    /// # Default Value
-    /// This field has no default value and it will result in a compile-time error if you call `.build()`
-    /// before initializing it.
-    /// 
-    /// # Builder Method Chaining
-    /// Trying to set this field twice will generate a compile-time error. 
-    /// 
-    /// # See Also
-    /// - [`DependencyTaskFrameConfig`] - Intermediate struct between [`DependencyTaskFrameConfigBuilder`] and [`DependencyTaskFrame`].
-    /// - [`TaskFrame`] - Trait bound for the main workflow that [`DependencyTaskFrameConfig`] uses.
-    /// - [`DependencyTaskFrameConfigBuilder`] - Builder that's returned when set this field.
-    /// - [`DependencyTaskFrame`] - The final result of the builder.
-    frame: T,
-    
-    /// Sets a dependency required by the workflow.
-    /// 
-    /// # Argument(s)
-    /// The only argument this method accepts is [`DependencyTaskFrame`] which represents a dependency required for the workflow.
-    /// 
-    /// # Returns
-    /// This method returns the [`DependencyTaskFrameConfigBuilder`] to chain more setters if needed
-    /// and build the [`DependencyTaskFrame`].
-    /// 
-    /// # Default Value
-    /// This field has no default value and it will result in a compile-time error if you call `.build()`
-    /// before initializing it.
-    /// 
-    /// # Builder Method Chaining
-    /// Trying to set this field twice will generate a compile-time error. 
-    /// 
-    /// # See Also
-    /// - [`DependencyTaskFrameConfig`] - Intermediate struct between [`DependencyTaskFrameConfigBuilder`] and [`DependencyTaskFrame`].
-    /// - [`FrameDependency`] - Represents a dependency required for the workflow.
-    /// - [`DependencyTaskFrameConfigBuilder`] - Builder that's returned when set this field.
-    /// - [`DependencyTaskFrame`] - The final result of the builder.
-    dependency: FrameDependency,
-    
-    /// Sets an optional custom behaviour in case if the dependency isn't resolved.
-    /// 
-    /// # Argument(s)
-    /// The only argument this method accepts is a [`DependencyUnresolve`] implementor for a custom logic
-    /// on unresolved dependencies.
-    /// 
-    /// # Returns
-    /// This method returns the [`DependencyTaskFrameConfigBuilder`] to chain more setters if needed
-    /// and build the [`DependencyTaskFrame`].
-    /// 
-    /// # Default Value
-    /// The default value of this property is `DependencyUnresolveSkip::default()` which will just silently skip the workflow.
-    /// For more information, see [`DependencyUnresolveSkip`].
-    /// 
-    /// # Builder Method Chaining
-    /// Trying to set this field twice will generate a compile-time error.
-    /// 
-    /// # See Also
-    /// - [`DependencyTaskFrameConfig`] - Intermediate struct between [`DependencyTaskFrameConfigBuilder`] and [`DependencyTaskFrame`].
-    /// - [`DependencyUnresolve`] - A trait which provides a default behaviour when the dependency isn't resolved.
-    /// - [`DependencyUnresolveSkip`] - One of the implementors of the [`DependencyUnresolve`] trait which is used here as a
-    /// default logic for unresolved dependencies.
-    /// - [`DependencyTaskFrameConfigBuilder`] - Builder that's returned when set this field.
-    /// - [`DependencyTaskFrame`] - The final result of the builder.
-    #[builder(
-        default = Box::new(DependencyUnresolveSkip::<T::Error>::default()),
-        setter(transform = |ts: impl DependencyUnresolve<T::Error> + 'static| Box::new(ts) as Box<dyn DependencyUnresolve<_>>)
-    )]
-    unresolve: Box<dyn DependencyUnresolve<T::Error>>,
-}
-
-impl<T: TaskFrame> From<DependencyTaskFrameConfig<T>> for DependencyTaskFrame<T> {
-    fn from(config: DependencyTaskFrameConfig<T>) -> Self {
-        Self {
-            frame: config.frame,
-            dependency: config.dependency,
-            unresolve: config.unresolve,
-        }
     }
 }
 
@@ -339,15 +241,15 @@ define_event!(
 /// dependencies ([`FrameDependency`]) of the nested [`TaskFrame`] / workflow.
 /// 
 /// # Decorating / Wrapping Behavior
-/// It tries to resolve the dependecies first. Examples are a certain [`Task`] executed before,
-/// an `AtomicBool` flag enabled, or a composition of various dependencies.
+/// It tries to resolve the dependencies first. Examples are certain [`Task(s)`] executed before,
+/// an ``AtomicBool`` flag enabled, or a composition of various dependencies.
 /// 
-/// If the dependency is resolved, it proceeds with the nested [`TaskFrame`].
-/// Otherwise, it will skip this workflow and if provided, will execute a custom logic for unresolved dependency.
+/// If the dependency is resolved, it proceeds with the nested [`TaskFrame`] / workflow. Otherwise,
+/// depending on the configured behavior it will either skip or fail this workflow (by default it skips).
 /// 
 /// # Execution Error(s)
 /// If the [`DependencyTaskFrame`] proceeds with the nested [`TaskFrame`], it can throw an error from the workflow. 
-/// Otherwise if the dependencies aren't resolved **and a custom behaviour for unresolved dependency provided**, that behaviour
+/// Otherwise, if the dependencies aren't resolved **and a custom behavior for unresolved dependency provided**, that behavior
 /// can throw its own errors.
 /// 
 /// # Events
@@ -356,16 +258,14 @@ define_event!(
 /// 
 /// # Constructor(s)
 /// When it comes to creating a [`DependencyTaskFrame`], one can use the builder via [`DependencyTaskFrame::builder`]
-/// and initializing the appropriate parameters from there and then simply building it.
+/// and initializing the appropriate parameters from there simply building it.
 ///
 /// Another way to achieve this is via the [`workflow`](chronographer::prelude::workflow) macro. As the
-/// workflow primitive equivalent for [`DependencyTaskFrame`] inside the macro is `dependency(...)` which accepts one
-/// required argument being `dependency`, either being an `AtomicBool` flag via `flag(...)`, a task,
-/// a dynamic function returning `bool` via `dynamic(...)` or a composition of previous dependencies through logical operators
-/// such as `&&` (AND), `||` (OR), `!` (NOT), or `^` (XOR).
+/// workflow primitive equivalent for [`DependencyTaskFrame`] inside the macro is ``dependency(...)``
+/// which requires an argument (``dependency``) which can show up in multiple forms either.
 ///
-/// Additionally, a behaviour for unresolved dependency can be specified as an optional parameter which can be an immediate failure via `fail`,
-/// or a custom logic via `custom(...)`.
+/// It is recommended to check the [`workflow`](chronographer::prelude::workflow) documentation for more
+/// information about the usage.
 /// 
 /// # Trait Implementation(s)
 /// Apart from `DependencyTaskFrame` implementing the [`TaskFrame`] trait, there is no other prominent trait to note of.
@@ -382,7 +282,8 @@ define_event!(
 ///     // ...
 /// }
 /// ```
-/// Requires `MyTask1` to run at least once, regardless of its result.
+/// Requires ``MyTask1`` to run at least once, regardless of its result before ``MyTask2`` ever runs.
+///
 /// The same example in Base API:
 /// ```rust
 /// # #[task(schedule = every!(1s)))]
@@ -411,9 +312,9 @@ define_event!(
 ///     // ...
 /// }
 /// ```
-/// Requires `MyTask1` to run 3 times regardless of result. Replacing `any` in the macro by 
-/// `successes`/`failures`/`consecutive_successes`/`consecutive_failures` will require the `MyTask1` to
-/// success 3 times/fail 3 times/success 3 consecutive times/fail consecutive 3 times, respectively.
+/// Requires `MyTask1` to run at least 3 times regardless of result. Replacing ``any`` in the macro by
+/// ``successes``/``failures`` will require the `MyTask1` to succeed or fail at least 3 times respectively.
+///
 /// The same example in Base API:
 /// ```rust
 /// # #[task(schedule = every!(1s)))]
@@ -434,7 +335,7 @@ define_event!(
 /// 
 /// ---
 /// 
-/// You can also have different types of dependecies and even combine them:
+/// You can also have different types of dependencies and even combine them:
 /// 
 /// ```rust
 /// static MY_FLAG: AtomicBool = AtomicBool::new(false);
@@ -470,7 +371,7 @@ define_event!(
 /// 
 /// ---
 /// 
-/// Finally we can customize what happens when the dependencies aren't resolved. For example:
+/// Finally, we can customize what happens when the dependencies aren't resolved. For example:
 /// ```rust
 /// #[task(schedule = every!(4s)))]
 /// #[workflow(
@@ -486,7 +387,8 @@ define_event!(
 /// }
 /// ```
 /// Now instead of just skipping this workflow part with success, it errors out.
-/// And of course you can costumize it via `custom(...)` as in the comment.
+/// And of course you can customize it via `custom(...)` as in the comment.
+///
 /// The same example in Base API:
 /// ```rust
 /// # #[task(schedule = every!(4s)))]
@@ -512,43 +414,96 @@ define_event!(
 ///
 /// # See Also
 /// - [`DependencyTaskFrame::builder`] - The constructor / builder for configuring it in Base API.
-/// - [`workflow`](chronographer::prelude::workflow) - Contains an equivalent more ergonomic workflow primitive simply by the name of `dependency(...)`.
+/// - [`workflow`](chronographer::prelude::workflow) - Contains an equivalent more ergonomic workflow
+///   primitive simply by the name of `dependency(...)`.
 /// - [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) A middle-ground between the macro and the base API
 /// - [`TaskFrame`] - The core trait that [`DependencyTaskFrame`] implements and uses.
-/// - [`OnDependencyValidation`] - The event the [`DependencyTaskFrame`] fires when the dependency is checked to see whether it had been resolved..
+/// - [`OnDependencyValidation`] - The event the [`DependencyTaskFrame`] fires when the dependency is
+///   checked to see whether it had been resolved.
 /// - [`TargetDependency`] - Wrapper type for [`FrameDependency`], for encapsulation reasons.
 /// - [`IsResolved`] - Wrapper type for [`bool`], for encapsulation reasons.
 /// - [`FrameDependency`] - Represents a dependency required for the workflow.
-/// - [`DependencyUnresolve`] - A trait which provides a default behaviour when the dependency isn't resolved.
+/// - [`DependencyUnresolve`] - A trait which provides a default behavior when the dependency isn't resolved.
+/// - [`DependencyUnresolveSkip`] - The default value for the [`DependencyUnresolve`] parameter.
+/// - [`DependencyUnresolveFail`] - A counterpart of [`DependencyUnresolveSkip`]
+///   for failing the workflow on unresolved dependencies
+#[derive(TypedBuilder)]
 pub struct DependencyTaskFrame<T: TaskFrame> {
-    frame: T,
-    dependency: FrameDependency,
-    unresolve: Box<dyn DependencyUnresolve<T::Error>>,
-}
-
-impl<T: TaskFrame> DependencyTaskFrame<T> {
-    /// The builder constructor used as one way to configure a [`DependencyTaskFrame`] instance. For better
-    /// ergonomics and fewer boilerplate it's best to use the [`workflow`](chronographer::prelude::workflow) macro
-    /// or by utilizing the [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder). Refer on
-    /// both [`workflow`](chronographer::prelude::workflow), [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder)
-    /// and [`DependencyTaskFrame`] respectively for more information.
+    /// The builder method which sets the primary [`TaskFrame`] / workflow.
+    ///
+    /// # Argument(s)
+    /// The only argument this method accepts is [`TaskFrame`] which is the primary workflow.
     ///
     /// # Returns
-    /// The constructor method returns the builder for configuring the individual parameters.
-    /// There are multiple builder methods inside the returned builder such as:
-    /// - [`DependencyTaskFrameConfigBuilder::frame`] Configures the nested [`TaskFrame`] to use
-    /// - [`DependencyTaskFrameConfigBuilder::dependency`] Configures a [`FrameDependency`] required for the workflow
-    /// - [`DependencyTaskFrameConfigBuilder::unresolve`] Configures a custom logic when the dependency isn't resolved; optional.
-    /// - [`DependencyTaskFrameConfigBuilder::build`] Converts the builder into the [`DependencyTaskFrame`].
+    /// This method returns the [`DependencyTaskFrameBuilder`] configured with the specified
+    /// primary [`TakFrame`] / workflow to chain more builder methods if needed and build the [`DependencyTaskFrame`].
+    ///
+    /// # Default Value
+    /// This field has no default value, and it will result in a compile-time error if you call `.build()`
+    /// before initializing it.
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
     ///
     /// # See Also
-    /// - [`DependencyTaskFrame`] - The result from building it.
-    /// - [`DependencyTaskFrameConfig`] - Intermediate struct between [`DependencyTaskFrameConfigBuilder`] and [`DependencyTaskFrame`].
-    /// - [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) A middle-ground between the macro and the base API
-    /// - [`workflow`](chronographer::prelude::workflow) - An alternative more ergonomic way of constructing [`DependencyTaskFrame`]
-    pub fn builder() -> DependencyTaskFrameConfigBuilder<T> {
-        DependencyTaskFrameConfig::builder()
-    }
+    /// - [`TaskFrame`] - Trait bound for the main workflow that [`DependencyTaskFrame`] uses.
+    /// - [`DependencyTaskFrame`] - The final result of the builder.
+    frame: T,
+
+    /// The builder method which sets a dependency required by [`DependencyTaskFrame`] to be resolved
+    /// before running the [`TaskFrame`] / workflow (set via [`.frame`](DependencyTaskFrameBuilder::frame))
+    ///
+    /// # Argument(s)
+    /// The only argument this method accepts is [`FrameDependency`] which represents a dependency
+    /// required by [`DependencyTaskFrame`] to be resolved before executing the workflow.
+    ///
+    /// # Returns
+    /// This method returns the [`DependencyTaskFrameBuilder`] configured with the specified required
+    /// dependency to chain more builder methods if needed and build the [`DependencyTaskFrame`].
+    ///
+    /// # Default Value
+    /// This field has no default value, and it will result in a compile-time error if you call `.build()`
+    /// before initializing it.
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`FrameDependency`] - Represents a dependency required for the workflow.
+    /// - [`.frame`](DependencyTaskFrameBuilder::frame) - The builder method for configuring the workflow
+    /// - [`TaskFrame`] - The trait bound that represents a workflow.
+    /// - [`DependencyTaskFrame`] - The final result of the builder.
+    dependency: FrameDependency,
+
+    /// The builder method which sets an optional custom behavior / strategy dictating how
+    /// [`DependencyTaskFrame`] should act (failure / success) if the [`FrameDependency`] is unresolved
+    ///
+    /// # Argument(s)
+    /// The only argument this method accepts is [`DependencyUnresolve`] which implements the custom
+    /// logic to dictate the result type from [`DependencyTaskFrame`]
+    ///
+    /// # Returns
+    /// This method returns the [`DependencyTaskFrameBuilder`] configured with the custom specified
+    /// unresolved logic to chain more builder methods if needed and build the [`DependencyTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is `DependencyUnresolveSkip::default()` which silently skips
+    /// the workflow. For more information, see [`DependencyUnresolveSkip`].
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`DependencyUnresolve`] - A trait providing a behavior for [`DependencyTaskFrame`] when the
+    ///   dependency is unresolved.
+    /// - [`DependencyUnresolveSkip`] - One of the implementors of the [`DependencyUnresolve`] trait and the
+    ///   default used as the logic for unresolved dependencies.
+    /// - [`DependencyTaskFrame`] - The final result of the builder.
+    #[builder(
+        default = Box::new(DependencyUnresolveSkip::<T::Error>::default()),
+        setter(transform = |ts: impl DependencyUnresolve<T::Error> + 'static| Box::new(ts) as Box<dyn DependencyUnresolve<_>>)
+    )]
+    unresolve: Box<dyn DependencyUnresolve<T::Error>>,
 }
 
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
