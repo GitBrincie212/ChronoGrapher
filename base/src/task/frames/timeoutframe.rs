@@ -117,8 +117,8 @@ pub struct TimeoutPresentBuilder<T>(T);
 /// own, no matter if the workflow were to succeed or not.
 ///
 /// > **IMPORTANT NOTE:** Due to async Rust limitations, it is possible for the workflow to complete even if
-/// it surpasses the configured threshold for timeout if it doesn't yield. As such ensure to yield for
-/// CPU-heavy tasks to give room for a timeout.
+/// > it surpasses the configured threshold for timeout if it doesn't yield. As such ensure to yield for
+/// > CPU-heavy tasks to give room for a timeout.
 ///
 /// # Execution Error(s)
 /// Any kind of error may appear from the workflow if it completes sooner than the maximum configured
