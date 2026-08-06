@@ -438,12 +438,7 @@ impl<T: TaskFrame, ES>
 
 struct SpecifiedDurationParamError;
 impl<T: TaskFrame, ES>
-    TimeoutTaskFrameBuilder<
-        T,
-        TimeoutMissingBuilder,
-        TimeoutDurationBuilder,
-        ES,
-    >
+    TimeoutTaskFrameBuilder<T, TimeoutMissingBuilder, TimeoutDurationBuilder, ES>
 {
     #[deprecated(note = "Missing required parameter for TaskFrame")]
     #[allow(private_interfaces)]
@@ -465,14 +460,7 @@ impl<T: TaskFrame, ES>
 }
 
 struct SpecifiedErParamError;
-impl<T: TaskFrame, TS, DS>
-    TimeoutTaskFrameBuilder<
-        T,
-        TS,
-        DS,
-        TimeoutErrorBuilder<T::Error>,
-    >
-{
+impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutErrorBuilder<T::Error>> {
     #[deprecated(note = "Already specified parameter for error")]
     #[allow(private_interfaces)]
     pub fn on_timeout(self, _err: SpecifiedErParamError) -> ! {
