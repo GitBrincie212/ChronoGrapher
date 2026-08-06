@@ -261,6 +261,10 @@ pub struct TimeoutTaskFrameBuilder<T, TS, DS, ES> {
     _marker: PhantomData<T>,
 }
 
+type TimeoutDurationBuilder =
+    TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>;
+type TimeoutErrorBuilder<E> = TimeoutPresentBuilder<Box<dyn Fn() -> E + Send + Sync + 'static>>;
+
 impl<T: TaskFrame> TimeoutTaskFrame<T> {
     /// The builder constructor used as one way to configure a [`TimeoutTaskFrame`] instance. For better
     /// ergonomics and fewer boilerplate it's best to use the [`workflow`](chronographer::prelude::workflow) macro
@@ -314,12 +318,7 @@ impl<T: TaskFrame, TS, ES> TimeoutTaskFrameBuilder<T, TS, TimeoutMissingBuilder,
     pub fn duration(
         self,
         duration: Duration,
-    ) -> TimeoutTaskFrameBuilder<
-        T,
-        TS,
-        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync>>,
-        ES,
-    > {
+    ) -> TimeoutTaskFrameBuilder<T, TS, TimeoutDurationBuilder, ES> {
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: TimeoutPresentBuilder(Box::new(move || duration)),
@@ -331,12 +330,7 @@ impl<T: TaskFrame, TS, ES> TimeoutTaskFrameBuilder<T, TS, TimeoutMissingBuilder,
     pub fn duration_fn<F>(
         self,
         f: impl Fn() -> Duration + Send + Sync + 'static,
-    ) -> TimeoutTaskFrameBuilder<
-        T,
-        TS,
-        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync>>,
-        ES,
-    > {
+    ) -> TimeoutTaskFrameBuilder<T, TS, TimeoutDurationBuilder, ES> {
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: TimeoutPresentBuilder(
@@ -352,12 +346,7 @@ impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutMissingBuil
     pub fn on_timeout(
         self,
         error: T::Error,
-    ) -> TimeoutTaskFrameBuilder<
-        T,
-        TS,
-        DS,
-        TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync>>,
-    >
+    ) -> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutErrorBuilder<T::Error>>
     where
         T::Error: Clone + Send + Sync + 'static,
     {
@@ -372,12 +361,7 @@ impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutMissingBuil
     pub fn on_timeout_fn<F>(
         self,
         f: impl Fn() -> T::Error + Send + Sync + 'static,
-    ) -> TimeoutTaskFrameBuilder<
-        T,
-        TS,
-        DS,
-        TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync>>,
-    > {
+    ) -> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutErrorBuilder<T::Error>> {
         TimeoutTaskFrameBuilder {
             frame: self.frame,
             max_duration: self.max_duration,
@@ -393,8 +377,8 @@ impl<T: TaskFrame>
     TimeoutTaskFrameBuilder<
         T,
         TimeoutPresentBuilder<T>,
-        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>,
-        TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync + 'static>>,
+        TimeoutDurationBuilder,
+        TimeoutErrorBuilder<T::Error>,
     >
 {
     pub fn build(self) -> TimeoutTaskFrame<T> {
@@ -410,7 +394,7 @@ impl<T: TaskFrame<Error: DefaultTimeoutError>>
     TimeoutTaskFrameBuilder<
         T,
         TimeoutPresentBuilder<T>,
-        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>,
+        TimeoutDurationBuilder,
         TimeoutMissingBuilder,
     >
 {
@@ -457,7 +441,7 @@ impl<T: TaskFrame, ES>
     TimeoutTaskFrameBuilder<
         T,
         TimeoutMissingBuilder,
-        TimeoutPresentBuilder<Box<dyn Fn() -> Duration + Send + Sync + 'static>>,
+        TimeoutDurationBuilder,
         ES,
     >
 {
@@ -486,7 +470,7 @@ impl<T: TaskFrame, TS, DS>
         T,
         TS,
         DS,
-        TimeoutPresentBuilder<Box<dyn Fn() -> T::Error + Send + Sync + 'static>>,
+        TimeoutErrorBuilder<T::Error>,
     >
 {
     #[deprecated(note = "Already specified parameter for error")]
@@ -509,7 +493,7 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let duration = (self.max_duration)();
-        let result = tokio::time::timeout(duration, self.frame.execute(ctx, &args)).await;
+        let result = tokio::time::timeout(duration, self.frame.execute(ctx, args)).await;
 
         if let Ok(inner) = result {
             return inner;

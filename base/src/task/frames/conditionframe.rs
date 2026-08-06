@@ -95,7 +95,7 @@ where
 
         if result {
             ctx.emit::<OnTruthyValueEvent>(&()).await; // skipcq: RS-E1015
-            return self.frame.execute(&ctx, &()).await;
+            return self.frame.execute(ctx, &()).await;
         }
 
         ctx.emit::<OnFalseyValueEvent>(&()).await; // skipcq: RS-E1015
