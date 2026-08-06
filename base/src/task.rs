@@ -15,8 +15,8 @@ pub use schedule::*;
 
 use crate::errors::TaskError;
 use std::fmt::Debug;
-use std::sync::{Arc, LazyLock};
 use std::sync::atomic::AtomicUsize;
+use std::sync::{Arc, LazyLock};
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
@@ -25,7 +25,7 @@ pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>>;
 pub struct Task<T1> {
     frame: T1,
     schedule: Box<dyn TaskSchedule>,
-    instance_id: usize
+    instance_id: usize,
 }
 
 impl<T1> Task<T1> {
@@ -51,7 +51,7 @@ impl<T1> Task<T1> {
         ctx.detach_hook::<EV, T>().await;
     }
 
-    pub fn schedule(&self) -> &dyn TaskSchedule  {
+    pub fn schedule(&self) -> &dyn TaskSchedule {
         self.schedule.as_ref()
     }
 }
@@ -81,7 +81,7 @@ impl<T1: TaskFrame<Args = ()>> Task<T1> {
         Self {
             frame,
             schedule: Box::new(schedule),
-            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         }
     }
 
@@ -93,7 +93,7 @@ impl<T1: TaskFrame<Args = ()>> Task<T1> {
         ErasedTask {
             frame: Box::new(self.frame),
             schedule: self.schedule,
-            instance_id: self.instance_id
+            instance_id: self.instance_id,
         }
     }
 }
@@ -102,16 +102,23 @@ pub(crate) trait Sealed {}
 
 #[allow(private_bounds)]
 pub trait TaskHookLayer: Sealed + Send + Sync {
-    fn attach<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output=()> + Send;
+    fn attach<EV: TaskHookEvent>(
+        &self,
+        hook: Arc<impl TaskHook<EV>>,
+    ) -> impl Future<Output = ()> + Send;
     fn get<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>>;
-    fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output=()> + Send;
-    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output=()> + Send;
+    fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>)
+    -> impl Future<Output = ()> + Send;
+    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output = ()> + Send;
 }
 
 impl<TF: TaskFrame> Sealed for Task<TF> {}
 
 impl<TF: TaskFrame> TaskHookLayer for Task<TF> {
-    fn attach<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output=()> + Send {
+    fn attach<EV: TaskHookEvent>(
+        &self,
+        hook: Arc<impl TaskHook<EV>>,
+    ) -> impl Future<Output = ()> + Send {
         self.attach_hook(hook)
     }
 
@@ -119,11 +126,14 @@ impl<TF: TaskFrame> TaskHookLayer for Task<TF> {
         self.get_hook::<EV, T>()
     }
 
-    fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output=()> + Send {
+    fn emit<EV: TaskHookEvent>(
+        &self,
+        payload: &EV::Payload<'_>,
+    ) -> impl Future<Output = ()> + Send {
         self.emit_hook_event::<EV>(payload)
     }
 
-    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output=()> + Send {
+    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output = ()> + Send {
         self.detach_hook::<EV, T>()
     }
 }

@@ -1,8 +1,8 @@
-use std::ops::Deref;
-use crate::utils::macros::define_event;
 use crate::errors::TaskError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
+use crate::utils::macros::define_event;
+use std::ops::Deref;
 
 /// A simple wrapper type of reference [`TaskError`] unable to be created from foreign code in order to prevent
 /// emissions of the [`OnFallback`] event from other sources and keeping things encapsulated.
@@ -94,7 +94,8 @@ pub type DoubleFallback<T1, T2, T3> = FallbackTaskFrame<T1, FallbackTaskFrame<T2
 /// - [`FallbackTaskFrame::triplet`] - The constructor for producing this.
 /// - [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) A middle-ground between the macro and the base API
 /// - [`workflow`](chronographer::prelude::workflow) - An alternative more ergonomic way of constructing [`FallbackTaskFrames`]
-pub type TripleFallback<T1, T2, T3, T4> = FallbackTaskFrame<T1, FallbackTaskFrame<T2, FallbackTaskFrame<T3, T4>>>;
+pub type TripleFallback<T1, T2, T3, T4> =
+    FallbackTaskFrame<T1, FallbackTaskFrame<T2, FallbackTaskFrame<T3, T4>>>;
 
 /// The [`FallbackTaskFrame`] is a wrapper-based / decorator [`TaskFrame`] (workflow primitive) which handles
 /// errors from its primary nested [`TaskFrame`] / workflow via a secondary [`TaskFrame`] / workflow.
@@ -314,7 +315,9 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
     /// - [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) A middle-ground between the macro and the base API
     /// - [`workflow`](chronographer::prelude::workflow) - An alternative more ergonomic way of constructing [`FallbackTaskFrame`]
     pub fn double<T3: TaskFrame<Args = T2::Error>>(
-        primary: T, secondary: T2, tertiary: T3
+        primary: T,
+        secondary: T2,
+        tertiary: T3,
     ) -> DoubleFallback<T, T2, T3> {
         FallbackTaskFrame::singular(primary, FallbackTaskFrame::singular(secondary, tertiary))
     }
@@ -348,16 +351,22 @@ impl<T: TaskFrame, T2: TaskFrame> FallbackTaskFrame<T, T2> {
     /// - [`TaskFrameBuilder`](chronographer::task::TaskFrameBuilder) A middle-ground between the macro and the base API
     /// - [`workflow`](chronographer::prelude::workflow) - An alternative more ergonomic way of constructing [`FallbackTaskFrame`]
     pub fn triplet<T3: TaskFrame<Args = T2::Error>, T4: TaskFrame<Args = T3::Error>>(
-        primary: T, secondary: T2, tertiary: T3, quaternary: T4
+        primary: T,
+        secondary: T2,
+        tertiary: T3,
+        quaternary: T4,
     ) -> TripleFallback<T, T2, T3, T4> {
-        FallbackTaskFrame::singular(primary, FallbackTaskFrame::double(secondary, tertiary, quaternary))
+        FallbackTaskFrame::singular(
+            primary,
+            FallbackTaskFrame::double(secondary, tertiary, quaternary),
+        )
     }
 }
 
 impl<T, T2> TaskFrame for FallbackTaskFrame<T, T2>
 where
     T: TaskFrame,
-    T2: TaskFrame<Args = T::Error>
+    T2: TaskFrame<Args = T::Error>,
 {
     type Error = T2::Error;
     type Args = T::Args;
@@ -366,7 +375,8 @@ where
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         match self.0.execute(ctx, args).await {
             Err(err) => {
-                ctx.emit::<OnFallback>(&FallbackError(&err as &dyn TaskError)).await;
+                ctx.emit::<OnFallback>(&FallbackError(&err as &dyn TaskError))
+                    .await;
                 self.1.execute(ctx, &err).await
             }
 

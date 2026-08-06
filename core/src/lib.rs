@@ -24,13 +24,13 @@ macro_rules! immediate {
 
 #[cfg(feature = "macros")]
 pub mod macros {
-    pub use chronographer_macros::taskframe;
-    pub use chronographer_macros::task;
-    pub use chronographer_macros::workflow;
     pub use chronographer_macros::cron;
+    pub use chronographer_macros::event;
     pub use chronographer_macros::every;
     pub use chronographer_macros::hook;
-    pub use chronographer_macros::event;
+    pub use chronographer_macros::task;
+    pub use chronographer_macros::taskframe;
+    pub use chronographer_macros::workflow;
     pub use dynamic_taskframe;
     pub use immediate;
 }
@@ -56,8 +56,8 @@ pub mod prelude {
     pub use crate::task::delayframe::DelayTaskFrame;
     pub use crate::task::dependencyframe::DependencyTaskFrame;
     pub use crate::task::dynamicframe::DynamicTaskFrame;
-    pub use crate::task::fallbackframe::FallbackTaskFrame;
     pub use crate::task::fallbackframe::DoubleFallback;
+    pub use crate::task::fallbackframe::FallbackTaskFrame;
     pub use crate::task::fallbackframe::TripleFallback;
     pub use crate::task::retryframe::RetriableTaskFrame;
     pub use crate::task::thresholdframe::ThresholdTaskFrame;
@@ -66,8 +66,8 @@ pub mod prelude {
     // Scheduling / Triggering
     pub use crate::task::schedule::TaskSchedule;
     pub use crate::task::schedule::TaskScheduleCron;
-    pub use crate::task::schedule::TaskScheduleInterval;
     pub use crate::task::schedule::TaskScheduleImmediate;
+    pub use crate::task::schedule::TaskScheduleInterval;
 
     // Schedulers
     pub use crate::scheduler::DefaultLiveScheduler;

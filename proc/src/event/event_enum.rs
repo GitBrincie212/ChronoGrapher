@@ -1,13 +1,15 @@
-use proc_macro::TokenStream;
-use std::collections::HashSet;
-use darling::ast::{GenericParamExt, NestedMeta};
+use crate::event::utils::{
+    IndividualEventMacroArguments, Payload, get_ident_from_generic, parse_individual_event,
+};
 use darling::FromMeta;
-use quote::{quote, ToTokens};
-use syn::{ItemEnum, Token};
+use darling::ast::{GenericParamExt, NestedMeta};
+use proc_macro::TokenStream;
+use quote::{ToTokens, quote};
+use std::collections::HashSet;
 use syn::parse::{Parse, Parser};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use crate::event::utils::{get_ident_from_generic, parse_individual_event, IndividualEventMacroArguments, Payload};
+use syn::{ItemEnum, Token};
 
 struct EventEnumMacroArguments(Option<Payload>);
 
@@ -19,14 +21,16 @@ impl Parse for EventEnumMacroArguments {
 
         let ident: syn::Ident = input.parse()?;
         if ident != "payload" {
-            return Err(input.error("Expected \"payload\" as the only parameter but got something else"));
+            return Err(
+                input.error("Expected \"payload\" as the only parameter but got something else")
+            );
         }
 
         input.parse::<Token![=]>()?;
 
         let payload = input.parse::<Payload>()?.anonymize();
         if !input.is_empty() {
-            return Err(input.error("Unexpected subsequent tokens found"))
+            return Err(input.error("Unexpected subsequent tokens found"));
         }
 
         Ok(Self(Some(payload)))
@@ -43,29 +47,30 @@ pub fn parse_event_enum(attr: TokenStream, item: ItemEnum) -> syn::Result<TokenS
     let payload_arg = EventEnumMacroArguments::parse.parse2(attr.into())?.0;
 
     let mut lifetimes = theg_generics.lifetimes();
-    let payload_lt = lifetimes.next()
+    let payload_lt = lifetimes
+        .next()
         .cloned()
         .map(|lt| lt.lifetime)
-        .unwrap_or(syn::Lifetime::new(
-            "'a",
-            proc_macro2::Span::call_site()
-        ));
+        .unwrap_or(syn::Lifetime::new("'a", proc_macro2::Span::call_site()));
 
     if let Some(lt) = lifetimes.next() {
         return Err(syn::Error::new_spanned(
             lt,
             "Event cannot have more than one lifetime parameter (the payload)",
-        ))
+        ));
     }
 
     let sealed_name = syn::Ident::new(&format!("Sealed{theg_name}"), theg_name.span());
-    let other_theg_generics = theg_generics.params.iter()
+    let other_theg_generics = theg_generics
+        .params
+        .iter()
         .filter(|&x| x.as_lifetime_param().is_none())
         .cloned()
         .collect::<Punctuated<_, Comma>>();
 
     let theg_where_clause = theg_generics.where_clause.as_ref();
-    let theg_ty_generics = other_theg_generics.iter()
+    let theg_ty_generics = other_theg_generics
+        .iter()
         .map(|x| get_ident_from_generic(&x).to_token_stream())
         .collect::<Punctuated<_, Comma>>();
 
@@ -79,31 +84,39 @@ pub fn parse_event_enum(attr: TokenStream, item: ItemEnum) -> syn::Result<TokenS
             .cloned()
             .collect::<Vec<_>>();
 
-        let event_attr = variant_attrs.iter()
+        let event_attr = variant_attrs
+            .iter()
             .find(|&attr| attr.path().is_ident("event"));
 
         let variant_name = &variant.ident;
         let variant_fields = &variant.fields;
 
         if variant.discriminant.is_some() {
-            return Err(syn::Error::new_spanned(variant, "Cannot assign values to event variants"))
+            return Err(syn::Error::new_spanned(
+                variant,
+                "Cannot assign values to event variants",
+            ));
         } else if names_list.contains(&variant_name.to_string()) {
-            return Err(syn::Error::new_spanned(variant, "Duplicate event name defined"))
+            return Err(syn::Error::new_spanned(
+                variant,
+                "Duplicate event name defined",
+            ));
         }
 
         let mut individual_args = IndividualEventMacroArguments::from_list(&[])?;
         if let Some(attr) = event_attr {
-            let variant_metalist = NestedMeta::parse_meta_list(attr.meta.require_list()?.tokens.clone())?;
-            individual_args = IndividualEventMacroArguments::from_list(&*variant_metalist)?
+            let variant_metalist =
+                NestedMeta::parse_meta_list(attr.meta.require_list()?.tokens.clone())?;
+            individual_args = IndividualEventMacroArguments::from_list(&variant_metalist)?
         }
 
         let expanded_defs = parse_individual_event(
             individual_args,
             &filtered_variant_attrs,
             &theg_vis,
-            &variant_name,
+            variant_name,
             &theg_generics,
-            &variant_fields
+            variant_fields,
         )?;
 
         expanded_variants.push(quote! {
@@ -118,7 +131,9 @@ pub fn parse_event_enum(attr: TokenStream, item: ItemEnum) -> syn::Result<TokenS
 
     let taskhook_event = if let Some(payload) = payload_arg {
         quote! { for<#payload_lt> ::chronographer::task::hooks::TaskHookEvent<Payload<#payload_lt> = #payload> }
-    } else { quote! { ::chronographer::task::hooks::TaskHookEvent }};
+    } else {
+        quote! { ::chronographer::task::hooks::TaskHookEvent }
+    };
 
     Ok(quote! {
         trait #sealed_name {}

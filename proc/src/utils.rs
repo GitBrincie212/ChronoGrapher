@@ -9,13 +9,13 @@ use syn::spanned::Spanned;
 use syn::token::Comma;
 use syn::{Attribute, ExprLit, FnArg, Lit, Pat, PatType};
 
-pub const LIFETIME_UNSUPPORTED_ERR: &'static str =
+pub const LIFETIME_UNSUPPORTED_ERR: &str =
     "Lifetimes are unsupported due to 'static lifetime limitations from async";
 
-pub type ParsedContextArgument = (
-    syn::Ident,
-    syn::Type,
-);
+pub type ParsedContextArgument = (syn::Ident, syn::Type);
+pub type ImplEndTokenStream = proc_macro2::TokenStream;
+pub type PhantomDataTokenStream = Option<proc_macro2::TokenStream>;
+pub type NormalizedTypeParamsTokenStream = Option<Punctuated<proc_macro2::TokenStream, Comma>>;
 
 pub type ParsedArguments = (
     Punctuated<proc_macro2::Ident, Comma>,
@@ -70,14 +70,17 @@ pub fn extract_annotation<T>(
             continue;
         };
 
-        if path.ident.to_string() != annotation.to_lowercase() {
+        if path.ident != annotation.to_lowercase() {
             continue;
         }
 
         if result.is_some() {
             return Err(syn::Error::new_spanned(
                 attr,
-                format!("Cannot use the {} macro annotation twice", annotation.to_lowercase()),
+                format!(
+                    "Cannot use the {} macro annotation twice",
+                    annotation.to_lowercase()
+                ),
             ));
         }
 
@@ -118,14 +121,16 @@ pub fn extract_docs(attrs: &[Attribute]) -> Vec<proc_macro2::TokenStream> {
         .collect()
 }
 
+type HandleGenericsPhantomDataResult = syn::Result<(
+    ImplEndTokenStream,
+    PhantomDataTokenStream,
+    NormalizedTypeParamsTokenStream,
+)>;
+
 pub fn handle_generics_phantom_data(
     name: &syn::Ident,
     fn_sig: &syn::Signature,
-) -> syn::Result<(
-    proc_macro2::TokenStream,
-    Option<proc_macro2::TokenStream>,
-    Option<Punctuated<proc_macro2::TokenStream, Comma>>,
-)> {
+) -> HandleGenericsPhantomDataResult {
     let generics = &fn_sig.generics;
     let where_clause = &fn_sig.generics.where_clause;
     let mut phantom_data = None;
@@ -321,14 +326,16 @@ impl Parse for TimeLiteral {
 pub struct TaskFrameConstructor {
     pub ty: syn::TypePath,
     pub inner: syn::Expr,
-    pub constructor: Option<syn::Ident>
+    pub constructor: Option<syn::Ident>,
 }
 
 impl TaskFrameConstructor {
     pub fn to_token_type(&self) -> TokenStream2 {
         let ty = &self.ty;
         match self.constructor.as_ref() {
-            Some(c) if c == "workflow" => quote! { <#ty as ::chronographer::task::frames::TaskFrame>::Workflow },
+            Some(c) if c == "workflow" => {
+                quote! { <#ty as ::chronographer::task::frames::TaskFrame>::Workflow }
+            }
             _ => quote! { #ty },
         }
     }
@@ -345,24 +352,23 @@ impl Parse for TaskFrameConstructor {
         match &expr {
             syn::Expr::Call(call_expr) => {
                 let syn::Expr::Path(syn::ExprPath { path, .. }) = call_expr.func.as_ref() else {
-                    return Err(input.error(
-                        "Expected an obvious constructor call but got something else",
-                    ));
+                    return Err(
+                        input.error("Expected an obvious constructor call but got something else")
+                    );
                 };
 
                 let segments = &path.segments;
                 let segment_len = segments.len();
                 if segment_len < 2 {
-                    return Err(input.error(
-                        "Expected a constructor call such as MyType::new(...)",
-                    ));
+                    return Err(input.error("Expected a constructor call such as MyType::new(...)"));
                 }
 
                 let type_path = syn::Path {
                     leading_colon: path.leading_colon,
-                    segments: segments.iter()
-                        .cloned()
+                    segments: segments
+                        .iter()
                         .take(segment_len.saturating_sub(1))
+                        .cloned()
                         .collect(),
                 };
 
@@ -381,7 +387,7 @@ impl Parse for TaskFrameConstructor {
             syn::Expr::Path(pt) => {
                 let type_path = syn::Path {
                     leading_colon: pt.path.leading_colon,
-                    segments: pt.path.segments.clone()
+                    segments: pt.path.segments.clone(),
                 };
 
                 let ty = syn::TypePath {
@@ -392,15 +398,11 @@ impl Parse for TaskFrameConstructor {
                 Ok(Self {
                     ty,
                     inner: expr,
-                    constructor: None
+                    constructor: None,
                 })
             }
 
-            _ => {
-                Err(input.error(
-                    "Expected a constructor call such as MyType or MyType::new(...)",
-                ))
-            }
+            _ => Err(input.error("Expected a constructor call such as MyType or MyType::new(...)")),
         }
     }
 }
@@ -408,17 +410,21 @@ impl Parse for TaskFrameConstructor {
 pub fn map_fn_args_pairs(fn_args: &mut PairsMut<FnArg, Comma>) -> syn::Result<ParsedArguments> {
     let mut names = Punctuated::new();
     let mut types = Punctuated::new();
-    while let Some(argument) = fn_args.next() {
+    for argument in fn_args.by_ref() {
         match argument.value() {
             FnArg::Typed(pt) => {
-                let arg_name = extract_arg_name(&pt, "Expected a simple identifier as an argument name")?;
+                let arg_name =
+                    extract_arg_name(pt, "Expected a simple identifier as an argument name")?;
                 let arg_type = &*pt.ty;
                 names.push(arg_name.clone());
                 types.push(arg_type.clone());
             }
 
             FnArg::Receiver(recv) => {
-                return Err(syn::Error::new_spanned(recv, "Invalid syntax, cannot use self, &self or &mut self"));
+                return Err(syn::Error::new_spanned(
+                    recv,
+                    "Invalid syntax, cannot use self, &self or &mut self",
+                ));
             }
         }
     }

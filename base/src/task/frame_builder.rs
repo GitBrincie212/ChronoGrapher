@@ -4,7 +4,10 @@
 use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{ConditionalTaskFrame, ConstantBackoffStrategy, DefaultTimeoutError, DependencyTaskFrame, FallbackTaskFrame, NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame};
+use crate::task::{
+    ConditionalTaskFrame, ConstantBackoffStrategy, DefaultTimeoutError, DependencyTaskFrame,
+    FallbackTaskFrame, NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
+};
 use std::num::NonZeroU32;
 use std::time::Duration;
 
@@ -336,16 +339,20 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`TimeoutTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
-    pub fn with_custom_timeout(self, max_duration: Duration, error: T::Error) -> TaskFrameBuilder<TimeoutTaskFrame<T>>
+    pub fn with_custom_timeout(
+        self,
+        max_duration: Duration,
+        error: T::Error,
+    ) -> TaskFrameBuilder<TimeoutTaskFrame<T>>
     where
-        T::Error: Clone
+        T::Error: Clone,
     {
         TaskFrameBuilder(
             TimeoutTaskFrame::builder()
                 .frame(self.0)
                 .duration(max_duration)
                 .on_timeout(error)
-                .build()
+                .build(),
         )
     }
 
@@ -389,13 +396,13 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_timeout(self, max_duration: Duration) -> TaskFrameBuilder<TimeoutTaskFrame<T>>
     where
-        T::Error: DefaultTimeoutError
+        T::Error: DefaultTimeoutError,
     {
         TaskFrameBuilder(
             TimeoutTaskFrame::builder()
                 .frame(self.0)
                 .duration(max_duration)
-                .build()
+                .build(),
         )
     }
 
@@ -501,7 +508,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         predicate: impl ConditionalFramePredicate + 'static,
     ) -> TaskFrameBuilder<ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, ()>>>
     where
-        T: TaskFrame<Args = ()>
+        T: TaskFrame<Args = ()>,
     {
         let condition = ConditionalTaskFrame::builder()
             .predicate(predicate)
@@ -586,7 +593,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         predicate: impl ConditionalFramePredicate + 'static,
     ) -> TaskFrameBuilder<ConditionalTaskFrame<T, T2>>
     where
-        T: TaskFrame<Args = ()>
+        T: TaskFrame<Args = ()>,
     {
         let condition: ConditionalTaskFrame<T, T2> =
             ConditionalTaskFrame::<T, T2>::fallback_builder()
