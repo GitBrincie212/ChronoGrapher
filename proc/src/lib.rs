@@ -5,24 +5,26 @@ mod utils;
 mod task;
 mod taskframe;
 mod workflow;
+mod hook;
+mod event;
 
 use proc_macro::TokenStream;
 
-/// The [`every`] proc-macro is an alternative ergonomic way to write interval-based schedule as
+/// The [`every`] proc-macro is an alternative ergonomic way to write an interval-based schedule as
 /// opposed to manually constructing the [`TaskScheduleInterval`](chronographer::prelude::TaskScheduleInterval)
 /// object from the ground up.
 ///
 /// # Expansion Semantics
-/// It utilizes under the hood [`TaskScheduleInterval`](chronographer::prelude::TaskScheduleInterval)
+/// It uses under the hood [`TaskScheduleInterval`](chronographer::prelude::TaskScheduleInterval)
 /// and calculates the appropriate time from the time-literal expression at compile-time.
 ///
-/// The translated / expanded version typically looks this:
+/// The translated / expanded version typically looks like this:
 /// ```ignore
 /// TaskScheduleInterval::from_secs_f64(...).unwrap()
 /// ```
 ///
 /// # Invocation Syntax
-/// This macro uses its own syntax in order to form an interval via multiple **Time Literals**. The
+/// This macro uses its own syntax to form an interval via multiple **Time Literals**. The
 /// format of a time literal is a positive number followed by a time prefix.
 ///
 /// The defined time prefixes of this macro are as follows:
@@ -36,7 +38,7 @@ use proc_macro::TokenStream;
 /// every!(4d) // 4 Days via "d"
 /// ```
 ///
-/// The [`every`] macro allows to define more specific times via multiple time literals sorted from most
+/// The [`every`] macro allows defining more specific times via multiple time literals sorted from most
 /// significant / longest to least significant / shortest, the significance order of each time prefix
 /// is listed below:
 /// - Days = ``d``
@@ -58,7 +60,7 @@ use proc_macro::TokenStream;
 /// every!(1d, 1h, 1m, 1s, 1ms) // 1 Day, 1 Hour, 1 Minute, 1 Second & 1 Millisecond
 /// ```
 ///
-/// Finally, the [`every`] macro additionally supports the use of decimals. Though, you can only use it in
+/// Finally, the [`every`] macro additionally supports the use of decimals. Though you can only use it in
 /// the last time field literal, milliseconds do not support this property.
 ///
 /// A couple of examples of decimals are demonstrated below:
@@ -73,10 +75,10 @@ use proc_macro::TokenStream;
 ///
 /// # Limitations
 /// Any lower-order time units (below milliseconds, such as nanoseconds, picoseconds... etc.), CANNOT be represented with
-/// the [`every`] macro, though usually it isn't particularly needed.
+/// the [`every`] macro, though usually it isn't particularly necessary.
 ///
 /// The same thing applies with higher-order time units (above days, such as weeks, months, years, decades... etc.) do
-/// NOT include a time literal. Though a workaround of this issue is utilizing higher values for days such as:
+/// NOT include a time literal. Though a workaround of this issue is using higher values for days such as:
 /// ```rust
 /// use chronographer::every;
 ///
@@ -120,19 +122,19 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// [`task`] macro includes a "clever" auto-append feature in which it adds the "Task" or "TaskFrame" prefix
 /// if not included depending on if it is a "Task" or "TaskFrame" that is currently being expanded to.
 ///
-/// Though it allows the for an escape hatch to override names with two respective attribute parameters
+/// Though it allows for an escape hatch to override names with two respective attribute parameters
 /// (see below for more info about).
 ///
 /// Everything else is almost identical to the [`taskframe`] attribute macro as such it's recommended
 /// to read more about it
 ///
 /// # Valid Targets
-/// The [`task`] macro is applied primarily async functions, these functions cannot be methods (include
-/// &self or &mut self as first argument in a struct / enum / trait).
+/// The [`task`] macro is applied primarily to async functions, these functions cannot be methods (include
+/// &self or &mut self as the first argument in a struct / enum / trait).
 ///
 /// # Attributes & Parameters
 /// The [`task`] macro contains 4 attribute parameters, one of which is required while the other three
-/// are optional and one out of these is an attribute flag:
+/// are optional, and one out of these is an attribute flag:
 /// - **schedule** Specifies the schedule to use, this can be anything (from a type initialization to a macro)
 /// that translates or is something that implements the [`TaskSchedule`](chronographer::prelude::TaskSchedule) trait
 ///
@@ -150,7 +152,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// The [`task`] macro has two ways of expanding, all depending on whenever the [`Task`](chronographer::prelude::Task) is either singleton
 /// or non-singleton / multi-instanced. In both cases it uses the [`taskframe`] macro under the hood.
 ///
-/// For the former where the [`Task`](chronographer::prelude::Task) is a singleton it is similar to:
+/// For the former where the [`Task`](chronographer::prelude::Task) is a singleton, it is similar to:
 /// ```ignore
 /// /* Input:
 /// #[task(schedule = [SCHEDULE])]
@@ -173,7 +175,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Both ``[SCHEDULE]`` and ``[ERROR]`` are placeholders for what kind of schedule to use and the
-/// error type to use respectively. The latter on the other hand typically takes the form of:
+/// error type to use respectively. The latter, on the other hand, typically takes the form of:
 /// ```ignore
 /// /* Input:
 /// #[task(schedule = [SCHEDULE])]
@@ -196,7 +198,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// Again, when it comes to the function itself, it is highly recommended to check how [`taskframe`]
-/// works as it borrows the same syntax with a minor caveat (see the limitations below).
+/// works as it borrows the same syntax with a minor issue (see the limitations below).
 ///
 /// # External Interactions
 /// The [`task`] macro preserves every other attribute macro and mounts it onto the generated results,
@@ -210,8 +212,8 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// that subscribed to specific events upon initialization of the [`Task`](chronographer::prelude::Task).
 ///
 /// # Limitations
-/// While [`taskframe`] generics work mostly out of the box, there is a caveat for [`task`].
-/// Due to static-based limitations, there can be no singleton Task with generics. As such either remove
+/// While [`taskframe`] generics work mostly out of the box, there is an issue for [`task`].
+/// Due to static-based limitations, there can be no singleton Task with generics. As such, either remove
 /// the use of generics or make it non-singleton.
 ///
 /// In addition to this, just like [`taskframe`] generics, lifetimes (due to async limitations) and
@@ -222,16 +224,16 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// - [`Task`](chronographer::prelude::Task) - The base API "equivalent" used internally
 /// - [`taskframe`] - The macro closely related to [`task`] for producing TaskFrames
 /// - [`workflow`] - The macro used for defining workflows, has close relations with [`task`] and [`taskframe`]
-/// - [`hooks`] - The macro used for attaching TaskHooks to events, and has close relations with [`task`]
+/// - [`hook`] - The macro used for attaching TaskHooks to events, and has close relations with [`task`]
 /// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The trait that makes TaskFrames possible
 /// - [`TaskSchedule`](chronographer::prelude::TaskSchedule) - The trait that makes schedules possible
-/// - [`TaskHook`](chronographer::prelude::Task) - The system used for the [`hooks`] macro
+/// - [`TaskHook`](chronographer::prelude::Task) - The system used for the [`hook`] macro
 #[proc_macro_attribute]
 pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     task::task(attr, item)
 }
 
-/// The [`taskframe`] attribute macro is an alternative more ergonomic way to write
+/// The [`taskframe`] attribute macro is an alternative, more ergonomic way to write
 /// [`TaskFrames`](chronographer::prelude::TaskFrame) as opposed to manually constructing them via the
 /// Base API and Rust internals from the ground up.
 ///
@@ -246,12 +248,12 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 /// > **NOTE:** The camelCase is done on purpose, since the macro translates it into a struct
 ///
-/// Whe it comes to creating full Tasks objects, it is recommended to check the [`task`] attribute macro,
-/// its interface is almost identical and in fact the [`taskframe`] macro is used under the hood.
+/// When it comes to creating full Tasks objects, it is recommended to check the [`task`] attribute macro,
+/// its interface is almost identical, and in fact the [`taskframe`] macro is used under the hood.
 ///
 /// # Valid Targets
 /// The [`taskframe`] macro is applied primarily async functions, these functions cannot be methods (include
-/// &self or &mut self as first argument in a struct / enum / trait).
+/// &self or &mut self as the first argument in a struct / enum / trait).
 ///
 /// # Attributes & Parameters
 /// The [`taskframe`] contains no attribute parameters (apart from an internal one which under any
@@ -294,7 +296,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// [`TaskFrame`](chronographer::prelude::TaskFrame) requires the arguments to be a tuple in the form of
 /// ``(T1, T2, T3 ... Tn)``.
 ///
-/// Then the user must extract those values and name them themselves which is slightly cumbersome and
+/// Then the user must extract those values and name them themselves, which is slightly cumbersome and
 /// non-ergonomic, as changing the argument structure requires 2 places to change (the Args associated
 /// type and the extraction logic).
 ///
@@ -334,12 +336,12 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// used in our arguments and the latter ``E`` is used for our error.
 ///
 /// Type parameters must implement ``Send``, ``Sync`` and have a lifetime of ``'static`` due to rust
-/// async limitations. *Should be noted generics aren't limited to either arguments or the return type,
-/// they work the same as Rust generics*.
+/// async limitations. *Should be noted generics aren't limited to either arguments or the return type;
+/// They work the same as Rust generics*.
 ///
-/// Additionally, we have one constant parameter ``N`` that is type of usize, this isn't used anywhere
+/// Additionally, we have one constant parameter ``N`` that is a type of usize, this isn't used anywhere
 /// obvious but could theoritically be used in our code. Moreover, we also have a ``where`` clause which is
-/// supported, alternatively we can specify the trait bounds directly if we want to.
+/// supported. Alternatively, we can specify the trait bounds directly if we want to.
 ///
 /// # External Interactions
 /// The [`taskframe`] macro preserves every other attribute macro and mounts it onto the generated results,
@@ -362,7 +364,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     taskframe::taskframe(attrs, item)
 }
 
-/// The [`workflow`] attribute macro is a special macro from the rest macro, like with [`hooks`] it
+/// The [`workflow`] attribute macro is a special macro from the rest macro; Just like with [`hook`], it
 /// behaves as an annotation working alongside [`task`] and [`taskframe`] rather than a macro which
 /// transforms directly the input provided into something new.
 ///
@@ -370,7 +372,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// stacking on top of each other) which works on top of the function / code they have already written.
 ///
 /// Users can write any kind of workflow via the provided built-in workflow primitives,
-/// from simplest (one workflow primitive) to most complex (with basically an infinite number of these).
+/// from the simplest (one workflow primitive) to the most complex (with basically an infinite number of these).
 ///
 /// Just like the Base API, ordering matters significantly as the workflow will behave drastically
 /// differently under various ordering configurations. Everything is applied from top to bottom.
@@ -403,12 +405,12 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// name of the workflow primitive we want to use and ``...`` are its arguments.
 ///
 /// Unlike typical Rust, workflow primitive arguments can be positional (no argument name, just value) and
-/// named (with the argument's name) or in special occasions contain a variable number of arguments.
+/// named (with the argument's name) or on special occasions contain a variable number of arguments.
 ///
 /// In essence, workflow primitive arguments behave similarly to Python's ``args`` / ``kwargs``, which
 /// means positional arguments should **NOT** be followed after named arguments.
 ///
-/// As previously said, there can be any number workflow primitives. However, the [`workflow`] macro
+/// As previously said, there can be any number of workflow primitives. However, the [`workflow`] macro
 /// imposes a minimum threshold of one workflow primitive (though no upper limit).
 ///
 /// ## Quick Reference
@@ -426,15 +428,15 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The retry workflow primitive behaves identically to [`RetriableTaskFrame`](chronographer::prelude::RetriableTaskFrame),
-/// it allows to retry the workflow up to a specified number of times with a configurable delay and error filter.
+/// it allows retrying the workflow up to a specified number of times with a configurable delay and error filter.
 ///
 /// ### Arguments
 /// - ``max`` The upper bound of times to retry a workflow until it succeeds. Unlike other arguments,
-/// this one is required to be specified, additionally it can be any source of an integer as long as it
+/// this one is required to be specified; Additionally, it can be any source of an integer as long as it
 /// can be converted internally to a ``NonZeroU32``.
 ///
 /// - ``delay`` The delay in-between every retry, this can be as simple as ``immediate``, providing a
-/// constant time / duration literal or even a backoff strategy. Its fully optional to specify and
+/// constant time / duration literal or even a backoff strategy. It's fully optional to specify and
 /// by default immediately retries (zero-delay). The syntaxes of the backoff strategies are as follows:
 ///     1. ``immediate`` The default backoff strategy, it retries immediately
 ///     2. ``constant(value = DURATION)`` Same as using a plain duration / time literal.
@@ -447,10 +449,10 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     ``full``, ``equal`` or ``decorrelated(VALUE)`` which specify how the jitter should behave. It is
 ///     recommended to read more the article [When APIs Fail: A Developer's Journey with Retries, Back Off, and Jitter](https://dev.to/kengowada/when-apis-fail-a-developers-journey-with-retries-back-off-and-jitter-1g2f)
 ///
-/// - ``when`` The error filter composed of a list of patterns encapsulated in brackets (``[...]``)
-/// with optionally an exclamation mark (``!``) as prefix. When used without any exclamation marks it's
-/// a whitelist (one of the pattern must match) whereas with one it turns into a blacklist (none of the
-/// patterns must match). Patterns match based on the error's structure, its fully optional to specify
+/// - ``when`` The error filter is composed of a list of patterns encapsulated in brackets (``[...]``)
+/// with optionally an exclamation mark (``!``) as a prefix. When used without any exclamation marks, it's
+/// a whitelist (one of the patterns must match), whereas with one it turns into a blacklist (none of the
+/// patterns must match). Patterns match based on the error's structure, it's fully optional to specify,
 /// and by default any error is let through.
 ///
 /// ### Examples:
@@ -463,7 +465,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     retry(2, delay = 3s), // Retry up to 2 times with a delay of 3 seconds
 ///     retry(7, linear(2s, 300ms)), // ... with a delay starting from 2 seconds and growing linearly
 ///     retry(3, delay = exponential(2.0)), // ... with a delay exponentially growing by 2^n
-///     retry(11, delay = jitter(equal, 2s)), // ... with an equally-jittered delay of 2 seconds
+///     retry(11, delay = jitter(equal, 2s)), // ... with an equally jittered delay of 2 seconds
 ///     retry(8, when = ["A" | "B"]), // ... with an error filter matching either values "A" or "B"
 ///     retry(1, when = !["C" | "D"]), // ... with an error filter NOT matching either values "C" or "D"
 ///     retry(4, 5s, ["A" | "B" | "C"]), // Retry up to 4 times with a delay of 5 seconds IF matching the errors
@@ -493,7 +495,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// they are positional and must be a [`TaskFrames`](chronographer::prelude::TaskFrame) "expression".
 ///
 /// These [`TaskFrames`](chronographer::prelude::TaskFrame) "expressions" must be a simple constructor
-/// method which fully exposes the type directly for example, plain ``MyType`` or ``MyType::new()``.
+/// method that fully exposes the type directly, for example, plain ``MyType`` or ``MyType::new()``.
 ///
 /// Generics are also supported as you can specify ``MyType::<T>::new()`` but no construction, in
 /// addition to type aliases. What is not supported though are constants and macros.
@@ -549,7 +551,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// it allows the specification of a constant delay before executing the workflow.
 ///
 /// ### Arguments
-/// The workflow primitive accepts only argument that being ``delay`` which is a duration based
+/// The workflow primitive accepts only argument that being ``delay`` which is a duration-based
 /// expression either an identifier to a constant, a macro or a time literal. It specifies the amount of
 /// time to idle before continuing.
 ///
@@ -579,7 +581,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// in that time, it errors out with a timeout error.
 ///
 /// ### Arguments
-/// The workflow primitive accepts only argument that being ``duration`` which is a duration based
+/// The workflow primitive accepts only argument that being ``duration`` which is a duration-based
 /// expression either an identifier to a constant, a macro or a time literal. It specifies the maximum
 /// time allowed for the workflow to run before timeout.
 ///
@@ -606,7 +608,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// The threshold workflow primitive behaves identically to [`ThresholdTaskFrame`](chronographer::prelude::ThresholdTaskFrame),
 /// it allows the specification of an upper time limit in the number of times a workflow is executed
-/// based on a criteria. When the workflow is tempted to run again, it can skip, fail with an error or
+/// based on a criteria. When the workflow is tempted to run again, it can skip, fail with an error, or
 /// do something custom.
 ///
 /// ### Arguments
@@ -656,8 +658,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 ///
 /// The dependency workflow primitive behaves identically to [`DependencyTaskFrame`](chronographer::prelude::DependencyTaskFrame),
-/// it allows the specification of a required dependency to be resolved before ultimately running the workflow,
-/// the shape of the dependency can be as simple as a flag to as complex as a boolean expression with Tasks.
+/// it allows the specification of a required dependency to be resolved before ultimately running the workflow.
+/// The shape of the dependency can be as simple as a flag to as complex as a boolean expression with Tasks.
 ///
 /// ### Arguments
 /// This workflow primitive only has two arguments, the former being a required argument to specify and
@@ -674,7 +676,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Finally, when it comes to the "leaf" / "atomic" dependencies themselves, there are two categories,
 /// by specifying an identifier you reference an outside dependency fully whereas you can create a
-/// dependency by utilizing the following "atomic" expressions:
+/// dependency by using the following "atomic" expressions:
 /// - ``MY_TASK(any = INT)`` Creates a task dependency where ``MY_TASK`` is the identifier of the Task,
 /// specifying "any" followed by an integer value (N), creates a Task dependency that must run N times
 /// before resolving.
@@ -740,8 +742,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// - ``on_false`` A configuration for the workflow primitive to act in case the predicate returns false.
 /// This can either be ``error`` for erroring out or ``success`` to simply skip. **It is important to know**
-/// when a secondary TaskFrame runs and fails, its error will be prioritized, if it succeeds then the condition
-/// errors out regardless with its own error.
+/// when a secondary TaskFrame runs and fails, its error will be prioritized, if it succeeds, then the condition
+/// errors out regardless of its own error.
 ///
 /// ### Examples:
 /// ```rust
@@ -749,7 +751,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// #[taskframe]
 /// #[workflow(
-///     condition(MY_PREDICATE), // Run MY_PREDICATE, if it returns true -> run the workflow
+///     condition(MY_PREDICATE), // Run MY_PREDICATE if it returns true -> run the workflow
 ///     condition(|| { true }), // Run the provided closure, if it returns true -> run the workflow
 ///     condition(MY_PREDICATE, on_false = error), // ... if it returns false -> error out
 ///     condition(MY_PREDICATE, MyTaskFrame2), // ... if it returns false -> run MyTaskFrame2
@@ -768,20 +770,20 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// The output typically depends on which macro ([`task`] or [`taskframe`]), the [`workflow`] macro is
 /// attached to, for this reason read more about their expansion semantics in their respective documentation.
 ///
-/// When attaching it anywhere else it infamously produces a compile-time error:
+/// When attaching it anywhere else, it infamously produces a compile-time error:
 /// ```ignore
 /// "Workflow attribute is unsupported outside of Tasks and TaskFrames (via the respective macros)"
 /// ```
 ///
 /// # Limitations
 /// Due to Rust's macro limitations imposed, the [`workflow`] macro cannot support any type of expression
-/// which can produce a non-obvious type in some specific scenarios such as [`TaskFrames`](chronographer::prelude::TaskFrame).
+/// that can produce a non-obvious type in some specific scenarios such as [`TaskFrames`](chronographer::prelude::TaskFrame).
 ///
-/// When it comes to [`TaskFrame`](chronographer::prelude::TaskFrame) "expressions", as stated before
-/// they must not have any indirections such as constants and macros that obfuscate the type, however
+/// When it comes to [`TaskFrame`](chronographer::prelude::TaskFrame) "expressions", as stated before,
+/// they must not have any indirections such as constants and macros that obfuscate the type, however,
 /// it should be noted generics in the method's constructors are unsupported (i.e. ``MyType::new::<T>()``).
 ///
-/// Additionally due to the way the workflow annotation macro is set up, some IDEs such as RustRover
+/// Additionally, due to the way the workflow annotation macro is set up, some IDEs such as RustRover
 /// may not display the color of the [`workflow`] macro nicely or rarely provide false positive
 /// errors (in this case run ``cargo clean``).
 ///
@@ -790,8 +792,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// will not work no matter what and as such require the switch to the base API.
 ///
 /// # See Also
-/// - [`task`] - A macro for defining Tasks, can also consume the workflow annotation.
-/// - [`taskframe`] - A macro for defining TaskFrames, can also consume the workflow annotation.
+/// - [`task`] - A macro for defining Tasks can also consume the workflow annotation.
+/// - [`taskframe`] - A macro for defining TaskFrames can also consume the workflow annotation.
 /// - [`TaskFrame`](chronographer::prelude::TaskFrame) - The base API building block for defining workflows.
 /// - [`TaskFrameBuilder`](chronographer::task::frame_builder::TaskFrameBuilder) - An alternative way to
 /// write workflows in the base API ergonomically.
@@ -810,6 +812,278 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
     workflow::workflow(attrs, item)
+}
+
+/// The [`hook`] attribute macro is a special macro from most macros; It is similar in spirit to [`workflow`]
+/// but unlike the [`workflow`] macro annotation. This macro can act both as a macro annotation and as
+/// atypical attribute macro depending on the context.
+///
+/// With that said, it allows users to write ergonomically [`TaskHooks`](chronographer::prelude::TaskHook),
+/// both implementing / defining them and even registering / attaching them.
+///
+/// The system allows for almost identical levels of flexibility just like the Base API but achieved with
+/// less boilerplate and more readability in both implementation and attachment phases.
+///
+/// The bare minimal of both implementation and attachment of a TaskHook looks as follows:
+/// ```rust
+/// use chronographer::prelude;
+///
+/// // ============== [IMPLEMENTATION PHASE (START)] ==============
+///
+/// #[derive(Default)]
+/// struct MyTaskHook;
+///
+/// #[hook]
+/// impl MyTaskHook {
+///    async fn OnTaskStart(&self, ctx: &TaskHookContext) { /* ... */ }
+///    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* ... */ }
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, _retry: u32, _error: Option<&dyn TaskError>) { /* ... */ }
+/// }
+///
+/// // ============== [IMPLEMENTATION PHASE (END)] ==============
+/// //
+/// // ============== [ATTACHMENT PHASE (START)] ================
+///
+/// #[task(schedule = every!(2s))]
+/// #[hook(
+///     // Auto-attachment
+///     auto(MyTaskHook),
+///
+///     // Manual Listening (Same code as above basically)
+///     my_inst = MyTaskHook::default(),
+///     OnTaskStart: my_inst,
+///     OnTaskEnd: my_inst,
+///     OnRetryAttemptEnd: my_inst
+/// )]
+/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+///     todo!()
+/// }
+///
+/// // ============== [ATTACHMENT PHASE (END)] ==================
+/// ```
+///
+/// # Valid Targets
+/// The [`hook`] macro can either be applied as an attribute macro to a simple ``impl`` block containing
+/// one identifier that being the TaskHook to generate the implementation-phase. Or alternatively as
+/// a macro annotation in an async function utilizing the [`task`] macro to generate the attachment-phase.
+///
+/// # Attributes & Parameters
+/// Depending on where the macro is used, a different syntax is available for use. The most simple phase
+/// of the two in terms of attributes & parameters is the implementation phase.
+///
+/// It contains only one parameter that being ``auto_attach``. It can either be explicitly specified
+/// by itself, be assigned a value (an identifier) or have as prefix an exclamation mark (!), by default,
+/// it is enabled with the usual method name of "auto_attach".
+///
+/// Explicitly enabling it is the same as the default whereas with assignment an identifier it both enables
+/// the option and overrides the method name of "auto_attach" to a different one. Whereas the third option
+/// disables the option altogether.
+///
+/// The purpose of ``auto_attach`` when it is enabled as an option (either overriding the name or not) is
+/// to provide a method to allow automatically-attaching default events of a TaskHook onto a Task.
+///
+/// The macro can also be used in an async function inside the ``impl`` block with the attribute macro
+/// ``#[hook]`` as a macro annotation. It provides a ``default`` on/off toggle and a ``listen`` parameter
+/// which are explained below.
+///
+/// ---
+///
+/// While in the attachment-phase, traditional parameters in the sense of a static config are non-existent.
+/// The macro embeds a full mini DSL to express connections between TaskHook instances and events to listen
+/// to that specific Task.
+///
+/// The DSL consists of statements which are separated by commas, each statement has the following grammar:
+///
+/// - ``auto(<TYPE> | <TYPE>::<IDENT>)``: Attaches automatically the default events that ``<TYPE>`` TaskHook
+/// provides assuming of course the TaskHook has the auto-attach method (default name is "auto_attach").
+/// If the name is overridden, the alternative syntax may be used via ``<IDENT>`` to specify the method name.
+///
+/// - ``<IDENT> = <VALUE>``: Assigns a TaskHook instance with ``<VALUE>`` as a constructor and the
+/// ``<IDENT>`` refers to the instance just like atypical variable assignment.
+///
+/// - ``<TYPE>: <VALUE>``: Listens to the specific event ``<TYPE>`` with the instance ``<VALUE>`` either
+/// being an identifier which references an existing instance or some other expression that creates a new
+/// instance only for that event.
+///
+/// # Expansion Semantics
+/// The expansion of the [`hook`] macro heavily depends on the context it is used in. However, for the
+/// implementation phase it typically looks something like:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// /* Input:
+/// #[hook]
+/// impl MyTaskHook {
+///    async fn OnTaskStart(&self, ctx: &TaskHookContext) { /* <...> */ }
+///    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* <...> */ }
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, retry: u32, error: Option<&dyn TaskError>) { /* <...> */ }
+///    async fn OnMyCustomEvent(&self, ctx: &TaskHookContext, param1: String, param2: Vec<u8>) { /* <...> */ }
+/// }
+/// */
+///
+/// impl MyTaskHook {
+///     pub async fn auto_attach(hooks_layer: &impl TaskHookLayer, instance: impl Deref<Target=Arc<Self>>) {
+///         hooks_layer.attach::<OnTaskStart>(instance.clone()).await;
+///         hooks_layer.attach::<OnTaskEnd>(instance.clone()).await;
+///         hooks_layer.attach::<OnRetryAttemptEnd>(instance.clone()).await;
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl TaskHook<OnTaskStart> for MyTaskHook {
+///     async fn on_event(&self, ctx: &TaskHookContext, _payload: &<OnTaskStart as TaskHookEvent>::Payload<'_>) {
+///         /* <...> */
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl TaskHook<OnTaskEnd> for MyTaskHook {
+///     async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnTaskEnd as TaskHookEvent>::Payload<'_>) {
+///         let error: &Option<&dyn TaskError> = payload;
+///         /* <...> */
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl TaskHook<OnRetryAttemptEnd> for MyTaskHook {
+///     async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnRetryAttemptEnd as TaskHookEvent>::Payload<'_>) {
+///         let (retry, error): &(u32, Option<&dyn TaskError>) = payload;
+///         /* <...> */
+///     }
+/// }
+///
+/// #[async_trait]
+/// impl TaskHook<OnMyCustomEvent> for MyTaskHook {
+///     async fn on_event(&self, ctx: &TaskHookContext, payload: &<OnMyCustomEvent as TaskHookEvent>::Payload<'_>) {
+///         let (param1, param2): &(String, Vec<u8>) = payload;
+///         /* <...> */
+///     }
+/// }
+/// ```
+///
+/// Each async method corresponds to a trait implementation of ``TaskHook<E>`` where ``E`` is the method name
+/// or the event you are listening to. Do note that visibility modifiers (``pub``, ``pub(crate)``... etc.)
+/// are fully optional.
+///
+/// In our example we have basic names but the macro also allows to listen to generic-based events:
+/// ```rust
+/// #[hook]
+/// impl MyTaskHook {
+///    async fn OnHookAttach<OnTaskStart>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<OnTaskStart>) { /* <...> */ }
+///    async fn OnHookDetach<E: TaskHookEvent>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<E>) { /* <...> */ }
+///    async fn __anonymous__<E: TaskLifecycleEvents>(&self, ctx: &TaskHookContext) { /* <...> */ }
+/// }
+/// ```
+///
+/// There are three variations for listening to generic-based events, each with their own syntax:
+/// - ``MyGenericEvent<MySpecificEvent>`` Narrows the generic the ``MyGenericEvent<T>`` has to only be ``MySpecificEvent``
+/// (while obviously following the bounds set by the generic event), apart from that, it acts identically to ``OnTaskStart``,
+/// ``OnTaskEnd, ``OnMyCustomEvent``... etc.
+///
+/// - ``MyGenericEvent<E: Bound1 + Bound2 ...>``Expresses any kind of event inside ``MyGenericEvent<T>`` as long as the
+/// event parameter has the bounds. The event generic must also follow the given bounds set by ``MyGenericEvent<T>``.
+///
+/// - ``__anonymous__<E: Bound1 + Bound2 ...>`` Unlike the above case which narrows to ``MyGenericEvent<T>``. This form
+/// freely expresses any kind of event as long as it's in the bounds you set.
+///
+/// > **Note 1#:** The bottom two variants have a key limitation regarding the ``auto_attach``. This topic
+/// is explained below and summarized in the limitations section
+///
+/// > **Note 2#:** The first case may look like an unbounded generic of any kind of event, but it behaves
+/// completely different. If you need to represent every single type of event use ``E: TaskHookEvent`` instead.
+///
+/// With the trait implementations for the specific events out, the macro also generates the auto_attach
+/// method as seen above with every event we've written attached by default. We can specify our own defaults,
+/// however, by embedding the ``#[hook(...)]`` macro annotation and using the ``default`` boolean parameter.
+///
+/// Rewriting our previous simple code with this mind, it transforms to:
+/// ```rust
+/// #[hook]
+/// impl MyTaskHook {
+///
+///    #[hook(default)]
+///    async fn OnTaskStart(&self, ctx: &TaskHookContext) { /* <...> */ }
+///
+///    #[hook(default)]
+///    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* <...> */ }
+///
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, retry: u32, error: Option<&dyn TaskError>) { /* <...> */ }
+///
+///    #[hook(default)]
+///    async fn OnMyCustomEvent(&self, ctx: &TaskHookContext, param1: String, param2: Vec<u8>) { /* <...> */ }
+///
+/// }
+/// ```
+/// Now our auto-attach method only attaches ``OnTaskStart``, ``OnTaskEnd`` and ``OnMyCustomEvent`` and not
+/// ``OnRetryAttemptEnd``. Currently, our generic-based events (except the first case) disallow auto-attachement,
+/// the ``default`` parameter solves this elegantly via:
+/// ```rust
+/// #[hook]
+/// impl MyTaskHook {
+///    #[hook(default)]
+///    async fn OnHookAttach<OnTaskStart>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<OnTaskStart>) { /* <...> */ }
+///
+///    #[hook(default = [OnMyCustomEvent, OnTaskStart, OnTaskEnd])]
+///    async fn OnHookDetach<E: TaskHookEvent>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<E>) { /* <...> */ }
+///
+///    #[hook(default = [OnRetryAttemptStart, OnRetryAttemptEnd])]
+///    async fn __anonymous__<E: TaskLifecycleEvents>(&self, ctx: &TaskHookContext) { /* <...> */ }
+/// }
+/// ```
+/// In the above example, the first case doesn't need additional parameters as there is one singular event
+/// to take care of. Whereas in the other two, there can be an unknown number of events and thus needs
+/// specification for which are the defaults.
+///
+/// Though there is a specific edge-case where there is a multitude of basic events but only a very few
+/// number of ambigious generic-based events. Providing defaults might be impossible, and thus you may need
+/// to provide defaults for the rest to discard it. To combat this, use ``#[hook(!default)]``
+///
+/// An additional parameter which can be used is the ``listen``, unlike ``default`` it can be assigned a value.
+/// Do note, this value denotes the event to listen to and is prioritized over the method's name when it exists,
+/// which allows for better self-documenting code in some cases:
+/// ```rust
+/// #[hook]
+/// impl MyTaskHook {
+///
+///    #[hook(listen = OnTaskStart)]
+///    async fn initialization_phase(&self, ctx: &TaskHookContext) { /* <...> */ }
+///
+///    #[hook(default, listen = OnTaskEnd)]
+///    async fn shutdown_phase(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* <...> */ }
+///
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, retry: u32, error: Option<&dyn TaskError>) { /* <...> */ }
+///
+///    #[hook(default)]
+///    async fn OnMyCustomEvent(&self, ctx: &TaskHookContext, param1: String, param2: Vec<u8>) { /* <...> */ }
+///
+/// }
+/// ```
+///
+/// ---
+///
+/// In terms of the attacement-phase. The expansion essentially involves variables for the instances,
+/// attaching the corresponding instances to their specified events along with the handling auto-attachement.
+///
+/// # Limitations
+/// The [`hook`] macro cannot provide an auto-attach if the ``impl`` block contains ambigious generic-based
+/// methods with an unknown number of defaults. The solution is either to disable it fully via ``#[hook(!auto_attach)]``
+/// at the top of the ``impl`` block.
+///
+/// Or alternatively specify defaults for those generic-based methods via the macro annotation ``#[hook(default = [...])]``
+/// which resides at the top of the function that hosts the ambigious generic-based event.
+///
+/// Another limitation is the fact the macro cannot represent stateful container based [`TaskHooks`](chronographer::prelude::TaskHook)
+/// which can be easily solved via implementing the [`NonObserverTaskHook`](chronographer::prelude::NonObserverTaskHook) trait.
+///
+/// # See Also
+/// - [`TaskHook`](chronographer::prelude::TaskHook) - One of the base API building block for this macro.
+/// - [`TaskHookEvent`](chronographer::prelude::TaskHookEvent) - Another base API building block for this macro.
+/// - [`NonObserverTaskHook`](chronographer::prelude::NonObserverTaskHook) - For specifying stateful-container based TaskHooks.
+/// - [`task`] - Works with this macro to allow for the attachement phase.
+/// - [`workflow`] - A closely-related "cousin" to this macro but for describing workflows.
+#[proc_macro_attribute]
+pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    hook::hook(attrs, item)
 }
 
 /// The [`main`] attribute macro is an alternative more ergonomic way to write the main function
@@ -982,4 +1256,329 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn cron(input: TokenStream) -> TokenStream {
     cron::cron(input)
+}
+
+/// The [`event`] attribute macro is an alternative, more ergonomic way to write
+/// [`TaskHookEvents`](chronographer::prelude::TaskHookEvent) as opposed to manually implementing the traits
+/// via the Base API from the ground up.
+///
+/// Unlike most macros, this one has multiple targets which it can be embedded to, depending on which, it
+/// will mean different things entirely. The most basic of all is embedding it in a ``struct``:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub struct MyEvent;
+/// ```
+///
+/// When it comes to listening and acting upon those events, it's recommended to use the [`hook`] macro
+/// and read more about its "Implementation Phase" there.
+///
+/// # Valid Targets
+/// The [`event`] macro can be applied to ``structs``, ``enums`` or ``traits``. Each with their own sets
+/// of parameters, limitations and expansion semantics as discussed below.
+///
+/// # Attributes & Parameters
+/// The [`event`] macro contains different parameters per target (``structs``, ``enums`` and ``traits``) use:
+///
+/// 1. The most basic is when using it in a ``struct`` in which it contains only 2 optional parameters, those being
+/// ``inline`` and  ``payload_name_override``. The former inlines the payload directly as a tuple (if it
+/// contains named fields, if it doesn't then it will error out). Whereas the latter modifies the name of the payload,
+/// by default it's in the form ``[NAME]Payload``, the parameter changes this form to something more explicit. **Be
+/// wary that both parameters are mutually exclusive and including them will produce an error**.
+///
+/// 2. When it comes to using it in ``enums``. There is only one singular parameter, that being ``payload``
+/// which defines a common payload type required for all variants in the ``enum`` to provide.
+///
+/// 3. Finally for ``traits``, there are again two parameters. Those being ``payload`` which expects a common
+/// payload shape and ``blanket`` for implementing automatically it onto the discrete events.
+///
+/// # Expansion Semantics
+/// Again, depending on the target the macro is applied to, the code is expanded to different forms
+/// with their own semantics. Different features are available per target as well.
+///
+/// ## Struct Expansion
+/// When it comes to ``structs``. They expand to a singular discrete event with an optional payload (if there
+/// are any fields). The basic example above can be expanded with a payload shape of our choice via:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// // Anonymous-field styled (directly inlined)
+/// #[event]
+/// pub struct MyMessageEvent(u8, String);
+///
+/// // Named-field styled (must be explicitly inlined)
+/// #[event]
+/// pub struct MyMessageEvent {
+///     pub code: u8,
+///     pub message: String
+/// }
+/// ```
+///
+/// The macro expansions typically look something like this (with the features discussed below, its
+/// shape can slightly change in appearance, however the intent is the same):
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[derive(Default)]
+/// pub struct MyMessageEvent;
+///
+/// impl TaskHookEvent for MyMessageEvent {
+///     type Payload<'a> = (u8, String) where Self: 'a;
+/// }
+/// ```
+///
+/// > **NOTE:** Since events are markers rather than a typical object, the macro is slightly intrusive,
+/// applying any derives will be transferred over to the payload type if it exists.
+///
+/// While the primary example (the anonymous-field one) directly inlines the payload type to the event,
+/// the secondary however (the named-field one), produces a different type acting as the payload type.
+///
+/// Notice how there are visibility for the named-field example. Since it produces a different payload
+/// type, these are helpful for encapsulation by implementing on top your own getters / setters... etc.
+/// However, there may be a case where you want to keep this self-documenting style but directly inline the payload.
+///
+/// This can be achieved by using the ``inline`` parameter:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// // The names and visibility modifiers aren't included
+/// #[event(inline)]
+/// pub struct MyMessageEvent {
+///     pub code: u8,
+///     pub message: String
+/// }
+/// ```
+///
+/// To modify the name of the payload, you can also use ``payload_name_override``:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(payload_name_override = MyNewEventPayloadName)]
+/// pub struct MyMessageEvent {
+///     pub code: u8,
+///     pub message: String
+/// }
+/// ```
+///
+/// You can also specify generics in the event which can be used in the payload type or act as unused.
+/// ChronoGrapher is smart to embed ``PhantomData`` as even if unused in the payload, the generic is still
+/// useful when emitting and listening to said event:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub struct MyMessageEvent<T: Send + Sync + 'static>(u8, String, T);
+///
+/// #[event]
+/// pub struct MyMessageEvent<T: Send + Sync + 'static> {
+///     pub code: u8,
+///     pub message: String,
+///     pub shape: T
+/// }
+/// ```
+///
+/// More generics can be specified, along with constant parameters. However, the macro also allows the
+/// specification of a lifetime parameter while using it in the payload, mirroring directly to the payload's lifetime.
+/// Specifying more lifetime parameters will produce an error:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub struct MyMessageEvent<'a>(u8, &'a str);
+///
+/// #[event]
+/// pub struct MyMessageEvent<'a> {
+///     pub code: u8,
+///     pub message: &'a str
+/// }
+/// ```
+///
+/// ## Enum Expansion
+/// With ``enums``, however, the expansion semantics differ heavily. As opposed to defining a singular event.
+/// You define a **Closed-Form THEG** (a sealed trait with its bound being the
+/// [`TaskHookEvent`](chronographer::prelude::TaskHookEvent) trait) with specific discrete events inside
+/// of it.
+///
+/// Any outside event trying to implement this THEG will be promptly rejected by the compiler. The
+/// most straightforward simple example of defining a closed-form THEG can be written as:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub enum MyClosedFormTHEG {
+///     Event1,
+///     Event2,
+///     Event3,
+///     // <...>
+/// }
+/// ```
+///
+/// The above code not only generates ``MyClosedFormTHEG`` as a trait with a sealed trait required as a
+/// bound. It additionally defines the events, the expansion typically looks as follows (again, with slight
+/// variations depending on the shape):
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// trait SealedMyClosedFormTHEG {}
+/// pub trait MyClosedFormTHEG: SealedMyClosedFormTHEG + TaskHookEvent {}
+///
+/// #[event]
+/// pub struct Event1;
+/// impl SealedMyClosedFormTHEG for Event1 {}
+/// impl MyClosedFormTHEG for Event1 {}
+///
+///
+/// #[event]
+/// pub struct Event2;
+/// impl SealedMyClosedFormTHEG for Event2 {}
+/// impl MyClosedFormTHEG for Event2 {}
+///
+/// #[event]
+/// pub struct Event3;
+/// impl SealedMyClosedFormTHEG for Event3 {}
+/// impl MyClosedFormTHEG for Event3 {}
+///
+/// // <...>
+/// ```
+///
+/// Since each variant acts as the definition of an event, this means the syntax is almost identical
+/// (with a slight caveat explained soon) to applying the macro in individual ``structs``:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub enum MyClosedFormTHEG {
+///     Event1,
+///     Event2(u8, String),
+///     Event3 {
+///         code: u8,
+///         error: String
+///     },
+///
+///     #[event(inline)]
+///     Event4 {
+///         bytes: Vec<u8>,
+///         cursor: usize
+///     }
+///     // <...>
+/// }
+/// ```
+///
+/// It's possible to define a common payload type via the ``payload = ...`` parameter. This enforces
+/// each variant to include this payload shape in some way or form:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(payload = (u8, u16))]
+/// pub enum MyClosedFormTHEG {
+///     Event1(u8, u16),
+///
+///     #[event(inline)]
+///     Event2 {
+///         value1: u8,
+///         value2: u16
+///     }
+/// }
+/// ```
+///
+/// Lastly, generics can be mounted at the top of the enum. **HOWEVER,** due to Rust limitations,
+/// generics in individual variants are not possible. When using generics on the enum, all variants
+/// will also include these generic(s):
+///
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// // Yes this can be used in the payload parameter as well
+/// #[event(payload = T)]
+/// pub enum MyClosedFormTHEG<T: Send + Sync + 'static> {
+///     Event1(T),
+///
+///     #[event(inline)]
+///     Event2 {
+///         value: T,
+///     }
+/// }
+/// ```
+///
+/// Do note, due to the enum limitation when using the payload lifetime parameter. It <u>has to be used</u>
+/// on all variants in some way or form. You can always include private parameters such as ``PhantomData``
+/// or ``&'a ()`` if it's useless to a particular event. Though it requires named fields.
+///
+/// ## Trait Expansion
+/// The last target on the list are ``traits``. Just like ``enums`` they define **THEGs** however, unlike
+/// ``enums``, ``traits`` do the opposite and describe this THEG as an **Open-Form**. This means any kind
+/// of event can implement it if it so desires.
+///
+/// Due to this, as always their expansion semantics as well as the syntax itself (plus parameters) differ.
+/// Kicking things off with a basic example, they can be defined as:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event]
+/// pub trait MyOwnTHEG {}
+/// ```
+///
+/// This simply translates to:
+/// ```rust
+/// pub trait MyTHEG: TaskHookEvent {}
+/// ```
+///
+/// By itself, without utilizing any of its features, it's useless. As such the first parameter that
+/// can be used is called ``blanket``. It allows to implement the THEG directly to those discrete events:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(blanket = [OnTaskStart, OnTaskEnd])]
+/// pub trait MyOwnTHEG {}
+/// ```
+///
+/// Just like the ``enum`` case, it also includes ``payload`` as another parameter to define the
+/// common payload shape all implementations of this THEG require:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(payload = u8)]
+/// pub trait MyOwnTHEG {}
+/// ```
+///
+/// Like all cases, generics can be used along with the payload lifetime parameter. Unlike the ``enum``
+/// case, generics are only defined for the THEG. Thus, each event implementing the trait can have its
+/// own generics and such.
+///
+/// It should be noted however, when defining the payload parameter. The trait **WON'T** require it,
+/// the macro is smart about this and will include it in the form of ``for<'a>`` to avoid bloat.
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// #[event(payload = &'b T)]
+/// pub trait MyOwnTHEG<'b, T: Send + Sync + 'static> {}
+/// ```
+///
+/// Finally, trait bounds can also be added to the THEG which limit it the various events which can implement it.
+/// They work the same as typical Rust trait bounds, thus in order to implement for all events of this trait
+/// bound, you must provide your own blanket implementation:
+/// ```rust
+/// use chronographer::prelude::*;
+///
+/// // You can provide discrete events to auto-implement
+/// #[event(blanket = [OnTaskStart, OnTaskEnd])]
+/// pub trait MyOwnTHEG: TaskLifecycleEvents {}
+/// ```
+///
+/// # Limitations
+/// When it comes to generics in the ``enum`` case. Due to Rust's macro limitations, you cannot define
+/// generics per variant. The usual workaround is to either accept it or use the Base API. However, in
+/// the future there will be a third option utilizing the macro.
+///
+/// In all cases, you cannot specify more than one lifetime parameter as that one lifetime parameter acts
+/// as the payload, any subsequent ones will result promptly in a compile-time error.
+///
+/// # See Also
+/// - [`TaskHookEvent`](chronographer::prelude::TaskHookEvent) - The base API equivalent,
+/// - [`TaskHook`](chronographer::prelude::TaskHook) - The consumer of the events.
+/// - [`hook`] - Used for listening and attaching to those events for [`TaskHook`](chronographer::prelude::TaskHook).
+#[proc_macro_attribute]
+pub fn event(attrs: TokenStream, item: TokenStream) -> TokenStream {
+    event::event(attrs, item)
 }

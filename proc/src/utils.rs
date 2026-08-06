@@ -4,13 +4,23 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Range, RangeInclusive};
 use strsim::levenshtein;
 use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
+use syn::punctuated::{PairsMut, Punctuated};
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Attribute, ExprLit, Lit, Pat, PatType};
+use syn::{Attribute, ExprLit, FnArg, Lit, Pat, PatType};
 
 pub const LIFETIME_UNSUPPORTED_ERR: &'static str =
     "Lifetimes are unsupported due to 'static lifetime limitations from async";
+
+pub type ParsedContextArgument = (
+    syn::Ident,
+    syn::Type,
+);
+
+pub type ParsedArguments = (
+    Punctuated<proc_macro2::Ident, Comma>,
+    Punctuated<syn::Type, Comma>,
+);
 
 pub(crate) enum RangeType {
     Bounded(Range<f64>),
@@ -49,8 +59,9 @@ pub(crate) const TIME_LITERAL_RANGES: [RangeType; 5] = [
 pub const TIME_LITERAL_FIELD: [&str; 5] = ["milliseconds", "seconds", "minutes", "hours", "days"];
 pub const TIME_LITERAL_SUFFIXES: [&str; 5] = ["ms", "s", "m", "h", "d"];
 
-pub fn extract_workflow<T>(
+pub fn extract_annotation<T>(
     attrs: &[Attribute],
+    annotation: &str,
     result: &mut Option<T>,
     initializer: impl Fn(TokenStream2) -> syn::Result<T>,
 ) -> syn::Result<()> {
@@ -58,21 +69,22 @@ pub fn extract_workflow<T>(
         let Some(path) = attr.path().segments.last() else {
             continue;
         };
-        if path.ident.to_string() != "workflow" {
+
+        if path.ident.to_string() != annotation.to_lowercase() {
             continue;
         }
 
         if result.is_some() {
             return Err(syn::Error::new_spanned(
                 attr,
-                "Cannot use the workflow macro twice",
+                format!("Cannot use the {} macro annotation twice", annotation.to_lowercase()),
             ));
         }
 
         let syn::Meta::List(list) = &attr.meta else {
             return Err(syn::Error::new_spanned(
                 attr,
-                "Workflow annotation expected a list of values",
+                format!("{annotation} annotation expected a list of values"),
             ));
         };
 
@@ -391,4 +403,30 @@ impl Parse for TaskFrameConstructor {
             }
         }
     }
+}
+
+pub fn map_fn_args_pairs(fn_args: &mut PairsMut<FnArg, Comma>) -> syn::Result<ParsedArguments> {
+    let mut names = Punctuated::new();
+    let mut types = Punctuated::new();
+    while let Some(argument) = fn_args.next() {
+        match argument.value() {
+            FnArg::Typed(pt) => {
+                let arg_name = extract_arg_name(&pt, "Expected a simple identifier as an argument name")?;
+                let arg_type = &*pt.ty;
+                names.push(arg_name.clone());
+                types.push(arg_type.clone());
+            }
+
+            FnArg::Receiver(recv) => {
+                return Err(syn::Error::new_spanned(recv, "Invalid syntax, cannot use self, &self or &mut self"));
+            }
+        }
+    }
+
+    if names.len() == 1 {
+        names.pop_punct();
+        types.pop_punct();
+    }
+
+    Ok((names, types))
 }

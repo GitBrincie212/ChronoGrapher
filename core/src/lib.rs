@@ -29,6 +29,8 @@ pub mod macros {
     pub use chronographer_macros::workflow;
     pub use chronographer_macros::cron;
     pub use chronographer_macros::every;
+    pub use chronographer_macros::hook;
+    pub use chronographer_macros::event;
     pub use dynamic_taskframe;
     pub use immediate;
 }
@@ -55,14 +57,14 @@ pub mod prelude {
     pub use crate::task::dependencyframe::DependencyTaskFrame;
     pub use crate::task::dynamicframe::DynamicTaskFrame;
     pub use crate::task::fallbackframe::FallbackTaskFrame;
+    pub use crate::task::fallbackframe::DoubleFallback;
+    pub use crate::task::fallbackframe::TripleFallback;
     pub use crate::task::retryframe::RetriableTaskFrame;
     pub use crate::task::thresholdframe::ThresholdTaskFrame;
     pub use crate::task::timeoutframe::TimeoutTaskFrame;
 
     // Scheduling / Triggering
-    pub use crate::task::schedule::TaskCalendarField;
     pub use crate::task::schedule::TaskSchedule;
-    pub use crate::task::schedule::TaskScheduleCalendar;
     pub use crate::task::schedule::TaskScheduleCron;
     pub use crate::task::schedule::TaskScheduleInterval;
     pub use crate::task::schedule::TaskScheduleImmediate;

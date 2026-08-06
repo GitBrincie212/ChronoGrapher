@@ -8,6 +8,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::{Arc, LazyLock};
+use crate::task::{Sealed, TaskHookLayer};
 
 pub mod events {
     pub use crate::task::OnTaskEnd;
@@ -20,7 +21,7 @@ pub mod events {
     pub use crate::task::frames::OnDelayEnd;
     pub use crate::task::frames::OnDelayStart;
     pub use crate::task::frames::OnDependencyValidation;
-    pub use crate::task::frames::OnFallbackEvent;
+    pub use crate::task::frames::OnFallback;
     pub use crate::task::frames::OnFalseyValueEvent;
     pub use crate::task::frames::OnRetryAttemptEnd;
     pub use crate::task::frames::OnRetryAttemptStart;
@@ -520,13 +521,13 @@ define_hook_event!(OnHookAttach);
 
 define_hook_event!(OnHookDetach);
 
-pub trait TaskHookLifecycleEvents<'a, E: TaskHookEvent>:
-    TaskHookEvent<Payload<'a> = &'a dyn TaskHook<E>>
+pub trait TaskHookLifecycleEvents<E: TaskHookEvent>:
+    for<'a> TaskHookEvent<Payload<'a> = &'a dyn TaskHook<E>>
 {
 }
 
-impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<'a, E> for OnHookAttach<E> {}
-impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<'a, E> for OnHookDetach<E> {}
+impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookAttach<E> {}
+impl<'a, E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
@@ -547,5 +548,25 @@ impl TaskHookContext {
 
     pub fn get_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) -> Option<Arc<T>> {
         TASKHOOK_REGISTRY.get::<E, T>(self.0)
+    }
+}
+
+impl Sealed for TaskHookContext {}
+
+impl TaskHookLayer for TaskHookContext {
+    fn attach<EV: TaskHookEvent>(&self, hook: Arc<impl TaskHook<EV>>) -> impl Future<Output=()> + Send {
+        self.attach_hook(hook)
+    }
+
+    fn get<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> Option<Arc<T>> {
+        self.get_hook::<EV, T>()
+    }
+
+    fn emit<EV: TaskHookEvent>(&self, payload: &EV::Payload<'_>) -> impl Future<Output=()> + Send {
+        self.emit::<EV>(payload)
+    }
+
+    fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output=()> + Send {
+        self.detach_hook::<EV, T>()
     }
 }

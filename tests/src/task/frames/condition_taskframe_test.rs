@@ -80,34 +80,6 @@ async fn falsey_condition_runs_fallback() {
 }
 
 #[tokio::test]
-async fn falsey_condition_with_error_on_false_returns_error() {
-    let frame = CountingFrame {
-        counter: Arc::new(AtomicUsize::new(0)),
-        should_fail: false,
-    };
-
-    let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
-
-    let frame = ConditionalTaskFrame::builder()
-        .frame(frame)
-        .predicate(predicate)
-        .error_on_false(true)
-        .build();
-
-    let frame = Arc::new(frame);
-    let frame = DynamicTaskFrame::new(move |ctx, _args: &()| {
-        let ctx = *ctx;
-        let frame = frame.clone();
-        async move { frame.execute(&ctx, &()).await }
-    });
-
-    let task = Task::new(frame, TaskScheduleImmediate);
-    let result = task.into_erased().run().await;
-
-    assert!(result.is_err());
-}
-
-#[tokio::test]
 async fn truthy_condition_with_failing_inner_frame_returns_error() {
     let counter = Arc::new(AtomicUsize::new(0));
 

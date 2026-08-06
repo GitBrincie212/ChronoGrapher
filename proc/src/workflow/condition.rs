@@ -1,29 +1,32 @@
 use crate::workflow::utils::{ArgumentParser, WorkflowTransform};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{ToTokens, TokenStreamExt, quote};
+use syn::parenthesized;
 use syn::parse::{Parse, ParseStream};
 use crate::utils::TaskFrameConstructor;
 
-// TODO: Work on custom-based error behaviours
 pub enum ConditionReturnBehavior {
     Error,
-    Success,
-    // Custom(syn::Expr)
+    Skip,
+    Custom(syn::Expr)
 }
 
 impl Parse for ConditionReturnBehavior {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         match input.parse::<syn::Ident>()?.to_string().as_str() {
             "error" => Ok(Self::Error),
-            "success" => Ok(Self::Success),
-            /*
+            "skip" => Ok(Self::Skip),
             "custom" => {
                 let content;
                 parenthesized!(content in input);
 
-                Ok(Self::Custom(content.parse()?))
+                let expr = content.parse()?;
+                if matches!(expr, syn::Expr::Macro(_) | syn::Expr::Path(_) | syn::Expr::Closure(_)) {
+                    return Ok(Self::Custom(expr))
+                }
+
+                Err(input.error("Expected a macro, function or closure expression but got something else"))
             }
-             */
             _ => Err(input.error("Unknown condition return behaviour")),
         }
     }
@@ -31,9 +34,10 @@ impl Parse for ConditionReturnBehavior {
 
 impl ToTokens for ConditionReturnBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
-        let expanded = match self {
-            ConditionReturnBehavior::Error => quote! { true },
-            ConditionReturnBehavior::Success => quote! { false },
+        let expanded = match &self {
+            ConditionReturnBehavior::Error => quote! { .on_false_error() },
+            ConditionReturnBehavior::Skip => quote! { .on_false_skip() },
+            &ConditionReturnBehavior::Custom(value) => quote! { .on_false_custom(#value) },
         };
 
         tokens.append_all(expanded)
@@ -63,16 +67,12 @@ impl Parse for ConditionArguments {
 impl WorkflowTransform for ConditionArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
         let predicate = &self.predicate;
+        let on_false = &self.on_false;
         let secondary = self.secondary.as_ref()
             .map(|secondary| {
                 let output = secondary.to_token_construction();
                 quote! { .fallback(#output) }
             });
-
-        let on_false = self
-            .on_false
-            .as_ref()
-            .map(|x| quote! { .error_on_false(#x) });
 
         let builder_method = if secondary.is_some() {
             quote! { fallback_builder }

@@ -4,6 +4,7 @@
     "index",
     "introduction",
     "operating_taskhooks",
-    "custom_events"
+    "custom_events",
+    "generic_based_events"
   ]
 }

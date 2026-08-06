@@ -41,6 +41,7 @@ impl ToTokens for ThresholdReachBehavior {
     }
 }
 
+// TODO: Add support for consecutive failures and consecutive successes
 pub enum ThresholdCountBehavior {
     Identity,
     Successes,

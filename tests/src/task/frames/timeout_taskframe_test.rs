@@ -22,7 +22,12 @@ async fn task_finishing_before_timeout_returns_ok() {
         counter: counter.clone(),
         should_fail: false,
     };
-    let frame = TimeoutTaskFrame::new(frame, LARGE_DURATION);
+    
+    let frame = TimeoutTaskFrame::builder()
+        .frame(frame)
+        .duration(LARGE_DURATION)
+        .build();
+
     let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
@@ -43,7 +48,11 @@ async fn task_finishing_after_timeout_returns_error() {
             Ok::<_, String>(())
         }
     });
-    let frame = TimeoutTaskFrame::new(frame, TIGHT_DURATION);
+    let frame = TimeoutTaskFrame::builder()
+        .frame(frame)
+        .duration(TIGHT_DURATION)
+        .build();
+
     let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
@@ -58,7 +67,11 @@ async fn task_returning_error_before_timeout_returns_error() {
         counter: counter.clone(),
         should_fail: true,
     };
-    let frame = TimeoutTaskFrame::new(frame, LARGE_DURATION);
+    let frame = TimeoutTaskFrame::builder()
+        .frame(frame)
+        .duration(LARGE_DURATION)
+        .build();
+
     let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 
@@ -79,7 +92,11 @@ async fn zero_duration_timeout_returns_error() {
         tokio::time::sleep(Duration::from_millis(50)).await;
         Ok::<_, String>(())
     });
-    let frame = TimeoutTaskFrame::new(frame, Duration::from_nanos(0));
+    let frame = TimeoutTaskFrame::builder()
+        .frame(frame)
+        .duration(Duration::ZERO)
+        .build();
+
     let task = Task::new(frame, TaskScheduleImmediate);
     let exec = task.into_erased().run().await;
 

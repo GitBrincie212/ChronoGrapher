@@ -1,12 +1,6 @@
 pub mod timing_wheel;
 pub use timing_wheel::*;
 
-use crossbeam::utils::CachePadded;
-use slotmap::SlotMap;
-
-pub(crate) type CachePaddedLock<T> = CachePadded<parking_lot::RwLock<T>>;
-pub(crate) type SlotMapShard<K, V> = CachePaddedLock<SlotMap<K, V>>;
-
 pub(crate) mod macros {
     macro_rules! define_event {
         ($(#[$($attrss:tt)*])* $name: ident, $payload: ty) => {
@@ -22,16 +16,36 @@ pub(crate) mod macros {
     
     macro_rules! define_event_group {
         ($(#[$($attrss:tt)*])* $name: ident, $($events: ident),*) => {
+            #[doc(hidden)]
+            mod sealed {
+                #[doc(hidden)]
+                pub trait Sealed {}
+            }
+
+            $(
+            impl sealed::Sealed for $events {}
+            )*
+
             $(#[$($attrss)*])*
-            pub trait $name: TaskHookEvent {}
+            pub trait $name: TaskHookEvent + sealed::Sealed {}
             $(
             impl $name for $events {}
             )*
         };
     
         ($(#[$($attrss:tt)*])* $name: ident, $payload: ty | $($events: ident),*) => {
+            #[doc(hidden)]
+            mod sealed {
+                #[doc(hidden)]
+                pub trait Sealed {}
+            }
+
+            $(
+            impl sealed::Sealed for $events {}
+            )*
+
             $(#[$($attrss)*])*
-            pub trait $name<'a>: TaskHookEvent<Payload<'a> = $payload> {}
+            pub trait $name<'a>: TaskHookEvent<Payload<'a> = $payload> + sealed::Sealed {}
             $(
             impl<'a> $name<'a> for $events {}
             )*

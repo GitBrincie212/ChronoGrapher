@@ -4,7 +4,7 @@ description: Learn how to attach, fetch or detach at runtime TaskHooks.
 ---
 
 In the previous chapter we went through an introduction of TaskHooks. In this chapter we will be seeing how to
-do runtime operations on our TaskHooks.
+do runtime operations on our TaskHooks from anywhere in our code.
 
 The way we achieve this is via ``Tasks``, since they are the main host of the ``TaskHooks`` as we discussed in
 previous chapters. However, it depends on where exactly your code lives.
@@ -195,14 +195,14 @@ The key features that make this pattern very powerful are:
 To get an idea of how it would look, let's define a simple ``RecursiveTaskHook``:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers
-use async_trait::async_trait;
-// ...
+use chronographer::prelude::*;
 
+#[derive(Default)]
 pub struct RecursiveTaskHook(usize);
 
-#[async_trait]
-impl<E: TaskHookEvent> TaskHook<E> for RecursiveTaskHook {
-    async fn on_event(&self, ctx: &TaskHookContext, payload: &<E as TaskHookEvent>::Payload<'_>) {
+#[hook]
+impl RecursiveTaskHook {
+    async fn MyCustomEvent(&self, ctx: &TaskHookContext) {
         // <...>
 
         // A basic counter to check the recursive depth
@@ -212,11 +212,9 @@ impl<E: TaskHookEvent> TaskHook<E> for RecursiveTaskHook {
 
         // This is where the recursive pattern happens:
         let recursive_inst = Arc::new(RecursiveTaskHook(self.0 + 1));
-        ctx.attach_hook::<E>(recursive_inst).await;
+        ctx.attach_hook::<MyCustomEvent>(recursive_inst).await;
     }
 }
-
-// ...
 ```
 </RenderProgrammingLanguageBased>
 

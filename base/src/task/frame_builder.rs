@@ -4,10 +4,7 @@
 use crate::task::conditionframe::ConditionalFramePredicate;
 use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
-use crate::task::{
-    ConditionalTaskFrame, ConstantBackoffStrategy, DependencyTaskFrame, FallbackTaskFrame,
-    NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
-};
+use crate::task::{ConditionalTaskFrame, ConstantBackoffStrategy, DefaultTimeoutError, DependencyTaskFrame, FallbackTaskFrame, NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame};
 use std::num::NonZeroU32;
 use std::time::Duration;
 
@@ -30,8 +27,8 @@ use std::time::Duration;
 ///
 /// > `RetriableTaskFrame<TimeoutTaskFrame<MyTaskFrame>>`
 ///
-/// Here, "with_timeout" wraps "MyTaskFrame" first, and "with_retry" becomes the outer layer. Think of
-/// it like function composition where `outer(inner(MyTaskFrame))`. The last call is always the outermost
+/// Here, [`with_timeout`](TaskFrameBuilder::with_timeout) wraps ``MyTaskFrame`` first, and "with_retry" becomes the outer layer.
+/// Think of it like function composition where `outer(inner(MyTaskFrame))`. The last call is always the outermost
 /// wrapper.
 ///
 /// # Method(s)
@@ -46,7 +43,7 @@ use std::time::Duration;
 /// - [`build`](TaskFrameBuilder::build) - Consumes the builder and returns the fully composed frame.
 ///
 /// # Constructor(s)
-/// The only constructor is [`TaskFrameBuilder::new`], which accepts any type implementing [`TaskFrame`]
+/// The only constructor is [`TaskFrameBuilder::builder`], which accepts any type implementing [`TaskFrame`]
 /// and wraps it inside the builder to begin the chaining process.
 ///
 /// # Accessing/Modifying Field(s)
@@ -61,45 +58,26 @@ use std::time::Duration;
 /// ```
 /// use std::num::NonZeroU32;
 /// use std::time::Duration;
-/// use chronographer::task::TaskFrameBuilder;
-/// # use chronographer::task::{TaskFrame, TaskFrameContext, FallbackTaskFrame, TimeoutTaskFrame, RetriableTaskFrame};
-/// # use chronographer::errors::TimeoutTaskFrameError;
-/// # use async_trait::async_trait;
-/// # use std::any::{Any, TypeId};
-/// # struct MyTaskFrame;
-/// #
-/// # impl TaskFrame for MyTaskFrame {
-/// #     type Error = String;
-/// #     type Args = ();
-/// #
-/// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-/// #         Ok(())
-/// #     }
-/// # }
+/// use chronographer::prelude::*;
 ///
-/// # struct BackupFrame;
-/// #
-/// # impl TaskFrame for BackupFrame {
-/// #     type Error = String;
-/// #     type Args = TimeoutTaskFrameError<String>;
-/// #
-/// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-/// #         Ok(())
-/// #     }
-/// # }
 /// // `MyTaskFrame` and `BackupFrame` are two impls that implement `TaskFrame`.
+/// # #[taskframe]
+/// # pub async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+/// #     Ok(())
+/// # }
+/// #
+/// # #[taskframe]
+/// # pub async fn BackupFrame(ctx: &TaskFrameContext, err: String) -> Result<(), String> {
+/// #     Ok(())
+/// # }
 ///
-/// let composed = TaskFrameBuilder::new(MyTaskFrame)
+/// let composed = TaskFrameBuilder::builder(MyTaskFrame)
 ///     .with_retry(NonZeroU32::new(3).unwrap(), Duration::from_secs(1)) // Failure? Retry 3 times with 1s delay
 ///     .with_timeout(Duration::from_secs(30)) // Exceeded 30 seconds? terminate and error out with timeout
 ///     .with_fallback(BackupFrame) // Received a timeout or another error? Run "BackupFrame"
 ///     .build();
 ///
-/// # assert_eq!(
-/// #     composed.type_id(),
-/// #     TypeId::of::<FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyTaskFrame>>, BackupFrame>>(),
-/// #     "TaskFrame types do not match"
-/// # );
+/// # let inner: FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyTaskFrame>>, BackupFrame> = composed;
 /// ```
 /// With the workflow created, `composed` is now the type:
 /// > ``FallbackTaskFrame<TimeoutTaskFrame<RetriableTaskFrame<MyTaskFrame>>, BackupFrame>``
@@ -133,22 +111,14 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Example(s)
     /// ```
-    /// use chronographer::task::TaskFrameBuilder;
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
-    /// #
-    /// # struct MyTaskFrame;
-    /// #
-    /// # impl TaskFrame for MyTaskFrame {
-    /// #     type Error = String;
-    /// #     type Args = ();
-    /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-    /// #         Ok(())
-    /// #     }
+    /// use chronographer::prelude::*;
+    /// # #[taskframe]
+    /// # pub async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+    /// #    Ok(())
     /// # }
     ///
     /// // Wrap `MyTaskFrame` in a builder, then immediately extract it unchanged.
-    /// let builder: TaskFrameBuilder<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame);
+    /// let builder: TaskFrameBuilder<MyTaskFrame> = TaskFrameBuilder::builder(MyTaskFrame);
     /// let frame: MyTaskFrame = builder.build();
     /// ```
     /// When called without any `with_*` methods, [`build`](TaskFrameBuilder::build) returns
@@ -159,7 +129,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`TaskFrameBuilder::build`] - Consumes the builder and returns the composed frame.
     /// - [`TaskFrame`] - The trait that `frame` must implement.
-    pub fn new(frame: T) -> Self {
+    pub fn builder(frame: T) -> Self {
         Self(frame)
     }
 }
@@ -172,8 +142,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// issues where a delay would be unnecessary.
     ///
     /// # Arguments
-    /// `retries` is a type [`NonZeroU32] parameter specifying the maximum number of times frame should retry on failure.
-    /// even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
+    /// ``retries`` is a type [`NonZeroU32] parameter specifying the maximum number of times frame should retry on failure.
+    /// even after retries, the workflow part may not be able to recover from the error and thus propagate it also task will be terminated.
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with an immediate retry.
@@ -181,21 +151,14 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # Example(s)
     /// ```
     /// use std::num::NonZeroU32;
-    /// use chronographer::task::{TaskFrameBuilder, RetriableTaskFrame};
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
-    /// # struct MyTaskFrame;
-    /// #
-    /// # impl TaskFrame for MyTaskFrame {
-    /// #     type Error = String;
-    /// #     type Args = ();
-    /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-    /// #         Ok(())
-    /// #     }
+    /// use chronographer::prelude::*;
+    /// # #[taskframe]
+    /// # pub async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+    /// #    Ok(())
     /// # }
     ///
     /// let retries = NonZeroU32::new(3).unwrap();
-    /// let composed: RetriableTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let composed: RetriableTaskFrame<MyTaskFrame> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_instant_retry(retries) // Retries up to 3 times on failure
     ///     .build();
     /// ```
@@ -222,37 +185,29 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// retrying with a fixed interval between retries.
     ///
     /// # Arguments
+    /// When it comes to the arguments, there are two of them, the former being ``retries`` which is type of [`NonZeroU32`]
+    /// specifying the maximum number of times frame should retry on failure. Even after retries, the workflow part may not be
+    /// able to recover from the error and thus propagate it (which could cause the task to be terminated).
     ///
-    /// - `retries` is a type [`NonZeroU32`] parameter specifying the maximum number of times frame should retry on failure.
-    ///   even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
-    /// - `delay` is a type [`Duration`] parameter specifying the constant delay between retries.
+    /// Whereas the latter being ``delay`` is type of [`Duration`], specifying the constant delay between retries.
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a retry configured with a constant delay per retry.
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::{TaskFrameBuilder, RetriableTaskFrame};
     /// use std::num::NonZeroU32;
     /// use std::time::Duration;
-    ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
-    /// #
-    /// # struct MyTaskFrame;
-    /// #
-    /// # impl TaskFrame for MyTaskFrame {
-    /// #     type Error = String;
-    /// #     type Args = ();
-    /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-    /// #         Ok(())
-    /// #     }
+    /// use chronographer::prelude::*;
+    /// # #[taskframe]
+    /// # pub async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+    /// #    Ok(())
     /// # }
     ///
     /// let retries = NonZeroU32::new(3).unwrap();
     /// let delay_per_retry = Duration::from_secs(1);
     ///
-    /// let task: RetriableTaskFrame<_> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: RetriableTaskFrame<MyTaskFrame> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_retry(retries, delay_per_retry) // On failure, retry MyTaskFrame every 3 seconds
     ///     .build();
     /// ```
@@ -282,12 +237,13 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// retry intervals.
     ///
     /// # Arguments
+    /// This method contains two parameters, the former being ``retries`` which is a type of [`NonZeroU32`],
+    /// specifying the maximum number of times, the TaskFrame should retry on failure. Even after retries, the workflow part may not be
+    /// able to recover from the error and thus propagate (which could cause the task to be terminated).
     ///
-    /// - ``retries`` is a type [`NonZeroU32`] parameter specifying the maximum number of times, the TaskFrame should retry on failure.
-    ///   even after retries, the workflow part may not be able to recover from the error and thus propegate it also task will be terminated.
-    /// - ``strat`` is a type implementing [`RetryBackoffStrategy`] parameter specifying the custom backoff strategy between retries.
-    ///
-    /// ChronoGrapher currently provides these three backoff strategies but new ones may be derived via [`RetryBackoffStrategy`]:
+    /// Whereas the latter being ``strat`` is a type implementing [`RetryBackoffStrategy`] parameter specifying
+    /// the custom backoff strategy between retries. ChronoGrapher currently provides these three backoff strategies but new
+    /// ones may be derived via [`RetryBackoffStrategy`]:
     /// - [`ConstantBackoffStrategy`] - Retries execution with a constant delay duration between attempts.
     /// - [`LinearBackoffStrategy`] - Retries execution with a delay that scales linearly (``delay`` * ``retry_attempt``).
     /// - [`ExponentialBackoffStrategy`] - Retries execution with a delay that scales exponentially (``delay`` ^ ``retry_attempt``).
@@ -317,7 +273,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// let retries = NonZeroU32::new(3).unwrap();
     /// let strategy = ConstantBackoffStrategy::new(Duration::from_secs(1));
     ///
-    /// let task: RetriableTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: RetriableTaskFrame<MyTaskFrame> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_backoff_retry(retries, strategy) // On failure, retry MyTaskFrame based on our strategy
     ///     .build();
     /// ```
@@ -341,16 +297,23 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         )
     }
 
-    /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds the specified duration.
+    /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds
+    /// the specified duration. This is a variation that allows specifying an error parameter for the timeout error.
     ///
     /// This wrapper allows the execution to be strictly bound by a time limit. If the inner task takes longer than the
     /// ``max_duration`` parameter, it will be forcefully yielded, canceled, and a timeout error will be propagated up the chain.
     ///
     /// > **Note:** Due to limitations from Rust, the [`TimeoutTaskFrame``] might not cancel in time the operation especially if its CPU-heavy work, for this reason it is
-    /// reccomended to ``yield`` whenever possible. For more information visit the [`TimeoutTaskFrame`] documentation.
+    /// recommended to ``yield`` whenever possible. For more information visit the [`TimeoutTaskFrame`] documentation.
     ///
     /// # Arguments
-    /// ``max_duration`` is a type [`Duration`] parameter specifying the maximum amount of time the task is allowed to run before being timed out.
+    /// This method contains two parameters the former being ``max_duration`` which is a type of [`Duration`],
+    /// specifying the maximum amount of time the task is allowed to run before being timed out.
+    ///
+    /// Whereas the latter being ``error`` which must be the same error type as the currently configured
+    /// [`TaskFrame's`] error. If you want to use the default error, it's best to use the [`with_timeout`]
+    /// method.
+    ///
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a timeout limit.
@@ -358,22 +321,13 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # Examples
     /// ```
     /// use std::time::Duration;
-    /// use chronographer::task::{TaskFrameBuilder, TimeoutTaskFrame};
-    ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
-    /// #
-    /// # struct MyTaskFrame;
-    /// #
-    /// # impl TaskFrame for MyTaskFrame {
-    /// #     type Error = String;
-    /// #     type Args = ();
-    /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-    /// #         Ok(())
-    /// #     }
+    /// use chronographer::prelude::*;
+    /// # #[taskframe]
+    /// # pub async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+    /// #    Ok(())
     /// # }
     ///
-    /// let task: TimeoutTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: TimeoutTaskFrame<MyTaskFrame> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_timeout(Duration::from_secs(30)) // Give the inner task up to 30 seconds to finish
     ///     .build();
     /// ```
@@ -382,8 +336,67 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`TimeoutTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
-    pub fn with_timeout(self, max_duration: Duration) -> TaskFrameBuilder<TimeoutTaskFrame<T>> {
-        TaskFrameBuilder(TimeoutTaskFrame::new(self.0, max_duration))
+    pub fn with_custom_timeout(self, max_duration: Duration, error: T::Error) -> TaskFrameBuilder<TimeoutTaskFrame<T>>
+    where
+        T::Error: Clone
+    {
+        TaskFrameBuilder(
+            TimeoutTaskFrame::builder()
+                .frame(self.0)
+                .duration(max_duration)
+                .on_timeout(error)
+                .build()
+        )
+    }
+
+    /// Method wraps the inner [`TaskFrame`] in a [`TimeoutTaskFrame`] which will timeout and cancel execution if the inner task exceeds
+    /// the specified duration. This is a variation that allows to auto-supply the error for a timeout based on the default timeout error type of
+    /// the inner frame.
+    ///
+    /// This wrapper allows the execution to be strictly bound by a time limit. If the inner task takes longer than the
+    /// ``max_duration`` parameter, it will be forcefully yielded, canceled, and a timeout error will be propagated up the chain.
+    ///
+    /// > **Note:** Due to limitations from Rust, the [`TimeoutTaskFrame``] might not cancel in time the operation especially if its CPU-heavy work, for this reason it is
+    /// recommended to ``yield`` whenever possible. For more information visit the [`TimeoutTaskFrame`] documentation.
+    ///
+    /// # Arguments
+    /// This method contains only one parameter that being ``max_duration`` which is a type [`Duration`],
+    /// specifying the maximum amount of time the task is allowed to run before being timed out.
+    ///
+    /// For overriding the error parameter / manually specifying it, it's recommended to look into the
+    /// [`with_custom_timeout`] builder method.
+    ///
+    /// # Returns
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a timeout limit.
+    ///
+    /// # Examples
+    /// ```
+    /// use std::time::Duration;
+    /// use chronographer::prelude::*;
+    /// # #[taskframe]
+    /// # pub async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+    /// #    Ok(())
+    /// # }
+    ///
+    /// let task: TimeoutTaskFrame<MyTaskFrame> = TaskFrameBuilder::builder(MyTaskFrame)
+    ///     .with_timeout(Duration::from_secs(30)) // Give the inner task up to 30 seconds to finish
+    ///     .build();
+    /// ```
+    ///
+    /// # See Also
+    /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
+    /// - [`TimeoutTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
+    /// - [`TaskFrame`] - The trait that ``frame`` must implement.
+    pub fn with_timeout(self, max_duration: Duration) -> TaskFrameBuilder<TimeoutTaskFrame<T>>
+    where
+        T::Error: DefaultTimeoutError
+    {
+        TaskFrameBuilder(
+            TimeoutTaskFrame::builder()
+                .frame(self.0)
+                .duration(max_duration)
+                .build()
+        )
     }
 
     /// Method wraps the inner [`TaskFrame`] in a [`FallbackTaskFrame`] which will execute a specified fallback task upon failure of the main task.
@@ -392,41 +405,26 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// the assigned fallback frame will automatically be executed instead, preventing the workflow from immediately failing.
     ///
     /// # Arguments
-    ///
-    /// ``fallback`` is a type implementing [`TaskFrame`] parameter specifying the alternative task to execute if the primary task fails.
+    /// This method contains only one parameter that being ``fallback`` which is a type implementing [`TaskFrame`],
+    /// specifying the alternative task to execute if the primary task fails.
     ///
     /// # Returns
     /// A [`TaskFrameBuilder`] wrapping its inner workflow with a fallback behavior.
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::{TaskFrameBuilder, FallbackTaskFrame};
-    ///
-    /// # use chronographer::task::{TaskFrame, TaskFrameContext};
-    /// #
-    /// # struct MyTaskFrame;
-    /// #
-    /// # impl TaskFrame for MyTaskFrame {
-    /// #     type Error = String;
-    /// #     type Args = ();
-    /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-    /// #         Ok(())
-    /// #     }
+    /// use chronographer::prelude::*;
+    /// # #[taskframe]
+    /// # pub async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+    /// #    Ok(())
     /// # }
     /// #
-    /// # struct BackupFrame;
-    /// #
-    /// # impl TaskFrame for BackupFrame {
-    /// #     type Error = String;
-    /// #     type Args = String;
-    /// #
-    /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
-    /// #         Ok(())
-    /// #     }
+    /// # #[taskframe]
+    /// # pub async fn BackupFrame(ctx: &TaskFrameContext, error: String) -> Result<(), String> {
+    /// #    Ok(())
     /// # }
     ///
-    /// let task: FallbackTaskFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: FallbackTaskFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_fallback(BackupFrame) // Run BackupFrame if MyTaskFrame fails
     ///     .build();
     /// ```
@@ -439,7 +437,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         self,
         fallback: T2,
     ) -> TaskFrameBuilder<FallbackTaskFrame<T, T2>> {
-        TaskFrameBuilder(FallbackTaskFrame::new(self.0, fallback))
+        TaskFrameBuilder(FallbackTaskFrame::singular(self.0, fallback))
     }
 
     /// Method wraps the inner [`TaskFrame`] in a [`ConditionalTaskFrame`] which conditionally executes the task based on a provided predicate function.
@@ -487,7 +485,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #     }
     /// # }
     ///
-    /// let task: ConditionalTaskFrame<MyTaskFrame, _> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: ConditionalTaskFrame<MyTaskFrame, _> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_condition(CheckCondition) // Execute MyTaskFrame only if the predicate executes to true
     ///     .build();
     /// ```
@@ -508,7 +506,6 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
         let condition = ConditionalTaskFrame::builder()
             .predicate(predicate)
             .frame(self.0)
-            .error_on_false(false)
             .build();
         TaskFrameBuilder(condition)
     }
@@ -522,7 +519,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// If the predicate returns ``true``, the inner task is unconditionally executed, however if it returns ``false``, in the context
     /// of this method, it executes a ``fallback`` [`TaskFrame`] defined in the arguments and returns a success by default upon a falsey value.
     ///
-    /// If an error is desired to be returned and without a fallback [`TaskFrame`] executing on top, then
+    /// If an error is desired to be returned and without a fallback [`TaskFrame`] executing on top. Then
     /// [`with_condition`](TaskFrameBuilder::with_condition) is the better choice.
     ///
     /// # Arguments
@@ -572,7 +569,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #     }
     /// # }
     ///
-    /// let task: ConditionalTaskFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: ConditionalTaskFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_fallback_condition(BackupFrame, CheckCondition) // Runs MyTaskFrame if true, BackupFrame if false
     ///     .build();
     /// ```
@@ -583,7 +580,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
     /// - [`with_condition`](TaskFrameBuilder::with_condition) - Wrapper that simply aborts/skips on false condition.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
-    pub fn with_fallback_condition<T2: TaskFrame<Args = ()> + 'static>(
+    pub fn with_fallback_condition<T2: TaskFrame<Args = (), Error = T::Error> + 'static>(
         self,
         fallback: T2,
         predicate: impl ConditionalFramePredicate + 'static,
@@ -596,7 +593,6 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
                 .predicate(predicate)
                 .frame(self.0)
                 .fallback(fallback)
-                .error_on_false(false)
                 .build();
         TaskFrameBuilder(condition)
     }
@@ -636,7 +632,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// let atomic_flag = Arc::new(AtomicBool::new(false));
     /// let flag_dep = FlagDependency::new(atomic_flag.clone());
     ///
-    /// let task: DependencyTaskFrame<MyTaskFrame> = TaskFrameBuilder::new(MyTaskFrame)
+    /// let task: DependencyTaskFrame<MyTaskFrame> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_dependency(flag_dep) // MyTaskFrame will only execute when the flag resolves to true
     ///     .build();
     /// ```
@@ -689,7 +685,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # fn main() {
     /// // Using the builder to wrap it in a timeout and then extracting it
-    /// let built_frame: FinalWorkflow = TaskFrameBuilder::new(MyTaskFrame)
+    /// let built_frame: FinalWorkflow = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_timeout(Duration::from_secs(5))
     ///     .with_instant_retry(NonZeroU32::new(3).unwrap())
     ///     .build(); // <- Returns the fully composed frame, discarding the builder

@@ -46,7 +46,7 @@ macro_rules! init_counter_with_fallback {
             should_fail: $second_should_fail,
         };
 
-        let frame = FallbackTaskFrame::new(first, second);
+        let frame = FallbackTaskFrame::singular(first, second);
         frame
     }};
 }
