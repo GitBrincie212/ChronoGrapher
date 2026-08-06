@@ -1,4 +1,8 @@
-use crate::utils::{LIFETIME_UNSUPPORTED_ERR, extract_arg_name, extract_docs, extract_annotation, handle_generics_phantom_data, map_fn_args_pairs, ParsedContextArgument, ParsedArguments};
+use crate::utils::{
+    ImplEndTokenStream, LIFETIME_UNSUPPORTED_ERR, NormalizedTypeParamsTokenStream, ParsedArguments,
+    ParsedContextArgument, PhantomDataTokenStream, extract_annotation, extract_arg_name,
+    extract_docs, handle_generics_phantom_data, map_fn_args_pairs,
+};
 use crate::workflow::WorkflowSpec;
 use crate::workflow::utils::WorkflowTransform;
 use proc_macro::TokenStream;
@@ -12,24 +16,20 @@ use syn::{
     parenthesized, parse_macro_input,
 };
 
-const TASKFRAME_CTX_REQUIRED_ERR: &'static str =
+const TASKFRAME_CTX_REQUIRED_ERR: &str =
     "Function is required to have at least one argument of type \"TaskFrameContext\"";
-const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &'static str =
-    "First argument must be of type \"TaskFrameContext\"";
-const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &'static str =
+const FIRST_ARG_NOT_TASKFRAME_CTX_ERR: &str = "First argument must be of type \"TaskFrameContext\"";
+const SIMPLE_IDENTIFIER_FOR_CTX_ERR: &str =
     "Expected a simple identifier as argument name for the context";
-const FIRST_ARG_REF_TASKFRAME_ERR: &'static str =
+const FIRST_ARG_REF_TASKFRAME_ERR: &str =
     "First argument must be a reference of type \"TaskFrameContext\"";
-const METHOD_MACRO_USE_ERR: &'static str =
-    "Using the task attribute macro in methods is unsupported";
-const INVALID_RETURN_TYPE_ERROR: &'static str =
+const METHOD_MACRO_USE_ERR: &str = "Using the task attribute macro in methods is unsupported";
+const INVALID_RETURN_TYPE_ERROR: &str =
     "Return type must be of type Result<(), E> in which E is your desired error type";
-const FIRST_GENERIC_RETURN_ERR: &'static str =
-    "First generic argument of Result must be of type ()";
-const SECOND_GENERIC_RETURN_ERR: &'static str =
-    "Second generic argument of Result must be an error type";
-const ASYNC_REQUIRED_ERR: &'static str = "Function is required to be async";
-const ABI_UNSUPPORTED_ERR: &'static str = "ABI functions are unsupported";
+const FIRST_GENERIC_RETURN_ERR: &str = "First generic argument of Result must be of type ()";
+const SECOND_GENERIC_RETURN_ERR: &str = "Second generic argument of Result must be an error type";
+const ASYNC_REQUIRED_ERR: &str = "Function is required to be async";
+const ABI_UNSUPPORTED_ERR: &str = "ABI functions are unsupported";
 
 pub struct TaskFrameMacroArguments(Option<WorkflowSpec>);
 
@@ -70,7 +70,9 @@ impl Parse for TaskFrameMacroArguments {
     }
 }
 
-fn extract_arguments(fn_args: &mut Punctuated<FnArg, Comma>) -> syn::Result<(ParsedContextArgument, ParsedArguments)> {
+fn extract_arguments(
+    fn_args: &mut Punctuated<FnArg, Comma>,
+) -> syn::Result<(ParsedContextArgument, ParsedArguments)> {
     let mut fn_args = fn_args.pairs_mut();
     let ctx_arg = fn_args.next().ok_or(syn::Error::new(
         proc_macro2::Span::call_site(),
@@ -120,7 +122,7 @@ fn extract_arguments(fn_args: &mut Punctuated<FnArg, Comma>) -> syn::Result<(Par
 
     Ok((
         (ctx_name.clone(), ctx_type.clone()),
-        map_fn_args_pairs(&mut fn_args)?
+        map_fn_args_pairs(&mut fn_args)?,
     ))
 }
 
@@ -178,16 +180,17 @@ fn extract_error(return_type: &ReturnType) -> syn::Result<Type> {
     Ok(err_ty)
 }
 
-fn derive_with_generics(
-    name: &syn::Ident,
-    fn_sig: &syn::Signature,
-) -> syn::Result<(
-    proc_macro2::TokenStream,
-    proc_macro2::TokenStream,
-    proc_macro2::TokenStream,
-    Option<proc_macro2::TokenStream>,
-    Option<Punctuated<proc_macro2::TokenStream, Comma>>,
-)> {
+type DeriveTokenStream = proc_macro2::TokenStream;
+type PhantomDataInitTokenStream = proc_macro2::TokenStream;
+type DeriveGenericResult = syn::Result<(
+    DeriveTokenStream,
+    ImplEndTokenStream,
+    PhantomDataInitTokenStream,
+    PhantomDataTokenStream,
+    NormalizedTypeParamsTokenStream,
+)>;
+
+fn derive_with_generics(name: &syn::Ident, fn_sig: &syn::Signature) -> DeriveGenericResult {
     let (impl_end_name, phantom_data, normalized_type_params) =
         handle_generics_phantom_data(name, fn_sig)?;
 
@@ -232,10 +235,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
     let fn_args = &mut fn_sig.inputs;
     let fn_output = &fn_sig.output;
 
-    let (
-        (ctx_name, ctx_type),
-        (arg_names, arg_types)
-    ) = match extract_arguments(fn_args) {
+    let ((ctx_name, ctx_type), (arg_names, arg_types)) = match extract_arguments(fn_args) {
         Ok(res) => res,
         Err(e) => return e.to_compile_error().into(),
     };
@@ -286,8 +286,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 
     let temp = expanded.clone().map(|value| quote! { :: #value });
 
-    let docs = extract_docs(&*input.attrs);
-    match extract_annotation(&*input.attrs, "Workflow", &mut macro_args.0, |x| {
+    let docs = extract_docs(&input.attrs);
+    match extract_annotation(&input.attrs, "Workflow", &mut macro_args.0, |x| {
         WorkflowSpec::parse.parse2(x)
     }) {
         Ok(()) => {}

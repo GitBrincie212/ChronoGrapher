@@ -2,6 +2,8 @@
 name = "chronographer_macros"
 version = "0.1.0"
 edition = "2024"
+publish = false
+license-file = "../LICENSE"
 
 [lib]
 proc-macro = true

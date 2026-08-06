@@ -12,7 +12,7 @@ pub enum TaskRunMetric {
     // ConsecutiveSuccesses(syn::LitInt),
     // ConsecutiveFailures(syn::LitInt),
     Any(syn::LitInt),
-    Custom(syn::Expr),
+    Custom(Box<syn::Expr>),
 }
 
 pub enum AtomicDependency {
@@ -22,7 +22,7 @@ pub enum AtomicDependency {
     },
 
     Function(syn::Ident),
-    Dynamic(syn::ExprClosure),
+    Dynamic(Box<syn::ExprClosure>),
 }
 
 macro_rules! translate_task_run_metric {
@@ -88,11 +88,11 @@ fn get_run_metric(ident: &syn::Ident, assign_expr: &syn::ExprAssign) -> syn::Res
     // task_run_metric!(ident, assign_expr, "consecutive_failures", ConsecutiveFailures);
     // task_run_metric!(ident, assign_expr, "consecutive_successes", ConsecutiveSuccesses);
     if ident.to_string().as_str() == "custom" {
-        return Ok(TaskRunMetric::Custom(*assign_expr.right.clone()));
+        return Ok(TaskRunMetric::Custom(assign_expr.right.clone()));
     }
 
     Err(syn::Error::new_spanned(
-        &ident,
+        ident,
         "Expected either \"any\", \"successes\", \"failures\",  but got something else",
     ))
 }
@@ -129,27 +129,25 @@ impl TryInto<AtomicDependency> for &syn::Expr {
                         let first = expr_call.args.first().unwrap();
                         let syn::Expr::Closure(expr_closure) = &first else {
                             return Err(syn::Error::new_spanned(
-                                &first,
+                                first,
                                 "Expected a closure for the \"dynamic\", but got something else",
                             ));
                         };
 
-                        Ok(AtomicDependency::Dynamic(expr_closure.clone()))
+                        Ok(AtomicDependency::Dynamic(Box::new(expr_closure.clone())))
                     }
 
                     _ => match expr_call.args.len() {
-                        0 => {
-                            Err(syn::Error::new_spanned(
-                                &expr_call,
-                                "Invalid dependency expression, perhaps you meant to specify an argument?",
-                            ))
-                        },
+                        0 => Err(syn::Error::new_spanned(
+                            expr_call,
+                            "Invalid dependency expression, perhaps you meant to specify an argument?",
+                        )),
 
                         1 => {
                             let first = expr_call.args.first().unwrap();
                             let syn::Expr::Assign(assign_expr) = first else {
                                 return Err(syn::Error::new_spanned(
-                                    &first,
+                                    first,
                                     "Expected a named argument but got something else",
                                 ));
                             };
@@ -168,7 +166,7 @@ impl TryInto<AtomicDependency> for &syn::Expr {
                                 ));
                             };
 
-                            let run_metric = get_run_metric(&arg_path.ident, &assign_expr)?;
+                            let run_metric = get_run_metric(&arg_path.ident, assign_expr)?;
                             Ok(AtomicDependency::Task {
                                 dependency: path.ident.clone(),
                                 value: run_metric,
@@ -196,21 +194,21 @@ impl TryInto<AtomicDependency> for &syn::Expr {
 }
 
 pub enum Dependency {
-    Atomic(AtomicDependency),
-    OR(Box<Dependency>, Box<Dependency>),
-    AND(Box<Dependency>, Box<Dependency>),
-    XOR(Box<Dependency>, Box<Dependency>),
-    NOT(Box<Dependency>),
+    Atomic(Box<AtomicDependency>),
+    Or(Box<Dependency>, Box<Dependency>),
+    And(Box<Dependency>, Box<Dependency>),
+    Xor(Box<Dependency>, Box<Dependency>),
+    Not(Box<Dependency>),
 }
 
 impl ToTokens for Dependency {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let expanded = match self {
             Dependency::Atomic(dep) => return dep.to_tokens(tokens),
-            Dependency::OR(dep1, dep2) => quote! { #dep1 | #dep2 },
-            Dependency::AND(dep1, dep2) => quote! { #dep1 & #dep2 },
-            Dependency::XOR(dep1, dep2) => quote! { (#dep1 & !#dep2) | (!#dep1 & #dep2) },
-            Dependency::NOT(dep) => quote! { !#dep },
+            Dependency::Or(dep1, dep2) => quote! { #dep1 | #dep2 },
+            Dependency::And(dep1, dep2) => quote! { #dep1 & #dep2 },
+            Dependency::Xor(dep1, dep2) => quote! { (#dep1 & !#dep2) | (!#dep1 & #dep2) },
+            Dependency::Not(dep) => quote! { !#dep },
         };
 
         tokens.append_all(expanded);
@@ -225,17 +223,17 @@ impl TryInto<Dependency> for &syn::Expr {
             syn::Expr::Paren(paren) => paren.expr.as_ref().try_into(),
 
             syn::Expr::Binary(bin) => match bin.op {
-                BinOp::And(..) => Ok(Dependency::AND(
+                BinOp::And(..) => Ok(Dependency::And(
                     Box::new(bin.left.as_ref().try_into()?),
                     Box::new(bin.right.as_ref().try_into()?),
                 )),
 
-                BinOp::Or(..) => Ok(Dependency::OR(
+                BinOp::Or(..) => Ok(Dependency::Or(
                     Box::new(bin.left.as_ref().try_into()?),
                     Box::new(bin.right.as_ref().try_into()?),
                 )),
 
-                BinOp::BitXor(..) => Ok(Dependency::XOR(
+                BinOp::BitXor(..) => Ok(Dependency::Xor(
                     Box::new(bin.left.as_ref().try_into()?),
                     Box::new(bin.right.as_ref().try_into()?),
                 )),
@@ -248,7 +246,7 @@ impl TryInto<Dependency> for &syn::Expr {
 
             syn::Expr::Unary(unary) => {
                 if let UnOp::Not(..) = unary.op {
-                    return Ok(Dependency::NOT(Box::new(unary.expr.as_ref().try_into()?)));
+                    return Ok(Dependency::Not(Box::new(unary.expr.as_ref().try_into()?)));
                 }
 
                 Err(syn::Error::new_spanned(
@@ -257,21 +255,21 @@ impl TryInto<Dependency> for &syn::Expr {
                 ))
             }
 
-            value => Ok(Dependency::Atomic(value.try_into()?)),
+            value => Ok(Dependency::Atomic(Box::new(value.try_into()?))),
         }
     }
 }
 
 impl Parse for Dependency {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok((&input.parse::<syn::Expr>()?).try_into()?)
+        (&input.parse::<syn::Expr>()?).try_into()
     }
 }
 
 pub enum UnresolveBehavior {
     Fail,
     Skip,
-    Custom(syn::Expr),
+    Custom(Box<syn::Expr>),
 }
 
 impl ToTokens for UnresolveBehavior {

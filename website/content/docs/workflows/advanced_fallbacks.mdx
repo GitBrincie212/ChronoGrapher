@@ -20,7 +20,7 @@ enum MyErrors {
 }
 
 #[taskframe]
-async fn my_task_fallback(ctx: &TaskFrameContext, err: &MyErrors) -> Result<(), MyErrors> {
+async fn MyTaskFallback(ctx: &TaskFrameContext, err: &MyErrors) -> Result<(), MyErrors> {
     match err {
         ServerError => { /* <...> */ },
         ResourceNotFound404 => { /* <...> */ },
@@ -34,9 +34,9 @@ async fn my_task_fallback(ctx: &TaskFrameContext, err: &MyErrors) -> Result<(), 
 
 #[task(schedule = every!(6s)))]
 #[workflow(
-    fallback(my_task_fallback)
+    fallback(MyTaskFallback)
 )]
-async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+async fn MyTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 ```
@@ -57,7 +57,7 @@ To achieve this let's rewrite our example like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=4
 #[taskframe]
-async fn server_error_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+async fn ServerErrorFallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
     match error {
         &ServerError => { /* ... */ }
         err => Err(err.clone())
@@ -65,7 +65,7 @@ async fn server_error_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Resu
 }
 
 #[taskframe]
-async fn resource_not_found404_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+async fn ResourceNotFoundFallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
     match error {
         &ResourceNotFound404 => { /* ... */ }
         err => Err(err.clone())
@@ -73,7 +73,7 @@ async fn resource_not_found404_fallback(ctx: &TaskFrameContext, error: &MyErrors
 }
 
 #[taskframe]
-async fn some_other_error_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+async fn SomeOtherErrorFallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
     match error {
         &SomeOtherError => { /* ... */ }
         err => Err(err.clone())
@@ -84,7 +84,11 @@ async fn some_other_error_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> 
 
 #[task(schedule = every!(6s)))]
 #[workflow(
-    fallback(server_error_fallback, resource_not_found404_fallback, some_other_error_fallback)
+    fallback(
+        ServerErrorFallback::single(),
+        ResourceNotFoundFallback::single(),
+        SomeOtherErrorFallback::single()
+    )
 )]
 async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
@@ -123,7 +127,7 @@ To transform into the middle ground based approach, we can modify our code like 
 // <...>
 
 #[taskframe]
-async fn resource_not_found_fallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
+async fn ResourceNotFoundFallback(ctx: &TaskFrameContext, error: &MyErrors) -> Result<(), MyErrors> {
     match error {
         &ResourceNotFound404 | &ResourceNotFound => { /* ... */ }
         err => Err(err.clone())
@@ -134,9 +138,13 @@ async fn resource_not_found_fallback(ctx: &TaskFrameContext, error: &MyErrors) -
 
 #[task(schedule = every!(6s)))]
 #[workflow(
-    fallback(server_error_fallback, resource_not_found404_fallback, some_other_error_fallback)
+    fallback(
+        ServerErrorFallback::single(),
+        ResourceNotFoundFallback::single(),
+        SomeOtherErrorFallback::single()
+    )
 )]
-async fn my_task(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+async fn MyTask(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 ```

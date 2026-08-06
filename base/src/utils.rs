@@ -7,13 +7,13 @@ pub(crate) mod macros {
             $(#[$($attrss)*])*
             #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
             pub struct $name;
-    
+
             impl TaskHookEvent for $name {
                 type Payload<'a> = $payload where Self: 'a;
             }
         };
     }
-    
+
     macro_rules! define_event_group {
         ($(#[$($attrss:tt)*])* $name: ident, $($events: ident),*) => {
             #[doc(hidden)]
@@ -32,7 +32,7 @@ pub(crate) mod macros {
             impl $name for $events {}
             )*
         };
-    
+
         ($(#[$($attrss:tt)*])* $name: ident, $payload: ty | $($events: ident),*) => {
             #[doc(hidden)]
             mod sealed {
@@ -51,7 +51,7 @@ pub(crate) mod macros {
             )*
         };
     }
-    
+
     pub(crate) use define_event;
     pub(crate) use define_event_group;
 }

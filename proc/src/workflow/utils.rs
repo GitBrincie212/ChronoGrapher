@@ -7,8 +7,8 @@ use syn::parse::{Parse, ParseStream};
 pub enum ValueSource<T: Parse> {
     Lit(T),
     Function(syn::Ident),
-    Closure(syn::ExprClosure),
-    Macro(syn::ExprMacro),
+    Closure(Box<syn::ExprClosure>),
+    Macro(Box<syn::ExprMacro>),
 }
 
 impl<T: Parse> Parse for ValueSource<T> {
@@ -17,12 +17,12 @@ impl<T: Parse> Parse for ValueSource<T> {
 
         if fork.peek(syn::Ident) && fork.peek2(Token![!]) {
             let mac: syn::ExprMacro = input.parse()?;
-            return Ok(Self::Macro(mac));
+            return Ok(Self::Macro(Box::new(mac)));
         }
 
         if fork.peek(Token![|]) {
             let closure: syn::ExprClosure = input.parse()?;
-            return Ok(Self::Closure(closure));
+            return Ok(Self::Closure(Box::new(closure)));
         }
 
         if fork.peek(syn::Ident) {
@@ -128,7 +128,7 @@ impl<'a> ArgumentParser<'a> {
             })
             .and_then(|arg| match arg.name() {
                 None => Ok(arg.into_value()),
-                Some(name) if name.to_string() == expected => Ok(arg.into_value()),
+                Some(name) if *name == expected => Ok(arg.into_value()),
                 Some(unexpected) => Err(syn::Error::new(
                     self.input.span(),
                     format!("Expected {expected} argument but got {unexpected}"),

@@ -99,7 +99,7 @@ impl<T: TaskFrame> TaskFrame for ThresholdTaskFrame<T> {
             return self.threshold_reach_behaviour.results(&ctx.0).await;
         }
 
-        let res = self.frame.execute(ctx, &args).await;
+        let res = self.frame.execute(ctx, args).await;
         if self
             .threshold_logic
             .counts(res.as_ref().err(), &ctx.0)

@@ -2,12 +2,15 @@ use crate::scheduler::impls::utils::{assign_to_trigger_worker, spawn_task};
 use crate::scheduler::live::SchedulerWorkerHot;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
 use crate::scheduler::task_store::SchedulerTaskStore;
-use crate::scheduler::{SchedulerConfig, SchedulerHandlePayload, SchedulerKey, SchedulerWorkerCold};
+use crate::scheduler::{
+    LiveSchedulerComponents, SchedulerConfig, SchedulerHandlePayload, SchedulerKey,
+    SchedulerWorkerCold,
+};
 use crate::task::{ErasedTask, TaskHook};
 use crossbeam::queue::SegQueue;
+use crossbeam::utils::CachePadded;
 use std::any::{Any, type_name};
 use std::sync::Arc;
-use crossbeam::utils::CachePadded;
 use tokio::sync::Notify;
 
 pub enum SchedulerHandleInstructions {
@@ -34,7 +37,7 @@ impl TaskHook<()> for SchedulerHandle {}
 #[inline(always)]
 pub fn append_scheduler_handler<C: SchedulerConfig>(
     key: SchedulerKey<C>,
-    task: &Arc<ErasedTask<C::TaskError>>,
+    task: &ErasedTask<C::TaskError>,
     channel: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
 ) -> impl Future<Output = ()> + Send {
     let handle = SchedulerHandle {
@@ -48,13 +51,11 @@ pub fn append_scheduler_handler<C: SchedulerConfig>(
 #[inline(always)]
 pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     instruct_queue: &Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
-    dispatcher: &Arc<C::SchedulerTaskDispatcher>,
-    store: &Arc<C::SchedulerTaskStore>,
+    components: &Arc<LiveSchedulerComponents<C>>,
     hot_workers: &Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
     cold_workers: &Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
 ) -> impl Future<Output = ()> + Send + 'static {
-    let dispatcher = dispatcher.clone();
-    let store = store.clone();
+    let components = components.clone();
     let hot_workers = hot_workers.clone();
     let cold_workers = cold_workers.clone();
     let instruct_queue = instruct_queue.clone();
@@ -74,11 +75,11 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
                 }
 
                 SchedulerHandleInstructions::Halt => {
-                    dispatcher.cancel(id).await;
+                    components.dispatcher.cancel(id).await;
                 }
 
                 SchedulerHandleInstructions::Block => {
-                    store.remove(id);
+                    components.store.remove(id);
                 }
 
                 SchedulerHandleInstructions::Execute => {

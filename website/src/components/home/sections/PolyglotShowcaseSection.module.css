@@ -1,0 +1,27 @@
+@reference "../../../app/global.css";
+
+.polyglotStrippedBG {
+    width: 100%;
+    height: 100%;
+
+    --tilesize: 0.2656rem;
+    --anim-duration: 4s;
+    background-image: repeating-linear-gradient(
+            45deg,
+            var(--color-fd-background),
+            var(--color-fd-background) var(--tilesize),
+            var(--color-fd-brand-primary) var(--tilesize),
+            var(--color-fd-brand-primary) calc(2 * var(--tilesize))
+    );
+    background-size: 200% 200%;
+    animation: stripeBackgroundAnimation var(--anim-duration) infinite linear;
+}
+
+.glowPolyglotStrippedBG {
+    --tilesize: 0.2rem;
+    --anim-duration: 3s;
+}
+
+@keyframes stripeBackgroundAnimation {
+    100% { background-position: 100% 0; }
+}

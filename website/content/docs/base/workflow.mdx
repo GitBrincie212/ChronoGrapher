@@ -1,0 +1,303 @@
+---
+title: TaskFrames & Workflows
+description: Learn how to use TaskFrames and create your own workflow primitives
+---
+
+In the previous chapter we introduced the Base API and briefly mentioned why it's needed, along with that, we've learnt how
+our tasks and built-in scheduling primitives translate into it.
+
+In this chapter we will focus on one neglected part, that being workflows and generally the body of our task. Answering
+the question as to how it's represented in the Base API.
+
+# TaskFrame Equivalent
+When it comes to ``#[taskframe]`` the base API equivalent is ``TaskFrame``, however unlike the macro version, it doesn't
+include features such as automatic argument unpacking (though this can be easily emulated as shown soon). Let's define our
+logic via a ``TaskFrame``:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+pub struct MyTaskFrame;
+
+impl TaskFrame for MyTaskFrame {
+    type Error = String;
+    type Args = ();
+    type Workflow = Self;
+
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
+        println!("Hello Base API");
+        Ok(())
+    }
+}
+
+#[chronographer::main]
+async fn main(scheduler: DefaultLiveScheduler<String>) {
+    let task = Task::new(
+        MyTaskFrame,
+
+        // Mainly used for convenience
+        every!(2s)
+    );
+
+    scheduler.schedule(task).await.unwrap();
+}
+```
+
+In the above example, we define ``MyTaskFrame`` as a struct. Later on implementing the ``TaskFrame`` trait, which requires
+three associated types and implementing one function:
+- ``Error`` This defines the error which ``MyTaskFrame`` returns as an error (upon failure) when executing.
+- ``Args`` This defines the arguments ``MyTaskFrame`` accepts, for multiple arguments use a tuple.
+- ``Workflow`` This is used internally for ChronoGrapher but in most if not all scenarios it should always be ``Self``.
+
+<Callout type={"idea"} title={"Pro Tip: Unpacking Arguments"}>
+    To mimic argument unpacking from the ``#[taskframe]`` and ``#[task]`` macros on multiple arguments (tuple-based).
+    You can write an additional line at the top (in fact the macros do this under the hood):
+    ```rust title="src/main.rs" lineNumbers
+    let (arg1, arg2, arg3) = args;
+    ```
+</Callout>
+
+Once we define ``MyTaskFrame``, inside our main function we simply create a new ``Task`` object and provide the ``TaskFrame``
+as well as the ``TaskSchedule`` in order. The above code in the macro-form is as follows:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[task(singleton = false, schedule = every!(2s))]
+pub async fn MyTask(ctx: &TaskFrameContext) -> Result<(), String> {
+    println!("Hello Base API");
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main(scheduler: DefaultLiveScheduler<String>) {
+    let task = MyTask::new();
+    scheduler.schedule(task).await.unwrap();
+}
+```
+
+# Workflows As TaskFrames
+For workflows in our previous chapters we described the model involving ``TaskFrames`` wrapping one and the other in a form
+of a tree. The Base API exposes this more clearly with its built-in utility ``TaskFrameBuilder``:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+// [!code ++]
+use std::time::Duration;
+// [!code ++]
+use std::num::NonZeroU32;
+
+// <...>
+
+#[chronographer::main]
+async fn main(scheduler: DefaultLiveScheduler<String>) {
+    // [!code ++]
+    let workflow = TaskFrameBuilder::builder(MyTaskFrame)
+        // [!code ++]
+        .with_instant_retry(NonZeroU32::new(2).unwrap()) // MyTaskFrame Failed? Retry up to 2 times
+        // [!code ++]
+        .with_timeout(Duration::from_secs(5)) // Run for up to 5 seconds
+        // [!code ++]
+        .build()
+
+    let task = Task::new(
+        // [!code highlight]
+        workflow,
+        every!(2s)
+    );
+
+    scheduler.schedule(task).await.unwrap();
+}
+```
+We build our workflow using an ergonomic builder type (``TaskFrameBuilder``) and configure a retry and a timeout. The
+primitives are applied in the same ordering as the ``#[workflow]`` macro and simply build it and use this new workflow
+in our ``Task``.
+
+The only thing to note is the ``with_timeout`` builder method requires our error type to implement a trait called
+``DefaultTimeoutError``, this gives us a default error for timeouts.
+
+In case the error type doesn't implement it, or you may want to override its value (if it implements it),
+use ``with_custom_timeout`` and provide the error as an additional parameter.
+
+Translating this to the macro world for better understanding, the same can be achieved via:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+#[task(singleton = false, schedule = every!(2s))]
+#[workflow(
+    retry(2),
+    timeout(5s)
+)]
+pub async fn MyTask(ctx: &TaskFrameContext) -> Result<(), String> {
+    println!("Hello Base API");
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main(scheduler: DefaultLiveScheduler<String>) {
+    let task = MyTask::new();
+    scheduler.schedule(task).await.unwrap();
+}
+```
+
+# Workflow Primitives In Base API
+While on the topic of workflows, we have covered the ``TaskFrameBuilder`` which ergonomically builds up our workflow.
+However, there is a third final dimension to this which requires most boilerplate but proves to be enough flexible in
+some scenarios.
+
+The technique in question involves constructing ``TaskFrames`` one-by-one via their own constructors individually. Let's
+reimagine our previous workflow with this new lower-level approach:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+use std::time::Duration;
+use std::num::NonZeroU32;
+
+// <...>
+
+#[chronographer::main]
+async fn main(scheduler: DefaultLiveScheduler<String>) {
+    // [!code highlight]
+    let workflow = TimeoutTaskFrame::builder()
+        // [!code highlight]
+        .frame(
+            // [!code highlight]
+            RetriableTaskFrame::builder()
+                // [!code highlight]
+                .frame(MyTaskFrame)
+                // [!code highlight]
+                .retries(NonZeroU32::new(2).unwrap())
+                // [!code highlight]
+                .build(),
+        // [!code highlight]
+        )
+        // [!code highlight]
+        .duration(Duration::from_secs(5))
+        // [!code highlight]
+        .build()
+    // [!code highlight]
+    );
+
+    let task = Task::new(
+        workflow,
+        every!(2s)
+    );
+
+    scheduler.schedule(task).await.unwrap();
+}
+```
+
+With this approach we utilize ``TimeoutTaskFrame`` (or more formerly known as ``timeout(...)`` in the ``#[workflow]`` macro)
+and ``RetriableTaskFrame`` (in the ``#[workflow]`` macro's language its ``retry(...)``).
+
+> **Note:** The builder for ``TimeoutTaskFrame`` also contains a builder method for specifying the error, if the error type
+implements the ``DefaultTimeoutError`` trait its optional (if specified overrides), otherwise its required to be specified.
+
+While this approach for constructing a workflow generally exists. It's too low-level and makes it difficult switching the
+ordering of the workflow around. As such it should be applied in niche scenarios.
+
+It should be mentioned there is one new workflow primitive available in the Base API, that being ``CollectionTaskFrame``.
+Which stores a list of ``TaskFrames`` and based on a strategy operates upon this group (in sequence, parallel,
+selection-based... etc.). It's recommended to read more about it in its API docs.
+
+When it comes to all workflow primitives, generally:
+|     Macros API      |                TaskFrameBuilder API                 |        Base API        |
+| ------------------- | --------------------------------------------------- | ---------------------- |
+|  ``timeout(...)``   | ``with_timeout`` or ``with_custom_timeout``         |  ``TimeoutTaskFrame``  |
+|  ``retry(...)``   | ``with_instant_retry``, ``with_retry`` or ``with_backoff_retry``         |  ``RetriableTaskFrame``  |
+|  ``fallback(...)``   | ``with_fallback``         |  ``FallbackTaskFrame``  |
+|  ``dependency(...)``   | ``with_dependency``         |  ``DependencyTaskFrame``  |
+|  ``delay(...)``   | ``with_delay``         |  ``DelayTaskFrame``  |
+|  ``threshold(...)``   | N/A         |  ``ThresholdTaskFrame``  |
+|  ``condition(...)``   | ``with_condition`` or ``with_fallback_condition``         |  ``ConditionalTaskFrame``  |
+|  N/A   | N/A         |  ``CollectionTaskFrame``  |
+
+# Constructing Your Custom TaskFrame
+With the built-in workflow primitives out of the way. One of the real use cases of the Base API is constructing your own
+workflow primitive, wrapping one or more ``TaskFrame(s)`` and executing its own code on top.
+
+To achieve this we can use one or more generic(s) with the ``TaskFrame`` trait as a bound. Then store it inside the ``struct``
+and simply execute it at some point while we are running our ``MyTaskFrame`` code:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+// <...>
+
+// [!code highlight]
+pub struct MyWorkflowTaskFrame<T: TaskFrame>(T);
+
+// [!code ++]
+impl<T: TaskFrame> MyWorkflowTaskFrame<T> {
+    // [!code ++]
+    pub fn new(frame: T) -> Self {
+        // [!code ++]
+        Self(frame)
+    // [!code ++]
+    }
+// [!code ++]
+}
+
+// [!code highlight]
+impl<T: TaskFrame> TaskFrame for MyWorkflowTaskFrame<T> {
+    // [!code highlight]
+    // We need to report the same error type back
+    // [!code highlight]
+    type Error = T::Error;
+
+    // [!code highlight]
+    // Either we pass / drill the TaskFrame's arguments down, define our own
+    // [!code highlight]
+    // or require the TaskFrame to not accept any arguments (though usually a bad practice)
+    // [!code highlight]
+    type Args = T::Args;
+    type Workflow = Self;
+
+    async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
+        // [!code highlight]
+        println!("(START) Executing the TaskFrame");
+        // [!code highlight]
+        let res = self.0.execute(ctx, args).await;
+        // [!code highlight]
+        println!("(END) Executing the TaskFrame");
+        // [!code highlight]
+        res
+    }
+}
+
+// <...>
+```
+
+When wrapping ``MyWorkflowTaskFrame`` on top of ``MyTaskFrame``, we will notice the following in the terminal
+when running the workflow, we can run any other code apart from just printing to the terminal before / after:
+```shell title="terminal"
+(START) Executing the TaskFrame
+# Any content the MyTaskFrame prints
+(END) Executing the TaskFrame
+```
+
+<Callout type={"idea"} title={"Pro Tip: Extending TaskFrameBuilder"}>
+    You can avoid the manual construction and opt-in to use a trait which you implement on top of the
+    builder like so (it does require importing the trait in order to use it):
+    ```rust title="src/main.rs" lineNumbers
+    // <...>
+
+    pub trait MyWorkflowTaskFrameBuilderExt<T: TaskFrame>: Send + Sync {
+        fn with_my_workflow_frame(self) -> TaskFrameBuilder<MyWorkflowTaskFrame<T>>;
+    }
+
+    impl<T: TaskFrame> MyWorkflowTaskFrameBuilderExt<T> for TaskFrameBuilder<T> {
+        fn with_my_workflow_frame(self) -> TaskFrameBuilder<MyWorkflowTaskFrame<T>> {
+            let result = self.build();
+            TaskFrameBuilder::builder(MyWorkflowTaskFrame::new(result))
+        }
+    }
+    ```
+</Callout>
+
+---
+
+In summary, we've seen how ``TaskFrames`` work and how to implement them, the two ways to represent a workflow in the
+Base API (via the builder and manual individual construction) as well as how to create your own custom workflow primitives.
+
+Suffice to say, the only thing left to tackle are ``TaskHooks`` and ``TaskHookEvents``, how to represent them in Base API.
+After this chapter series, the ``Scheduler`` side will be shown for the first time.
+
+> TL;DR. When it comes to the translation of the ``#[taskframe]`` macro or custom workflow primitives, its achieved by
+implementing the ``TaskFrame`` trait. For workflows in particular (TaskFrames wrapping each other), there are two interfaces
+via ``TaskFrameBuilder`` and manual individual construction.

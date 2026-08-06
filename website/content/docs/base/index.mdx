@@ -1,0 +1,189 @@
+---
+title: Introduction To Base API
+description: Learn about the Base API and how Tasks & TaskSchedules are represented
+---
+
+In our previous chapter series, we have been using a high-level macro API to achieve most of what we want, via
+``#[workflow]`` and using a small DSL language to configure our workflow, ``#[hook]`` for TaskHooks... etc.
+
+While its more ergonomic and flexible enough to cover most of our cases, when it comes to extensions on top of ChronoGrapher or
+for developers seeking more flexibility, a lower level API is needed. This is where the **Base API** comes in view.
+
+<Callout title={"About The Base API"} type={"info"}>
+    This is a special chapter series, unlike the previous ones which cover general concepts translatable across other
+    programming languages. This API is only present in Rust (potentially some other future programming languages will
+    include the Base API)
+</Callout>
+
+Throughout this chapter series, it's best to check the macro expansion (from the various macros we learnt) to better
+understand what's happening under the hood and how macros translate to / wrap the Base API.
+
+In this chapter though, we will focus on a simple subset of the base API. Primarily looking into the equivalents of
+``#[task(...)]`` and the schedules, being ``every!``, ``immediate!`` and ``cron!``.
+
+# Task Equivalent
+When it comes to the ``#[task(...)]`` macro, the equivalent form in the Base API is ``Task``. Unlike the macro version, it
+doesn't include some features to reduce boilerplate such as singleton Tasks, hook attachment upon creation... etc. It's expected
+for the user to implement these manually.
+
+Creating a base API ``Task`` is as simple as the following code:
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+// We define the macro mainly for convenience (for now)
+#[taskframe]
+pub async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main(scheduler: DefaultLiveScheduler<String>) {
+    let task = Task::new(
+        MyTaskFrame,
+        every!(2s) // Again for convenience
+    );
+
+    scheduler.schedule(task).await.unwrap();
+}
+```
+
+The above code creates a **Non-Singleton Task** for us to immediately schedule, it contains as the workflow our basic
+``MyTaskFrame`` and an interval of 2 seconds (via ``every!``) as a schedule.
+
+In the macro world, our code roughly translates into (with the addition as shown before ``MyTask`` helper that acts as a
+cleaner way to construct a ``Task`` object):
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+
+// We define the macro mainly for convenience (for now)
+#[task(singleton = false, schedule = every!(2s)]
+pub async fn MyTask(ctx: &TaskFrameContext) -> Result<(), String> {
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main(scheduler: DefaultLiveScheduler<String>) {
+    let task = MyTask::new();
+    scheduler.schedule(task).await.unwrap();
+}
+```
+
+For singleton Tasks, it's recommended to use Rust's ``OnceLock`` or ``LazyLock`` and manually create it, exposing it
+either as a constant or a helper constructor (like how ``MyTask`` does it). For example:
+```rust title="src/main.rs" lineNumbers
+static MY_TASK: LazyLock<Task<MyTaskFrame>> = LazyLock::new(|| {
+    Task::new(MyTaskFrame, every!(2s))
+});
+```
+
+# TaskSchedule And Its Equivalents
+We've learnt about the ``every!``, ``cron!`` and ``immediate!`` macros, however we've never seen the main abstraction that
+ties them, this is where ``TaskSchedule`` enters the scene.
+
+It's a trait that describes a schedule, a function in which given a current time, process it and whenever ready return a
+new time to schedule the ``Task`` at. However, before we dive into implementing them, we should first discuss the built-in
+scheduling primitives
+
+## The Builtin TaskSchedules
+Kicking things off with the ``immediate!`` macro, it simply translates into ``TaskScheduleImmediate`` which returns the
+current time (as to immediately dispatch the Task).
+
+The second scheduling primitive we've used (and quite frequently) is ``every!``. The base API form of it is
+``TaskScheduleInterval`` which unlike the previous macro includes a suite of constructor methods.
+
+The primary methods include ``duration`` for converting a std ``Duration`` object into an interval, ``from_secs`` and
+``from_secs_f64`` for converting numerical values (represented as seconds) into the interval. Then finally it integrates with
+``chrono`` via ``timedelta`` (requires the chrono compiler flag).
+
+The last scheduling primitive is ``cron!`` which compiles down to ``TaskScheduleCron``. At a first glance, the only constructor
+method is ``new`` which expects various ``CronFields``. **However, this is not a user-facing constructor and more so an
+internal one**.
+
+This constructor is primarily useful to developers extending the ways a cron expression can be constructed, by wrapping
+the ``CronFields`` in a nice interface (basically what ``cron!`` macro does). The main base API constructor for this is
+``from_str`` method.
+
+<Callout title={"Usage of \"cron!\" macro versus \"from_str\" method"} type={"warning"}>
+    While these two interfaces allow the input of CRON expressions, they serve different niches. The ``cron!`` macro is
+    primarily here to allow for type-safety of cron expressions (and it's slightly more performant as the parsing work is moved
+    to compile-time rather than runtime). Though it does require the CRON expression to remain fixed.
+
+    On the other hand, the ``from_str`` allows developers to input dynamic-based strings which are evaluated at runtime.
+    While this does allow CRON expressions to be generated dynamically at runtime, it also introduces some runtime overhead
+    upon construction and the need to handle invalid CRON expressions.
+
+    Overall prefer the use of ``cron!`` macro both for type-safety and slight performance boost, only use ``from_str``
+    if dynamic-based expressions are required (such as reading from a file).
+</Callout>
+
+## Creating Your Own Schedule
+While the built-in schedules are sufficient for most cases. However, if you are an extension developer or workflows may
+require more complex and custom-made schedules. You can create your own schedules by implementing the ``TaskSchedule`` trait.
+```rust title="src/main.rs" lineNumbers
+use chronographer::prelude::*;
+// [!code ++]
+use async_trait::async_trait;
+// [!code ++]
+use std::time::{SystemTime, Duration};
+// [!code ++]
+use std::error::Error;
+
+// <...>
+
+// [!code ++]
+pub struct MyTaskSchedule;
+// [!code ++]
+
+// [!code ++]
+#[async_trait]
+// [!code ++]
+impl TaskSchedule for MyTaskSchedule {
+    // [!code ++]
+    async fn schedule(&self, time: SystemTime) -> Result<SystemTime, Box<dyn Error + Send + Sync>> {
+        // [!code ++]
+        Ok(time + Duration::from_secs(2))
+    // [!code ++]
+    }
+// [!code ++]
+}
+
+// [!code highlight]
+#[task(singleton = false, schedule = MyTaskSchedule]
+pub async fn MyTask(ctx: &TaskFrameContext) -> Result<(), String> {
+    Ok(())
+}
+
+#[chronographer::main]
+async fn main(scheduler: DefaultLiveScheduler<String>) {
+    // [!code highlight]
+    let task = MyTask::new();
+    scheduler.schedule(task).await.unwrap();
+}
+```
+
+As shown, the above code requires the ``async_trait`` third-party crate. Apart from that, we notice two things,
+the method is ``async`` and the fact ``TaskSchedules`` can fail.
+
+For the former, the reason its ``async`` is due to the fact that schedules may need to await for certain events
+to occur of unknown time before giving their final future time.
+
+Whereas for the latter, there may be cases (depending on how the schedule is defined) for it not to be able to provide
+a correct time (due to some internal states or the time itself). Thus, the best course of action is to error out.
+
+<Callout title={"The \"time\" parameter in TaskSchedule"} type={"error"}>
+    While the ``time`` parameter is meant to represent the current time, it is <Highlight color={"error"}>NOT</Highlight>
+    identical to fetching the current time (like ``SystemTime::now()``). Later chapters in the guidebook will elaborate on
+    this but never fetch the current time and instead opt-in to use the parameter.
+</Callout>
+
+---
+
+All in all, for our first introduction to the Base API, we saw how to define Non-Singleton Tasks in the Base API (with Singleton
+Tasks being possible via Rust's ``OnceLock`` and ``LazyLock``).
+
+We additionally saw the scheduling primitives equivalent forms in the Base API and how to make your very own custom schedules.
+In the next chapter we will explore the ``TaskFrames`` & Workflows landscape which we purposefully left out in this chapter.
+
+> TL;DR. The Base API is a lower-level of ChronoGrapher for extensions and flexibility (unlike the Macros API), in this
+API, the ``#[task]`` macro translates to ``Task`` and various schedules implement the ``TaskSchedule`` trait which
+given a current time, returns a future time.
