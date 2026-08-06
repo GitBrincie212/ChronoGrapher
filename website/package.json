@@ -8,9 +8,8 @@
     "start": "serve out",
     "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
     "postinstall": "fumadocs-mdx",
-    "format": "biome format --write",
-    "lint": "biome lint --write",
-    "biome": "biome check --write"
+    "lint": "biome check",
+    "format": "biome format --write"
   },
   "dependencies": {
     "@orama/orama": "^3.1.18",
@@ -40,7 +39,7 @@
     "@types/node": "^24.10.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "postcss": "^8.5.23",
+    "postcss": "^8.5.10",
     "serve": "^14.2.5",
     "shiki": "^3.21.0",
     "tailwindcss": "^4.1.18",
@@ -63,9 +62,7 @@
       "sharp@<0.35.0": ">=0.35.0",
       "postcss@<=8.5.11": ">=8.5.12",
       "postcss@<=8.5.17": ">=8.5.18",
-      "brace-expansion@<1.1.17": ">=1.1.17",
-      "postcss@<=8.5.22": ">=8.5.23",
-      "brace-expansion@<1.1.18": ">=1.1.18"
+      "brace-expansion@<=5.0.7": ">=5.0.8"
     }
   }
 }

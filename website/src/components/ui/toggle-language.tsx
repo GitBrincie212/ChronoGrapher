@@ -187,7 +187,11 @@ export function RenderProgrammingLanguageBased(props: {
   return props.target_name === lang && props.children;
 }
 
-export default function ProgrammingLangToggle() {
+export default function ProgrammingLangToggle({
+  variant = "sidebar",
+}: {
+  variant?: "sidebar" | "nav";
+}) {
   const [currentIndexPL, setCurrentIndexPL] = React.useState<
     number | undefined
   >(undefined);
@@ -225,11 +229,15 @@ export default function ProgrammingLangToggle() {
     setCurrentIndexPL(0);
   }, []);
 
+  const isNav = variant === "nav";
+
   return (
     <div className="relative inline-flex z-100">
       <button
         type={"button"}
-        className="flex items-center justify-between w-full group hover:bg-fd-muted-foreground/10 rounded py-1.5 px-2"
+        className={`flex items-center justify-between group hover:bg-fd-muted-foreground/10 rounded py-1.5 px-2 ${
+          isNav ? "gap-1.5" : "w-full"
+        }`}
         onClick={() => {
           setShouldMenuShow(true);
           document.documentElement.addEventListener("click", () => {
@@ -239,10 +247,18 @@ export default function ProgrammingLangToggle() {
       >
         {currentIndexPL !== undefined && (
           <div className="flex items-center gap-2">
-            <div className="text-2xl p-1.5 bg-fd-muted rounded border border-fd-muted-foreground/25">
+            <div
+              className={`bg-fd-muted rounded border border-fd-muted-foreground/25 ${
+                isNav ? "text-xl p-1" : "text-2xl p-1.5"
+              }`}
+            >
               {PROGRAMMING_LANGUAGES[currentIndexPL].icon()}
             </div>
-            <div className="select-none font-semibold font-mono">
+            <div
+              className={`select-none font-semibold font-mono ${
+                isNav ? "text-sm" : ""
+              }`}
+            >
               {PROGRAMMING_LANGUAGES[currentIndexPL].name}
             </div>
           </div>
@@ -264,7 +280,8 @@ export default function ProgrammingLangToggle() {
 
       <div
         role="menu"
-        className={`absolute top-12 z-auto w-56 overflow-hidden rounded-lg border border-fd-border bg-fd-background
+        className={`absolute top-full mt-2 z-50 w-56 overflow-hidden rounded-lg border border-fd-border bg-fd-background shadow-lg
+                ${isNav ? "right-0" : "left-0"}
                 ${shouldMenuShow ? "scale-100 opacity-100" : "opacity-0 scale-90 pointer-events-none"} transition duration-100`}
       >
         {PROGRAMMING_LANGUAGES.map((lang, idx) => (

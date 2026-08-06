@@ -6,7 +6,6 @@ mod collectionframe_test;
 mod condition_taskframe_test;
 mod delay_taskframe_test;
 mod dependency_taskframe_test;
-mod dynamic_taskframe_test;
 mod fallback_taskframe_test;
 mod noop_operation_taskframe_test;
 mod retry_taskframe_test;

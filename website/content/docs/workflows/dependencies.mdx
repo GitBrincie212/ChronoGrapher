@@ -24,7 +24,7 @@ async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // [!code highlight]
     dependency(MyTask1)
 )]
-async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 ```
@@ -38,9 +38,12 @@ async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     and the check repeats at the next time it reaches the dependency part via its schedule.
 </Callout>
 
+In our above example, ``MyTask2`` depends on ``MyTask1`` **specifically the requiring it to run at least once (regardless of
+whenever it failed or succeeded).** Afterward, the dependency is marked resolved and ``MyTask2`` can run freely.
+
 # Changing How Task Dependencies Are Resolved
-``MyTask1`` as a dependency can only be resolved when it runs at least once (regardless of whenever it failed or succeeded).
-Though what happens if we want to require the Task to run at least 3 times regardless of result? We can achieve this via:
+While we can specify tasks as dependencies to run at least once. The greater question is how do we control the number and
+the kind of runs that contribute towards resolving this dependency. The answer is via ``any``:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
 #[task(schedule = every!(4s)))]
@@ -48,7 +51,7 @@ Though what happens if we want to require the Task to run at least 3 times regar
     // [!code highlight]
     dependency(MyTask1(any = 3))
 )]
-async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 ```
@@ -66,7 +69,7 @@ consecutive variant via ``consecutive_failures`` and ``consecutive_successes``.
     // [!code highlight]
     dependency(MyTask1(failures = 3))
 )]
-async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 ```
@@ -84,7 +87,7 @@ We can also provide a custom implementation for counting failures/successes via 
     // [!code highlight]
     )
 )]
-async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 ```
@@ -101,28 +104,34 @@ async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // ...
 }
 
-// [!code ++]
+// [!code highlight]
 #[task(schedule = every!(2s)))]
-// [!code ++]
+// [!code highlight]
 async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+    // [!code highlight]
+    // ...
+// [!code highlight]
+}
+
+// [!code ++]
+#[task(schedule = every!(4s)))]
+// [!code ++]
+#[workflow(
+    // [!code ++]
+    dependency(MyTask1 && MyTask2)
+// [!code ++]
+)]
+// [!code ++]
+async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
     // [!code ++]
     // ...
 // [!code ++]
 }
-
-#[task(schedule = every!(4s)))]
-#[workflow(
-    // [!code highlight]
-    dependency(MyTask1 && MyTask2)
-)]
-async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-    // ...
-}
 ```
 </RenderProgrammingLanguageBased>
 
-However, we are not restricted to simple boolean logic, we can have all kinds of boolean operators including OR,
-NOT and XOR and various complex boolean expressions like so:
+However, we are not restricted to simple AND boolean logic, we can have all kinds of boolean operators including OR,
+NOT and XOR, chaining them to produce various complex boolean expressions like so:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=14
 #[task(schedule = every!(4s)))]

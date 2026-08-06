@@ -5,17 +5,6 @@ pub use chronographer_macros::*;
 
 #[cfg(feature = "macros")]
 #[macro_export]
-macro_rules! dynamic_taskframe {
-    ($block: block) => {{
-        $crate::prelude::DynamicTaskFrame::new(|taskframe_ctx| async {
-            $block;
-            Ok(())
-        })
-    }};
-}
-
-#[cfg(feature = "macros")]
-#[macro_export]
 macro_rules! immediate {
     () => {
         $crate::prelude::TaskScheduleImmediate
@@ -31,7 +20,6 @@ pub mod macros {
     pub use chronographer_macros::task;
     pub use chronographer_macros::taskframe;
     pub use chronographer_macros::workflow;
-    pub use dynamic_taskframe;
     pub use immediate;
 }
 
@@ -55,10 +43,7 @@ pub mod prelude {
     pub use crate::task::collectionframe::SequentialExecStrategy;
     pub use crate::task::delayframe::DelayTaskFrame;
     pub use crate::task::dependencyframe::DependencyTaskFrame;
-    pub use crate::task::dynamicframe::DynamicTaskFrame;
-    pub use crate::task::fallbackframe::DoubleFallback;
     pub use crate::task::fallbackframe::FallbackTaskFrame;
-    pub use crate::task::fallbackframe::TripleFallback;
     pub use crate::task::retryframe::RetriableTaskFrame;
     pub use crate::task::thresholdframe::ThresholdTaskFrame;
     pub use crate::task::timeoutframe::TimeoutTaskFrame;

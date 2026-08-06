@@ -14,8 +14,6 @@ pub mod timeoutframe; // skipcq: RS-D1001
 
 pub mod delayframe; // skipcq: RS-D1001
 
-pub mod dynamicframe; // skipcq: RS-D1001
-
 pub mod thresholdframe; // skipcq: RS-D1001
 
 pub use collectionframe::*;

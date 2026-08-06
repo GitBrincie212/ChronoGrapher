@@ -1,9 +1,8 @@
 use crate::task::frames::CountingFrame;
-use chronographer::prelude::DynamicTaskFrame;
-use chronographer::task::Task;
-use chronographer::task::TaskFrameContext;
+use chronographer::prelude::DelayTaskFrame;
 use chronographer::task::TaskScheduleImmediate;
 use chronographer::task::TimeoutTaskFrame;
+use chronographer::task::{NoOperationTaskFrame, Task};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -39,17 +38,11 @@ async fn task_finishing_before_timeout_returns_ok() {
 
 #[tokio::test]
 async fn task_finishing_after_timeout_returns_error() {
-    let counter = Arc::new(AtomicUsize::new(0));
-    let frame = DynamicTaskFrame::new(move |_ctx: &TaskFrameContext, _args| {
-        let counter_clone = counter.clone();
-        async move {
-            counter_clone.fetch_add(1, Ordering::SeqCst);
-            let _ = tokio::time::sleep(TIGHT_DURATION + Duration::from_millis(10)).await;
-            Ok::<_, String>(())
-        }
-    });
     let frame = TimeoutTaskFrame::builder()
-        .frame(frame)
+        .frame(DelayTaskFrame::new(
+            NoOperationTaskFrame::<String, _>::default(),
+            TIGHT_DURATION + Duration::from_millis(10),
+        ))
         .duration(TIGHT_DURATION)
         .build();
 
@@ -88,12 +81,11 @@ async fn task_returning_error_before_timeout_returns_error() {
 
 #[tokio::test]
 async fn zero_duration_timeout_returns_error() {
-    let frame = DynamicTaskFrame::new(|_ctx: &TaskFrameContext, _args| async move {
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        Ok::<_, String>(())
-    });
     let frame = TimeoutTaskFrame::builder()
-        .frame(frame)
+        .frame(DelayTaskFrame::new(
+            NoOperationTaskFrame::<String, _>::default(),
+            Duration::from_millis(50),
+        ))
         .duration(Duration::ZERO)
         .build();
 

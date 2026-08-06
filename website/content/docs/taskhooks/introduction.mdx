@@ -451,7 +451,8 @@ interested events, using it as simple as:
 <RenderProgrammingLanguageBased target_name={"Rust"}>
 ```rust title="src/main.rs" lineNumbers=28
 // Implement TaskHook<()> and provide no code or optionally use the more
-// idiomatic StatelessTaskHook trait alias for MyCoolTaskHook
+// idiomatic NonObserverTaskHook trait alias for MyCoolTaskHook like so:
+impl NonObserverTaskHook for MyCoolTaskHook {}
 
 #[task(schedule = every!(2s)))]
 #[hooks({
