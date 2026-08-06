@@ -1,4 +1,5 @@
 use chronographer::task::{CronField, TaskSchedule, TaskScheduleCron};
+use chronographer_utils::errors::{CronErrorTypes, CronExpressionParserErrors};
 use std::str::FromStr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -43,7 +44,6 @@ async fn test_parse_exact_daily() {
         ])
     )
 }
-
 
 #[tokio::test]
 async fn test_parse_step_field() {
@@ -104,11 +104,16 @@ async fn test_value_out_of_range() {
     let err = TaskScheduleCron::from_str("0 0 99 * * ?").unwrap_err();
 
     assert_eq!(err.field_pos, 2);
-    let msg = err.to_string();
-    assert!(msg.contains("99"));
-    assert!(msg.contains("out of range"));
-    assert!(msg.contains("hours"));
-    assert!(msg.contains("0-23"));
+    assert_eq!(err.position, 4);
+    assert!(matches!(
+        &err.error_type,
+        CronErrorTypes::Parser(CronExpressionParserErrors::ValueOutOfRange {
+            value: 99,
+            field,
+            min: 0,
+            max: 23,
+        }) if field == "hours"
+    ));
 }
 
 #[tokio::test]
@@ -116,9 +121,17 @@ async fn test_invalid_range_start_gt_end() {
     let err = TaskScheduleCron::from_str("0 0 12 * * MON-SUN").unwrap_err();
 
     assert_eq!(err.field_pos, 5);
-    let msg = err.to_string();
-    assert!(msg.contains("Invalid range"));
-    assert!(msg.contains("day_of_week"));
+    assert_eq!(err.position, 11);
+    assert!(matches!(
+        &err.error_type,
+        CronErrorTypes::Parser(CronExpressionParserErrors::InvalidRange {
+            start: 2,
+            end: 1,
+            field,
+            min: 1,
+            max: 7,
+        }) if field == "day_of_week"
+    ));
 }
 
 #[tokio::test]
@@ -126,8 +139,11 @@ async fn test_invalid_step_zero() {
     let err = TaskScheduleCron::from_str("0 0/0 * * * ?").unwrap_err();
 
     assert_eq!(err.field_pos, 1);
-    let msg = err.to_string();
-    assert!(msg.contains("Step value 0 must be greater than 0"));
+    assert_eq!(err.position, 2);
+    assert!(matches!(
+        &err.error_type,
+        CronErrorTypes::Parser(CronExpressionParserErrors::InvalidStepValue { step: 0 })
+    ));
 }
 
 #[tokio::test]
@@ -135,8 +151,11 @@ async fn test_last_operator_wrong_field() {
     let err = TaskScheduleCron::from_str("L 0 12 * * ?").unwrap_err();
 
     assert_eq!(err.field_pos, 0);
-    let msg = err.to_string();
-    assert!(msg.contains("L (last) operator is only valid for day_of_month and day_of_week fields"));
+    assert_eq!(err.position, 0);
+    assert!(matches!(
+        &err.error_type,
+        CronErrorTypes::Parser(CronExpressionParserErrors::InvalidLastOperator)
+    ));
 }
 
 #[tokio::test]
@@ -144,8 +163,11 @@ async fn test_nearest_weekday_wrong_field() {
     let err = TaskScheduleCron::from_str("0 15W 12 * * ?").unwrap_err();
 
     assert_eq!(err.field_pos, 1);
-    let msg = err.to_string();
-    assert!(msg.contains("W (nearest weekday) operator is only valid for day_of_month field"));
+    assert_eq!(err.position, 2);
+    assert!(matches!(
+        &err.error_type,
+        CronErrorTypes::Parser(CronExpressionParserErrors::InvalidNearestWeekdayOperator)
+    ));
 }
 
 #[tokio::test]
@@ -153,8 +175,11 @@ async fn test_nth_weekday_out_of_bounds() {
     let err = TaskScheduleCron::from_str("0 0 12 ? * MON#6").unwrap_err();
 
     assert_eq!(err.field_pos, 5);
-    let msg = err.to_string();
-    assert!(msg.contains("Nth weekday 6 is out of range (expected 1-5)"));
+    assert_eq!(err.position, 11);
+    assert!(matches!(
+        &err.error_type,
+        CronErrorTypes::Parser(CronExpressionParserErrors::InvalidNthWeekday { nth: 6 })
+    ));
 }
 
 #[tokio::test]
@@ -162,8 +187,11 @@ async fn test_dom_and_dow_both_unspecified() {
     let err = TaskScheduleCron::from_str("0 0 12 ? * ?").unwrap_err();
 
     assert_eq!(err.field_pos, 3);
-    let msg = err.to_string();
-    assert!(msg.contains("cannot both be unspecified"));
+    assert_eq!(err.position, 7);
+    assert!(matches!(
+        &err.error_type,
+        CronErrorTypes::Parser(CronExpressionParserErrors::InvalidUnspecifiedField)
+    ));
 }
 
 #[tokio::test]
@@ -316,7 +344,7 @@ async fn test_dom_and_dow_both_specified_is_and() {
 }
 
 #[tokio::test]
-async fn test_dom_specified_dow_unspecified_is_just_dom() {
+async fn test_dom_specified_dow_unspecified() {
     let task_cron = TaskScheduleCron::new([
         CronField::Wildcard,
         CronField::Wildcard,
@@ -404,12 +432,50 @@ async fn test_last_of_month_matcher() {
     ]);
 
     let now = ts(JAN_1_2026);
+    let next = task_cron.schedule(now).await.unwrap();
 
-    let result = tokio::time::timeout(Duration::from_secs(5), task_cron.schedule(now)).await;
+    const JAN_31_2026: u64 = 1769817600;
+    assert_eq!(next, ts(JAN_31_2026));
+}
 
-    if let Ok(inner) = result {
-        assert!(inner.is_err());
-    }
+#[tokio::test]
+async fn test_last_of_month_matcher_handles_short_months() {
+    let task_cron = TaskScheduleCron::new([
+        CronField::Wildcard,
+        CronField::Wildcard,
+        CronField::Wildcard,
+        CronField::Last(None),
+        CronField::Wildcard,
+        CronField::Wildcard,
+        CronField::Wildcard,
+    ]);
+
+    const APR_1_2026: u64 = 1775001600;
+    const APR_30_2026: u64 = 1777507200;
+    let next = task_cron.schedule(ts(APR_1_2026)).await.unwrap();
+    assert_eq!(next, ts(APR_30_2026));
+
+    const FEB_1_2028: u64 = 1832976000;
+    const FEB_29_2028: u64 = 1835395200;
+    let next = task_cron.schedule(ts(FEB_1_2028)).await.unwrap();
+    assert_eq!(next, ts(FEB_29_2028));
+}
+
+#[tokio::test]
+async fn test_last_weekday_matcher() {
+    let task_cron = TaskScheduleCron::new([
+        CronField::Wildcard,
+        CronField::Wildcard,
+        CronField::Wildcard,
+        CronField::Unspecified,
+        CronField::Wildcard,
+        CronField::Last(Some(6)),
+        CronField::Wildcard,
+    ]);
+
+    const JAN_30_2026: u64 = 1769731200;
+    let next = task_cron.schedule(ts(JAN_1_2026)).await.unwrap();
+    assert_eq!(next, ts(JAN_30_2026));
 }
 
 #[tokio::test]
@@ -429,4 +495,3 @@ async fn test_schedule_ignores_now_subsecond() {
 
     assert_eq!(next, now + Duration::from_secs(1));
 }
-

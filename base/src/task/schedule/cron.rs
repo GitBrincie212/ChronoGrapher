@@ -384,7 +384,7 @@ impl CronField {
 /// let expr2 = cron!(0 0 12 * * ?); // Every day at 12:00 PM
 /// let expr3 = cron!(0 0/5 14 * * ?); // Every 5 minutes from 2:00 PM - 2:55 PM
 /// let expr4 = cron!(0 15 10 ? * MON-FRI); // Every Monday, Tuesday, Wednesday, Thursday and Friday at 10:15 AM
-/// let expr5 = cron!(0 15 10 ? * 6 L); // Every month at last friday at 10:15 AM
+/// let expr5 = cron!(0 15 10 ? * 6L); // Every month at last friday at 10:15 AM
 /// # Ok(())
 /// # }
 /// ```
@@ -638,24 +638,36 @@ impl TaskScheduleCron {
     }
 
     fn matches_day(&self, dt: UtcDateTime) -> bool {
-        let day_matches = matches!(self.day_of_month, CronField::Unspecified)
-            || self.day_of_month.matches(dt.day() as u32);
-        let weekday_matches = matches!(self.day_of_week, CronField::Unspecified)
-            || self
+        let day_matches = match &self.day_of_month {
+            CronField::Unspecified => true,
+            CronField::Last(offset) => {
+                let last_day = dt.month().length(dt.year()) as u32;
+                let offset = offset.map_or(0, |offset| offset as u32);
+                u32::from(dt.day()) + offset == last_day
+            }
+            _ => self.day_of_month.matches(dt.day() as u32),
+        };
+        let weekday_matches = match &self.day_of_week {
+            CronField::Unspecified => true,
+            CronField::Last(Some(target_weekday)) => {
+                let last_day = dt.month().length(dt.year()) as u32;
+                let current_weekday = (dt.weekday().number_days_from_sunday() + 1) as u32;
+                current_weekday == *target_weekday as u32 && u32::from(dt.day()) + 7 > last_day
+            }
+            _ => self
                 .day_of_week
-                .matches((dt.weekday().number_days_from_sunday() + 1) as u32);
+                .matches((dt.weekday().number_days_from_sunday() + 1) as u32),
+        };
 
         let dom_specified = !matches!(self.day_of_month, CronField::Unspecified);
         let dow_specified = !matches!(self.day_of_week, CronField::Unspecified);
 
         if dom_specified && dow_specified {
             day_matches && weekday_matches
-        } else if dom_specified {
-            day_matches
-        } else if dow_specified {
-            weekday_matches
         } else {
-            true
+            (dom_specified && day_matches)
+                || (dow_specified && weekday_matches)
+                || (!dom_specified && !dow_specified)
         }
     }
 }
@@ -710,28 +722,12 @@ impl FromStr for TaskScheduleCron {
                 field_pos: 3,
                 position: ast[3].start,
                 error_type: CronErrorTypes::Parser(
-                    CronExpressionParserErrors::InvalidUnspecifiedField {
-                        field: "day_of_month and day_of_week cannot both be unspecified"
-                            .to_string(),
-                    },
+                    CronExpressionParserErrors::InvalidUnspecifiedField,
                 ),
             });
         }
 
-        let cron_fields: [CronField; 7] = ast
-            .iter()
-            .map(ast_to_cron_field)
-            .collect::<Vec<_>>()
-            .try_into()
-            .map_err(|_| CronError {
-                field_pos: 0,
-                position: 0,
-                error_type: CronErrorTypes::Parser(
-                    CronExpressionParserErrors::InvalidUnspecifiedField {
-                        field: "Failed to convert cron fields to array".to_string(),
-                    },
-                ),
-            })?;
+        let cron_fields = ast.map(|node| ast_to_cron_field(&node));
 
         Ok(TaskScheduleCron::new(cron_fields))
     }

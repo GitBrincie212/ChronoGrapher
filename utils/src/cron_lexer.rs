@@ -59,7 +59,7 @@ fn constant_to_numeric(
     };
 
     tokens.push(Token {
-        start: position - 3,
+        start: position - 2,
         token_type: TokenType::Value(num),
         span: None,
     });
@@ -170,7 +170,7 @@ pub fn tokenize_from_str(
         }
 
         if char.is_ascii_digit() {
-            digit_start = Some(position);
+            digit_start.get_or_insert(position);
             current_number = current_number * 10 + ((char as u8 - b'0') as u32);
             continue;
         }

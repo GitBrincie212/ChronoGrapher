@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 chronographer = { path = "../core" }
+chronographer_utils = { path = "../utils" }
 async-trait = "0.1.89"
 tokio = { version = "1.52.0", features = ["full", "test-util"] }
 trybuild = "1.0"

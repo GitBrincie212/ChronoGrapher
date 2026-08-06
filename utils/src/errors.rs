@@ -85,8 +85,8 @@ pub enum CronExpressionParserErrors {
     #[error("Nth weekday {nth} is out of range (expected 1-5)")]
     InvalidNthWeekday { nth: u32 },
 
-    #[error("Field '{field}' cannot be unspecified in this context")]
-    InvalidUnspecifiedField { field: String },
+    #[error("Day-of-month and day-of-week cannot both be unspecified")]
+    InvalidUnspecifiedField,
 
     #[error("L (last) operator is only valid for day_of_month and day_of_week fields")]
     InvalidLastOperator,

@@ -201,14 +201,39 @@ pub fn tokenize_from_tokens(
         match tt {
             TokenTree::Literal(lit) => {
                 let s = lit.to_string();
-                let val: u32 = s
-                    .parse()
-                    .map_err(|_| (CronExpressionLexerErrors::UnknownCharacter, lit.span()))?;
-                tokens[field_pos].push(Token {
-                    start: 0,
-                    token_type: TokenType::Value(val),
-                    span: Some(lit.span()),
-                });
+                match s.parse::<u32>() {
+                    Ok(val) => tokens[field_pos].push(Token {
+                        start: 0,
+                        token_type: TokenType::Value(val),
+                        span: Some(lit.span()),
+                    }),
+                    Err(_) => {
+                        let (digits, suffix) = s.split_at(s.len().saturating_sub(1));
+                        let op = match suffix.to_ascii_uppercase().as_str() {
+                            "L" => TokenType::Last,
+                            "W" => TokenType::NearestWeekday,
+                            _ => {
+                                return Err((
+                                    CronExpressionLexerErrors::UnknownCharacter,
+                                    lit.span(),
+                                ));
+                            }
+                        };
+                        let val: u32 = digits.parse().map_err(|_| {
+                            (CronExpressionLexerErrors::UnknownCharacter, lit.span())
+                        })?;
+                        tokens[field_pos].push(Token {
+                            start: 0,
+                            token_type: TokenType::Value(val),
+                            span: Some(lit.span()),
+                        });
+                        tokens[field_pos].push(Token {
+                            start: 0,
+                            token_type: op,
+                            span: Some(lit.span()),
+                        });
+                    }
+                }
             }
             TokenTree::Ident(ident) => {
                 let token_type = ident_to_token_type(&ident)
