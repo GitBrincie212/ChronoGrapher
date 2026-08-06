@@ -177,7 +177,7 @@ pub type TripleFallback<T1, T2, T3, T4> =
 /// #    Ok(())
 /// # }
 ///
-/// let workflow = FallbackTaskFrame::singular(MyTaskFrame, MyFallbackTaskFrame::workflow())
+/// let workflow = FallbackTaskFrame::singular(MyTaskFrame, MyFallbackTaskFrame::workflow());
 /// # let inner: FallbackTaskFrame<MyTaskFrame, RetriableTaskFrame<MyFallbackTaskFrame>> = workflow;
 /// ```
 ///
@@ -187,6 +187,7 @@ pub type TripleFallback<T1, T2, T3, T4> =
 /// by simply appending more fallbacks (they can even be mixed with different constructors):
 /// ```rust
 /// use chronographer::prelude::*;
+/// use chronographer::task::DoubleFallback;
 ///
 /// // Assume we have defined MyFallbackTaskFrame1 and MyFallbackTaskFrame2
 /// # #[taskframe]
@@ -209,7 +210,7 @@ pub type TripleFallback<T1, T2, T3, T4> =
 ///     Ok(())
 /// }
 ///
-/// # let inner: DoubleFallback<MyTaskFrame, RetriableTaskFrame<MyFallbackTaskFrame1>, MyFallbackTaskFrame2> = workflow;
+/// # let inner: FallbackTaskFrame<FallbackTaskFrame<MyTaskFrame, MyFallbackTaskFrame1>, TimeoutTaskFrame<MyFallbackTaskFrame2>> = MyTaskFrame::workflow();
 /// ```
 ///
 /// The same version in the base API requires slightly more boilerplate, involving the creations of nested
@@ -217,6 +218,7 @@ pub type TripleFallback<T1, T2, T3, T4> =
 /// ```rust
 /// use std::time::Duration;
 /// use chronographer::prelude::*;
+/// use chronographer::task::DoubleFallback;
 ///
 /// // Assume we have defined MyTaskFrame, MyFallbackTaskFrame1 and MyFallbackTaskFrame2 already from before.
 /// # #[taskframe]

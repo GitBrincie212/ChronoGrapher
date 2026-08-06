@@ -1,7 +1,7 @@
 use crate::utils::TimeLiteral;
 use crate::workflow::utils::{ArgumentParser, ValueSource, WorkflowTransform};
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{ToTokens, quote};
+use quote::quote;
 use syn::parenthesized;
 use syn::parse::{Parse, ParseBuffer, ParseStream};
 
@@ -52,19 +52,6 @@ impl Parse for OnTimeoutVariants {
     }
 }
 
-impl ToTokens for OnTimeoutVariants {
-    fn to_tokens(&self, tokens: &mut TokenStream2) {
-        match self {
-            OnTimeoutVariants::Constant(expr) => {
-                let expanded = quote! { || #expr };
-                expanded.to_tokens(tokens);
-            }
-
-            OnTimeoutVariants::Dynamic(expr) => expr.to_tokens(tokens),
-        }
-    }
-}
-
 pub struct TimeoutArguments {
     duration: ValueSource<TimeLiteral>,
     on_timeout: Option<OnTimeoutVariants>,
@@ -85,7 +72,10 @@ impl Parse for TimeoutArguments {
 impl WorkflowTransform for TimeoutArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
         let duration = &self.duration;
-        let on_timeout = self.on_timeout.as_ref().map(|x| quote! { .on_timeout(#x) });
+        let on_timeout = self.on_timeout.as_ref().map(|value| match value {
+            OnTimeoutVariants::Constant(expr) => quote! { .on_timeout(#expr) },
+            OnTimeoutVariants::Dynamic(expr) => quote! { .on_timeout_fn(#expr) },
+        });
 
         quote! {
             ::chronographer::task::frames::timeoutframe::TimeoutTaskFrame::builder()

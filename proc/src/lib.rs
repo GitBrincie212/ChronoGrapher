@@ -31,11 +31,11 @@ use proc_macro::TokenStream;
 /// ```rust
 /// use chronographer::every;
 ///
-/// every!(500ms) // 500 Milliseconds via "ms"
-/// every!(1s) // 1 Second via "s"
-/// every!(2m) // 2 Minutes via "m"
-/// every!(3h) // 3 Hours via "h"
-/// every!(4d) // 4 Days via "d"
+/// every!(500ms); // 500 Milliseconds via "ms"
+/// every!(1s); // 1 Second via "s"
+/// every!(2m); // 2 Minutes via "m"
+/// every!(3h); // 3 Hours via "h"
+/// every!(4d); // 4 Days via "d"
 /// ```
 ///
 /// The [`every`] macro allows defining more specific times via multiple time literals sorted from most
@@ -52,12 +52,12 @@ use proc_macro::TokenStream;
 /// ```rust
 /// use chronographer::every;
 ///
-/// every!(1s, 500ms) // 1 Second & 500 Milliseconds
-/// every!(3m, 30s) // 3 Minutes & 30 Seconds
-/// every!(4h, 20s) // 4 Hours & 20 Seconds
-/// every!(6h, 20m, 45s) // 4 Hours, 20 Minutes & 45 Seconds
-/// every!(1d, 20ms) // 1 Day & 20 Milliseconds
-/// every!(1d, 1h, 1m, 1s, 1ms) // 1 Day, 1 Hour, 1 Minute, 1 Second & 1 Millisecond
+/// every!(1s, 500ms); // 1 Second & 500 Milliseconds
+/// every!(3m, 30s); // 3 Minutes & 30 Seconds
+/// every!(4h, 20s); // 4 Hours & 20 Seconds
+/// every!(6h, 20m, 45s); // 4 Hours, 20 Minutes & 45 Seconds
+/// every!(1d, 20ms); // 1 Day & 20 Milliseconds
+/// every!(1d, 1h, 1m, 1s, 1ms); // 1 Day, 1 Hour, 1 Minute, 1 Second & 1 Millisecond
 /// ```
 ///
 /// Finally, the [`every`] macro additionally supports the use of decimals. Though you can only use it in
@@ -67,10 +67,10 @@ use proc_macro::TokenStream;
 /// ```rust
 /// use chronographer::every;
 ///
-/// every!(1.34s) // Stand-alone Decimal For 1.34 Seconds
-/// every!(3.4d) // 3.4 Days = 3 Days, 9 Hours & 36 Minutes
-/// every!(3d, 9.6h) // Same as above but with multiple time literals
-/// every!(3m, 1.5s) // 3 Minutes & 1.5 Seconds
+/// every!(1.34s); // Stand-alone Decimal For 1.34 Seconds
+/// every!(3.4d); // 3.4 Days = 3 Days, 9 Hours & 36 Minutes
+/// every!(3d, 9.6h); // Same as above but with multiple time literals
+/// every!(3m, 1.5s); // 3 Minutes & 1.5 Seconds
 /// ```
 ///
 /// # Limitations
@@ -82,9 +82,9 @@ use proc_macro::TokenStream;
 /// ```rust
 /// use chronographer::every;
 ///
-/// every!(7d) // For 1 Week
-/// every!(30d) // For ~1 Month (without counting the edge cases)
-/// every!(365d) // For ~1 Year (again without edge cases)
+/// every!(7d); // For 1 Week
+/// every!(30d); // For ~1 Month (without counting the edge cases)
+/// every!(31d); // Maximum representable day duration
 /// ```
 ///
 /// If these needs are more common, it is suggested to take a look at [`cron`], [`calendar`] or their Base
@@ -109,7 +109,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// use chronographer::prelude::*;
 ///
 /// #[task(schedule = every!(1s))]
-/// pub async fn MyCoolThing(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolThing(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 /// ```
@@ -242,7 +242,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// use chronographer::prelude::*;
 ///
 /// #[taskframe]
-/// pub async fn MyCoolThing(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolThing(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 /// ```
@@ -301,7 +301,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// type and the extraction logic).
 ///
 /// The [`taskframe`] macro addresses this, letting you write:
-/// ```rust
+/// ```ignore
 /// #[taskframe]
 /// pub async fn MyTaskFrame(_ctx: &TaskFrameContext, arg1: u8, arg2: Vec<u8>, arg3: Option<String>) -> Result<(), [ERROR]> {
 ///     println!("{arg1:?} {arg2:?} {arg3:?}"); // Using the arguments in our code
@@ -315,7 +315,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Finally, the use of generics is possible in functions including type parameters and constant
 /// parameters (with one certain limitation in the Limitations section below) as seen:
-/// ```rust
+/// ```ignore
 /// use std::fmt::{Debug, Display};
 ///
 /// #[taskframe]
@@ -387,7 +387,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     timeout(20s), // Timeout the entire workflow if it lasts >20 seconds
 ///     retry(5) // If the workflow fails, retry it immediately up to 5 times
 /// )]
-/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 /// ```
@@ -456,7 +456,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///   and by default any error is let through.
 ///
 /// ### Examples:
-/// ```rust
+/// ```ignore
 /// use chronographer::prelude::*;
 ///
 /// #[taskframe]
@@ -470,7 +470,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     retry(1, when = !["C" | "D"]), // ... with an error filter NOT matching either values "C" or "D"
 ///     retry(4, 5s, ["A" | "B" | "C"]), // Retry up to 4 times with a delay of 5 seconds IF matching the errors
 /// )]
-/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 /// ```
@@ -564,7 +564,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// #[workflow(
 ///     delay(5s), // Delay the workflow for 5 seconds
 ///     delay(delay = 800ms), // ... for 800 milliseconds
-///     delay(Duration::from_secs(2)) // ... for 2 seconds
+///     delay(2s) // ... for 2 seconds
 /// )]
 /// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
@@ -593,8 +593,8 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// #[taskframe]
 /// #[workflow(
 ///     timeout(5s), // Timeout the workflow if it executes for more than 5 seconds
-///     timeout(duration = 800ms) // ... if more than 800 milliseconds
-///     timeout(Duration::from_secs(2)) // ... if more than 2 seconds
+///     timeout(duration = 800ms), // ... if more than 800 milliseconds
+///     timeout(2s) // ... if more than 2 seconds
 /// )]
 /// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
@@ -642,10 +642,10 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// #[taskframe]
 /// #[workflow(
 ///     threshold(10), // Allow this workflow to run up to 10 times before skipping it when tempted
-///     threshold(5, count = successes), // ... to 5 successful times before skipping it ...
-///     threshold(3, count = failures), // ... to 3 failed times before skipping it ...
-///     threshold(2, error), // ... up to 2 times before erroring out when tempted
-///     threshold(2, error, failures), // Run up to 2 failed times before erroring out ...
+///     threshold(5, count_behavior = successes), // ... to 5 successful times before skipping it ...
+///     threshold(3, count_behavior = failures), // ... to 3 failed times before skipping it ...
+///     threshold(2, reach_behavior = error), // ... up to 2 times before erroring out when tempted
+///     threshold(2, reach_behavior = error, count_behavior = failures), // Run up to 2 failed times before erroring out ...
 /// )]
 /// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
@@ -703,7 +703,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// via the ``custom(...)`` which runs when dependencies aren't resolved and then decided what to do.
 ///
 /// ### Examples:
-/// ```rust
+/// ```ignore
 /// use chronographer::prelude::*;
 ///
 /// #[taskframe]
@@ -746,7 +746,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///   errors out regardless of its own error.
 ///
 /// ### Examples:
-/// ```rust
+/// ```ignore
 /// use chronographer::prelude::*;
 ///
 /// #[taskframe]
@@ -825,7 +825,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// less boilerplate and more readability in both implementation and attachment phases.
 ///
 /// The bare minimal of both implementation and attachment of a TaskHook looks as follows:
-/// ```rust
+/// ```ignore
 /// use chronographer::prelude;
 ///
 /// // ============== [IMPLEMENTATION PHASE (START)] ==============
@@ -855,7 +855,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     OnTaskEnd: my_inst,
 ///     OnRetryAttemptEnd: my_inst
 /// )]
-/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 ///
@@ -908,7 +908,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// # Expansion Semantics
 /// The expansion of the [`hook`] macro heavily depends on the context it is used in. However, for the
 /// implementation phase it typically looks something like:
-/// ```rust
+/// ```ignore
 /// use chronographer::prelude::*;
 ///
 /// /* Input:
@@ -966,7 +966,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// are fully optional.
 ///
 /// In our example we have basic names but the macro also allows to listen to generic-based events:
-/// ```rust
+/// ```ignore
 /// #[hook]
 /// impl MyTaskHook {
 ///    async fn OnHookAttach<OnTaskStart>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<OnTaskStart>) { /* <...> */ }
@@ -997,7 +997,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// however, by embedding the ``#[hook(...)]`` macro annotation and using the ``default`` boolean parameter.
 ///
 /// Rewriting our previous simple code with this mind, it transforms to:
-/// ```rust
+/// ```ignore
 /// #[hook]
 /// impl MyTaskHook {
 ///
@@ -1017,7 +1017,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// Now our auto-attach method only attaches ``OnTaskStart``, ``OnTaskEnd`` and ``OnMyCustomEvent`` and not
 /// ``OnRetryAttemptEnd``. Currently, our generic-based events (except the first case) disallow auto-attachement,
 /// the ``default`` parameter solves this elegantly via:
-/// ```rust
+/// ```ignore
 /// #[hook]
 /// impl MyTaskHook {
 ///    #[hook(default)]
@@ -1041,7 +1041,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// An additional parameter which can be used is the ``listen``, unlike ``default`` it can be assigned a value.
 /// Do note, this value denotes the event to listen to and is prioritized over the method's name when it exists,
 /// which allows for better self-documenting code in some cases:
-/// ```rust
+/// ```ignore
 /// #[hook]
 /// impl MyTaskHook {
 ///
@@ -1091,7 +1091,7 @@ pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ground up.
 ///
 /// The bare minimal interface is essentially:
-/// ```rust
+/// ```ignore
 /// use chronographer::prelude::*;
 ///
 /// #[chronographer::main]
@@ -1206,9 +1206,9 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ```rust
 /// use chronographer::cron;
 ///
-/// cron!(0 0 * * * *) // Every hour, on the hour
-/// cron!(0 30 9 * * *) // Every day at 09:30:00
-/// cron!(0 0 12 * JAN MON) // At noon, on Mondays in January
+/// cron!(0 0 * * * *); // Every hour, on the hour
+/// cron!(0 30 9 * * *); // Every day at 09:30:00
+/// cron!(0 0 12 * JAN MON); // At noon, on Mondays in January
 /// ```
 ///
 /// # Field Expressions
@@ -1225,15 +1225,15 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// - ``<A>#<B>`` The **Nth Weekday**, the integer ``B``-th occurrence of weekday integer ``A`` in the month.
 ///
 /// A couple of combined examples are demonstrated below:
-/// ```rust
+/// ```ignore
 /// use chronographer::cron;
 ///
-/// cron!(0 */15 * * * *) // Every 15 minutes
-/// cron!(0 0 9-17 * * MON-FRI) // Hourly from 09:00 to 17:00 on weekdays
-/// cron!(0 0 0 L * ?) // At midnight on the last day of the month
-/// cron!(0 0 12 ? * 6#3) // At noon on the third Friday of every month
-/// cron!(0 0 8 15W * ?) // At 08:00 on the nearest weekday to the 15th
-/// cron!(0 0,30 * * * *) // On the hour and the half-hour
+/// cron!(0 */15 * * * *); // Every 15 minutes
+/// cron!(0 0 9-17 * * MON-FRI); // Hourly from 09:00 to 17:00 on weekdays
+/// cron!(0 0 0 L * ?); // At midnight on the last day of the month
+/// cron!(0 0 12 ? * 6#3); // At noon on the third Friday of every month
+/// cron!(0 0 8 15W * ?); // At 08:00 on the nearest weekday to the 15th
+/// cron!(0 0,30 * * * *); // On the hour and the half-hour
 /// ```
 ///
 /// It is highly recommended to read in detail [Quartz's CRON Trigger Documentation](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html)
@@ -1309,7 +1309,7 @@ pub fn cron(input: TokenStream) -> TokenStream {
 ///
 /// // Named-field styled (must be explicitly inlined)
 /// #[event]
-/// pub struct MyMessageEvent {
+/// pub struct MyNamedMessageEvent {
 ///     pub code: u8,
 ///     pub message: String
 /// }
@@ -1371,7 +1371,7 @@ pub fn cron(input: TokenStream) -> TokenStream {
 /// pub struct MyMessageEvent<T: Send + Sync + 'static>(u8, String, T);
 ///
 /// #[event]
-/// pub struct MyMessageEvent<T: Send + Sync + 'static> {
+/// pub struct MyNamedMessageEvent<T: Send + Sync + 'static> {
 ///     pub code: u8,
 ///     pub message: String,
 ///     pub shape: T
@@ -1388,7 +1388,7 @@ pub fn cron(input: TokenStream) -> TokenStream {
 /// pub struct MyMessageEvent<'a>(u8, &'a str);
 ///
 /// #[event]
-/// pub struct MyMessageEvent<'a> {
+/// pub struct MyNamedMessageEvent<'a> {
 ///     pub code: u8,
 ///     pub message: &'a str
 /// }
@@ -1521,6 +1521,8 @@ pub fn cron(input: TokenStream) -> TokenStream {
 ///
 /// This simply translates to:
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// pub trait MyTHEG: TaskHookEvent {}
 /// ```
 ///

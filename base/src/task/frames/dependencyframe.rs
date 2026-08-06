@@ -271,12 +271,12 @@ define_event!(
 /// Apart from `DependencyTaskFrame` implementing the [`TaskFrame`] trait, there is no other prominent trait to note of.
 ///
 /// # Example(s)
-/// ```rust
-/// #[task(schedule = every!(1s)))]
+/// ```ignore
+/// #[task(schedule = every!(1s))]
 /// async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 ///     // ...
 /// }
-/// #[task(schedule = every!(4s)))]
+/// #[task(schedule = every!(4s))]
 /// #[workflow(dependency(MyTask1))]
 /// async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 ///     // ...
@@ -285,12 +285,12 @@ define_event!(
 /// Requires ``MyTask1`` to run at least once, regardless of its result before ``MyTask2`` ever runs.
 ///
 /// The same example in Base API:
-/// ```rust
-/// # #[task(schedule = every!(1s)))]
+/// ```ignore
+/// # #[task(schedule = every!(1s))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
-/// # #[task(schedule = every!(4s)))]
+/// # #[task(schedule = every!(4s))]
 /// # async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
@@ -303,8 +303,8 @@ define_event!(
 ///
 /// ---
 ///
-/// ```rust
-/// #[task(schedule = every!(4s)))]
+/// ```ignore
+/// #[task(schedule = every!(4s))]
 /// #[workflow(
 ///     dependency(MyTask1(any = 3))
 /// )]
@@ -316,12 +316,12 @@ define_event!(
 /// ``successes``/``failures`` will require the `MyTask1` to succeed or fail at least 3 times respectively.
 ///
 /// The same example in Base API:
-/// ```rust
-/// # #[task(schedule = every!(1s)))]
+/// ```ignore
+/// # #[task(schedule = every!(1s))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
-/// # #[task(schedule = every!(4s)))]
+/// # #[task(schedule = every!(4s))]
 /// # async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
@@ -337,10 +337,10 @@ define_event!(
 ///
 /// You can also have different types of dependencies and even combine them:
 ///
-/// ```rust
+/// ```ignore
 /// static MY_FLAG: AtomicBool = AtomicBool::new(false);
 ///
-/// #[task(schedule = every!(4s)))]
+/// #[task(schedule = every!(4s))]
 /// #[workflow(
 ///     dependency(
 ///         // You can do more complex than just returning always false
@@ -353,10 +353,10 @@ define_event!(
 /// ```
 /// Requires `MY_FLAG` to be true or the closure in `dynamic(...)` to return true.
 /// While rewriting same code in Base API will look like:
-/// ```rust
+/// ```ignore
 /// # static MY_FLAG: AtomicBool = AtomicBool::new(false);
 /// #
-/// # #[task(schedule = every!(4s)))]
+/// # #[task(schedule = every!(4s))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
@@ -372,8 +372,8 @@ define_event!(
 /// ---
 ///
 /// Finally, we can customize what happens when the dependencies aren't resolved. For example:
-/// ```rust
-/// #[task(schedule = every!(4s)))]
+/// ```ignore
+/// #[task(schedule = every!(4s))]
 /// #[workflow(
 ///     dependency(
 ///         !MyTask5 && (MyTask1 || MyTask2 ^ MyTask4),
@@ -390,8 +390,8 @@ define_event!(
 /// And of course you can customize it via `custom(...)` as in the comment.
 ///
 /// The same example in Base API:
-/// ```rust
-/// # #[task(schedule = every!(4s)))]
+/// ```ignore
+/// # #[task(schedule = every!(4s))]
 /// # async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }

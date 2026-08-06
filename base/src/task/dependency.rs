@@ -69,6 +69,13 @@ macro_rules! impl_monitor_based_dependency {
 }
 
 impl FrameDependency {
+    pub fn new(flag: Arc<AtomicBool>) -> Self {
+        Self {
+            inner: DependencyInner::Flag(flag),
+            disabled: AtomicBool::new(false),
+        }
+    }
+
     pub async fn runs(task: &Task<impl TaskFrame>, value: NonZeroU16) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, _payload, task, value) -> {
             let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;

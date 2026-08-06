@@ -137,10 +137,17 @@ impl<'a> ArgumentParser<'a> {
     }
 
     pub fn parse_optional<T: Parse>(&mut self, expected: &'static str) -> syn::Result<Option<T>> {
-        Ok(self.parse_next()?.and_then(|x| match x.name() {
-            Some(actual) if actual.to_string().as_str() == expected => Some(x.into_value()),
-            _ => None,
-        }))
+        if !(self.input.peek(syn::Ident) && self.input.peek2(Token![=])) {
+            return Ok(None);
+        }
+
+        let fork = self.input.fork();
+        let name = fork.parse::<syn::Ident>()?;
+        if name != expected {
+            return Ok(None);
+        }
+
+        Ok(self.parse_next()?.map(MacroArgument::into_value))
     }
 
     pub fn parse_remaining<T: Parse>(&mut self) -> syn::Result<Vec<T>> {

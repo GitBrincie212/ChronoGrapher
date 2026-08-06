@@ -31,10 +31,20 @@ impl ToTokens for ThresholdReachBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let expanded = match self {
             ThresholdReachBehavior::Error => {
-                quote! { chronographer::task:::frames:thresholdframe::ThresholdSuccessReachBehaviour }
+                quote! {
+                    Box::new(
+                        ::chronographer::task::frames::thresholdframe::ThresholdSuccessReachBehaviour,
+                    )
+                }
             }
-            ThresholdReachBehavior::Skip => todo!(),
-            ThresholdReachBehavior::Custom(expr) => quote! { #expr },
+            ThresholdReachBehavior::Skip => {
+                quote! {
+                    Box::new(
+                        ::chronographer::task::frames::thresholdframe::ThresholdSuccessReachBehaviour,
+                    )
+                }
+            }
+            ThresholdReachBehavior::Custom(expr) => quote! { Box::new(#expr) },
         };
 
         tokens.append_all(expanded);
@@ -75,15 +85,27 @@ impl ToTokens for ThresholdCountBehavior {
     fn to_tokens(&self, tokens: &mut TokenStream2) {
         let expanded = match self {
             ThresholdCountBehavior::Identity => {
-                quote! { chronographer::task::frames::thresholdframe::ThresholdIdentityCountLogic }
+                quote! {
+                    Box::new(
+                        ::chronographer::task::frames::thresholdframe::ThresholdIdentityCountLogic,
+                    )
+                }
             }
             ThresholdCountBehavior::Successes => {
-                quote! { chronographer::task::frames::thresholdframe::ThresholdSuccessesCountLogic }
+                quote! {
+                    Box::new(
+                        ::chronographer::task::frames::thresholdframe::ThresholdSuccessesCountLogic,
+                    )
+                }
             }
             ThresholdCountBehavior::Failures => {
-                quote! { chronographer::task::frames::thresholdframe::ThresholdErrorsCountLogic }
+                quote! {
+                    Box::new(
+                        ::chronographer::task::frames::thresholdframe::ThresholdErrorsCountLogic,
+                    )
+                }
             }
-            ThresholdCountBehavior::Custom(expr) => quote! { #expr },
+            ThresholdCountBehavior::Custom(expr) => quote! { Box::new(#expr) },
         };
 
         tokens.append_all(expanded);

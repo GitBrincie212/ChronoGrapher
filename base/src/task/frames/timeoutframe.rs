@@ -193,8 +193,12 @@ pub struct TimeoutPresentBuilder<T>(T);
 /// ```rust
 /// use chronographer::prelude::*;
 ///
+/// macro_rules! my_timeout {
+///     () => { "My Own Error".to_string() };
+/// }
+///
 /// #[taskframe]
-/// #[workflow(timeout(5s, on_timeout = "My Own Error".to_string()))]
+/// #[workflow(timeout(5s, on_timeout = my_timeout!()))]
 /// async fn MyTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     Ok(())
 /// }
@@ -327,7 +331,7 @@ impl<T: TaskFrame, TS, ES> TimeoutTaskFrameBuilder<T, TS, TimeoutMissingBuilder,
         }
     }
 
-    pub fn duration_fn<F>(
+    pub fn duration_fn(
         self,
         f: impl Fn() -> Duration + Send + Sync + 'static,
     ) -> TimeoutTaskFrameBuilder<T, TS, TimeoutDurationBuilder, ES> {
@@ -358,7 +362,7 @@ impl<T: TaskFrame, TS, DS> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutMissingBuil
         }
     }
 
-    pub fn on_timeout_fn<F>(
+    pub fn on_timeout_fn(
         self,
         f: impl Fn() -> T::Error + Send + Sync + 'static,
     ) -> TimeoutTaskFrameBuilder<T, TS, DS, TimeoutErrorBuilder<T::Error>> {

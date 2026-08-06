@@ -18,9 +18,11 @@ impl WorkflowTransform for DelayArguments {
     fn transform(&self, toks: TokenStream2) -> TokenStream2 {
         let value = &self.0;
 
-        let method_name = match &value {
-            ValueSource::Function(_) => quote! { new_with },
-            _ => quote! { new },
+        let method_name = match value {
+            ValueSource::Lit(_) => quote! { new },
+            ValueSource::Function(_) | ValueSource::Closure(_) | ValueSource::Macro(_) => {
+                quote! { new_with }
+            }
         };
 
         quote! { ::chronographer::task::frames::delayframe::DelayTaskFrame::#method_name( #toks, #value )}

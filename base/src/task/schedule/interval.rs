@@ -177,7 +177,7 @@ impl TaskScheduleInterval {
     ///
     /// # fn main() -> Result<(), IntervalSecondsOutOfRange> {
     /// let dur = time::Duration::seconds(34);
-    /// let interval = TaskScheduleInterval::time_duration(dur);
+    /// let interval = TaskScheduleInterval::time_duration(dur)?;
     /// let interval_dur: Duration = interval.into();
     ///
     /// assert_eq!(interval_dur, Duration::from_secs(34));
