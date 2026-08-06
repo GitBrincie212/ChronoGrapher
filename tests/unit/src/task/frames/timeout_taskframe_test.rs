@@ -1,8 +1,8 @@
 use crate::task::frames::CountingFrame;
 use chronographer::prelude::DelayTaskFrame;
-use chronographer::task::{NoOperationTaskFrame, Task};
 use chronographer::task::TaskScheduleImmediate;
 use chronographer::task::TimeoutTaskFrame;
+use chronographer::task::{NoOperationTaskFrame, Task};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -41,7 +41,7 @@ async fn task_finishing_after_timeout_returns_error() {
     let frame = TimeoutTaskFrame::builder()
         .frame(DelayTaskFrame::new(
             NoOperationTaskFrame::<String, _>::default(),
-            TIGHT_DURATION + Duration::from_millis(10)
+            TIGHT_DURATION + Duration::from_millis(10),
         ))
         .duration(TIGHT_DURATION)
         .build();
@@ -82,7 +82,10 @@ async fn task_returning_error_before_timeout_returns_error() {
 #[tokio::test]
 async fn zero_duration_timeout_returns_error() {
     let frame = TimeoutTaskFrame::builder()
-        .frame(DelayTaskFrame::new(NoOperationTaskFrame::<String, _>::default(), Duration::from_millis(50)))
+        .frame(DelayTaskFrame::new(
+            NoOperationTaskFrame::<String, _>::default(),
+            Duration::from_millis(50),
+        ))
         .duration(Duration::ZERO)
         .build();
 

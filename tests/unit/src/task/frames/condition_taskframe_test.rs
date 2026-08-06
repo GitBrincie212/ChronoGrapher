@@ -1,9 +1,9 @@
 use crate::task::frames::CountingFrame;
 use chronographer::prelude::*;
+use chronographer::task::{ConditionalTaskFrame, TaskFrame};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use chronographer::task::{ConditionalTaskFrame, TaskFrame};
 
 // Slight utility for unit tests to run closures directly inlined
 pub struct ClosureFrame<F> {
