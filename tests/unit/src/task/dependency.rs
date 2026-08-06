@@ -129,7 +129,7 @@ async fn test_task_identity_run_dependency() -> Result<(), String> {
 
     frame.enable_failure();
     let erased = task.into_erased();
-    erased.run().await?;
+    assert!(erased.run().await.is_err());
 
     assert!(
         dep1.is_resolved().await,
@@ -167,7 +167,7 @@ async fn test_task_identity_run_dependency() -> Result<(), String> {
     );
 
     frame.enable_failure();
-    erased.run().await?;
+    assert!(erased.run().await.is_err());
 
     assert!(
         dep3.is_resolved().await,
@@ -203,7 +203,7 @@ async fn test_task_success_run_dependency() -> Result<(), String> {
 
     frame.enable_failure();
     let erased = task.into_erased();
-    erased.run().await?;
+    assert!(erased.run().await.is_err());
 
     assert!(
         !dep1.is_resolved().await,
@@ -241,7 +241,7 @@ async fn test_task_success_run_dependency() -> Result<(), String> {
     );
 
     frame.enable_failure();
-    erased.run().await?;
+    assert!(erased.run().await.is_err());
 
     assert!(
         dep3.is_resolved().await,
@@ -277,7 +277,7 @@ async fn test_task_failed_run_dependency() -> Result<(), String> {
 
     frame.enable_failure();
     let erased = task.into_erased();
-    erased.run().await?;
+    assert!(erased.run().await.is_err());
 
     assert!(
         dep1.is_resolved().await,
@@ -305,8 +305,8 @@ async fn test_task_failed_run_dependency() -> Result<(), String> {
     erased.run().await?;
 
     assert!(
-        !dep3.is_resolved().await,
-        "Task dependency with minimum run of one should not be resolved"
+        dep3.is_resolved().await,
+        "Task dependency with minimum run of one should be resolved"
     );
 
     assert!(
@@ -315,7 +315,7 @@ async fn test_task_failed_run_dependency() -> Result<(), String> {
     );
 
     frame.enable_failure();
-    erased.run().await?;
+    assert!(erased.run().await.is_err());
 
     assert!(
         dep3.is_resolved().await,

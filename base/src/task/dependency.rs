@@ -8,6 +8,14 @@ use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 
 type ExternalFn = Box<dyn Fn() -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>;
 
+fn decrement_countdown(countdown: &AtomicU16, flag: &AtomicBool) {
+    if let Ok(1) = countdown.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+        count.checked_sub(1)
+    }) {
+        flag.store(true, Ordering::Relaxed);
+    }
+}
+
 enum DependencyInner {
     Flag(Arc<AtomicBool>),
     External(ExternalFn),
@@ -78,10 +86,7 @@ impl FrameDependency {
 
     pub async fn runs(task: &Task<impl TaskFrame>, value: NonZeroU16) -> FrameDependency {
         impl_monitor_based_dependency!((flag, countdown, _payload, task, value) -> {
-            let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;
-            if res == 0 {
-                flag.store(true, Ordering::Relaxed);
-            }
+            decrement_countdown(countdown, flag);
         })
     }
 
@@ -94,10 +99,7 @@ impl FrameDependency {
                 return;
             }
 
-            let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;
-            if res == 0 {
-                flag.store(true, Ordering::Relaxed);
-            }
+            decrement_countdown(countdown, flag);
         })
     }
 
@@ -107,10 +109,7 @@ impl FrameDependency {
                 return;
             }
 
-            let res = countdown.fetch_sub(1, Ordering::Relaxed) - 1;
-            if res == 0 {
-                flag.store(true, Ordering::Relaxed);
-            }
+            decrement_countdown(countdown, flag);
         })
     }
 

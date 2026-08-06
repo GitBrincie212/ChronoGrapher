@@ -1,8 +1,8 @@
 use crate::task::frames::CountingFrame;
 use chronographer::prelude::FrameDependency;
-use chronographer::task::DependencyTaskFrame;
 use chronographer::task::Task;
 use chronographer::task::TaskScheduleImmediate;
+use chronographer::task::{DependencyTaskFrame, DependencyUnresolveFail};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -39,6 +39,7 @@ async fn returns_error_when_dep_unresolved() {
             should_fail: false,
         })
         .dependency(failing_dependency())
+        .unresolve(DependencyUnresolveFail::default())
         .build();
     let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
@@ -59,6 +60,7 @@ async fn stop_on_first_failing_dep() {
             should_fail: false,
         })
         .dependency(ok_dependency() & ok_dependency() & failing_dependency())
+        .unresolve(DependencyUnresolveFail::default())
         .build();
     let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;

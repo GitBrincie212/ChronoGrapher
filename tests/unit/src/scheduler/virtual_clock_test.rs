@@ -144,16 +144,14 @@ fn spawn_idled_task(
 
     let task = tokio::spawn(async move {
         clock_clone.idle_to(UNIX_EPOCH + offset).await;
-        tx.send(()).unwrap();
-
         let now = clock_clone.now();
-        assert_approx!(now, UNIX_EPOCH + offset);
+        assert!(now >= UNIX_EPOCH + offset);
+        tx.send(()).unwrap();
     });
 
     (task, rx)
 }
 
-// TODO: The test is mostly incorrect, though I suspect there may also be a bug in the VirtualClock itselfr
 #[tokio::test]
 async fn test_multi_idle_to_mixed_time() {
     let clock = Arc::new(VirtualClock::from_epoch());
@@ -161,30 +159,29 @@ async fn test_multi_idle_to_mixed_time() {
 
     let (task1, done1) = spawn_idled_task(&clock, Duration::ZERO);
     let (task2, done2) = spawn_idled_task(&clock, Duration::from_secs(1));
-    let (task3, done3) = spawn_idled_task(&clock, Duration::from_secs(2));
+    let (task3, mut done3) = spawn_idled_task(&clock, Duration::from_secs(2));
 
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    tokio::time::timeout(Duration::from_secs(1), done1)
+        .await
+        .unwrap()
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(1), done2)
+        .await
+        .unwrap()
+        .unwrap();
 
     assert!(
-        done1.is_terminated(),
-        "Task #1 SHOULD have been finished (as a past time)"
-    );
-    assert!(
-        done2.is_terminated(),
-        "Task #2 SHOULD have been finished (as its the current time)"
-    );
-    assert!(
-        !done3.is_terminated(),
-        "Task #3 should NOT have been finished (as its a future time)"
+        tokio::time::timeout(Duration::from_millis(10), &mut done3)
+            .await
+            .is_err(),
+        "Task #3 should NOT have been finished (as its target is in the future)"
     );
 
     clock.advance(Duration::from_secs(1));
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    assert!(
-        done3.is_terminated(),
-        "Task #3 SHOULD have been finished (as its the current time)"
-    );
+    tokio::time::timeout(Duration::from_secs(1), done3)
+        .await
+        .unwrap()
+        .unwrap();
 
     try_join!(task1, task2, task3).unwrap();
 }

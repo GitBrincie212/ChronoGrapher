@@ -87,6 +87,14 @@ impl TaskHookInstances {
         }
     }
 
+    fn append_all(&self, hooks: &mut Vec<&'static dyn ErasedTaskHook>) {
+        match self {
+            TaskHookInstances::Empty => {}
+            TaskHookInstances::Single(hook) => hooks.push(*hook),
+            TaskHookInstances::Multiple(instances) => hooks.extend(instances.iter().copied()),
+        }
+    }
+
     #[inline(always)]
     fn pop(&mut self) -> Option<&'static dyn ErasedTaskHook> {
         match std::mem::take(self) {
@@ -232,6 +240,27 @@ impl TaskHooksPromotion {
         None
     }
 
+    fn append_all(&self, hooks: &mut Vec<&'static dyn ErasedTaskHook>) {
+        match self {
+            TaskHooksPromotion::Empty => {}
+            TaskHooksPromotion::Single(_, instances) => instances.append_all(hooks),
+            TaskHooksPromotion::Double((_, instances1), (_, instances2)) => {
+                instances1.append_all(hooks);
+                instances2.append_all(hooks);
+            }
+            TaskHooksPromotion::Triplet((_, instances1), (_, instances2), (_, instances3)) => {
+                instances1.append_all(hooks);
+                instances2.append_all(hooks);
+                instances3.append_all(hooks);
+            }
+            TaskHooksPromotion::Multiple(instances) => {
+                for hooks_for_type in instances.values() {
+                    hooks_for_type.append_all(hooks);
+                }
+            }
+        }
+    }
+
     #[inline(always)]
     fn remove(&mut self, hook_id: TypeId) -> Option<&'static dyn ErasedTaskHook> {
         match self {
@@ -315,12 +344,12 @@ impl TaskHooksPromotion {
 pub(crate) struct TaskHookContainer(pub DashMap<(TypeId, usize), TaskHooksPromotion>);
 
 impl TaskHookContainer {
-    pub fn attach<E: TaskHookEvent>(
+    pub fn attach<E: TaskHookEvent, T: TaskHook<E>>(
         &self,
         ctx: &TaskHookContext,
-        hook: Arc<impl TaskHook<E>>,
+        hook: Arc<T>,
     ) -> impl Future<Output = ()> + Send {
-        let hook_id = hook.type_id();
+        let hook_id = TypeId::of::<T>();
         let erased_hook: &'static dyn ErasedTaskHook =
             Box::leak(Box::new(ErasedTaskHookWrapper::<E>::new(hook.clone())));
 
@@ -375,42 +404,12 @@ impl TaskHookContainer {
 
     pub async fn emit<E: TaskHookEvent>(&self, ctx: &TaskHookContext, payload: &E::Payload<'_>) {
         if let Some(entry) = self.0.get(&(TypeId::of::<E>(), ctx.0)) {
-            let val = entry.value();
-            match val {
-                TaskHooksPromotion::Empty => {}
-                TaskHooksPromotion::Single(_, hook) => {
-                    let hook = hook.get();
-                    drop(entry);
-                    hook.on_emit(ctx, &payload).await;
-                }
-                TaskHooksPromotion::Double((_, hook1), (_, hook2)) => {
-                    let hook1 = hook1.get();
-                    let hook2 = hook2.get();
-                    drop(entry);
-                    hook1.on_emit(ctx, &payload).await;
-                    hook2.on_emit(ctx, &payload).await;
-                }
-                TaskHooksPromotion::Triplet((_, hook1), (_, hook2), (_, hook3)) => {
-                    let hook1 = hook1.get();
-                    let hook2 = hook2.get();
-                    let hook3 = hook3.get();
-                    drop(entry);
-                    hook1.on_emit(ctx, &payload).await;
-                    hook2.on_emit(ctx, &payload).await;
-                    hook3.on_emit(ctx, &payload).await;
-                }
-                TaskHooksPromotion::Multiple(vals) => {
-                    let mut instances = Vec::with_capacity(vals.len());
-                    for hook in vals.values() {
-                        instances.push(hook.get());
-                    }
+            let mut hooks = Vec::new();
+            entry.value().append_all(&mut hooks);
+            drop(entry);
 
-                    drop(entry);
-
-                    for hook in instances {
-                        hook.on_emit(ctx, &payload).await;
-                    }
-                }
+            for hook in hooks {
+                hook.on_emit(ctx, &payload).await;
             }
         }
     }
@@ -526,7 +525,7 @@ impl TaskHookContext {
     }
 
     pub async fn attach_hook<E: TaskHookEvent>(&self, hook: Arc<impl TaskHook<E>>) {
-        TASKHOOK_REGISTRY.attach::<E>(self, hook).await;
+        TASKHOOK_REGISTRY.attach::<E, _>(self, hook).await;
     }
 
     pub async fn detach_hook<E: TaskHookEvent, T: TaskHook<E>>(&self) {

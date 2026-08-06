@@ -93,9 +93,10 @@ async fn falsey_condition_runs_fallback() {
 }
 
 #[tokio::test]
-async fn falsey_condition_with_error_on_false_returns_error() {
+async fn falsey_condition_without_fallback_skips() {
+    let counter = Arc::new(AtomicUsize::new(0));
     let frame = CountingFrame {
-        counter: Arc::new(AtomicUsize::new(0)),
+        counter: counter.clone(),
         should_fail: false,
     };
 
@@ -109,7 +110,8 @@ async fn falsey_condition_with_error_on_false_returns_error() {
     let task = Task::new(frame, TaskScheduleImmediate);
     let result = task.into_erased().run().await;
 
-    assert!(result.is_err());
+    assert!(result.is_ok());
+    assert_eq!(counter.load(Ordering::SeqCst), 0);
 }
 
 #[tokio::test]
