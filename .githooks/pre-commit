@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.rs$' || true)
+
+if [ -n "$files" ]; then
+    cargo fmt --all
+    git add $files
+fi

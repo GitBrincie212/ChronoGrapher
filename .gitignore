@@ -1,8 +1,10 @@
 debug/
 target/
-**/Cargo.lock
 **/*.rs.bk
 *.pdb
 .idea/
 .DS_STORE
 node_modules/
+coverage/
+artifacts/
+corpus/

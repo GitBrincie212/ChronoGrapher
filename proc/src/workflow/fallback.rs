@@ -1,8 +1,8 @@
+use crate::utils::TaskFrameConstructor;
 use crate::workflow::utils::{ArgumentParser, WorkflowTransform};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
-use crate::utils::TaskFrameConstructor;
 
 pub struct FallbackArguments(Vec<TaskFrameConstructor>);
 
@@ -20,7 +20,7 @@ impl WorkflowTransform for FallbackArguments {
         for expr in self.0.iter() {
             let output = &expr.to_token_construction();
             curr = quote! {
-                ::chronographer::task::frames::fallbackframe::FallbackTaskFrame::new(
+                ::chronographer::task::frames::fallbackframe::FallbackTaskFrame::singular(
                     #curr,
                     #output
                 )

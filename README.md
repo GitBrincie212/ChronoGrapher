@@ -25,7 +25,7 @@ generalized and adaptive) that brings unified scheduling to your entire stack.
    model. Guaranteeing high durability and low overhead in performance, developers should never worry about failures.
    <u>(COMING SOON)</u>
 
-**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust (≥ 1.92v). Other
+**Get started in 30 seconds**, with a simple "Hello World" example in ChronoGrapher written in Rust (≥ 1.92.0v). Other
 languages look similar:
 ```rust
 use chronographer::prelude::*;
