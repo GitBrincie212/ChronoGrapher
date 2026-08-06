@@ -91,7 +91,6 @@ async fn falsey_condition_with_error_on_false_returns_error() {
     let frame = ConditionalTaskFrame::builder()
         .frame(frame)
         .predicate(predicate)
-        .on_false_error()
         .build();
 
     let frame = Arc::new(frame);

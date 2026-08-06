@@ -1,10 +1,8 @@
 use async_trait::async_trait;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-
-use chronographer::errors::TaskDependenciesUnresolved;
 use chronographer::prelude::*;
 use chronographer::task::{TaskFrame, TaskFrameContext, TaskHookContext, TaskScheduleImmediate};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 type OnTaskStartPayload<'a> = <OnTaskStart as TaskHookEvent>::Payload<'a>;
 type OnTaskEndPayload<'a> = <OnTaskEnd as TaskHookEvent>::Payload<'a>;
@@ -36,7 +34,7 @@ struct SimpleTaskFrame {
 }
 
 impl TaskFrame for SimpleTaskFrame {
-    type Error = Box<dyn TaskError>;
+    type Error = String;
     type Args = ();
     type Workflow = Self;
 
@@ -48,7 +46,7 @@ impl TaskFrame for SimpleTaskFrame {
         if self.should_succeed.load(Ordering::SeqCst) {
             Ok(())
         } else {
-            Err(Box::new(TaskDependenciesUnresolved))
+            Err("Dummy-based error".to_string())
         }
     }
 }
