@@ -1,7 +1,7 @@
-use std::ops::Deref;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
 use crate::utils::macros::{define_event, define_event_group};
+use std::ops::Deref;
 use std::time::Duration;
 
 /// A simple wrapper type of std [`Duration`] unable to be created from foreign code in order to prevent

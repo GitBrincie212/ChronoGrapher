@@ -1,11 +1,11 @@
-use std::marker::PhantomData;
-use std::ops::Deref;
-use crate::utils::macros::define_event;
 use crate::errors::TaskError;
+use crate::task::TaskFrame;
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
-use crate::task::TaskFrame;
 use crate::task::{Debug, TaskFrameContext};
+use crate::utils::macros::define_event;
+use std::marker::PhantomData;
+use std::ops::Deref;
 use typed_builder::TypedBuilder;
 
 /// A super trait that depends on [`TaskError`] which allows the specification of a default dependency error
@@ -57,23 +57,23 @@ impl DefaultDependencyError for eyre::Error {
 
 /// A trait which allows specification of a custom logic to decide whenever or not [`DependencyTaskFrame`]
 /// should return an error or success for any unresolved dependencies.
-/// 
+///
 /// # Required Method(s)
 /// The only one required method to implement is [`DependencyUnresolve::execute`] which performs
 /// the actual logic of the implementor.
-/// 
+///
 /// # Implementation(s)
 /// There are two main implementations of this trait those being [`DependencyUnresolveFail`] which will
 /// fail when the dependencies aren't resolved and [`DependencyUnresolveSkip`] which in that case just
 /// silently skips the workflow.
-/// 
+///
 /// # Object Safety / Dynamic Dispatching
 /// This trait is object safe (dyn compatible).
-/// 
+///
 /// # Generic(s)
 /// The only generic is ``T``, the error type which must implement [`TaskError`] trait and is returned by the
 /// method [`DependencyUnresolve::execute`].
-/// 
+///
 /// # See Also
 /// - [`TaskError`] - The trait of the generic which describes the errors for workflows.
 /// - [`DependencyUnresolveFail`] - Implements this trait by failing on unresolved dependencies.
@@ -88,19 +88,19 @@ pub trait DependencyUnresolve<T: TaskError>: Send + Sync {
 /// Implementation of the [`DependencyUnresolve`] trait which fails when the dependency is unresolved.
 /// The counterpart implementation for skipping the workflow when unresolved dependencies are met
 /// is [`DependencyUnresolveSkip`].
-/// 
+///
 /// # Constructor(s)
 /// The primary way of constructing a [`DependencyUnresolveFail`] is via the [`DependencyUnresolveFail::default`]
 /// which is from the [`Default`] trait implementation.
-/// 
+///
 /// # Trait Implementation(s)
 /// The only trait this struct is implementing is the [`DependencyUnresolve`] which allows to be executed
 /// when a dependency is unresolved.
-/// 
+///
 /// # Generic(s)
 /// The only generic is ``T``, the error type which must implement [`TaskError`] trait and is returned by
 /// the method [`DependencyUnresolve::execute`].
-/// 
+///
 /// # See Also
 /// - [`TaskError`] - The trait of the generic which describes the errors for workflows.
 /// - [`DependencyUnresolveSkip`] - The counterpart which skips the workflow when unresolved dependencies are met
@@ -128,19 +128,19 @@ impl<T: DefaultDependencyError> DependencyUnresolve<T> for DependencyUnresolveFa
 /// Implementation of the [`DependencyUnresolve`] trait which silently skips the workflow when the
 /// dependency is unresolved. The counterpart implementation for failing the workflow when unresolved dependencies
 /// are met is [`DependencyUnresolveFail`].
-/// 
+///
 /// # Constructor(s)
 /// The primary way of constructing a [`DependencyUnresolveSkip`] is via the [`DependencyUnresolveSkip::default`]
 /// which is from the [`Default`] trait implementation.
-/// 
+///
 /// # Trait Implementation(s)
 /// The only trait this struct is implementing is the [`DependencyUnresolve`] which allows to be executed
 /// when a dependency is unresolved.
-/// 
+///
 /// # Generic(s)
 /// The only generic is ``T``, the error type which must implement [`TaskError`] trait and is returned
 /// by the method [`DependencyUnresolve::execute`].
-/// 
+///
 /// # See Also
 /// - [`TaskError`] - The trait of the generic which describes the errors for workflows.
 /// - [`DependencyUnresolveFail`] - The counterpart which fails the workflow when unresolved dependencies are met
@@ -239,23 +239,23 @@ define_event!(
 
 /// The [`DependencyTaskFrame`] is a wrapper-based / decorator [`TaskFrame`] (workflow primitive) which handles
 /// dependencies ([`FrameDependency`]) of the nested [`TaskFrame`] / workflow.
-/// 
+///
 /// # Decorating / Wrapping Behavior
 /// It tries to resolve the dependencies first. Examples are certain [`Task(s)`] executed before,
 /// an ``AtomicBool`` flag enabled, or a composition of various dependencies.
-/// 
+///
 /// If the dependency is resolved, it proceeds with the nested [`TaskFrame`] / workflow. Otherwise,
 /// depending on the configured behavior it will either skip or fail this workflow (by default it skips).
-/// 
+///
 /// # Execution Error(s)
-/// If the [`DependencyTaskFrame`] proceeds with the nested [`TaskFrame`], it can throw an error from the workflow. 
+/// If the [`DependencyTaskFrame`] proceeds with the nested [`TaskFrame`], it can throw an error from the workflow.
 /// Otherwise, if the dependencies aren't resolved **and a custom behavior for unresolved dependency provided**, that behavior
 /// can throw its own errors.
-/// 
+///
 /// # Events
 /// The [`DependencyTaskFrame`] fires only one event that being [`OnDependencyValidation`] which is emitted when the
 /// dependencies are checked to see whether they had been resolved.
-/// 
+///
 /// # Constructor(s)
 /// When it comes to creating a [`DependencyTaskFrame`], one can use the builder via [`DependencyTaskFrame::builder`]
 /// and initializing the appropriate parameters from there simply building it.
@@ -266,10 +266,10 @@ define_event!(
 ///
 /// It is recommended to check the [`workflow`](chronographer::prelude::workflow) documentation for more
 /// information about the usage.
-/// 
+///
 /// # Trait Implementation(s)
 /// Apart from `DependencyTaskFrame` implementing the [`TaskFrame`] trait, there is no other prominent trait to note of.
-/// 
+///
 /// # Example(s)
 /// ```rust
 /// #[task(schedule = every!(1s)))]
@@ -294,15 +294,15 @@ define_event!(
 /// # async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
-/// 
+///
 /// let workflow = DependencyTaskFrame::builder()
 ///     .frame(MyTask2)
 ///     .dependency(FrameDependency::runs(&MyTask1, 1).await)
 ///     .build();
 /// ```
-/// 
+///
 /// ---
-/// 
+///
 /// ```rust
 /// #[task(schedule = every!(4s)))]
 /// #[workflow(
@@ -325,21 +325,21 @@ define_event!(
 /// # async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
-/// 
+///
 /// let workflow = DependencyTaskFrame::builder()
 ///     .frame(MyTask2)
 ///     // you can replace `runs` by `successful_runs` or `failed_runs`
 ///     .dependency(FrameDependency::runs(&MyTask1, 3).await)
 ///     .build();
 /// ```
-/// 
+///
 /// ---
-/// 
+///
 /// You can also have different types of dependencies and even combine them:
-/// 
+///
 /// ```rust
 /// static MY_FLAG: AtomicBool = AtomicBool::new(false);
-/// 
+///
 /// #[task(schedule = every!(4s)))]
 /// #[workflow(
 ///     dependency(
@@ -355,22 +355,22 @@ define_event!(
 /// While rewriting same code in Base API will look like:
 /// ```rust
 /// # static MY_FLAG: AtomicBool = AtomicBool::new(false);
-/// # 
+/// #
 /// # #[task(schedule = every!(4s)))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
 /// let flag_dep = FrameDependency::external(|| MY_FLAG.load(Ordering::Relaxed));
 /// let dynamic_dep = FrameDependency::external(|| false);
-/// 
+///
 /// let workflow = DependencyTaskFrame::builder()
 ///     .frame(MyTask1)
 ///     .dependency(flag_dep | dynamic_dep)
 ///     .build();
 /// ```
-/// 
+///
 /// ---
-/// 
+///
 /// Finally, we can customize what happens when the dependencies aren't resolved. For example:
 /// ```rust
 /// #[task(schedule = every!(4s)))]
@@ -395,14 +395,14 @@ define_event!(
 /// # async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
 /// # }
-/// 
+///
 /// pub struct DependencyUnresolveCustom<T: TaskError>(PhantomData<T>);
 /// impl<T: DefaultDependencyError> DependencyUnresolve<T> for DependencyUnresolveFail<T> {
 ///     fn execute(&self) -> Result<(), T> {
 ///         Err(MyErrors::ServerError)
 ///     }
 /// }
-/// 
+///
 /// let workflow = DependencyTaskFrame::builder()
 ///     .frame(MyTask3)
 ///     .dependency(!FrameDependency::runs(&MyTask5, 1).await & (FrameDependency::runs(&MyTask1, 1).await | FrameDependency::runs(&MyTask2, 1).await ^ FrameDependency::runs(&MyTask4, 1).await))
@@ -514,9 +514,13 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let is_resolved = self.dependency.is_resolved().await;
 
-        ctx.emit::<OnDependencyValidation>(&(TargetDependency(&self.dependency), IsResolved(is_resolved))).await;
+        ctx.emit::<OnDependencyValidation>(&(
+            TargetDependency(&self.dependency),
+            IsResolved(is_resolved),
+        ))
+        .await;
         if !is_resolved {
-            return self.unresolve.execute()
+            return self.unresolve.execute();
         }
 
         self.frame.execute(&ctx, args).await
