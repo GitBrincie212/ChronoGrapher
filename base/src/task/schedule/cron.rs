@@ -662,13 +662,7 @@ impl TaskScheduleCron {
         let dom_specified = !matches!(self.day_of_month, CronField::Unspecified);
         let dow_specified = !matches!(self.day_of_week, CronField::Unspecified);
 
-        if dom_specified && dow_specified {
-            day_matches && weekday_matches
-        } else {
-            (dom_specified && day_matches)
-                || (dow_specified && weekday_matches)
-                || (!dom_specified && !dow_specified)
-        }
+        (!dom_specified || day_matches) && (!dow_specified || weekday_matches)
     }
 }
 

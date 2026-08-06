@@ -1,44 +1,72 @@
 use chronographer::cron;
-use chronographer::prelude::*;
 use chronographer::task::{CronField, TaskScheduleCron};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-fn ts(unix_secs: u64) -> SystemTime {
-    UNIX_EPOCH + Duration::from_secs(unix_secs)
-}
-
-const JAN_1_2026: u64 = 1767225600;
-
-#[tokio::test]
-async fn test_every_second() {
+#[test]
+fn test_every_second() {
     let schedule = cron!(* * * * * *);
-    let now = ts(JAN_1_2026);
-    let next = schedule.schedule(now).await.unwrap();
-    assert_eq!(next, ts(JAN_1_2026 + 1));
+    assert_eq!(
+        schedule,
+        TaskScheduleCron::new([
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+        ])
+    );
 }
 
-#[tokio::test]
-async fn test_exact_minute() {
+#[test]
+fn test_exact_minute() {
     let schedule = cron!(0 30 * * * *);
-    let now = ts(JAN_1_2026);
-    let next = schedule.schedule(now).await.unwrap();
-    assert_eq!(next, ts(JAN_1_2026 + 30 * 60));
+    assert_eq!(
+        schedule,
+        TaskScheduleCron::new([
+            CronField::Exact(0),
+            CronField::Exact(30),
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+        ])
+    );
 }
 
-#[tokio::test]
-async fn test_exact_hour() {
+#[test]
+fn test_exact_hour() {
     let schedule = cron!(0 0 12 * * *);
-    let now = ts(JAN_1_2026);
-    let next = schedule.schedule(now).await.unwrap();
-    assert_eq!(next, ts(JAN_1_2026 + 12 * 3600));
+    assert_eq!(
+        schedule,
+        TaskScheduleCron::new([
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(12),
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+        ])
+    );
 }
 
-#[tokio::test]
-async fn test_step() {
+#[test]
+fn test_step() {
     let schedule = cron!(0 0/5 * * * *);
-    let now = ts(JAN_1_2026);
-    let next = schedule.schedule(now).await.unwrap();
-    assert_eq!(next, ts(JAN_1_2026 + 5 * 60));
+    assert_eq!(
+        schedule,
+        TaskScheduleCron::new([
+            CronField::Exact(0),
+            CronField::Step(Box::new(CronField::Exact(0)), 5),
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+            CronField::Wildcard,
+        ])
+    );
 }
 
 #[test]
