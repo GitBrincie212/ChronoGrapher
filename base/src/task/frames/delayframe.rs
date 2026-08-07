@@ -1,32 +1,20 @@
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
-use crate::utils::macros::{define_event, define_event_group};
+use crate::utils::macros::{define_event, define_event_group, payload_wrapper};
 use std::ops::Deref;
 use std::time::Duration;
 
-/// A simple wrapper type of std [`Duration`] unable to be created from foreign code in order to prevent
-/// emissions of the [`OnDelayStart`] and [`OnDelayEnd`] events from other sources and keeping
-/// things encapsulated.
-///
-/// # See Also
-/// - [`OnDelayStart`] - One of the events which uses this wrapper as its payload.
-/// - [`OnDelayEnd`] - The other event which uses this wrapper as its payload.
-/// - [`DelayTaskFrame`] - The [`TaskFrame`] responsible for emitting the
-pub struct Delay(Duration);
-
-impl Deref for Delay {
-    type Target = Duration;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<Delay> for Duration {
-    fn from(delay: Delay) -> Self {
-        delay.0
-    }
-}
+payload_wrapper!(
+    /// A simple wrapper type of std [`Duration`] unable to be created from foreign code in order to prevent
+    /// emissions of the [`OnDelayStart`] and [`OnDelayEnd`] events from other sources and keeping
+    /// things encapsulated.
+    ///
+    /// # See Also
+    /// - [`OnDelayStart`] - One of the events which uses this wrapper as its payload.
+    /// - [`OnDelayEnd`] - The other event which uses this wrapper as its payload.
+    /// - [`DelayTaskFrame`] - The [`TaskFrame`] responsible for emitting the event.
+    Delay(Duration)
+);
 
 define_event!(
     /// A [`TaskHookEvent`] triggered before the workflow gets delayed by a specific amount of time.
