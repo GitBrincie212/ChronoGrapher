@@ -3,7 +3,7 @@ use crate::task::TaskFrame;
 use crate::task::TaskHookEvent;
 use crate::task::dependency::FrameDependency;
 use crate::task::{Debug, TaskFrameContext};
-use crate::utils::macros::define_event;
+use crate::utils::macros::{define_event, payload_wrapper};
 use std::marker::PhantomData;
 use std::ops::Deref;
 use typed_builder::TypedBuilder;
@@ -165,51 +165,27 @@ impl<T: TaskError> DependencyUnresolve<T> for DependencyUnresolveSkip<T> {
     }
 }
 
-/// A simple wrapper type of reference [`FrameDependency`] indicating the validated dependency which is unable to be created from
-/// foreign code in order to prevent emissions of the [`OnDependencyValidation`] event from other sources and keeping things encapsulated.
-///
-/// # See Also
-/// - [`IsResolved`] - Adjacent type in the [`OnDependencyValidation`] event.
-/// - [`OnDependencyValidation`] - The event which uses this wrapper as its payload.
-/// - [`DependencyTaskFrame`] - The [`TaskFrame`] responsible for emitting the [`OnDependencyValidation`] event.
-pub struct TargetDependency<'a>(&'a FrameDependency);
+payload_wrapper!(
+    /// A simple wrapper type of reference [`FrameDependency`] indicating the validated dependency which is unable to be created from
+    /// foreign code in order to prevent emissions of the [`OnDependencyValidation`] event from other sources and keeping things encapsulated.
+    ///
+    /// # See Also
+    /// - [`IsResolved`] - Adjacent type in the [`OnDependencyValidation`] event.
+    /// - [`OnDependencyValidation`] - The event which uses this wrapper as its payload.
+    /// - [`DependencyTaskFrame`] - The [`TaskFrame`] responsible for emitting the [`OnDependencyValidation`] event.
+    TargetDependency<'a>(&'a FrameDependency)
+);
 
-impl<'a> From<TargetDependency<'a>> for &'a FrameDependency {
-    fn from(value: TargetDependency<'a>) -> Self {
-        value.0
-    }
-}
-
-impl Deref for TargetDependency<'_> {
-    type Target = FrameDependency;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-/// A simple wrapper type of reference [`bool`] indicating whether the dependency is resolved which is unable to be created from
-/// foreign code in order to prevent emissions of the [`OnDependencyValidation`] event from other sources and keeping things encapsulated.
-///
-/// # See Also
-/// - [`TargetDependency`] - Adjacent type in the [`OnDependencyValidation`] event.
-/// - [`OnDependencyValidation`] - The event which uses this wrapper as its payload.
-/// - [`DependencyTaskFrame`] - The [`TaskFrame`] responsible for emitting the [`OnDependencyValidation`] event.
-pub struct IsResolved(bool);
-
-impl From<IsResolved> for bool {
-    fn from(value: IsResolved) -> Self {
-        value.0
-    }
-}
-
-impl Deref for IsResolved {
-    type Target = bool;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+payload_wrapper!(
+    /// A simple wrapper type of reference [`bool`] indicating whether the dependency is resolved which is unable to be created from
+    /// foreign code in order to prevent emissions of the [`OnDependencyValidation`] event from other sources and keeping things encapsulated.
+    ///
+    /// # See Also
+    /// - [`TargetDependency`] - Adjacent type in the [`OnDependencyValidation`] event.
+    /// - [`OnDependencyValidation`] - The event which uses this wrapper as its payload.
+    /// - [`DependencyTaskFrame`] - The [`TaskFrame`] responsible for emitting the [`OnDependencyValidation`] event.
+    IsResolved(bool)
+);
 
 define_event!(
     /// A [`TaskHookEvent`] triggered when a [`DependencyTaskFrame`] is validating the dependency.
