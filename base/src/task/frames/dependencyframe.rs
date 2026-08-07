@@ -13,7 +13,7 @@ use typed_builder::TypedBuilder;
 ///
 /// # Required Method(s)
 /// When it comes to implementing this trait, its only required method is [`DefaultDependencyError::default_dependency_error`]
-/// which is the method acts as constructor for the error.
+/// which is the method acting as constructor for the error.
 ///
 /// # Required Subtrait(s)
 /// [`DefaultDependencyError`] requires as only subtrait [`TaskError`], which is for task-related errors.
