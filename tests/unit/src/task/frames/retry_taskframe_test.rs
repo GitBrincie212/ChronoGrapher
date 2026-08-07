@@ -14,7 +14,7 @@ macro_rules! retry_frame_builder {
             .frame($frame)
             .retries(NonZeroU32::new($retries).unwrap())
             .constant(Duration::ZERO)
-            .when($when)
+            .filter($when)
             .build()
     };
     ($frame:expr, retries = $retries:expr) => {
@@ -58,6 +58,10 @@ macro_rules! backoff_spawn {
                 .await
         })
     };
+}
+
+fn inspect_filter(err: &String) -> bool {
+    err == "retry"
 }
 
 const NS: Duration = Duration::from_nanos(1);
@@ -149,7 +153,7 @@ async fn retry_when_filter_stops_retry() {
             fail_times: usize::MAX
         },
         retries = 3,
-        when = |_err: Option<&String>| std::future::ready(false)
+        when = false
     );
 
     let result = Task::new(frame, TaskScheduleImmediate)
@@ -176,7 +180,7 @@ async fn retry_when_filter_always_true_exhausts_retries() {
             fail_times: usize::MAX
         },
         retries = retries,
-        when = |_err: Option<&String>| std::future::ready(true)
+        when = true
     );
 
     let result = Task::new(frame, TaskScheduleImmediate)
@@ -226,10 +230,7 @@ async fn retry_when_filter_inspects_error_value_stops_on_match() {
             stop_at: 1
         },
         retries = 5,
-        when = |err: Option<&String>| {
-            let should_retry = err.map(|e| e == "retry").unwrap_or(false);
-            async move { should_retry }
-        }
+        when = inspect_filter as for<'a> fn(&'a _) -> bool
     );
 
     let result = Task::new(frame, TaskScheduleImmediate)
@@ -258,10 +259,7 @@ async fn retry_when_filter_retries_past_matching_errors() {
             stop_at: 3
         },
         retries = 5,
-        when = |err: Option<&String>| {
-            let should_retry = err.map(|e| e == "retry").unwrap_or(false);
-            async move { should_retry }
-        }
+        when = inspect_filter as for<'a> fn(&'a _) -> bool
     );
 
     let result = Task::new(frame, TaskScheduleImmediate)
@@ -452,7 +450,7 @@ async fn jitter_full_delay_within_max() {
             fail_times: usize::MAX,
         })
         .retries(NonZeroU32::new(1).unwrap())
-        .backoff(JitterBackoffStrategy::new_full(
+        .backoff(JitterBackoffStrategy::full(
             ConstantBackoffStrategy::new(Duration::from_secs(4)),
             1.0,
         ))
@@ -480,7 +478,7 @@ async fn jitter_equal_delay_within_range() {
             fail_times: usize::MAX,
         })
         .retries(NonZeroU32::new(1).unwrap())
-        .backoff(JitterBackoffStrategy::new_equal(
+        .backoff(JitterBackoffStrategy::equal(
             ConstantBackoffStrategy::new(Duration::from_secs(4)),
             1.0,
         ))
@@ -511,7 +509,7 @@ async fn jitter_decorrelated_delay_within_max() {
             fail_times: usize::MAX,
         })
         .retries(NonZeroU32::new(1).unwrap())
-        .backoff(JitterBackoffStrategy::new_decorrelated(
+        .backoff(JitterBackoffStrategy::decorrelated(
             ConstantBackoffStrategy::new(Duration::from_secs(2)),
             1.0,
             10.0,
