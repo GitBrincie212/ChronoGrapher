@@ -88,3 +88,6 @@ quality:
     just _lint_cargo, _format_cargo
     pnpm -C website run biome
 
+# Run the website in local development
+website:
+    cd website && pnpm run dev
