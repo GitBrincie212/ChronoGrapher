@@ -248,6 +248,8 @@ define_event!(
 ///
 /// # Example(s)
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// #[task(schedule = every!(1s)))]
 /// async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 ///     // ...
@@ -262,6 +264,8 @@ define_event!(
 ///
 /// The same example in Base API:
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// # #[task(schedule = every!(1s)))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
@@ -280,6 +284,8 @@ define_event!(
 /// ---
 ///
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// #[task(schedule = every!(4s)))]
 /// #[workflow(
 ///     dependency(MyTask1(any = 3))
@@ -293,6 +299,8 @@ define_event!(
 ///
 /// The same example in Base API:
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// # #[task(schedule = every!(1s)))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
@@ -314,6 +322,8 @@ define_event!(
 /// You can also have different types of dependencies and even combine them:
 ///
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// static MY_FLAG: AtomicBool = AtomicBool::new(false);
 ///
 /// #[task(schedule = every!(4s)))]
@@ -330,6 +340,8 @@ define_event!(
 /// Requires `MY_FLAG` to be true or the closure in `dynamic(...)` to return true.
 /// While rewriting same code in Base API will look like:
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// # static MY_FLAG: AtomicBool = AtomicBool::new(false);
 /// #
 /// # #[task(schedule = every!(4s)))]
@@ -349,6 +361,8 @@ define_event!(
 ///
 /// Finally, we can customize what happens when the dependencies aren't resolved. For example:
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// #[task(schedule = every!(4s)))]
 /// #[workflow(
 ///     dependency(
@@ -367,6 +381,8 @@ define_event!(
 ///
 /// The same example in Base API:
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// # #[task(schedule = every!(4s)))]
 /// # async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
 /// #     // ...
