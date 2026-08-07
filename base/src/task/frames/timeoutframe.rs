@@ -1,32 +1,20 @@
 use crate::errors::TaskError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
-use crate::utils::macros::define_event;
+use crate::utils::macros::{define_event, payload_wrapper};
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::time::Duration;
 
-/// A simple wrapper type of [`Duration`] unable to be created from foreign code in order to prevent
-/// emissions of the [`OnTimeout`] event from other sources and keeping things encapsulated.
-///
-/// # See Also
-/// - [`OnTimeout`] - The event which uses this wrapper as its payload.
-/// - [`TimeoutTaskFrame`] - The [`TaskFrame`] responsible for emitting the [`OnTimeout`] event.
-pub struct TimeoutDuration(Duration);
-
-impl Deref for TimeoutDuration {
-    type Target = Duration;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<TimeoutDuration> for Duration {
-    fn from(value: TimeoutDuration) -> Duration {
-        value.0
-    }
-}
+payload_wrapper!(
+    /// A simple wrapper type of [`Duration`] unable to be created from foreign code in order to prevent
+    /// emissions of the [`OnTimeout`] event from other sources and keeping things encapsulated.
+    ///
+    /// # See Also
+    /// - [`OnTimeout`] - The event which uses this wrapper as its payload.
+    /// - [`TimeoutTaskFrame`] - The [`TaskFrame`] responsible for emitting the [`OnTimeout`] event.
+    TimeoutDuration(Duration)
+);
 
 define_event!(
     /// A [`TaskHookEvent`] triggered when a [`TimeoutTaskFrame`] times out its workflow.
