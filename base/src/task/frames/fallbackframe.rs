@@ -1,30 +1,18 @@
 use crate::errors::TaskError;
 use crate::task::TaskFrame;
 use crate::task::{TaskFrameContext, TaskHookEvent};
-use crate::utils::macros::define_event;
+use crate::utils::macros::{define_event, payload_wrapper};
 use std::ops::Deref;
 
-/// A simple wrapper type of reference [`TaskError`] unable to be created from foreign code in order to prevent
-/// emissions of the [`OnFallback`] event from other sources and keeping things encapsulated.
-///
-/// # See Also
-/// - [`OnFallback`] - The event which uses this wrapper as its payload.
-/// - [`FallbackTaskFrame`] - The [`TaskFrame`] responsible for emitting the [`OnFallback`] event.
-pub struct FallbackError<'a>(&'a dyn TaskError);
-
-impl<'a> From<FallbackError<'a>> for &'a dyn TaskError {
-    fn from(value: FallbackError<'a>) -> Self {
-        value.0
-    }
-}
-
-impl Deref for FallbackError<'_> {
-    type Target = dyn TaskError;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
+payload_wrapper!(
+    /// A simple wrapper type of reference [`TaskError`] unable to be created from foreign code in order to prevent
+    /// emissions of the [`OnFallback`] event from other sources and keeping things encapsulated.
+    ///
+    /// # See Also
+    /// - [`OnFallback`] - The event which uses this wrapper as its payload.
+    /// - [`FallbackTaskFrame`] - The [`TaskFrame`] responsible for emitting the [`OnFallback`] event.
+    FallbackError<'a>(&'a dyn TaskError)
+);
 
 define_event!(
     /// A [`TaskHookEvent`] triggered when the primary [`TaskFrame`] inside [`FallbackTaskFrame`] produces
