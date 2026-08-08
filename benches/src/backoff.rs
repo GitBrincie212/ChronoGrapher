@@ -52,3 +52,37 @@ fn exponential_bounded(bencher: divan::Bencher, retry: u32) {
     });
 }
 
+#[divan::bench(args = RETRIES)]
+fn jitter_full(bencher: divan::Bencher, retry: u32) {
+    let strategy = JitterBackoffStrategy::full(
+        ConstantBackoffStrategy::new(Duration::from_millis(100)),
+        2.0,
+    );
+    bencher.bench(|| {
+        divan::black_box(strategy.compute(divan::black_box(retry)));
+    });
+}
+
+#[divan::bench(args = RETRIES)]
+fn jitter_equal(bencher: divan::Bencher, retry: u32) {
+    let strategy = JitterBackoffStrategy::equal(
+        ConstantBackoffStrategy::new(Duration::from_millis(100)),
+        2.0,
+    );
+    bencher.bench(|| {
+        divan::black_box(strategy.compute(divan::black_box(retry)));
+    });
+}
+
+#[divan::bench(args = RETRIES)]
+fn jitter_decorrelated(bencher: divan::Bencher, retry: u32) {
+    let strategy = JitterBackoffStrategy::decorrelated(
+        ConstantBackoffStrategy::new(Duration::from_millis(100)),
+        2.0,
+        30.0,
+    );
+    bencher.bench(|| {
+        divan::black_box(strategy.compute(divan::black_box(retry)));
+    });
+}
+
