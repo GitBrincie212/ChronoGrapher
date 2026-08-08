@@ -8,3 +8,7 @@ license-file = "../LICENSE"
 [dependencies]
 chronographer = {path = "../core"}
 divan = { version = "4.3.0", package = "codspeed-divan-compat" }
+
+[[bench]]
+name = "benchmarks"
+harness = false
