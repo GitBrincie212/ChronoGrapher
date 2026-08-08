@@ -86,3 +86,14 @@ fn jitter_decorrelated(bencher: divan::Bencher, retry: u32) {
     });
 }
 
+#[divan::bench(args = [1_000u64, 10_000, 100_000, 1_000_000])]
+fn compute_batch(bencher: divan::Bencher, count: u64) {
+    let strategy = ConstantBackoffStrategy::new(Duration::from_millis(1));
+    bencher.counter(count).bench(|| {
+        let mut total = Duration::ZERO;
+        for i in 0..count {
+            total += strategy.compute(divan::black_box(i as u32));
+        }
+        divan::black_box(total);
+    });
+}
