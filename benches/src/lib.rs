@@ -1,5 +1,6 @@
 pub mod backoff;
 pub mod clocks;
+pub mod schedule;
 pub mod timing_wheel;
 pub mod util;
 
