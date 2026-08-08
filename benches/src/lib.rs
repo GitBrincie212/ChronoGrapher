@@ -1,5 +1,6 @@
 pub mod backoff;
 pub mod clocks;
+pub mod dispatcher;
 pub mod hooks;
 pub mod schedule;
 pub mod task_construction;
