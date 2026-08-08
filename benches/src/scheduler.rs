@@ -102,3 +102,33 @@ fn clear_throughput(bencher: divan::Bencher, count: usize) {
     });
 }
 
+// gated behind the `CHRONO_BENCH_INTEGRATION=true` environment variable
+#[divan::bench(args = [10usize, 100, 1_000])]
+fn integration(bencher: divan::Bencher, count: usize) {
+    if !integration_enabled() {
+        return;
+    }
+
+    let scheduler = BenchScheduler::default();
+    runtime().block_on(scheduler.start());
+
+    bencher.bench(|| {
+        let done = Arc::new(AtomicUsize::new(0));
+        runtime().block_on(async {
+            for _ in 0..count {
+                let task = noop_task(TaskScheduleImmediate);
+                task.attach_hook::<OnTaskEnd>(Arc::new(TaskCompletionCountdown::new(done.clone())))
+                    .await;
+                scheduler.schedule(task).await.unwrap();
+            }
+
+            let mut i = 0u64;
+            while done.load(Ordering::Relaxed) < count && i < 10_000 {
+                advance_clock(i);
+                i += 1;
+                tokio::task::yield_now().await;
+            }
+        });
+        divan::black_box(done.load(Ordering::Relaxed));
+    });
+}
