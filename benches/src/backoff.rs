@@ -36,3 +36,19 @@ fn linear_bounded(bencher: divan::Bencher, retry: u32) {
     });
 }
 
+#[divan::bench(args = RETRIES)]
+fn exponential(bencher: divan::Bencher, retry: u32) {
+    let strategy = ExponentialBackoffStrategy::new(2.0);
+    bencher.bench(|| {
+        divan::black_box(strategy.compute(divan::black_box(retry)));
+    });
+}
+
+#[divan::bench(args = RETRIES)]
+fn exponential_bounded(bencher: divan::Bencher, retry: u32) {
+    let strategy = ExponentialBackoffStrategy::new_with(2.0, Duration::from_secs(30));
+    bencher.bench(|| {
+        divan::black_box(strategy.compute(divan::black_box(retry)));
+    });
+}
+
