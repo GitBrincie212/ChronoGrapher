@@ -29,14 +29,8 @@ impl WorkflowTransform for ConditionArguments {
             quote! { .fallback(#output) }
         });
 
-        let builder_method = if secondary.is_some() {
-            quote! { fallback_builder }
-        } else {
-            quote! { builder }
-        };
-
         quote! {
-            ::chronographer::task::frames::conditionframe::ConditionalTaskFrame:: #builder_method()
+            ::chronographer::task::frames::conditionframe::ConditionalTaskFrame::builder()
                 .predicate(#predicate)
                 .frame(#toks)
                 #secondary
