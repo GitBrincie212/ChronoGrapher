@@ -41,6 +41,8 @@ pub mod prelude {
     pub use crate::task::collectionframe::SelectFrameAccessor;
     pub use crate::task::collectionframe::SelectionExecStrategy;
     pub use crate::task::collectionframe::SequentialExecStrategy;
+    pub use crate::task::conditionframe::ConditionalTaskFrame;
+    pub use crate::task::conditionframe::NonBackupConditionalTaskFrame;
     pub use crate::task::delayframe::DelayTaskFrame;
     pub use crate::task::dependencyframe::DependencyTaskFrame;
     pub use crate::task::fallbackframe::FallbackTaskFrame;
@@ -79,6 +81,7 @@ pub mod prelude {
 
     // Utils / Misc
     pub use crate::task::TaskFrameBuilder;
+    pub use crate::task::conditionframe::ConditionalFramePredicate;
     pub use crate::task::dependency::*;
     pub use crate::task::retryframe::{
         ConstantBackoffStrategy, ExponentialBackoffStrategy, JitterBackoffStrategy,
