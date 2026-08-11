@@ -6,7 +6,7 @@ use crate::task::dependency::FrameDependency;
 use crate::task::retryframe::RetryBackoffStrategy;
 use crate::task::{
     ConditionalTaskFrame, ConstantBackoffStrategy, DefaultTimeoutError, DependencyTaskFrame,
-    FallbackTaskFrame, NoOperationTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
+    FallbackTaskFrame, RetriableTaskFrame, TaskFrame, TimeoutTaskFrame,
 };
 use std::num::NonZeroU32;
 use std::time::Duration;
@@ -456,8 +456,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// If the predicate returns `true`, the inner task is unconditionally executed, however if it returns `false`, in the context
     /// of this method, it acts as a no-operation and returns a success by default upon a falsey value.
     ///
-    /// If a fallback behaiviour needs to be configured to execute as a backup when the predicate returns false, then
-    /// [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) is the better choice.
+    /// If a backup behavior needs to be configured to execute as a backup when the predicate returns false, then
+    /// [`TaskFrameBuilder::with_backup_condition`] is the better choice.
     ///
     /// # Arguments
     /// The method requires one argument that being ``predicate`` is a type implementing [`ConditionalFramePredicate`] parameter containing the condition logic to evaluate.
@@ -501,12 +501,12 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`TaskFrameBuilder`] - The main builder which the method is part of.
     /// - [`ConditionalTaskFrame`] - The TaskFrame component which wraps the innermost TaskFrame.
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
-    /// - [`with_fallback_condition`](TaskFrameBuilder::with_fallback_condition) - Wrapper that executes a fallback frame on false conditions.
+    /// - [`TaskFrameBuilder::with_backup_condition`] - Wrapper that executes a backup frame on false conditions.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
     pub fn with_condition(
         self,
         predicate: impl ConditionalFramePredicate + 'static,
-    ) -> TaskFrameBuilder<ConditionalTaskFrame<T, NoOperationTaskFrame<T::Error, ()>>>
+    ) -> TaskFrameBuilder<ConditionalTaskFrame<T>>
     where
         T: TaskFrame<Args = ()>,
     {
@@ -524,19 +524,19 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// boolean value but rather a logic wrapper (implementing [`ConditionalFramePredicate`]) that gets checked at runtime.
     ///
     /// If the predicate returns ``true``, the inner task is unconditionally executed, however if it returns ``false``, in the context
-    /// of this method, it executes a ``fallback`` [`TaskFrame`] defined in the arguments and returns a success by default upon a falsey value.
+    /// of this method, it executes a ``backup`` [`TaskFrame`] defined in the arguments and returns a success by default upon a falsey value.
     ///
-    /// If an error is desired to be returned and without a fallback [`TaskFrame`] executing on top. Then
+    /// If an error is desired to be returned and without a backup [`TaskFrame`] executing on top. Then
     /// [`with_condition`](TaskFrameBuilder::with_condition) is the better choice.
     ///
     /// # Arguments
-    /// There are two arguments the method requires, the first is ``fallback`` which is a type implementing [`TaskFrame`] parameter specifying the alternative/secondary
+    /// There are two arguments the method requires, the first is ``backup`` which is a type implementing [`TaskFrame`] parameter specifying the alternative/secondary
     /// task to execute if the conditional predicate evaluates to false.
     ///
     /// The second is the ``predicate`` is a type implementing [`ConditionalFramePredicate`] parameter containing the logic to evaluate.
     ///
     /// # Returns
-    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a conditional-fallback execution gate.
+    /// A [`TaskFrameBuilder`] wrapping its inner workflow with a conditional-backup execution gate.
     ///
     /// # Examples
     /// ```
@@ -577,7 +577,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// # }
     ///
     /// let task: ConditionalTaskFrame<MyTaskFrame, BackupFrame> = TaskFrameBuilder::builder(MyTaskFrame)
-    ///     .with_fallback_condition(BackupFrame, CheckCondition) // Runs MyTaskFrame if true, BackupFrame if false
+    ///     .with_backup_condition(BackupFrame, CheckCondition) // Runs MyTaskFrame if true, BackupFrame if false
     ///     .build();
     /// ```
     ///
@@ -587,20 +587,19 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// - [`ConditionalFramePredicate`] - The core trait that defines the condition evaluation.
     /// - [`with_condition`](TaskFrameBuilder::with_condition) - Wrapper that simply aborts/skips on false condition.
     /// - [`TaskFrame`] - The trait that ``frame`` must implement.
-    pub fn with_fallback_condition<T2: TaskFrame<Args = (), Error = T::Error> + 'static>(
+    pub fn with_backup_condition<T2: TaskFrame<Args = (), Error = T::Error> + 'static>(
         self,
-        fallback: T2,
+        backup: T2,
         predicate: impl ConditionalFramePredicate + 'static,
     ) -> TaskFrameBuilder<ConditionalTaskFrame<T, T2>>
     where
         T: TaskFrame<Args = ()>,
     {
-        let condition: ConditionalTaskFrame<T, T2> =
-            ConditionalTaskFrame::<T, T2>::fallback_builder()
-                .predicate(predicate)
-                .frame(self.0)
-                .fallback(fallback)
-                .build();
+        let condition: ConditionalTaskFrame<T, T2> = ConditionalTaskFrame::<T, T2>::builder()
+            .predicate(predicate)
+            .frame(self.0)
+            .backup(backup)
+            .build();
         TaskFrameBuilder(condition)
     }
 
