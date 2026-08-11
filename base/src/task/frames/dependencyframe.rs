@@ -515,6 +515,6 @@ impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
             return self.unresolve.execute();
         }
 
-        self.frame.execute(&ctx, args).await
+        self.frame.execute(ctx, args).await
     }
 }
