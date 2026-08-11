@@ -744,327 +744,6 @@ define_event_group!(
 /// - [`ExponentialBackoffStrategy`] - An implementation of [`RetryBackoffStrategy`] for exponential-based delays.
 /// - [`JitterBackoffStrategy`] - An implementation of [`RetryBackoffStrategy`] for jitter-based delays.
 #[derive(TypedBuilder)]
-#[builder(
-    mutators(
-        /// An ergonomic builder method for supplying as a constant-based backoff strategy ([`ConstantBackoffStrategy`])
-        /// configured with a std [`Duration`]. For more information about the backoff strategy view its docs.
-        ///
-        /// # Argument(s)
-        /// The only argument this method accept is a parameter called ``duration`` of type std [`Duration`],
-        /// specifying the constant amount of time to await in-between retries.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`ConstantBackoffStrategy`]
-        /// with the specified ``duration`` to chain more builder methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will almost certainly
-        /// be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`ConstantBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn constant(&mut self, duration: Duration) {
-            self.backoff = Box::new(ConstantBackoffStrategy::new(duration));
-        }
-
-        /// An ergonomic builder method for supplying as an exponential-based backoff strategy ([`ExponentialBackoffStrategy`])
-        /// configured with a factor / exponent base. For more information about the backoff strategy view its docs.
-        ///
-        /// There is an alternative builder method which allows for setting an upper bound via
-        /// [`RetriableTaskFrameBuilder::bounded_exponential`]
-        ///
-        /// # Argument(s)
-        /// The only argument this method accept is a parameter called ``factor`` of a float type,
-        /// specifying the intensity / speed the delay will grow.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`ExponentialBackoffStrategy`]
-        /// with the specified ``factor`` to chain more builder methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will almost certainly
-        /// be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`ExponentialBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrameBuilder::bounded_exponential`] - An alternative builder for specifying an upper bound
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn exponential(&mut self, factor: f64) {
-            self.backoff = Box::new(ExponentialBackoffStrategy::new(factor));
-        }
-
-        /// An ergonomic builder method for supplying as a linear-based backoff strategy ([`LinearBackoffStrategy`])
-        /// configured with a factor. For more information about the backoff strategy view its docs.
-        ///
-        /// There is an alternative builder method which allows for setting an upper bound via
-        /// [`RetriableTaskFrameBuilder::bounded_linear`]
-        ///
-        /// # Argument(s)
-        /// The only argument this method accept is a parameter called ``factor`` of a std [`Duration`]
-        /// type, specifying the intensity / speed the delay will grow.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`LinearBackoffStrategy`]
-        /// with the specified ``factor`` to chain more builder methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will almost
-        /// certainly be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`LinearBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrameBuilder::bounded_linear`] - An alternative builder for specifying an upper bound
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn linear(&mut self, factor: Duration) {
-            self.backoff = Box::new(
-                LinearBackoffStrategy::builder().factor(factor).build()
-            );
-        }
-
-        /// An ergonomic builder method for supplying as an exponential-based backoff strategy ([`ExponentialBackoffStrategy`])
-        /// configured with a factor / exponent base and an upper bound. For more information about the backoff strategy
-        /// view its docs.
-        ///
-        /// There is an alternative builder method which allows for setting only a factor via
-        /// [`RetriableTaskFrameBuilder::exponential`]
-        ///
-        /// # Argument(s)
-        /// The method accepts only two arguments, the former being a parameter called ``factor`` of a float type,
-        /// specifying the intensity / speed the delay will grow. Whereas the latter being ``max`` of
-        /// a std [`Duration`] type specifying the upper bound / limit of the function.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`ExponentialBackoffStrategy`]
-        /// with the specified ``factor`` as a factor and ``max`` as an upper bound to chain more builder
-        /// methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will almost
-        /// certainly be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`ExponentialBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrameBuilder::exponential`] - An alternative builder for specifying only a factor
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn bounded_exponential(&mut self, factor: f64, max: Duration) {
-            self.backoff = Box::new(ExponentialBackoffStrategy::new_with(factor, max));
-        }
-
-        /// An ergonomic builder method for supplying as a linear-based backoff strategy ([`LinearBackoffStrategy`])
-        /// configured with a factor and an upper bound. For more information about the backoff strategy view 
-        /// its docs.
-        ///
-        /// There is an alternative builder method which allows for specifying only a factor via
-        /// [`RetriableTaskFrameBuilder::linear`]
-        ///
-        /// # Argument(s)
-        /// The method accepts two arguments, the former being a parameter called ``factor`` of a float type,
-        /// specifying the intensity / speed the delay will grow. Whereas the latter being ``max`` of
-        /// a std [`Duration`] type specifying the upper bound / limit of the function.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`LinearBackoffStrategy`]
-        /// with the specified ``factor`` as factor and ``max`` as an upper bound to chain more builder
-        /// methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will
-        /// almost certainly be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`LinearBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrameBuilder::linear`] - An alternative builder for specifying only a factor
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn bounded_linear(&mut self, factor: Duration, max: Duration) {
-            self.backoff = Box::new(
-                LinearBackoffStrategy::builder().factor(factor).clamp(max).build()
-            );
-        }
-
-        /// An ergonomic builder method for supplying as a **full** jitter-based backoff strategy ([`JitterBackoffStrategy`])
-        /// configured with a factor. For more information about the backoff strategy view its docs.
-        ///
-        /// There are two alternative builder methods for specifying the various kinds of jitter types
-        /// via [`RetriableTaskFrameBuilder::equal_jitter`] and [`RetriableTaskFrameBuilder::decorrelated_jitter`]
-        ///
-        /// # Argument(s)
-        /// The only argument this method accept is a parameter called ``factor`` of a float type,
-        /// specifying the intensity of this randomization process for the delay.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured as a full [`JitterBackoffStrategy`]
-        /// with the specified ``factor`` as factor to chain more builder methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will
-        /// almost certainly be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`JitterBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrameBuilder::equal_jitter`] - An alternative method for specifying equal jitter backoffs.
-        /// - [`RetriableTaskFrameBuilder::decorrelated_jitter`] - An alternative method for specifying decorrelated jitter backoffs.
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn full_jitter(&mut self, backoff: impl RetryBackoffStrategy, factor: f64) {
-            self.backoff = Box::new(
-                JitterBackoffStrategy::<_>::full(backoff, factor)
-            );
-        }
-
-        /// An ergonomic builder method for supplying as a **equal** jitter-based backoff strategy ([`JitterBackoffStrategy`])
-        /// configured with a factor. For more information about the backoff strategy view its docs.
-        ///
-        /// There are two alternative builder methods for specifying the various kinds of jitter types
-        /// via [`RetriableTaskFrameBuilder::full_jitter`] and [`RetriableTaskFrameBuilder::decorrelated_jitter`]
-        ///
-        /// # Argument(s)
-        /// The only argument this method accept is a parameter called ``factor`` of a float type,
-        /// specifying the intensity of this randomization process for the delay.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured as an equal [`JitterBackoffStrategy`]
-        /// with the specified ``factor`` as factor to chain more builder methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will
-        /// almost certainly be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`JitterBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrameBuilder::full_jitter`] - An alternative method for specifying full jitter backoffs.
-        /// - [`RetriableTaskFrameBuilder::decorrelated_jitter`] - An alternative method for specifying decorrelated jitter backoffs.
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn equal_jitter(&mut self, backoff: impl RetryBackoffStrategy, factor: f64) {
-            self.backoff = Box::new(
-                JitterBackoffStrategy::<_>::equal(backoff, factor)
-            );
-        }
-
-        /// An ergonomic builder method for supplying as a **decorrelated** jitter-based backoff strategy ([`JitterBackoffStrategy`])
-        /// configured with a factor and an upper bound. For more information about the backoff strategy view its docs.
-        ///
-        /// There are two alternative builder methods for specifying the various kinds of jitter types
-        /// via [`RetriableTaskFrameBuilder::full_jitter`] and [`RetriableTaskFrameBuilder::equal_jitter`]
-        ///
-        /// # Argument(s)
-        /// The method accepts only two arguments, the former being a parameter called ``factor`` of a float type,
-        /// specifying the intensity of this randomization process for the delay. Whereas the latter being ``max`` of
-        /// a std [`Duration`] type specifying the upper bound / limit of the function.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured as an equal [`JitterBackoffStrategy`]
-        /// with the specified ``factor`` as factor to chain more builder methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will
-        /// almost certainly be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`JitterBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrameBuilder::full_jitter`] - An alternative method for specifying full jitter backoffs.
-        /// - [`RetriableTaskFrameBuilder::equal_jitter`] - An alternative method for specifying equal jitter backoffs.
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn decorrelated_jitter(&mut self, backoff: impl RetryBackoffStrategy, factor: f64, max: f64) {
-            self.backoff = Box::new(
-                JitterBackoffStrategy::<_>::decorrelated(backoff, factor, max)
-            );
-        }
-
-        /// A builder method for specifying any kind of [`RetryBackoffStrategy`]. By itself it should be
-        /// used on foreign [`RetryBackoffStrategy`] types or for configuring more explicitly the [`RetryBackoffStrategy`]
-        /// in question.
-        ///
-        /// In any other case it's recommended to check the more ergonomic builder methods:
-        /// - [`RetriableTaskFrameBuilder::constant`] - Used for constant-based delays.
-        /// - [`RetriableTaskFrameBuilder::linear`] - Used for unbounded linear-based delays.
-        /// - [`RetriableTaskFrameBuilder::bounded_linear`] - Used for bounded linear-based delays.
-        /// - [`RetriableTaskFrameBuilder::exponential`] - Used for unbounded exponential-based delays.
-        /// - [`RetriableTaskFrameBuilder::bounded_exponential`] - Used for bounded exponential-based delays.
-        /// - [`RetriableTaskFrameBuilder::full_jitter`] - Used for full jitter-based delays.
-        /// - [`RetriableTaskFrameBuilder::equal_jitter`] - Used for equal jitter-based delays.
-        /// - [`RetriableTaskFrameBuilder::decorrelated_jitter`] - Used for decorrelated jitter-based delays.
-        ///
-        /// # Argument(s)
-        /// The only parameter which the method accept is ``backoff`` which is the [`RetryBackoffStrategy`]
-        /// to use in the final result of building.
-        ///
-        /// # Returns
-        /// This method returns the [`RetriableTaskFrameBuilder`] configured with the [`RetryBackoffStrategy`]
-        /// of ``backoff`` to chain more builder methods if needed and build the [`RetriableTaskFrame`].
-        ///
-        /// # Default Value
-        /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
-        /// duration back (effectively as if the delay didn't exist).
-        ///
-        /// # Builder Method Chaining
-        /// While trying to set this field twice won't generate a compile-time error and in-fact will
-        /// modify the last value. Its generally not recommended to use this gimmick will
-        /// almost certainly be patched in future versions.
-        ///
-        /// # See Also
-        /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
-        /// - [`RetriableTaskFrameBuilder::constant`] - An alternative builder method for constant-based delays.
-        /// - [`RetriableTaskFrameBuilder::linear`] - An alternative builder method for unbounded linear-based delays.
-        /// - [`RetriableTaskFrameBuilder::bounded_linear`] - An alternative builder method for bounded linear-based delays.
-        /// - [`RetriableTaskFrameBuilder::exponential`] - An alternative builder method for unbounded exponential-based delays.
-        /// - [`RetriableTaskFrameBuilder::bounded_exponential`] - An alternative builder method for bounded exponential-based delays.
-        /// - [`RetriableTaskFrameBuilder::full_jitter`] - An alternative builder method for full jitter-based delays.
-        /// - [`RetriableTaskFrameBuilder::equal_jitter`] - An alternative builder method for equal jitter-based delays.
-        /// - [`RetriableTaskFrameBuilder::decorrelated_jitter`] - An alternative builder method for decorrelated jitter-based delays.
-        /// - [`RetriableTaskFrame`] - The final result of the builder.
-        pub fn backoff(&mut self, backoff: impl RetryBackoffStrategy) {
-            self.backoff = Box::new(backoff);
-        }
-    )
-)]
 pub struct RetriableTaskFrame<T: TaskFrame> {
     /// The builder method which sets the primary [`TaskFrame`] / workflow.
     ///
@@ -1112,7 +791,52 @@ pub struct RetriableTaskFrame<T: TaskFrame> {
     #[builder(setter(transform = |retry: NonZeroU32| retry.get()))]
     retries: u32,
 
-    #[builder(via_mutators(init = Box::new(ConstantBackoffStrategy::new(Duration::ZERO))))]
+    /// A builder method for specifying any kind of [`RetryBackoffStrategy`]. By itself it should be
+    /// used on foreign [`RetryBackoffStrategy`] types or for configuring more explicitly the [`RetryBackoffStrategy`]
+    /// in question.
+    ///
+    /// In any other case it's recommended to check the more ergonomic alias builder methods:
+    /// - [`RetriableTaskFrameBuilder::constant`] - Used for constant-based delays.
+    /// - [`RetriableTaskFrameBuilder::linear`] - Used for unbounded linear-based delays.
+    /// - [`RetriableTaskFrameBuilder::bounded_linear`] - Used for bounded linear-based delays.
+    /// - [`RetriableTaskFrameBuilder::exponential`] - Used for unbounded exponential-based delays.
+    /// - [`RetriableTaskFrameBuilder::bounded_exponential`] - Used for bounded exponential-based delays.
+    /// - [`RetriableTaskFrameBuilder::full_jitter`] - Used for full jitter-based delays.
+    /// - [`RetriableTaskFrameBuilder::equal_jitter`] - Used for equal jitter-based delays.
+    /// - [`RetriableTaskFrameBuilder::decorrelated_jitter`] - Used for decorrelated jitter-based delays.
+    ///
+    /// # Argument(s)
+    /// The only parameter which the method accept is ``backoff`` which is the [`RetryBackoffStrategy`]
+    /// to use in the final result of building.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured with the [`RetryBackoffStrategy`]
+    /// of ``backoff`` to chain more builder methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrameBuilder::constant`] - An alternative builder method for constant-based delays.
+    /// - [`RetriableTaskFrameBuilder::linear`] - An alternative builder method for unbounded linear-based delays.
+    /// - [`RetriableTaskFrameBuilder::bounded_linear`] - An alternative builder method for bounded linear-based delays.
+    /// - [`RetriableTaskFrameBuilder::exponential`] - An alternative builder method for unbounded exponential-based delays.
+    /// - [`RetriableTaskFrameBuilder::bounded_exponential`] - An alternative builder method for bounded exponential-based delays.
+    /// - [`RetriableTaskFrameBuilder::full_jitter`] - An alternative builder method for full jitter-based delays.
+    /// - [`RetriableTaskFrameBuilder::equal_jitter`] - An alternative builder method for equal jitter-based delays.
+    /// - [`RetriableTaskFrameBuilder::decorrelated_jitter`] - An alternative builder method for decorrelated jitter-based delays.
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    #[builder(
+        default = Box::new(ConstantBackoffStrategy::new(Duration::ZERO)),
+        setter(transform = |value: impl RetryBackoffStrategy| {
+            Box::new(value) as Box<dyn RetryBackoffStrategy>
+        })
+    )]
     backoff: Box<dyn RetryBackoffStrategy>,
 
     /// The builder method which sets the error filter which the [`RetriableTaskFrame`].
@@ -1145,6 +869,298 @@ pub struct RetriableTaskFrame<T: TaskFrame> {
     )]
     filter: Box<dyn RetryErrorFilter<T::Error>>,
 }
+
+macro_rules! backoff_builder_method_alias {
+    ($(#[$($attrs:tt)*])* $name: ident($($arg_name: ident: $arg_type: ty),*) -> $block: block) => {
+        $(#[$($attrs)*])*
+        #[allow(dead_code, non_camel_case_types, missing_docs)]
+        impl<T: TaskFrame, __frame, __retries, __filter> RetriableTaskFrameBuilder<T, (__frame, __retries, (), __filter,)> {
+            #[allow(clippy::used_underscore_binding, clippy::no_effect_underscore_binding)]
+            pub fn $name(self, $($arg_name: $arg_type),*) -> RetriableTaskFrameBuilder<T, (__frame, __retries, (Box<dyn RetryBackoffStrategy>,
+            ), __filter,)> {
+                let value = $block;
+                self.backoff(value)
+            }
+        }
+
+        #[doc(hidden)]
+        #[allow(dead_code, non_camel_case_types, missing_docs)]
+        impl<T: TaskFrame, __frame, __retries, __filter> RetriableTaskFrameBuilder<T, (__frame, __retries, (Box<dyn RetryBackoffStrategy>,
+        ), __filter,)> {
+            #[deprecated(note = "Repeated field backoff")]
+            pub fn $name(self, _: RetriableTaskFrameBuilder_Error_Repeated_field_backoff) -> RetriableTaskFrameBuilder<T, (__frame, __retries, (Box<dyn RetryBackoffStrategy>,
+            ), __filter,)> { self }
+        }
+    };
+}
+
+backoff_builder_method_alias!(
+    /// An ergonomic builder method for supplying as a constant-based backoff strategy ([`ConstantBackoffStrategy`])
+    /// configured with a std [`Duration`]. For more information about the backoff strategy view its docs.
+    ///
+    /// # Argument(s)
+    /// The only argument this method accept is a parameter called ``duration`` of type std [`Duration`],
+    /// specifying the constant amount of time to await in-between retries.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`ConstantBackoffStrategy`]
+    /// with the specified ``duration`` to chain more builder methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`ConstantBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    constant(value: Duration) -> {
+        ConstantBackoffStrategy::new(value)
+    }
+);
+
+backoff_builder_method_alias!(
+    /// An ergonomic builder method for supplying as an exponential-based backoff strategy ([`ExponentialBackoffStrategy`])
+    /// configured with a factor / exponent base. For more information about the backoff strategy view its docs.
+    ///
+    /// There is an alternative builder method which allows for setting an upper bound via
+    /// [`RetriableTaskFrameBuilder::bounded_exponential`]
+    ///
+    /// # Argument(s)
+    /// The only argument this method accept is a parameter called ``factor`` of a float type,
+    /// specifying the intensity / speed the delay will grow.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`ExponentialBackoffStrategy`]
+    /// with the specified ``factor`` to chain more builder methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`ExponentialBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrameBuilder::bounded_exponential`] - An alternative builder for specifying an upper bound
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    exponential(factor: f64) -> {
+        ExponentialBackoffStrategy::new(factor)
+    }
+);
+
+backoff_builder_method_alias!(
+    /// An ergonomic builder method for supplying as a linear-based backoff strategy ([`LinearBackoffStrategy`])
+    /// configured with a factor. For more information about the backoff strategy view its docs.
+    ///
+    /// There is an alternative builder method which allows for setting an upper bound via
+    /// [`RetriableTaskFrameBuilder::bounded_linear`]
+    ///
+    /// # Argument(s)
+    /// The only argument this method accept is a parameter called ``factor`` of a std [`Duration`]
+    /// type, specifying the intensity / speed the delay will grow.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`LinearBackoffStrategy`]
+    /// with the specified ``factor`` to chain more builder methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`LinearBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrameBuilder::bounded_linear`] - An alternative builder for specifying an upper bound
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    linear(factor: Duration) -> {
+        LinearBackoffStrategy::builder().factor(factor).build()
+    }
+);
+
+backoff_builder_method_alias!(
+    /// An ergonomic builder method for supplying as an exponential-based backoff strategy ([`ExponentialBackoffStrategy`])
+    /// configured with a factor / exponent base and an upper bound. For more information about the backoff strategy
+    /// view its docs.
+    ///
+    /// There is an alternative builder method which allows for setting only a factor via
+    /// [`RetriableTaskFrameBuilder::exponential`]
+    ///
+    /// # Argument(s)
+    /// The method accepts only two arguments, the former being a parameter called ``factor`` of a float type,
+    /// specifying the intensity / speed the delay will grow. Whereas the latter being ``max`` of
+    /// a std [`Duration`] type specifying the upper bound / limit of the function.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`ExponentialBackoffStrategy`]
+    /// with the specified ``factor`` as a factor and ``max`` as an upper bound to chain more builder
+    /// methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`ExponentialBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrameBuilder::exponential`] - An alternative builder for specifying only a factor
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    bounded_exponential(factor: f64, max: Duration) -> {
+        ExponentialBackoffStrategy::new_with(factor, max)
+    }
+);
+
+backoff_builder_method_alias!(
+    /// An ergonomic builder method for supplying as a linear-based backoff strategy ([`LinearBackoffStrategy`])
+    /// configured with a factor and an upper bound. For more information about the backoff strategy view
+    /// its docs.
+    ///
+    /// There is an alternative builder method which allows for specifying only a factor via
+    /// [`RetriableTaskFrameBuilder::linear`]
+    ///
+    /// # Argument(s)
+    /// The method accepts two arguments, the former being a parameter called ``factor`` of a float type,
+    /// specifying the intensity / speed the delay will grow. Whereas the latter being ``max`` of
+    /// a std [`Duration`] type specifying the upper bound / limit of the function.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured as [`LinearBackoffStrategy`]
+    /// with the specified ``factor`` as factor and ``max`` as an upper bound to chain more builder
+    /// methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`LinearBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrameBuilder::linear`] - An alternative builder for specifying only a factor
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    bounded_linear(factor: Duration, max: Duration) -> {
+        LinearBackoffStrategy::builder().factor(factor).clamp(max).build()
+    }
+);
+
+backoff_builder_method_alias!(
+    /// An ergonomic builder method for supplying as a **full** jitter-based backoff strategy ([`JitterBackoffStrategy`])
+    /// configured with a factor. For more information about the backoff strategy view its docs.
+    ///
+    /// There are two alternative builder methods for specifying the various kinds of jitter types
+    /// via [`RetriableTaskFrameBuilder::equal_jitter`] and [`RetriableTaskFrameBuilder::decorrelated_jitter`]
+    ///
+    /// # Argument(s)
+    /// The only argument this method accept is a parameter called ``factor`` of a float type,
+    /// specifying the intensity of this randomization process for the delay.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured as a full [`JitterBackoffStrategy`]
+    /// with the specified ``factor`` as factor to chain more builder methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// While trying to set this field twice won't generate a compile-time error and in-fact will
+    /// modify the last value. Its generally not recommended to use this gimmick will
+    /// almost certainly be patched in future versions.
+    ///
+    /// # See Also
+    /// - [`JitterBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrameBuilder::equal_jitter`] - An alternative method for specifying equal jitter backoffs.
+    /// - [`RetriableTaskFrameBuilder::decorrelated_jitter`] - An alternative method for specifying decorrelated jitter backoffs.
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    full_jitter(backoff: impl RetryBackoffStrategy, factor: f64) -> {
+        JitterBackoffStrategy::full(backoff, factor)
+    }
+);
+
+backoff_builder_method_alias!(
+    /// An ergonomic builder method for supplying as a **equal** jitter-based backoff strategy ([`JitterBackoffStrategy`])
+    /// configured with a factor. For more information about the backoff strategy view its docs.
+    ///
+    /// There are two alternative builder methods for specifying the various kinds of jitter types
+    /// via [`RetriableTaskFrameBuilder::full_jitter`] and [`RetriableTaskFrameBuilder::decorrelated_jitter`]
+    ///
+    /// # Argument(s)
+    /// The only argument this method accept is a parameter called ``factor`` of a float type,
+    /// specifying the intensity of this randomization process for the delay.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured as an equal [`JitterBackoffStrategy`]
+    /// with the specified ``factor`` as factor to chain more builder methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// While trying to set this field twice won't generate a compile-time error and in-fact will
+    /// modify the last value. Its generally not recommended to use this gimmick will
+    /// almost certainly be patched in future versions.
+    ///
+    /// # See Also
+    /// - [`JitterBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrameBuilder::full_jitter`] - An alternative method for specifying full jitter backoffs.
+    /// - [`RetriableTaskFrameBuilder::decorrelated_jitter`] - An alternative method for specifying decorrelated jitter backoffs.
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    equal_jitter(backoff: impl RetryBackoffStrategy, factor: f64) -> {
+        JitterBackoffStrategy::equal(backoff, factor)
+    }
+);
+
+backoff_builder_method_alias!(
+    /// An ergonomic builder method for supplying as a **decorrelated** jitter-based backoff strategy ([`JitterBackoffStrategy`])
+    /// configured with a factor and an upper bound. For more information about the backoff strategy view its docs.
+    ///
+    /// There are two alternative builder methods for specifying the various kinds of jitter types
+    /// via [`RetriableTaskFrameBuilder::full_jitter`] and [`RetriableTaskFrameBuilder::equal_jitter`]
+    ///
+    /// # Argument(s)
+    /// The method accepts only two arguments, the former being a parameter called ``factor`` of a float type,
+    /// specifying the intensity of this randomization process for the delay. Whereas the latter being ``max`` of
+    /// a std [`Duration`] type specifying the upper bound / limit of the function.
+    ///
+    /// # Returns
+    /// This method returns the [`RetriableTaskFrameBuilder`] configured as an equal [`JitterBackoffStrategy`]
+    /// with the specified ``factor`` as factor to chain more builder methods if needed and build the [`RetriableTaskFrame`].
+    ///
+    /// # Default Value
+    /// The default value of this property is a [`RetryBackoffStrategy`] that returns zero
+    /// duration back (effectively as if the delay didn't exist).
+    ///
+    /// # Builder Method Chaining
+    /// While trying to set this field twice won't generate a compile-time error and in-fact will
+    /// modify the last value. Its generally not recommended to use this gimmick will
+    /// almost certainly be patched in future versions.
+    ///
+    /// # See Also
+    /// - [`JitterBackoffStrategy`] - The [`RetryBackoffStrategy`] used in this method.
+    /// - [`RetryBackoffStrategy`] - The trait responsible for computing the delays per retry.
+    /// - [`RetriableTaskFrameBuilder::full_jitter`] - An alternative method for specifying full jitter backoffs.
+    /// - [`RetriableTaskFrameBuilder::equal_jitter`] - An alternative method for specifying equal jitter backoffs.
+    /// - [`RetriableTaskFrame`] - The final result of the builder.
+    decorrelated_jitter(backoff: impl RetryBackoffStrategy, factor: f64, max: f64) -> {
+        JitterBackoffStrategy::decorrelated(backoff, factor, max)
+    }
+);
 
 impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
     type Error = T::Error;
