@@ -1,6 +1,6 @@
 use crate::task::frames::CountingFrame;
 use chronographer::prelude::*;
-use chronographer::task::{ConditionalTaskFrame, TaskFrame};
+use chronographer::task::{ConditionalTaskFrame, NonBackupConditionalTaskFrame, TaskFrame};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -36,6 +36,14 @@ where
     }
 }
 
+fn falsey_predicate() -> bool {
+    false
+}
+
+fn truthy_predicate() -> bool {
+    true
+}
+
 #[tokio::test]
 async fn truthy_condition_returns_ok() {
     let counter = Arc::new(AtomicUsize::new(0));
@@ -49,11 +57,9 @@ async fn truthy_condition_returns_ok() {
         }
     });
 
-    let predicate = |_ctx: &RestrictTaskFrameContext| async move { true };
-
-    let frame = ConditionalTaskFrame::builder()
+    let frame: NonBackupConditionalTaskFrame<_> = ConditionalTaskFrame::builder()
         .frame(frame)
-        .predicate(predicate)
+        .predicate(truthy_predicate as fn() -> bool)
         .build();
 
     let task = Task::new(frame, TaskScheduleImmediate);
@@ -77,12 +83,10 @@ async fn falsey_condition_runs_fallback() {
         should_fail: false,
     };
 
-    let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
-
-    let frame = ConditionalTaskFrame::fallback_builder()
+    let frame = ConditionalTaskFrame::builder()
         .frame(frame)
-        .fallback(fallback)
-        .predicate(predicate)
+        .backup(fallback)
+        .predicate(falsey_predicate as fn() -> bool)
         .build();
 
     let task = Task::new(frame, TaskScheduleImmediate);
@@ -99,11 +103,9 @@ async fn falsey_condition_with_error_on_false_returns_error() {
         should_fail: false,
     };
 
-    let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
-
-    let frame = ConditionalTaskFrame::builder()
+    let frame: NonBackupConditionalTaskFrame<_> = ConditionalTaskFrame::builder()
         .frame(frame)
-        .predicate(predicate)
+        .predicate(falsey_predicate as fn() -> bool)
         .build();
 
     let task = Task::new(frame, TaskScheduleImmediate);
@@ -121,11 +123,9 @@ async fn truthy_condition_with_failing_inner_frame_returns_error() {
         should_fail: true,
     };
 
-    let predicate = |_ctx: &RestrictTaskFrameContext| async move { true };
-
-    let frame = ConditionalTaskFrame::builder()
+    let frame: NonBackupConditionalTaskFrame<_> = ConditionalTaskFrame::builder()
         .frame(inner)
-        .predicate(predicate)
+        .predicate(truthy_predicate as fn() -> bool)
         .build();
 
     let frame = Arc::new(frame);
@@ -161,12 +161,10 @@ async fn falsey_condition_with_failing_fallback_returns_error() {
         should_fail: true,
     };
 
-    let predicate = |_ctx: &RestrictTaskFrameContext| async move { false };
-
-    let frame = ConditionalTaskFrame::fallback_builder()
+    let frame = ConditionalTaskFrame::builder()
         .frame(primary)
-        .fallback(fallback)
-        .predicate(predicate)
+        .backup(fallback)
+        .predicate(falsey_predicate as fn() -> bool)
         .build();
 
     let task = Task::new(frame, TaskScheduleImmediate);
