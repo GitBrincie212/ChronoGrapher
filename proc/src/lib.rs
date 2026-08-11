@@ -725,7 +725,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ## Condition Workflow Primitive
 /// ```ignore
-/// condition(predicate = IDENT | CLOSURE, secondary? = TASKFRAME_EXPR, on_false? = CONDITION_RETURN)
+/// condition(predicate = IDENT | CLOSURE, backup? = TASKFRAME_EXPR)
 /// ```
 ///
 /// The condition workflow primitive behaves identically to [`ConditionalTaskFrame`](chronographer::prelude::ConditionalTaskFrame),
@@ -734,16 +734,11 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ### Arguments
 /// - ``predicate`` The predicate function to run evaluating whenever or not to continue running the
-///   workflow. Unlike other arguments, this one is required to be specified. The predicate must either
-///   be an identifier or a closure.
+///   workflow. Unlike other arguments, this one is required to be specified. The predicate must be
+///   a function.
 ///
-/// - ``secondary`` A backup TaskFrame to run in case the predicate returns false, its optional and by
+/// - ``backup`` A backup TaskFrame to run in case the predicate returns false, its optional and by
 ///   default runs nothing. Just like the fallback this follows the exact same expression syntax
-///
-/// - ``on_false`` A configuration for the workflow primitive to act in case the predicate returns false.
-///   This can either be ``error`` for erroring out or ``success`` to simply skip. **It is important to know**
-///   when a secondary TaskFrame runs and fails, its error will be prioritized, if it succeeds, then the condition
-///   errors out regardless of its own error.
 ///
 /// ### Examples:
 /// ```rust
@@ -752,14 +747,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// #[taskframe]
 /// #[workflow(
 ///     condition(MY_PREDICATE), // Run MY_PREDICATE if it returns true -> run the workflow
-///     condition(|| { true }), // Run the provided closure, if it returns true -> run the workflow
-///     condition(MY_PREDICATE, on_false = error), // ... if it returns false -> error out
 ///     condition(MY_PREDICATE, MyTaskFrame2), // ... if it returns false -> run MyTaskFrame2
-///     condition(
-///         MY_PREDICATE,
-///         MyTaskFrame2,
-///         error
-///     ), // ... if it returns false -> run MyTaskFrame2 and always error out
 /// )]
 /// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
