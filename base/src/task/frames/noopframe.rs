@@ -34,7 +34,6 @@ use std::marker::PhantomData;
 /// - [`TaskFrame`] - The core trait that [`NoOperationTaskFrame`] implements and uses.
 /// - [`TaskError`] - The error which [`NoOperationTaskFrame`] uses (for type reasons, apart from that its ignored).
 /// - [`workflow`] - Used for defining ergonomically an entire workflow of wrapped-based [`TaskFrames`]
-#[derive(Debug)]
 pub struct NoOperationTaskFrame<E, Args = ()>(PhantomData<(E, Args)>);
 
 impl<E: TaskError, Args: 'static + Send + Sync> Default for NoOperationTaskFrame<E, Args> {
