@@ -74,18 +74,15 @@ _format_cargo:
     cargo fmt --all
 
 # Lint the entire project
-lint:
-    just _lint_cargo
+lint: _lint_cargo
     pnpm -C website run lint
 
 # Format the entire project
-format:
-    just _format_cargo
+format: _format_cargo
     pnpm -C website run format
 
 # Lint & Format the entire project
-quality:
-    just _lint_cargo, _format_cargo
+quality: _lint_cargo _format_cargo
     pnpm -C website run biome
 
 # Run the website in local development
