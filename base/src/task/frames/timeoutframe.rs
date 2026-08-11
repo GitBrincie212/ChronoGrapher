@@ -232,8 +232,50 @@ impl DefaultTimeoutError for eyre::Error {
 /// - [`DefaultTimeoutError`] - A trait which provides a default error for timeout automatically.
 #[derive(TypedBuilder)]
 pub struct TimeoutTaskFrame<T: TaskFrame> {
+    /// The builder method which sets the primary [`TaskFrame`] / workflow.
+    ///
+    /// # Argument(s)
+    /// The only argument this method accepts is [`TaskFrame`] which is the primary workflow.
+    ///
+    /// # Returns
+    /// This method returns the [`TimeoutTaskFrameBuilder`] configured with the specified
+    /// primary [`TakFrame`] / workflow to chain more builder methods if needed and build the [`TimeoutTaskFrame`].
+    ///
+    /// # Default Value
+    /// This field has no default value, and it will result in a compile-time error if you call ``.build()``
+    /// before initializing it.
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`TaskFrame`] - Trait bound for the main workflow that [`TimeoutTaskFrame`] uses.
+    /// - [`TimeoutTaskFrame`] - The final result of the builder.
     frame: T,
 
+    /// A builder method which sets the duration source as a function for which the [`TimeoutTaskFrame`] decides
+    /// for how much to time give for the workflow to run. There is an alias builder method via
+    /// [`TimeoutTaskFrameBuilder::duration`] to define a constant std [`Duration`] as source to use.
+    ///
+    /// # Argument(s)
+    /// The only argument this method accepts is a function that computes the std [`Duration`] which
+    /// the workflow is allowed to run up to before timeout
+    ///
+    /// # Returns
+    /// This method returns the [`TimeoutTaskFrameBuilder`] configured with the specified duration source
+    /// being a function to chain more builder methods if needed and build the [`TimeoutTaskFrame`].
+    ///
+    /// # Default Value
+    /// This field has no default value, and it will result in a compile-time error if you call ``.build()``
+    /// before initializing it.
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`TimeoutTaskFrameBuilder::duration`] - The alias builder method for constant std [`Duration`] as source.
+    /// - [`TaskFrame`] - Trait bound for the main workflow that [`TimeoutTaskFrame`] uses.
+    /// - [`TimeoutTaskFrame`] - The final result of the builder.
     #[builder(
         setter(
             prefix = "with_",
@@ -244,6 +286,30 @@ pub struct TimeoutTaskFrame<T: TaskFrame> {
     )]
     duration: Box<dyn Fn() -> Duration + Send + Sync>,
 
+    /// A builder method which sets the timeout error source as a function for which the [`TimeoutTaskFrame`] decides
+    /// what kind of error it should throw when it ultimately times out the workflow. There is an alias builder method
+    /// via [`TimeoutTaskFrameBuilder::timeout`] for a constant timeout error (given the error can be cloned)
+    /// as source.
+    ///
+    /// # Argument(s)
+    /// The only argument this method accepts is a function with returns a [`TaskError`] that is of
+    /// the same type as ``T::Error`` (the primary workflow's error).
+    ///
+    /// # Returns
+    /// This method returns the [`TimeoutTaskFrameBuilder`] configured with the specified timeout error source
+    /// being a function to chain more builder methods if needed and build the [`TimeoutTaskFrame`].
+    ///
+    /// # Default Value
+    /// Depending on whenever the error type implements the [`DefaultTimeoutError`] this property
+    /// will be autofilled with the default constructor. If not, then its required.
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`TimeoutTaskFrameBuilder::timeout`] - An alias builder method for constant [`TaskError`] as source.
+    /// - [`TaskFrame`] - Trait bound for the main workflow that [`TimeoutTaskFrame`] uses.
+    /// - [`TimeoutTaskFrame`] - The final result of the builder.
     #[builder(
         default_code = "Box::new(<T::Error as DefaultTimeoutError>::default_timeout_error)",
         default_where(T::Error: DefaultTimeoutError),
@@ -257,11 +323,33 @@ pub struct TimeoutTaskFrame<T: TaskFrame> {
     timeout: Box<dyn Fn() -> T::Error + Send + Sync + 'static>,
 }
 
-// ========== Builder Method Aliases ========== //
 #[allow(dead_code, non_camel_case_types, missing_docs)]
 impl<T: TaskFrame, __frame, __with_timeout>
     TimeoutTaskFrameBuilder<T, (__frame, (), __with_timeout)>
 {
+    /// A builder method which sets the duration source as a constant for which the [`TimeoutTaskFrame`] decides
+    /// for how much to time give for the workflow to run. There is an alias builder method via
+    /// [`TimeoutTaskFrameBuilder::with_duration`] to define a function that returns std [`Duration`] as
+    /// source to use.
+    ///
+    /// # Argument(s)
+    /// The only argument this method accepts is a std [`Duration`] acting as the constant source.
+    ///
+    /// # Returns
+    /// This method returns the [`TimeoutTaskFrameBuilder`] configured with the specified duration source
+    /// being a constant std [`Duration`] to chain more builder methods if needed and build the [`TimeoutTaskFrame`].
+    ///
+    /// # Default Value
+    /// This field has no default value, and it will result in a compile-time error if you call ``.build()``
+    /// before initializing it.
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`TimeoutTaskFrameBuilder::with_duration`] - An alias builder method for function-based std [`Duration`] sources.
+    /// - [`TaskFrame`] - Trait bound for the main workflow that [`TimeoutTaskFrame`] uses.
+    /// - [`TimeoutTaskFrame`] - The final result of the builder.
     #[allow(clippy::used_underscore_binding, clippy::no_effect_underscore_binding)]
     pub fn duration(
         self,
@@ -311,6 +399,33 @@ impl<T: TaskFrame, __frame, __duration> TimeoutTaskFrameBuilder<T, (__frame, __d
 where
     T::Error: Clone,
 {
+    /// A builder method which sets the timeout error source as a constant [`TaskError`] for which the
+    /// [`TimeoutTaskFrame`] decides what kind of error it should throw when it ultimately times out the workflow.
+    /// There is an alias builder method via [`TimeoutTaskFrameBuilder::with_timeout`] for a function
+    /// that returns a timeout error as a sources.
+    ///
+    /// Unlike its alias [`TimeoutTaskFrameBuilder::with_timeout`], this builder method requires the
+    /// error itself to be cloneable (implement ``Clone``).
+    ///
+    /// # Argument(s)
+    /// The only argument this method accepts is a constant [`TaskError`] that is of the same type as
+    /// ``T::Error`` (the primary workflow's error) and implements ``Clone``.
+    ///
+    /// # Returns
+    /// This method returns the [`TimeoutTaskFrameBuilder`] configured with the specified timeout error source
+    /// being a constant [`TaskError`] to chain more builder methods if needed and build the [`TimeoutTaskFrame`].
+    ///
+    /// # Default Value
+    /// Depending on whenever the error type implements the [`DefaultTimeoutError`] this property
+    /// will be autofilled with the default constructor. If not, then its required.
+    ///
+    /// # Builder Method Chaining
+    /// Trying to set this field twice will generate a compile-time error.
+    ///
+    /// # See Also
+    /// - [`TimeoutTaskFrameBuilder::with_timeout`] - An alias builder method for function-based [`TaskError`] as source.
+    /// - [`TaskFrame`] - Trait bound for the main workflow that [`TimeoutTaskFrame`] uses.
+    /// - [`TimeoutTaskFrame`] - The final result of the builder.
     #[allow(clippy::used_underscore_binding, clippy::no_effect_underscore_binding)]
     pub fn timeout(
         self,
@@ -356,8 +471,6 @@ where
         self
     }
 }
-
-// ========== Builder Method Aliases ========== //
 
 impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
     type Error = T::Error;
