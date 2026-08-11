@@ -105,8 +105,8 @@ pub struct TimeoutPresentBuilder<T>(T);
 /// own, no matter if the workflow were to succeed or not.
 ///
 /// > **IMPORTANT NOTE:** Due to async Rust limitations, it is possible for the workflow to complete even if
-/// it surpasses the configured threshold for timeout if it doesn't yield. As such ensure to yield for
-/// CPU-heavy tasks to give room for a timeout.
+/// > it surpasses the configured threshold for timeout if it doesn't yield. As such ensure to yield for
+/// > CPU-heavy tasks to give room for a timeout.
 ///
 /// # Execution Error(s)
 /// Any kind of error may appear from the workflow if it completes sooner than the maximum configured
@@ -497,7 +497,7 @@ impl<T: TaskFrame> TaskFrame for TimeoutTaskFrame<T> {
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let duration = (self.max_duration)();
-        let result = tokio::time::timeout(duration, self.frame.execute(ctx, &args)).await;
+        let result = tokio::time::timeout(duration, self.frame.execute(ctx, args)).await;
 
         if let Ok(inner) = result {
             return inner;
