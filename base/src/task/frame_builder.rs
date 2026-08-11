@@ -351,7 +351,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
             TimeoutTaskFrame::builder()
                 .frame(self.0)
                 .duration(max_duration)
-                .on_timeout(error)
+                .timeout(error)
                 .build(),
         )
     }
