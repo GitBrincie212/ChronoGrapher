@@ -56,11 +56,11 @@ impl<T: TaskError> RetryErrorFilter<T> for bool {
 /// There are many built-in implementations of this trait present throughout ChronoGrapher:
 /// - [`ConstantBackoffStrategy`] - Returns a constant amount of delay untied to the retry
 /// - [`LinearBackoffStrategyConfig`] - Based on a start and a growth factor, returns a
-/// delay growing proportional to its retry count linearly.
+///   delay growing proportional to its retry count linearly.
 /// - [`ExponentialBackoffStrategy`] - Based on a factor and a ceiling, returns a
-/// delay growing proportional to its retry count exponentially.
+///   delay growing proportional to its retry count exponentially.
 /// - [`JitterBackoffStrategy`] - Based on a [`RetryBackoffStrategy`] and a jitter type, it
-/// computes the delay and randomizes it based on the jitter type.
+///   computes the delay and randomizes it based on the jitter type.
 ///
 /// # Object Safety / Dynamic Dispatching
 /// This trait is object safe (dyn compatible).
@@ -527,7 +527,7 @@ define_event_group!(
 /// it will return the error from the workflow.
 ///
 /// > **NOTE:** A limitation of [`RetriableTaskFrame`] is it doesn't keep a history of its errors for
-/// performance reasons, a work-around is to attach a [`TaskHook`] in the [`OnRetryAttemptEnd`] event.
+/// >  performance reasons, a work-around is to attach a [`TaskHook`] in the [`OnRetryAttemptEnd`] event.
 ///
 /// # Execution Error(s)
 /// There are no pre-defined errors that [`RetriableTaskFrame`] throws, instead every error is thrown
