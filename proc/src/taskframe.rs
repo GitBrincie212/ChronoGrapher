@@ -313,7 +313,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
                 #standalone_init
             }
 
-            pub fn workflow() -> <Self as ::chronographer::task::frames::TaskFrame>::Workflow {
+            pub fn workflow() -> #expanded_workflow_type {
                 #expanded_workflow_init
             }
         }
@@ -321,7 +321,6 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
         impl #generics ::chronographer::task::frames::TaskFrame for #impl_end_name {
             type Args = (#arg_types);
             type Error = #result;
-            type Workflow = #expanded_workflow_type;
 
             async fn execute(
                 &self,

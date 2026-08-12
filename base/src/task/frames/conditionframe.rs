@@ -352,7 +352,6 @@ where
 {
     type Error = T1::Error;
     type Args = ();
-    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
         let result = self.predicate.check();

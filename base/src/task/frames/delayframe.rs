@@ -257,7 +257,6 @@ impl<T: TaskFrame> DelayTaskFrame<T> {
 impl<T: TaskFrame> TaskFrame for DelayTaskFrame<T> {
     type Error = T::Error;
     type Args = T::Args;
-    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let delay = (self.delay)();

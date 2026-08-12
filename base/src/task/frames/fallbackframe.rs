@@ -358,7 +358,6 @@ where
 {
     type Error = T2::Error;
     type Args = T::Args;
-    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         match self.0.execute(ctx, args).await {

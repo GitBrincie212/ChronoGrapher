@@ -1,11 +1,14 @@
 use crate::hook::hook_attachment_annotation::HookAnnotationArguments;
 use crate::utils::{extract_annotation, extract_docs, handle_generics_phantom_data};
+use crate::workflow::WorkflowPrimitive;
+use crate::workflow::utils::WorkflowTransform;
 use darling::FromMeta;
 use darling::ast::NestedMeta;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, Parser};
-use syn::parse_macro_input;
+use syn::punctuated::Punctuated;
+use syn::{Token, parse_macro_input};
 
 #[derive(Debug, FromMeta)]
 struct TaskMacroArguments {
@@ -116,12 +119,22 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let docs = extract_docs(&input.attrs);
 
+    let workflow_type = workflow_toks
+        .clone()
+        .map(|x| {
+            Punctuated::<WorkflowPrimitive, Token![,]>::parse_terminated
+                .parse2(x)
+                .ok()
+        })
+        .flatten()
+        .unwrap_or_else(Punctuated::new)
+        .iter()
+        .fold(quote! { #taskframe_name #temp }, |acc, x| x.get_type(acc));
+
     let expanded_workflow_toks = workflow_toks.map(|x| quote! { __internal_workflow_spec(#x)});
     let mut expanded_method_init_logic = task_creation.clone();
     let mut task_method_name = syn::Ident::new("new", proc_macro2::Span::call_site());
-    let workflow =
-        quote! { <#taskframe_name #temp as ::chronographer::task::frames::TaskFrame>::Workflow };
-    let mut task_method_return_type = quote! { ::chronographer::task::Task<#workflow> };
+    let mut task_method_return_type = quote! { ::chronographer::task::Task<#workflow_type> };
 
     let constructor_async = hook_annotation_parsed.as_ref().map(|_| quote! { async });
     if is_singleton {
@@ -146,14 +159,14 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         expanded_method_init_logic = quote! {
             static INSTANCE: #singleton_primitive_type<
-            chronographer::task::Task<#workflow>
+            chronographer::task::Task<#workflow_type>
             > = #singleton_primitive_type::#method_type();
 
             INSTANCE.get_or_init(|| #constructor_async { #task_creation }) #await_expansion
         };
 
         task_method_name = syn::Ident::new("instance", proc_macro2::Span::call_site());
-        task_method_return_type = quote! { &'static ::chronographer::task::Task<#workflow> };
+        task_method_return_type = quote! { &'static #task_method_return_type };
     }
 
     quote! {
