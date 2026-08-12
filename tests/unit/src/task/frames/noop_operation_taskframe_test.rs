@@ -21,7 +21,6 @@ impl Copy for MyTaskFrame {}
 impl TaskFrame for MyTaskFrame {
     type Error = String;
     type Args = ();
-    type Workflow = Self;
 
     async fn execute(
         &self,

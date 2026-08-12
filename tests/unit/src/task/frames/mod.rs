@@ -34,7 +34,6 @@ struct CountingFrame {
 impl TaskFrame for CountingFrame {
     type Error = String;
     type Args = ();
-    type Workflow = Self;
 
     async fn execute(
         &self,
