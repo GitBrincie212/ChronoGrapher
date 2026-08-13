@@ -21,6 +21,7 @@ pub struct MyTaskFrame;
 impl TaskFrame for MyTaskFrame {
     type Error = String;
     type Args = ();
+    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         println!("Hello Base API");
@@ -45,6 +46,7 @@ In the above example, we define ``MyTaskFrame`` as a struct. Later on implementi
 three associated types and implementing one function:
 - ``Error`` This defines the error which ``MyTaskFrame`` returns as an error (upon failure) when executing.
 - ``Args`` This defines the arguments ``MyTaskFrame`` accepts, for multiple arguments use a tuple.
+- ``Workflow`` This is used internally for ChronoGrapher but in most if not all scenarios it should always be ``Self``.
 
 <Callout type={"idea"} title={"Pro Tip: Unpacking Arguments"}>
     To mimic argument unpacking from the ``#[taskframe]`` and ``#[task]`` macros on multiple arguments (tuple-based).
@@ -244,6 +246,7 @@ impl<T: TaskFrame> TaskFrame for MyWorkflowTaskFrame<T> {
     // or require the TaskFrame to not accept any arguments (though usually a bad practice)
     // [!code highlight]
     type Args = T::Args;
+    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         // [!code highlight]
