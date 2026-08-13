@@ -24,9 +24,9 @@ use syn::{Token, parenthesized};
 #[repr(transparent)]
 pub struct WorkflowSpec(pub Punctuated<WorkflowPrimitive, Token![,]>);
 
-impl From<WorkflowSpec> for Punctuated<WorkflowPrimitive, Token![,]> {
-    fn from(value: WorkflowSpec) -> Punctuated<WorkflowPrimitive, Token![,]> {
-        value.0
+impl Into<Punctuated<WorkflowPrimitive, Token![,]>> for WorkflowSpec {
+    fn into(self) -> Punctuated<WorkflowPrimitive, Token![,]> {
+        self.0
     }
 }
 

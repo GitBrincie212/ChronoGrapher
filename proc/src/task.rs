@@ -121,11 +121,12 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let workflow_type = workflow_toks
         .clone()
-        .and_then(|x| {
+        .map(|x| {
             Punctuated::<WorkflowPrimitive, Token![,]>::parse_terminated
                 .parse2(x)
                 .ok()
         })
+        .flatten()
         .unwrap_or_else(Punctuated::new)
         .iter()
         .fold(quote! { #taskframe_name #temp }, |acc, x| x.get_type(acc));
