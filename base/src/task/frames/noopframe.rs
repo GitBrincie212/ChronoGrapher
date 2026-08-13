@@ -53,6 +53,7 @@ impl<E: TaskError, Args: 'static + Send + Sync> Copy for NoOperationTaskFrame<E,
 impl<E: TaskError, Args: 'static + Send + Sync> TaskFrame for NoOperationTaskFrame<E, Args> {
     type Error = E;
     type Args = Args;
+    type Workflow = Self;
 
     async fn execute(
         &self,

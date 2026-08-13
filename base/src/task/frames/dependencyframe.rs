@@ -501,6 +501,7 @@ pub struct DependencyTaskFrame<T: TaskFrame> {
 impl<T: TaskFrame> TaskFrame for DependencyTaskFrame<T> {
     type Error = T::Error;
     type Args = T::Args;
+    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let is_resolved = self.dependency.is_resolved().await;

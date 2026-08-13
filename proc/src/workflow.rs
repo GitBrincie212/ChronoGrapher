@@ -21,14 +21,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{Token, parenthesized};
 
-#[repr(transparent)]
 pub struct WorkflowSpec(pub Punctuated<WorkflowPrimitive, Token![,]>);
-
-impl Into<Punctuated<WorkflowPrimitive, Token![,]>> for WorkflowSpec {
-    fn into(self) -> Punctuated<WorkflowPrimitive, Token![,]> {
-        self.0
-    }
-}
 
 pub enum WorkflowPrimitive {
     Retry(RetryArguments),

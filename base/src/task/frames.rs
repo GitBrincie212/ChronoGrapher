@@ -125,6 +125,7 @@ impl Deref for TaskFrameContext {
 pub trait TaskFrame: 'static + Send + Sync + Sized {
     type Error: TaskError;
     type Args: Send + Sync + 'static;
+    type Workflow: TaskFrame;
 
     fn execute(
         &self,

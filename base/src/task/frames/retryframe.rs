@@ -1165,6 +1165,7 @@ backoff_builder_method_alias!(
 impl<T: TaskFrame> TaskFrame for RetriableTaskFrame<T> {
     type Error = T::Error;
     type Args = T::Args;
+    type Workflow = Self;
 
     async fn execute(&self, ctx: &TaskFrameContext, args: &Self::Args) -> Result<(), Self::Error> {
         let mut error: Result<(), T::Error> = Ok(());
