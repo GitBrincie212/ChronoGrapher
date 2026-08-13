@@ -33,6 +33,7 @@ async fn test_shared_returns_same_instance() {
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
         type Args = ();
+        type Workflow = Self;
 
         async fn execute(
             &self,
@@ -83,6 +84,7 @@ async fn test_shared_isolated_by_type() {
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
         type Args = ();
+        type Workflow = Self;
 
         async fn execute(
             &self,
@@ -133,6 +135,7 @@ async fn test_get_shared_none_if_missing() {
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
         type Args = ();
+        type Workflow = Self;
 
         async fn execute(
             &self,
@@ -174,6 +177,7 @@ async fn test_get_shared_some_if_exists() {
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
         type Args = ();
+        type Workflow = Self;
 
         async fn execute(
             &self,
@@ -247,6 +251,7 @@ async fn test_shared_custom_state_manager() {
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
         type Args = ();
+        type Workflow = Self;
 
         async fn execute(
             &self,
@@ -295,6 +300,7 @@ async fn test_shared_with_marker() {
     impl TaskFrame for TestFrame {
         type Error = Box<dyn TaskError>;
         type Args = ();
+        type Workflow = Self;
 
         async fn execute(
             &self,
@@ -333,6 +339,7 @@ async fn test_shared_scoped_to_task_context() {
     impl TaskFrame for WorkerTask {
         type Error = Box<dyn TaskError>;
         type Args = ();
+        type Workflow = Self;
 
         async fn execute(
             &self,
@@ -376,6 +383,7 @@ async fn test_shared_scoped_to_task_context() {
     impl TaskFrame for SupervisorTask {
         type Error = Box<dyn TaskError>;
         type Args = ();
+        type Workflow = Self;
 
         async fn execute(
             &self,

@@ -34,6 +34,7 @@ struct FailNTimesFrame {
 impl TaskFrame for FailNTimesFrame {
     type Error = String;
     type Args = ();
+    type Workflow = Self;
 
     async fn execute(
         &self,
@@ -203,6 +204,7 @@ struct SelectiveErrorFrame {
 impl TaskFrame for SelectiveErrorFrame {
     type Error = String;
     type Args = ();
+    type Workflow = Self;
 
     async fn execute(
         &self,

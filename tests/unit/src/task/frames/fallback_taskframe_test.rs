@@ -18,6 +18,7 @@ struct FallbackCountingFrame {
 impl TaskFrame for FallbackCountingFrame {
     type Error = String;
     type Args = String;
+    type Workflow = Self;
 
     async fn execute(
         &self,
