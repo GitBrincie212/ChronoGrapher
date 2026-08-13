@@ -350,7 +350,11 @@ impl<T: TaskFrame, __frame, __with_timeout>
     /// - [`TimeoutTaskFrameBuilder::with_duration`] - An alias builder method for function-based std [`Duration`] sources.
     /// - [`TaskFrame`] - Trait bound for the main workflow that [`TimeoutTaskFrame`] uses.
     /// - [`TimeoutTaskFrame`] - The final result of the builder.
-    #[allow(clippy::used_underscore_binding, clippy::no_effect_underscore_binding)]
+    #[allow(
+        clippy::used_underscore_binding,
+        clippy::no_effect_underscore_binding,
+        clippy::type_complexity
+    )]
     pub fn duration(
         self,
         with_duration: Duration,
@@ -367,7 +371,7 @@ impl<T: TaskFrame, __frame, __with_timeout>
 }
 
 #[doc(hidden)]
-#[allow(dead_code, non_camel_case_types, missing_docs)]
+#[allow(dead_code, non_camel_case_types, missing_docs, clippy::type_complexity)]
 impl<T: TaskFrame, __frame, __with_timeout>
     TimeoutTaskFrameBuilder<
         T,
@@ -426,7 +430,11 @@ where
     /// - [`TimeoutTaskFrameBuilder::with_timeout`] - An alias builder method for function-based [`TaskError`] as source.
     /// - [`TaskFrame`] - Trait bound for the main workflow that [`TimeoutTaskFrame`] uses.
     /// - [`TimeoutTaskFrame`] - The final result of the builder.
-    #[allow(clippy::used_underscore_binding, clippy::no_effect_underscore_binding)]
+    #[allow(
+        clippy::used_underscore_binding,
+        clippy::no_effect_underscore_binding,
+        clippy::type_complexity
+    )]
     pub fn timeout(
         self,
         value: T::Error,
@@ -443,7 +451,7 @@ where
 }
 
 #[doc(hidden)]
-#[allow(dead_code, non_camel_case_types, missing_docs)]
+#[allow(dead_code, non_camel_case_types, missing_docs, clippy::type_complexity)]
 impl<T: TaskFrame, __frame, __duration>
     TimeoutTaskFrameBuilder<
         T,
