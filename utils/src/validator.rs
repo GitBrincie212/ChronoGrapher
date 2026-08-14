@@ -5,10 +5,10 @@ use crate::{
     errors::CronExpressionParserErrors,
 };
 
-const RANGES: [RangeInclusive<u32>; 7] =
+pub const RANGES: [RangeInclusive<u32>; 7] =
     [0..=59, 0..=59, 0..=23, 1..=31, 1..=12, 1..=7, 2026..=2099];
 
-const FIELD_NAMES: [&str; 7] = [
+pub const FIELD_NAMES: [&str; 7] = [
     "seconds",
     "minutes",
     "hours",
@@ -92,12 +92,20 @@ pub fn validate_ast_node(
             }
         }
 
-        AstTreeNode::NthWeekday(_, nth) => {
+        AstTreeNode::NthWeekday(weekday, nth) => {
             if field_pos != 5 {
                 return Err(CronExpressionParserErrors::InvalidNthWeekdayOperator);
             }
             if *nth < 1 || *nth > 5 {
                 return Err(CronExpressionParserErrors::InvalidNthWeekday { nth: *nth });
+            }
+            if *weekday < 1 || *weekday > 7 {
+                return Err(CronExpressionParserErrors::ValueOutOfRange {
+                    value: *weekday,
+                    field: "day_of_week".to_string(),
+                    min: 1,
+                    max: 7,
+                });
             }
         }
 
