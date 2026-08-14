@@ -36,7 +36,6 @@ const DEC_31_2026: u64 = 1798675200; // Thursday
 const DEC_31_2026_END: u64 = 1798761599; // Dec 31 2026 23:59:59
 const JAN_1_2027: u64 = 1798761600; // Friday
 const DEC_31_2027: u64 = 1830211200; // Thursday
-const JAN_1_2028: u64 = 1830297600; // Saturday
 const FEB_29_2028: u64 = 1835395200; // Tuesday
 const JAN_1_2029: u64 = 1861920000; // Monday
 const JAN_1_2030: u64 = 1893456000; // Tuesday
