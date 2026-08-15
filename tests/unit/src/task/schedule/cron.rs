@@ -1,4 +1,7 @@
-use chronographer::task::{CronField, TaskSchedule, TaskScheduleCron};
+use chronographer::task::{
+    CronField::{self, Wildcard},
+    TaskSchedule, TaskScheduleCron,
+};
 use std::str::FromStr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -303,6 +306,13 @@ async fn nth_weekday_later_occurrences() {
 }
 
 #[tokio::test]
+async fn nth_weekday_missing_this_month_rolls_forward() {
+    // Feb and Mar 2026 have no 5th Thursday (the 5th one lands on Apr 2), so the
+    // schedule must skip to April.
+    assert_next("0 0 0 ? * 5#5", FEB_1_2026, APR_30_2026).await;
+}
+
+#[tokio::test]
 async fn feb_29_only_exists_in_leap_years() {
     // 2026 and 2027 are not leap years, so the next Feb 29 is in 2028.
     assert_next("0 0 0 29 2 *", JAN_1_2026, FEB_29_2028).await;
@@ -414,6 +424,518 @@ fn new_and_from_str_construct_equal_schedules() {
     assert_eq!(from_str, constructed);
 }
 
+fn with_wildcard_year(
+    [seconds, minute, hour, day_of_month, month, day_of_week]: [CronField; 6],
+) -> [CronField; 7] {
+    [
+        seconds,
+        minute,
+        hour,
+        day_of_month,
+        month,
+        day_of_week,
+        CronField::Wildcard,
+    ]
+}
+
+fn assert_new_matches(expr: &str, expected: [CronField; 6]) {
+    let from_str =
+        TaskScheduleCron::from_str(expr).unwrap_or_else(|e| panic!("{expr:?} should parse: {e}"));
+    let constructed = TaskScheduleCron::new(with_wildcard_year(expected));
+    assert_eq!(from_str, constructed, "new/from_str mismatch for {expr:?}");
+}
+
+#[test]
+fn new_and_from_str_agree_on_basics() {
+    assert_new_matches(
+        "* * * * * *",
+        [Wildcard, Wildcard, Wildcard, Wildcard, Wildcard, Wildcard],
+    );
+    assert_new_matches(
+        "5 0 * * * *",
+        [
+            CronField::Exact(5),
+            CronField::Exact(0),
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 12 * * ?",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(12),
+            Wildcard,
+            Wildcard,
+            CronField::Unspecified,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 1 * ?",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(1),
+            Wildcard,
+            CronField::Unspecified,
+        ],
+    );
+    // Maximum valid value in each field.
+    assert_new_matches(
+        "59 59 23 31 12 *",
+        [
+            CronField::Exact(59),
+            CronField::Exact(59),
+            CronField::Exact(23),
+            CronField::Exact(31),
+            CronField::Exact(12),
+            Wildcard,
+        ],
+    );
+}
+
+#[test]
+fn new_and_from_str_agree_on_ranges() {
+    assert_new_matches(
+        "10-20 * * * * *",
+        [
+            CronField::Range(10, 20),
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 15-20 * *",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Range(15, 20),
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * MON-FRI",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Range(2, 6),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 1 JAN-JUN ?",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(1),
+            CronField::Range(1, 6),
+            CronField::Unspecified,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * SUN-SAT",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Range(1, 7),
+        ],
+    );
+}
+
+#[test]
+fn new_and_from_str_agree_on_steps() {
+    assert_new_matches(
+        "*/5 * * * * *",
+        [
+            CronField::Step(Box::new(Wildcard), 5),
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0/30 * * * * *",
+        [
+            CronField::Step(Box::new(CronField::Exact(0)), 30),
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+        ],
+    );
+
+    assert_new_matches(
+        "5-15/3 * * * * *",
+        [
+            CronField::Step(Box::new(CronField::Range(5, 15)), 3),
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "*/1 * * * * *",
+        [
+            CronField::Step(Box::new(Wildcard), 1),
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+        ],
+    );
+}
+
+#[test]
+fn new_and_from_str_agree_on_lists() {
+    assert_new_matches(
+        "1,2,3 * * * * *",
+        [
+            CronField::List(vec![
+                CronField::Exact(1),
+                CronField::Exact(2),
+                CronField::Exact(3),
+            ]),
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 1,15 * ?",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::List(vec![CronField::Exact(1), CronField::Exact(15)]),
+            Wildcard,
+            CronField::Unspecified,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * MON,WED,FRI",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::List(vec![
+                CronField::Exact(2),
+                CronField::Exact(4),
+                CronField::Exact(6),
+            ]),
+        ],
+    );
+
+    assert_new_matches(
+        "0 0 0 1,15-17,*/2 * ?",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::List(vec![
+                CronField::Exact(1),
+                CronField::Range(15, 17),
+                CronField::Step(Box::new(Wildcard), 2),
+            ]),
+            Wildcard,
+            CronField::Unspecified,
+        ],
+    );
+
+    assert_new_matches(
+        "0 0 0 1,1 * ?",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::List(vec![CronField::Exact(1), CronField::Exact(1)]),
+            Wildcard,
+            CronField::Unspecified,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * MON,3",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::List(vec![CronField::Exact(2), CronField::Exact(3)]),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * 1#2,3#4",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::List(vec![
+                CronField::NthWeekday(1, 2),
+                CronField::NthWeekday(3, 4),
+            ]),
+        ],
+    );
+}
+
+#[test]
+fn new_and_from_str_agree_on_names() {
+    assert_new_matches(
+        "0 0 0 ? * SUN",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Exact(1),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * SAT",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Exact(7),
+        ],
+    );
+
+    assert_new_matches(
+        "0 0 0 ? * mon",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Exact(2),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * Fri",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Exact(6),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 1 JAN ?",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(1),
+            CronField::Exact(1),
+            CronField::Unspecified,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 1 dec *",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(1),
+            CronField::Exact(12),
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 1 JUN ?",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(1),
+            CronField::Exact(6),
+            CronField::Unspecified,
+        ],
+    );
+}
+
+#[test]
+fn new_and_from_str_agree_on_dom_operators() {
+    assert_new_matches(
+        "0 0 0 L * *",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Last(None),
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 L-3 * *",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Last(Some(3)),
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 L-1 * *",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Last(Some(1)),
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 15W * *",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::NearestWeekday(15),
+            Wildcard,
+            Wildcard,
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 LW * *",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::NearestWeekday(0),
+            Wildcard,
+            Wildcard,
+        ],
+    );
+
+    assert_new_matches(
+        "0 0 0 3L * *",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Last(Some(3)),
+            Wildcard,
+            Wildcard,
+        ],
+    );
+}
+
+#[test]
+fn new_and_from_str_agree_on_dow_operators() {
+    assert_new_matches(
+        "0 0 0 ? * L",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Last(None),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * 6L",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Last(Some(6)),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * L-3",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Last(Some(3)),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * 3L",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::Last(Some(3)),
+        ],
+    );
+    assert_new_matches(
+        "0 0 0 ? * 5#3",
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Unspecified,
+            Wildcard,
+            CronField::NthWeekday(5, 3),
+        ],
+    );
+}
+
+#[test]
+fn new_and_from_str_agree_on_field_counts() {
+    // A five-field expression leaves day-of-week as a wildcard, matching the explicit
+    // six-field form.
+    let five = TaskScheduleCron::from_str("5 0 * * *").unwrap();
+    let six = TaskScheduleCron::from_str("5 0 * * * *").unwrap();
+    assert_eq!(five, six);
+    assert_new_matches(
+        "5 0 * * *",
+        [
+            CronField::Exact(5),
+            CronField::Exact(0),
+            Wildcard,
+            Wildcard,
+            Wildcard,
+            Wildcard,
+        ],
+    );
+}
+
 #[test]
 fn from_str_defaults_trailing_fields_to_wildcard() {
     // A five-field expression leaves day_of_week as a wildcard.
@@ -458,6 +980,85 @@ fn rejects_invalid_ranges_and_steps() {
         "5-1 * * * * *", // start > end
         "1/0 * * * * *", // zero step
         "-1 * * * * *",  // leading minus
+    ] {
+        assert!(
+            TaskScheduleCron::from_str(expr).is_err(),
+            "expected {expr:?} to be rejected"
+        );
+    }
+}
+
+#[test]
+fn rejects_unspecified_in_non_day_fields() {
+    // `?` is only meaningful in day_of_month / day_of_week; everywhere else it can never
+    // match anything, so it must be rejected rather than silently accepted.
+    for expr in [
+        "? * * * * *", // seconds
+        "0 ? * * * *", // minutes
+        "0 0 ? * * *", // hours
+        "0 0 0 * ? *", // month
+    ] {
+        assert!(
+            TaskScheduleCron::from_str(expr).is_err(),
+            "expected {expr:?} to be rejected"
+        );
+    }
+
+    // A single unspecified day field (the other being wildcard) is still valid.
+    assert!(TaskScheduleCron::from_str("0 0 0 ? * *").is_ok());
+    assert!(TaskScheduleCron::from_str("0 0 0 * * ?").is_ok());
+}
+
+#[test]
+fn rejects_out_of_range_step_bases() {
+    // The step operator's base is validated like any other value: out-of-range bases
+    // must be rejected instead of producing a schedule that silently never fires.
+    for expr in [
+        "60/2 * * * * *",      // seconds base out of range
+        "100-200/2 * * * * *", // range base entirely out of range
+        "50-70/2 * * * * *",   // range base partially out of range
+        "0 0 24/2 * * *",      // hours base out of range
+        "0 0 0 32/2 * *",      // day-of-month base out of range
+    ] {
+        assert!(
+            TaskScheduleCron::from_str(expr).is_err(),
+            "expected {expr:?} to be rejected"
+        );
+    }
+}
+
+#[test]
+fn rejects_out_of_range_last_offsets() {
+    for expr in [
+        "0 0 0 L-0 * *",   // day-of-month offset 0
+        "0 0 0 L-31 * *",  // day-of-month offset beyond any month length
+        "0 0 0 L-100 * *", // day-of-month offset far beyond range
+        "0 0 0 ? * 0L",    // day-of-week weekday 0
+        "0 0 0 ? * 8L",    // day-of-week weekday 8
+        "0 0 0 ? * 100L",  // day-of-week weekday 100
+        "0 0 0 ? * L-8",   // day-of-week weekday 8 via L-n syntax
+    ] {
+        assert!(
+            TaskScheduleCron::from_str(expr).is_err(),
+            "expected {expr:?} to be rejected"
+        );
+    }
+
+    // Offsets that can still land on a real day remain accepted (an offset that simply
+    // falls outside a given month is tolerated, per `last_day_offset_below_month_start_never_fires`).
+    assert!(TaskScheduleCron::from_str("0 0 0 L-30 * *").is_ok());
+    assert!(TaskScheduleCron::from_str("0 0 0 ? * 6L").is_ok());
+}
+
+#[test]
+fn rejects_step_over_last() {
+    // Stepping over `L` is undefined (it would silently treat `L` as the field's minimum
+    // value), so it must be rejected rather than produce a surprising schedule.
+    for expr in [
+        "0 0 0 L/2 * *",   // step over L in day-of-month
+        "0 0 0 L-3/2 * *", // step over an offset L in day-of-month
+        "0 0 0 ? * L/2",   // step over L in day-of-week
+        "0 0 0 ? * 6L/2",  // step over a weekday L in day-of-week
     ] {
         assert!(
             TaskScheduleCron::from_str(expr).is_err(),

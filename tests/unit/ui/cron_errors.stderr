@@ -66,38 +66,80 @@ error: Invalid range 5-1 for seconds field (expected 0-59)
 18 |     cron!(5-1 * * * * *); // Invalid range 5-1 for seconds field (expected 0-59)
    |           ^
 
-error: L (last) operator is only valid for day_of_month and day_of_week fields
-  --> ui/cron_errors.rs:20:19
+error: Field 'seconds' cannot be unspecified in this context
+  --> ui/cron_errors.rs:20:11
    |
-20 |     cron!(* * * * L *); // L (last) operator is only valid for day_of_month and day_of_week fields
+20 |     cron!(? * * * * *); // Field 'seconds' cannot be unspecified in this context
+   |           ^
+
+error: Field 'month' cannot be unspecified in this context
+  --> ui/cron_errors.rs:21:19
+   |
+21 |     cron!(* * * * ? *); // Field 'month' cannot be unspecified in this context
+   |                   ^
+
+error: Value 60 is out of range for seconds field (expected 0-59)
+  --> ui/cron_errors.rs:23:11
+   |
+23 |     cron!(60/2 * * * * *); // Value 60 is out of range for seconds field (expected 0-59)
+   |           ^^
+
+error: Invalid range 100-200 for seconds field (expected 0-59)
+  --> ui/cron_errors.rs:24:11
+   |
+24 |     cron!(100-200/2 * * * * *); // Invalid range 100-200 for seconds field (expected 0-59)
+   |           ^^^
+
+error: L (last) operator is only valid for day_of_month and day_of_week fields
+  --> ui/cron_errors.rs:26:19
+   |
+26 |     cron!(* * * * L *); // L (last) operator is only valid for day_of_month and day_of_week fields
    |                   ^
 
 error: Expected atom operator but got something else
-  --> ui/cron_errors.rs:21:11
+  --> ui/cron_errors.rs:27:11
    |
-21 |     cron!(W * * * * *); // Expected atom operator but got something else
+27 |     cron!(W * * * * *); // Expected atom operator but got something else
    |           ^
 
 error: # (nth weekday) operator is only valid for day_of_week field
-  --> ui/cron_errors.rs:22:11
+  --> ui/cron_errors.rs:28:11
    |
-22 |     cron!(1#2 * * * * *); // # (nth weekday) operator is only valid for day_of_week field
+28 |     cron!(1#2 * * * * *); // # (nth weekday) operator is only valid for day_of_week field
    |           ^
 
 error: Nth weekday 6 is out of range (expected 1-5)
-  --> ui/cron_errors.rs:23:21
+  --> ui/cron_errors.rs:29:21
    |
-23 |     cron!(* * * ? * 1#6); // Nth weekday 6 is out of range (expected 1-5)
+29 |     cron!(* * * ? * 1#6); // Nth weekday 6 is out of range (expected 1-5)
    |                     ^
 
 error: Value 0 is out of range for day_of_week field (expected 1-7)
-  --> ui/cron_errors.rs:24:21
+  --> ui/cron_errors.rs:30:21
    |
-24 |     cron!(* * * ? * 0#1); // Value 0 is out of range for day_of_week field (expected 1-7)
+30 |     cron!(* * * ? * 0#1); // Value 0 is out of range for day_of_week field (expected 1-7)
    |                     ^
 
-error: Field 'day_of_month and day_of_week cannot both be unspecified' cannot be unspecified in this context
-  --> ui/cron_errors.rs:26:17
+error: Value 0 is out of range for day_of_month field (expected 1-30)
+  --> ui/cron_errors.rs:32:17
    |
-26 |     cron!(* * * ? * ?); // Field 'day_of_month and day_of_week cannot both be unspecified' cannot be unspecified in this context
+32 |     cron!(0 0 0 L-0 * *); // Value 0 is out of range for day_of_month field (expected 1-30)
+   |                 ^
+
+error: Value 8 is out of range for day_of_week field (expected 1-7)
+  --> ui/cron_errors.rs:33:21
+   |
+33 |     cron!(0 0 0 ? * 8L); // Value 8 is out of range for day_of_week field (expected 1-7)
+   |                     ^^
+
+error: Expected number but got something else
+  --> ui/cron_errors.rs:34:17
+   |
+34 |     cron!(0 0 0 L/2 * *); // Expected number but got something else
+   |                 ^
+
+error: Field 'day_of_month' and 'day_of_week' cannot both be unspecified
+  --> ui/cron_errors.rs:36:17
+   |
+36 |     cron!(* * * ? * ?); // Field 'day_of_month' and 'day_of_week' cannot both be unspecified
    |                 ^

@@ -364,12 +364,12 @@ impl TaskScheduleCron {
     ///     CronField::Wildcard,
     ///     CronField::Wildcard,
     ///     CronField::Wildcard,
-    ///     CronField::Unspecified,
     ///     CronField::Wildcard,
+    ///     CronField::Unspecified,
     ///     CronField::Wildcard
     /// ]);
     ///
-    /// assert_eq!(constructed, TaskScheduleCron::from_str("* * * * ? *").unwrap())
+    /// assert_eq!(constructed, TaskScheduleCron::from_str("* * * * * ?").unwrap())
     /// # }
     /// ```
     ///

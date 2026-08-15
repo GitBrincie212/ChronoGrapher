@@ -13,7 +13,6 @@ const JAN_15_2026: u64 = 1768435200; // Thursday
 const JAN_30_2026: u64 = 1769731200; // Friday
 const JAN_31_2026: u64 = 1769817600; // Saturday
 const FEB_1_2026: u64 = 1769904000; // Sunday
-const FEB_29_2028: u64 = 1835395200; // Tuesday
 
 const MIN: u64 = 60;
 const HOUR: u64 = 3600;
@@ -99,13 +98,6 @@ async fn test_nearest_weekday() {
     let schedule = cron!(0 0 0 15W * *);
     let next = schedule.schedule(ts(JAN_1_2026)).await.unwrap();
     assert_eq!(next, ts(JAN_15_2026));
-}
-
-#[tokio::test]
-async fn test_leap_day() {
-    let schedule = cron!(0 0 0 29 2 ?);
-    let next = schedule.schedule(ts(JAN_1_2026)).await.unwrap();
-    assert_eq!(next, ts(FEB_29_2028));
 }
 
 #[tokio::test]
