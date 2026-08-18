@@ -226,7 +226,7 @@ async fn test_nearest_weekday() {
 
     let schedule = cron!(0 0 0 29W 2 *);
     let next = schedule.schedule(ts(FEB_1_2026)).await.unwrap();
-    assert_eq!(next, ts(FEB_27_2026));
+    assert_eq!(next, ts(FEB_29_2028));
 
     let schedule = cron!(0 0 0 29W 2 *);
     let next = schedule.schedule(ts(FEB_1_2028)).await.unwrap();

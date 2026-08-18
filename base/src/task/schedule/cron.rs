@@ -405,10 +405,15 @@ impl TaskScheduleCron {
     fn next_time_from(&self, current: SystemTime) -> Option<SystemTime> {
         let current = UtcDateTime::from(current);
         let mut dt = current + Duration::from_secs(1);
+        let mut year_advances: u32 = 0;
 
         loop {
             if !self.matches_year(dt.year() as u32) {
                 let next_year = self.next_valid_year(dt.year() as u32)?;
+                year_advances += 1;
+                if year_advances > 3 {
+                    return None;
+                }
                 dt = UtcDateTime::new(
                     time::Date::from_calendar_date(next_year as i32, time::Month::January, 1)
                         .ok()?,
@@ -433,6 +438,10 @@ impl TaskScheduleCron {
 
                     None => {
                         let next_year = self.next_valid_year(dt.year() as u32 + 1)?;
+                        year_advances += 1;
+                        if year_advances > 3 {
+                            return None;
+                        }
                         UtcDateTime::new(
                             time::Date::from_calendar_date(
                                 next_year as i32,
@@ -447,7 +456,7 @@ impl TaskScheduleCron {
                 continue;
             }
 
-            if !self.matches_day(dt) {
+            if self.matches_day(dt) != Some(true) {
                 dt = (dt.date() + Duration::from_hours(24))
                     .with_hms(0, 0, 0)
                     .ok()?
@@ -540,8 +549,8 @@ impl TaskScheduleCron {
         self.year.next_valid(current, 2099)
     }
 
-    fn matches_day(&self, dt: UtcDateTime) -> bool {
-        self.day_of_month_matches(dt) && self.day_of_week_matches(dt)
+    fn matches_day(&self, dt: UtcDateTime) -> Option<bool> {
+        Some(self.day_of_month_matches(dt)? && self.day_of_week_matches(dt)?)
     }
 
     fn last_day_of_month(dt: UtcDateTime) -> u32 {
@@ -556,74 +565,75 @@ impl TaskScheduleCron {
             .map_or(date.day(), |last| last.day()) as u32
     }
 
-    fn nearest_weekday_day(dt: UtcDateTime, day: u32) -> u32 {
+    fn nearest_weekday_day(dt: UtcDateTime, day: u32) -> Option<u32> {
         let last = Self::last_day_of_month(dt);
-        let base = day.min(last);
-        let dow = dt.date().replace_day(base as u8).unwrap().weekday();
+        let dow = dt.date().replace_day(day as u8).ok()?.weekday();
+        Some(match dow.number_days_from_sunday() {
+            0 if day == last => day - 2,
+            0 => day + 1,
+            6 if day == 1 => day + 2,
+            6 => day - 1,
+            _ => day,
+        })
+    }
+
+    fn last_weekday_of_month(dt: UtcDateTime) -> Option<u32> {
+        let last = Self::last_day_of_month(dt);
+        let dow = dt.date().replace_day(last as u8).ok()?.weekday();
         match dow.number_days_from_sunday() {
-            0 if base == last => base - 2,
-            0 => base + 1,
-            6 if base == 1 => base + 2,
-            6 => base - 1,
-            _ => base,
+            0 => Some(last - 2),
+            6 => Some(last - 1),
+            _ => Some(last),
         }
     }
 
-    fn last_weekday_of_month(dt: UtcDateTime) -> u32 {
-        let last = Self::last_day_of_month(dt);
-        let dow = dt.date().replace_day(last as u8).unwrap().weekday();
-        match dow.number_days_from_sunday() {
-            0 => last - 2,
-            6 => last - 1,
-            _ => last,
-        }
-    }
-
-    fn nth_weekday_day(dt: UtcDateTime, weekday: u32, nth: u32) -> u32 {
+    fn nth_weekday_day(dt: UtcDateTime, weekday: u32, nth: u32) -> Option<u32> {
         let first_weekday = (dt
             .date()
             .replace_day(1)
-            .unwrap()
+            .ok()?
             .weekday()
             .number_days_from_sunday()
             + 1) as u32;
-        1 + ((weekday + 7 - first_weekday) % 7) + (nth - 1) * 7
+        Some(1 + ((weekday + 7 - first_weekday) % 7) + (nth - 1) * 7)
     }
 
-    fn day_of_month_matches(&self, dt: UtcDateTime) -> bool {
+    fn day_of_month_matches(&self, dt: UtcDateTime) -> Option<bool> {
         match &self.day_of_month {
-            CronField::Unspecified => true,
-            CronField::Last(None) => dt.day() as u32 == Self::last_day_of_month(dt),
+            CronField::Unspecified => Some(true),
+            CronField::Last(None) => Some(dt.day() as u32 == Self::last_day_of_month(dt)),
             CronField::Last(Some(offset)) => {
                 let last = Self::last_day_of_month(dt) as i64;
                 let target = last - *offset as i64;
-                target >= 1 && dt.day() as u32 == target as u32
+                Some(target >= 1 && dt.day() as u32 == target as u32)
             }
-            CronField::NearestWeekday(0) => dt.day() as u32 == Self::last_weekday_of_month(dt),
+            CronField::NearestWeekday(0) => {
+                Some(dt.day() as u32 == Self::last_weekday_of_month(dt)?)
+            }
             CronField::NearestWeekday(day) => {
-                dt.day() as u32 == Self::nearest_weekday_day(dt, *day)
+                Some(dt.day() as u32 == Self::nearest_weekday_day(dt, *day)?)
             }
-            field => field.matches(dt.day() as u32),
+            field => Some(field.matches(dt.day() as u32)),
         }
     }
 
-    fn day_of_week_matches(&self, dt: UtcDateTime) -> bool {
+    fn day_of_week_matches(&self, dt: UtcDateTime) -> Option<bool> {
         let weekday = (dt.weekday().number_days_from_sunday() + 1) as u32;
         match &self.day_of_week {
-            CronField::Unspecified => true,
-            CronField::Last(None) => dt.day() as u32 == Self::last_day_of_month(dt),
+            CronField::Unspecified => Some(true),
+            CronField::Last(None) => Some(dt.day() as u32 == Self::last_day_of_month(dt)),
             CronField::Last(Some(weekday)) => {
                 let last = Self::last_day_of_month(dt);
-                let last_weekday = dt.date().replace_day(last as u8).unwrap().weekday();
+                let last_weekday = dt.date().replace_day(last as u8).ok()?.weekday();
                 let back = (last_weekday.number_days_from_sunday() as i32 + 1 + 7
                     - *weekday as i32)
                     .rem_euclid(7);
-                dt.day() as u32 == last - back as u32
+                Some(dt.day() as u32 == last - back as u32)
             }
             CronField::NthWeekday(weekday, nth) => {
-                dt.day() as u32 == Self::nth_weekday_day(dt, *weekday, *nth)
+                Some(dt.day() as u32 == Self::nth_weekday_day(dt, *weekday, *nth)?)
             }
-            field => field.matches(weekday),
+            field => Some(field.matches(weekday)),
         }
     }
 }

@@ -362,13 +362,17 @@ async fn nearest_weekday_rolls_forward_from_sunday() {
 }
 
 #[tokio::test]
-async fn nearest_weekday_clamps_to_short_month() {
-    // A requested day beyond the month length targets the last day: `31W` in February 2026
-    // means the 28th (Saturday), whose nearest weekday is Friday Feb 27.
-    assert_next("0 0 0 31W 2 *", JAN_1_2026, FEB_27_2026).await;
-    // `31W` in a 30-day month where the 30th is a weekday fires on the 30th.
-    assert_next("0 0 0 31W 4 *", JAN_1_2026, APR_30_2026).await;
-    assert_next("0 0 0 31W 11 *", JAN_1_2026, NOV_30_2026).await;
+async fn nearest_weekday_no_match_in_short_month() {
+    // `31W` in a month with fewer than 31 days: day 31 doesn't exist, so the job
+    // never fires. After scanning 4 years without a match the scheduler bails.
+    let schedule = TaskScheduleCron::from_str("0 0 0 31W 2 *").unwrap();
+    assert!(schedule.schedule(ts(JAN_1_2026)).await.is_err());
+
+    let schedule = TaskScheduleCron::from_str("0 0 0 31W 4 *").unwrap();
+    assert!(schedule.schedule(ts(JAN_1_2026)).await.is_err());
+
+    let schedule = TaskScheduleCron::from_str("0 0 0 31W 11 *").unwrap();
+    assert!(schedule.schedule(ts(JAN_1_2026)).await.is_err());
 }
 
 #[tokio::test]
