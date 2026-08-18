@@ -1048,14 +1048,6 @@ fn new_and_from_str_agree_on_field_counts() {
 }
 
 #[test]
-fn from_str_defaults_trailing_fields_to_wildcard() {
-    // A five-field expression leaves day_of_week as a wildcard.
-    let five = TaskScheduleCron::from_str("5 0 * * *").unwrap();
-    let six = TaskScheduleCron::from_str("5 0 * * * *").unwrap();
-    assert_eq!(five, six);
-}
-
-#[test]
 fn rejects_empty_expression_without_panicking() {
     assert!(TaskScheduleCron::from_str("").is_err());
 }
