@@ -150,6 +150,9 @@ impl CronField {
     }
 
     fn next_valid(&self, current: u32, field_max: u32) -> Option<u32> {
+        if current > field_max {
+            return None;
+        }
         if self.matches(current) {
             return Some(current);
         }

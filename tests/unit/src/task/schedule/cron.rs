@@ -30,6 +30,7 @@ const FEB_15_2026: u64 = 1771113600; // Sunday
 const FEB_16_2026: u64 = 1771200000; // Monday
 const FEB_27_2026: u64 = 1772150400; // Friday
 const FEB_28_2026: u64 = 1772236800; // Saturday
+const MAR_1_2026: u64 = 1772323200; // Sunday
 const MAR_30_2026: u64 = 1774828800; // Monday
 const APR_30_2026: u64 = 1777507200; // Thursday
 const JUN_1_2026: u64 = 1780272000; // Monday
@@ -65,40 +66,82 @@ async fn assert_no_next(expr: &str, now: u64) {
 #[tokio::test]
 async fn every_second() {
     assert_next("* * * * * *", JAN_1_2026, JAN_1_2026 + SEC).await;
+    assert_next(
+        "* * * * * *",
+        JAN_1_2026 + 23 * HOUR + 59 * MIN + 59,
+        JAN_2_2026,
+    )
+    .await;
+    assert_next(
+        "* * * * * *",
+        JAN_31_2026 + 23 * HOUR + 59 * MIN + 59,
+        FEB_1_2026,
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn exact_second() {
     assert_next("58 * * * * *", JAN_1_2026, JAN_1_2026 + 58).await;
+    assert_next("58 * * * * *", JAN_1_2026 + 30, JAN_1_2026 + 58).await;
+    assert_next("58 * * * * *", JAN_1_2026 + 58, JAN_1_2026 + MIN + 58).await;
 }
 
 #[tokio::test]
 async fn second_step() {
     assert_next("*/5 * * * * *", JAN_1_2026, JAN_1_2026 + 5).await;
+    assert_next("*/5 * * * * *", JAN_1_2026 + 7, JAN_1_2026 + 10).await;
+    assert_next("*/5 * * * * *", JAN_1_2026 + 55, JAN_1_2026 + MIN).await;
 }
 
 #[tokio::test]
 async fn second_range() {
     assert_next("10-20 * * * * *", JAN_1_2026, JAN_1_2026 + 10).await;
+    assert_next("10-20 * * * * *", JAN_1_2026 + 15, JAN_1_2026 + 16).await;
+    assert_next("10-20 * * * * *", JAN_1_2026 + 20, JAN_1_2026 + MIN + 10).await;
 }
 
 #[tokio::test]
 async fn sub_minute_second_rollover() {
-    // At second 59 the next schedule for `0` seconds is the next full minute.
     assert_next("0 * * * * *", JAN_1_2026 + 59, JAN_1_2026 + MIN).await;
-    // Similarly, stepping every 30 seconds from second 59 lands at +60s.
     assert_next("*/30 * * * * *", JAN_1_2026 + 59, JAN_1_2026 + 60).await;
+    assert_next(
+        "0 * * * * *",
+        JAN_1_2026 + 23 * HOUR + 59 * MIN + 59,
+        JAN_2_2026,
+    )
+    .await;
+    assert_next(
+        "*/30 * * * * *",
+        JAN_1_2026 + 23 * HOUR + 59 * MIN + 59,
+        JAN_2_2026,
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn exact_minute() {
     assert_next("0 30 * * * *", JAN_1_2026, JAN_1_2026 + 30 * MIN).await;
+    assert_next(
+        "0 30 * * * *",
+        JAN_1_2026 + 30 * MIN,
+        JAN_1_2026 + HOUR + 30 * MIN,
+    )
+    .await;
+    assert_next(
+        "0 30 * * * *",
+        JAN_1_2026 + 23 * HOUR + 59 * MIN + 1,
+        JAN_2_2026 + 30 * MIN,
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn minute_step() {
     assert_next("0 0/5 * * * *", JAN_1_2026, JAN_1_2026 + 5 * MIN).await;
     assert_next("0 0/30 * * * *", JAN_1_2026, JAN_1_2026 + 30 * MIN).await;
+    assert_next("0 0/5 * * * *", JAN_1_2026 + 3 * MIN, JAN_1_2026 + 5 * MIN).await;
+    assert_next("0 0/5 * * * *", JAN_1_2026 + 58 * MIN, JAN_1_2026 + HOUR).await;
 }
 
 #[tokio::test]
@@ -110,17 +153,35 @@ async fn exact_hour() {
         JAN_1_2026 + 10 * HOUR + 30 * MIN,
     )
     .await;
+    assert_next(
+        "0 0 12 * * *",
+        JAN_1_2026 + 12 * HOUR,
+        JAN_2_2026 + 12 * HOUR,
+    )
+    .await;
+    assert_next(
+        "0 0 12 * * *",
+        JAN_1_2026 + 23 * HOUR + 59 * MIN + 59,
+        JAN_2_2026 + 12 * HOUR,
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn time_of_day_rollover() {
-    // 12:00:00 from just past midnight stays on the same day.
     assert_next("0 0 12 * * ?", JAN_1_2026 + 1, JAN_1_2026 + 12 * HOUR).await;
+    assert_next(
+        "0 0 12 * * ?",
+        JAN_1_2026 + 12 * HOUR + 1,
+        JAN_2_2026 + 12 * HOUR,
+    )
+    .await;
 }
 
 #[tokio::test]
 async fn next_day_at_midnight() {
     assert_next("0 0 0 * * *", JAN_1_2026, JAN_1_2026 + DAY).await;
+    assert_next("0 0 0 * * *", JAN_31_2026, FEB_1_2026).await;
 }
 
 #[tokio::test]
@@ -128,67 +189,82 @@ async fn exact_day_of_month() {
     assert_next("0 0 0 1 * *", JAN_1_2026, FEB_1_2026).await;
     assert_next("0 0 0 15 * *", JAN_1_2026, JAN_15_2026).await;
     assert_next("0 0 0 31 * *", JAN_1_2026, JAN_31_2026).await;
+    assert_next("0 0 0 15 * *", JAN_15_2026, FEB_1_2026 + 14 * DAY).await;
+    assert_next("0 0 0 1 * *", JAN_31_2026, FEB_1_2026).await;
 }
 
 #[tokio::test]
 async fn day_list() {
     assert_next("0 0 0 1,15 * *", JAN_1_2026, JAN_15_2026).await;
+    assert_next("0 0 0 1,15 * *", JAN_15_2026, FEB_1_2026).await;
+    assert_next("0 0 0 1,15 * *", JAN_5_2026, JAN_15_2026).await;
 }
 
 #[tokio::test]
 async fn day_range() {
-    // 15-20 from the 15th rolls to the 16th.
     assert_next("0 0 0 15-20 * *", JAN_15_2026, JAN_16_2026).await;
     assert_next("0 0 0 1-7 1 *", JAN_1_2026, JAN_2_2026).await;
+    assert_next(
+        "0 0 0 15-20 * *",
+        JAN_1_2026 + 19 * DAY,
+        FEB_1_2026 + 14 * DAY,
+    )
+    .await;
+    assert_next("0 0 0 1-7 1 *", JAN_1_2026 + 6 * DAY, JAN_1_2027).await;
 }
 
 #[tokio::test]
 async fn exact_month() {
     assert_next("0 0 0 1 2 *", JAN_1_2026, FEB_1_2026).await;
     assert_next("0 0 0 15 2 *", JAN_1_2026, FEB_15_2026).await;
+    assert_next("0 0 0 1 12 *", NOV_30_2026, DEC_1_2026).await;
+    assert_next("0 0 0 1 3 *", JAN_1_2026, MAR_1_2026).await;
 }
 
 #[tokio::test]
 async fn month_list() {
-    // Jan is the current month, so the day constraint resolves first.
     assert_next("0 0 0 * 1,6 *", JAN_1_2026, JAN_2_2026).await;
     assert_next("0 0 0 1 1,6 *", JAN_1_2026, JUN_1_2026).await;
+    assert_next("0 0 0 * 1,6 *", NOV_30_2026, JAN_1_2027).await;
 }
 
 #[tokio::test]
 async fn month_and_day_together() {
     assert_next("0 0 0 31 12 *", JAN_1_2026, DEC_31_2026).await;
+    assert_next("0 0 0 31 12 *", DEC_31_2026, DEC_31_2027).await;
 }
 
 #[tokio::test]
 async fn last_second_of_the_year() {
     assert_next("59 59 23 31 12 *", JAN_1_2026, DEC_31_2026_END).await;
-    // Rolls across the year boundary.
     assert_next("* * * * * *", DEC_31_2026_END, JAN_1_2027).await;
 }
 
 #[tokio::test]
 async fn unspecified_dow_keeps_day_of_month() {
-    // `?` in the day-of-week field must NOT disable the day-of-month constraint.
     assert_next("0 0 0 1 * ?", JAN_1_2026, FEB_1_2026).await;
+    assert_next("0 0 0 1 * ?", JAN_31_2026, FEB_1_2026).await;
 }
 
 #[tokio::test]
 async fn unspecified_dom_keeps_day_of_week() {
-    // `?` in the day-of-month field must NOT disable the day-of-week constraint.
     assert_next("0 0 0 ? * FRI", JAN_1_2026, JAN_2_2026).await;
     assert_next("0 0 0 ? * SUN", JAN_1_2026, JAN_4_2026).await;
+    assert_next("0 0 0 ? * FRI", JAN_29_2026, JAN_30_2026).await;
 }
 
 #[tokio::test]
 async fn wildcard_dom_with_weekday() {
     assert_next("0 0 0 * * MON", JAN_1_2026, JAN_5_2026).await;
     assert_next("0 0 0 ? * MON-FRI", JAN_1_2026, JAN_2_2026).await;
+    assert_next("0 0 0 * * MON", JAN_4_2026, JAN_5_2026).await;
+    assert_next("0 0 0 ? * MON-FRI", JAN_4_2026, JAN_5_2026).await;
 }
 
 #[tokio::test]
 async fn weekday_range() {
     assert_next("0 0 0 ? * 2-6", JAN_1_2026, JAN_2_2026).await;
+    assert_next("0 0 0 ? * 2-6", JAN_4_2026, JAN_5_2026).await;
 }
 
 #[tokio::test]
@@ -196,6 +272,7 @@ async fn both_dom_and_dow_specified_use_and() {
     // Jan 1 + Monday: 2026-01-01 is Thursday, 2027 Friday, 2028 Saturday,
     // 2029 Monday, so the first hit is Jan 1 2029.
     assert_next("0 0 0 1 1 MON", JAN_1_2026, JAN_1_2029).await;
+    assert_next("0 0 0 1 1 MON", JAN_1_2027, JAN_1_2029).await;
 }
 
 #[tokio::test]
@@ -204,6 +281,7 @@ async fn month_names() {
     assert_next("0 0 0 1 FEB *", JAN_1_2026, FEB_1_2026).await;
     assert_next("0 0 0 1 JUN *", JAN_1_2026, JUN_1_2026).await;
     assert_next("0 0 0 1 DEC *", JAN_1_2026, DEC_1_2026).await;
+    assert_next("0 0 0 1 JAN *", DEC_1_2026, JAN_1_2027).await;
 }
 
 #[tokio::test]
@@ -211,21 +289,27 @@ async fn weekday_names_are_case_insensitive() {
     assert_next("0 0 0 ? * mon", JAN_1_2026, JAN_5_2026).await; // Monday
     assert_next("0 0 0 ? * Fri", JAN_1_2026, JAN_2_2026).await; // Friday
     assert_next("0 0 0 ? * SAT", JAN_1_2026, JAN_3_2026).await; // Saturday
+    assert_next("0 0 0 ? * Fri", JAN_2_2026 + 12 * HOUR, JAN_9_2026).await;
 }
 
 #[tokio::test]
 async fn last_day_of_month() {
     assert_next("0 0 0 L * *", JAN_1_2026, JAN_31_2026).await;
+    assert_next("0 0 0 L * *", FEB_1_2026, FEB_28_2026).await;
+    assert_next("0 0 0 L * *", FEB_28_2026, MAR_30_2026 + DAY).await;
+    assert_next("0 0 0 L * *", APR_30_2026, APR_30_2026 + 31 * DAY).await;
 }
 
 #[tokio::test]
 async fn last_day_offset() {
     assert_next("0 0 0 L-3 * *", JAN_1_2026, JAN_28_2026).await;
+    assert_next("0 0 0 L-3 * *", FEB_1_2026, FEB_1_2026 + 24 * DAY).await;
 }
 
 #[tokio::test]
 async fn last_day_of_february() {
     assert_next("0 0 0 L 2 *", JAN_1_2026, FEB_28_2026).await;
+    assert_next("0 0 0 L 2 *", JAN_1_2027 + 365 * DAY, FEB_29_2028).await;
 }
 
 #[tokio::test]
@@ -245,16 +329,19 @@ async fn last_weekday_of_month() {
         JAN_30_2026 + 10 * HOUR + 15 * MIN,
     )
     .await;
+    assert_next("0 0 0 ? * 6L", FEB_1_2026, FEB_27_2026).await;
 }
 
 #[tokio::test]
 async fn bare_last_in_day_of_week() {
     assert_next("0 0 0 ? * L", JAN_1_2026, JAN_31_2026).await;
+    assert_next("0 0 0 ? * L", FEB_1_2026, FEB_28_2026).await;
 }
 
 #[tokio::test]
 async fn nearest_weekday_matches_weekday_itself() {
     assert_next("0 0 0 15W * *", JAN_1_2026, JAN_15_2026).await;
+    assert_next("0 0 0 15W * *", FEB_1_2026, FEB_16_2026).await;
 }
 
 #[tokio::test]
@@ -271,6 +358,7 @@ async fn nearest_weekday_rolls_forward_from_sunday() {
     assert_next("0 0 0 1W * *", FEB_1_2026, FEB_2_2026).await;
     // Feb 15 2026 is a Sunday, so 15W fires on Monday Feb 16.
     assert_next("0 0 0 15W 2 *", JAN_1_2026, FEB_16_2026).await;
+    assert_next("0 0 0 4W * *", JAN_4_2026, JAN_5_2026).await;
 }
 
 #[tokio::test]
@@ -287,6 +375,7 @@ async fn nearest_weekday_clamps_to_short_month() {
 async fn last_weekday_of_month_lw() {
     // `LW` = last weekday of the month. Jan 31 2026 is a Saturday, so it is Friday Jan 30.
     assert_next("0 0 0 LW * *", JAN_1_2026, JAN_30_2026).await;
+    assert_next("0 0 0 LW * *", FEB_1_2026, FEB_27_2026).await;
 }
 
 #[tokio::test]
@@ -295,6 +384,7 @@ async fn nth_weekday_first_occurrence() {
     assert_next("0 0 0 ? * 3#1", JAN_1_2026, JAN_6_2026).await; // 1st Tuesday
     // 1st Thursday of Jan 2026 is Jan 1, which already passed.
     assert_next("0 0 0 ? * 5#1", JAN_1_2026, FEB_5_2026).await;
+    assert_next("0 0 0 ? * 1#1", JAN_31_2026, FEB_1_2026).await;
 }
 
 #[tokio::test]
@@ -310,6 +400,7 @@ async fn nth_weekday_missing_this_month_rolls_forward() {
     // Feb and Mar 2026 have no 5th Thursday (the 5th one lands on Apr 2), so the
     // schedule must skip to April.
     assert_next("0 0 0 ? * 5#5", FEB_1_2026, APR_30_2026).await;
+    assert_next("0 0 0 ? * 5#5", JAN_1_2026, JAN_29_2026).await;
 }
 
 #[tokio::test]
@@ -317,6 +408,12 @@ async fn feb_29_only_exists_in_leap_years() {
     // 2026 and 2027 are not leap years, so the next Feb 29 is in 2028.
     assert_next("0 0 0 29 2 *", JAN_1_2026, FEB_29_2028).await;
     assert_next("0 0 0 29 2 ?", JAN_1_2026, FEB_29_2028).await;
+    assert_next(
+        "0 0 0 29 2 *",
+        JAN_1_2027 + 365 * DAY + 31 * DAY,
+        FEB_29_2028,
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -338,6 +435,7 @@ async fn leap_year_boundary() {
     ]);
     let next = schedule.schedule(ts(JAN_1_2026)).await.unwrap();
     assert_eq!(next, ts(FEB_29_2028));
+    assert!(schedule.schedule(ts(FEB_29_2028)).await.is_err());
 }
 
 const JAN_1_2026_ARRAY: [CronField; 7] = [
@@ -355,6 +453,8 @@ async fn wildcard_year_rolls_forward() {
     // Jan 1 with a wildcard year from Jan 1 2026 -> Jan 1 2027.
     let schedule = TaskScheduleCron::new(JAN_1_2026_ARRAY);
     let next = schedule.schedule(ts(JAN_1_2026)).await.unwrap();
+    assert_eq!(next, ts(JAN_1_2027));
+    let next = schedule.schedule(ts(JAN_1_2026 + 12 * HOUR)).await.unwrap();
     assert_eq!(next, ts(JAN_1_2027));
 }
 
@@ -375,6 +475,16 @@ async fn exact_year_skips_ahead() {
         schedule.schedule(ts(JAN_1_2026)).await.unwrap(),
         ts(JAN_1_2030)
     );
+
+    let mut fields = JAN_1_2026_ARRAY;
+    fields[3] = CronField::Exact(31);
+    fields[4] = CronField::Exact(12);
+    fields[6] = CronField::Exact(2027);
+    let schedule = TaskScheduleCron::new(fields);
+    assert_eq!(
+        schedule.schedule(ts(DEC_31_2026)).await.unwrap(),
+        ts(DEC_31_2027)
+    );
 }
 
 #[tokio::test]
@@ -384,6 +494,7 @@ async fn exact_year_in_same_year_stays() {
     fields[6] = CronField::Exact(2026);
     let schedule = TaskScheduleCron::new(fields);
     assert!(schedule.schedule(ts(DEC_31_2026)).await.is_err());
+    assert!(schedule.schedule(ts(FEB_1_2026)).await.is_err());
 }
 
 #[tokio::test]
