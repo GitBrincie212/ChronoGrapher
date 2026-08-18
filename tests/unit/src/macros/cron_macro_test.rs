@@ -236,8 +236,8 @@ async fn test_nearest_weekday() {
     assert_eq!(next, ts(FEB_25_2028));
 }
 
-#[tokio::test]
-async fn test_macro_matches_from_str() {
+#[test]
+fn test_macro_matches_from_str() {
     for expr in [
         "* * * * * *",
         "0 0 12 * * ?",
@@ -247,27 +247,20 @@ async fn test_macro_matches_from_str() {
         "0 0 0 LW * *",
     ] {
         let from_str = TaskScheduleCron::from_str(expr).unwrap();
-        let next_from_str = from_str.schedule(ts(JAN_1_2026)).await.unwrap();
 
-        let next_macro = match expr {
-            "* * * * * *" => cron!(* * * * * *).schedule(ts(JAN_1_2026)).await.unwrap(),
-            "0 0 12 * * ?" => cron!(0 0 12 * * ?).schedule(ts(JAN_1_2026)).await.unwrap(),
-            "0 0 0 ? * MON-FRI" => cron!(0 0 0 ? * MON-FRI)
-                .schedule(ts(JAN_1_2026))
-                .await
-                .unwrap(),
-            "0 15 10 ? * 6L" => cron!(0 15 10 ? * 6L)
-                .schedule(ts(JAN_1_2026))
-                .await
-                .unwrap(),
-            "0 0 0 L-3 * *" => cron!(0 0 0 L-3 * *).schedule(ts(JAN_1_2026)).await.unwrap(),
-            "0 0 0 LW * *" => cron!(0 0 0 LW * *).schedule(ts(JAN_1_2026)).await.unwrap(),
+        let macro_schedule = match expr {
+            "* * * * * *" => cron!(* * * * * *),
+            "0 0 12 * * ?" => cron!(0 0 12 * * ?),
+            "0 0 0 ? * MON-FRI" => cron!(0 0 0 ? * MON-FRI),
+            "0 15 10 ? * 6L" => cron!(0 15 10 ? * 6L),
+            "0 0 0 L-3 * *" => cron!(0 0 0 L-3 * *),
+            "0 0 0 LW * *" => cron!(0 0 0 LW * *),
             _ => unreachable!(),
         };
 
         assert_eq!(
-            next_macro, next_from_str,
-            "macro/from_str mismatch for {expr:?}"
+            macro_schedule, from_str,
+            "macro/from_str AST mismatch for {expr:?}"
         );
     }
 }
