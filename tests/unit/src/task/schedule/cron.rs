@@ -427,16 +427,18 @@ async fn feb_31_never_exists() {
 
 #[tokio::test]
 async fn leap_year_boundary() {
-    // Feb 29 2028 in year 2028 explicitly.
-    let schedule = TaskScheduleCron::new([
-        CronField::Exact(0),
-        CronField::Exact(0),
-        CronField::Exact(0),
-        CronField::Exact(29),
-        CronField::Exact(2),
-        CronField::Unspecified,
+    let schedule = TaskScheduleCron::new(with_year(
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(29),
+            CronField::Exact(2),
+            CronField::Unspecified,
+            CronField::Wildcard,
+        ],
         CronField::Exact(2028),
-    ]);
+    ));
     let next = schedule.schedule(ts(JAN_1_2026)).await.unwrap();
     assert_eq!(next, ts(FEB_29_2028));
     assert!(schedule.schedule(ts(FEB_29_2028)).await.is_err());
@@ -464,27 +466,30 @@ async fn wildcard_year_rolls_forward() {
 
 #[tokio::test]
 async fn exact_year_skips_ahead() {
-    let mut fields = JAN_1_2026_ARRAY;
-    fields[6] = CronField::Exact(2027);
-    let schedule = TaskScheduleCron::new(fields);
+    let schedule = TaskScheduleCron::new(with_year(JAN_1_2026_ARRAY, CronField::Exact(2027)));
     assert_eq!(
         schedule.schedule(ts(JAN_1_2026)).await.unwrap(),
         ts(JAN_1_2027)
     );
 
-    let mut fields = JAN_1_2026_ARRAY;
-    fields[6] = CronField::Exact(2030);
-    let schedule = TaskScheduleCron::new(fields);
+    let schedule = TaskScheduleCron::new(with_year(JAN_1_2026_ARRAY, CronField::Exact(2030)));
     assert_eq!(
         schedule.schedule(ts(JAN_1_2026)).await.unwrap(),
         ts(JAN_1_2030)
     );
 
-    let mut fields = JAN_1_2026_ARRAY;
-    fields[3] = CronField::Exact(31);
-    fields[4] = CronField::Exact(12);
-    fields[6] = CronField::Exact(2027);
-    let schedule = TaskScheduleCron::new(fields);
+    let schedule = TaskScheduleCron::new(with_year(
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(31),
+            CronField::Exact(12),
+            CronField::Unspecified,
+            CronField::Wildcard,
+        ],
+        CronField::Exact(2027),
+    ));
     assert_eq!(
         schedule.schedule(ts(DEC_31_2026)).await.unwrap(),
         ts(DEC_31_2027)
@@ -493,31 +498,42 @@ async fn exact_year_skips_ahead() {
 
 #[tokio::test]
 async fn exact_year_in_same_year_stays() {
-    // Jan 1 2026 from Dec 31 2026 has already passed.
-    let mut fields = JAN_1_2026_ARRAY;
-    fields[6] = CronField::Exact(2026);
-    let schedule = TaskScheduleCron::new(fields);
+    let schedule = TaskScheduleCron::new(with_year(JAN_1_2026_ARRAY, CronField::Exact(2026)));
     assert!(schedule.schedule(ts(DEC_31_2026)).await.is_err());
     assert!(schedule.schedule(ts(FEB_1_2026)).await.is_err());
 }
 
 #[tokio::test]
 async fn exact_year_with_month_year_rollover() {
-    let mut fields = JAN_1_2026_ARRAY;
-    fields[3] = CronField::Exact(31);
-    fields[4] = CronField::Exact(12);
-    fields[6] = CronField::Exact(2026);
-    let schedule = TaskScheduleCron::new(fields);
+    let schedule = TaskScheduleCron::new(with_year(
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(31),
+            CronField::Exact(12),
+            CronField::Unspecified,
+            CronField::Wildcard,
+        ],
+        CronField::Exact(2026),
+    ));
     assert_eq!(
         schedule.schedule(ts(JAN_1_2026)).await.unwrap(),
         ts(DEC_31_2026)
     );
 
-    let mut fields = JAN_1_2026_ARRAY;
-    fields[3] = CronField::Exact(31);
-    fields[4] = CronField::Exact(12);
-    fields[6] = CronField::Exact(2027);
-    let schedule = TaskScheduleCron::new(fields);
+    let schedule = TaskScheduleCron::new(with_year(
+        [
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(0),
+            CronField::Exact(31),
+            CronField::Exact(12),
+            CronField::Unspecified,
+            CronField::Wildcard,
+        ],
+        CronField::Exact(2027),
+    ));
     assert_eq!(
         schedule.schedule(ts(JAN_1_2026)).await.unwrap(),
         ts(DEC_31_2027)
@@ -551,6 +567,11 @@ fn with_wildcard_year(
         day_of_week,
         CronField::Wildcard,
     ]
+}
+
+fn with_year(mut fields: [CronField; 7], year: CronField) -> [CronField; 7] {
+    fields[6] = year;
+    fields
 }
 
 fn assert_new_matches(expr: &str, expected: [CronField; 6]) {
