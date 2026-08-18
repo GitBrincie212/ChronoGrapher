@@ -17,7 +17,6 @@ const FEB_1_2026: u64 = 1769904000; // Sunday
 const FEB_2_2026: u64 = 1769990400; // Monday
 const FEB_19_2026: u64 = 1771459200; // Thursday
 const FEB_25_2026: u64 = 1771977600; // Wednesday
-const FEB_27_2026: u64 = 1772150400; // Friday
 const MAR_15_2026: u64 = 1773532800; // Sunday
 const MAR_29_2026: u64 = 1774742400; // Sunday
 const MAR_31_2026: u64 = 1774915200; // Tuesday
