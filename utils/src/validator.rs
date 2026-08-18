@@ -5,10 +5,10 @@ use crate::{
     errors::CronExpressionParserErrors,
 };
 
-const RANGES: [RangeInclusive<u32>; 7] =
+pub const RANGES: [RangeInclusive<u32>; 7] =
     [0..=59, 0..=59, 0..=23, 1..=31, 1..=12, 1..=7, 2026..=2099];
 
-const FIELD_NAMES: [&str; 7] = [
+pub const FIELD_NAMES: [&str; 7] = [
     "seconds",
     "minutes",
     "hours",
@@ -68,7 +68,11 @@ pub fn validate_ast_node(
             }
         }
 
-        AstTreeNode::Step(_, step_value) => {
+        AstTreeNode::Step(base, step_value) => {
+            if matches!(base.kind, AstTreeNode::LastOf(_)) {
+                return Err(CronExpressionParserErrors::ExpectedNumber);
+            }
+            validate_ast_node(base, field_pos)?;
             if *step_value == 0 {
                 return Err(CronExpressionParserErrors::InvalidStepValue { step: *step_value });
             }
@@ -80,9 +84,21 @@ pub fn validate_ast_node(
             }
         }
 
-        AstTreeNode::LastOf(_) => {
+        AstTreeNode::LastOf(offset) => {
             if field_pos != 3 && field_pos != 5 {
                 return Err(CronExpressionParserErrors::InvalidLastOperator);
+            }
+
+            if let Some(offset) = offset {
+                let (min, max) = if field_pos == 3 { (1, 30) } else { (1, 7) };
+                if !(min..=max).contains(offset) {
+                    return Err(CronExpressionParserErrors::ValueOutOfRange {
+                        value: *offset,
+                        field: field_name.to_string(),
+                        min,
+                        max,
+                    });
+                }
             }
         }
 
@@ -92,16 +108,30 @@ pub fn validate_ast_node(
             }
         }
 
-        AstTreeNode::NthWeekday(_, nth) => {
+        AstTreeNode::NthWeekday(weekday, nth) => {
             if field_pos != 5 {
                 return Err(CronExpressionParserErrors::InvalidNthWeekdayOperator);
             }
             if *nth < 1 || *nth > 5 {
                 return Err(CronExpressionParserErrors::InvalidNthWeekday { nth: *nth });
             }
+            if *weekday < 1 || *weekday > 7 {
+                return Err(CronExpressionParserErrors::ValueOutOfRange {
+                    value: *weekday,
+                    field: "day_of_week".to_string(),
+                    min: 1,
+                    max: 7,
+                });
+            }
         }
 
-        AstTreeNode::Unspecified => {}
+        AstTreeNode::Unspecified => {
+            if field_pos != 3 && field_pos != 5 {
+                return Err(CronExpressionParserErrors::InvalidUnspecifiedField {
+                    field: field_name.to_string(),
+                });
+            }
+        }
 
         AstTreeNode::Wildcard => {}
     }
