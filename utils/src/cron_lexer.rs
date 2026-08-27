@@ -30,25 +30,25 @@ fn constant_to_numeric(
 ) -> Result<(), (CronExpressionLexerErrors, usize, usize)> {
     // Normalize case once so mixed-case names (e.g. `Mon`, `MoN`) parse the same as `MON`/`mon`.
     let num: u32 = match char_buffer[0..=2].to_ascii_uppercase().as_str() {
-        "SUN" if field_pos == 3 => 1,
-        "MON" if field_pos == 3 => 2,
-        "TUE" if field_pos == 3 => 3,
-        "WED" if field_pos == 3 => 4,
-        "THU" if field_pos == 3 => 5,
-        "FRI" if field_pos == 3 => 6,
-        "SAT" if field_pos == 3 => 7,
-        "JAN" if field_pos == 5 => 1,
-        "FEB" if field_pos == 5 => 2,
-        "MAR" if field_pos == 5 => 3,
-        "APR" if field_pos == 5 => 4,
-        "MAY" if field_pos == 5 => 5,
-        "JUN" if field_pos == 5 => 6,
-        "JUL" if field_pos == 5 => 7,
-        "AUG" if field_pos == 5 => 8,
-        "SEP" if field_pos == 5 => 9,
-        "OCT" if field_pos == 5 => 10,
-        "NOV" if field_pos == 5 => 11,
-        "DEC" if field_pos == 5 => 12,
+        "SUN" if field_pos == 5 => 1,
+        "MON" if field_pos == 5 => 2,
+        "TUE" if field_pos == 5 => 3,
+        "WED" if field_pos == 5 => 4,
+        "THU" if field_pos == 5 => 5,
+        "FRI" if field_pos == 5 => 6,
+        "SAT" if field_pos == 5 => 7,
+        "JAN" if field_pos == 4 => 1,
+        "FEB" if field_pos == 4 => 2,
+        "MAR" if field_pos == 4 => 3,
+        "APR" if field_pos == 4 => 4,
+        "MAY" if field_pos == 4 => 5,
+        "JUN" if field_pos == 4 => 6,
+        "JUL" if field_pos == 4 => 7,
+        "AUG" if field_pos == 4 => 8,
+        "SEP" if field_pos == 4 => 9,
+        "OCT" if field_pos == 4 => 10,
+        "NOV" if field_pos == 4 => 11,
+        "DEC" if field_pos == 4 => 12,
         _ => {
             return Err((
                 CronExpressionLexerErrors::UnknownCharacter,
@@ -143,6 +143,15 @@ pub fn tokenize_from_str(
                 )?;
                 continue;
             }
+
+            if char_buffer.len() == 1
+                && !(char == 'L' || (char == 'W' && !matches!(chars.peek(), Some((_, 'E' | 'e')))))
+            {
+                continue;
+            }
+            if char_buffer.len() == 2 {
+                continue;
+            }
         }
 
         if char.is_ascii_digit() {
@@ -191,7 +200,7 @@ pub fn tokenize_from_str(
     if field_pos != 5 && field_pos != 4 {
         return Err((
             CronExpressionLexerErrors::UnknownFieldFormat,
-            s.len() - 1,
+            s.len().saturating_sub(1),
             field_pos,
         ));
     }

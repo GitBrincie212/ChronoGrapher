@@ -9,7 +9,7 @@ pub struct AstNode {
     pub kind: AstTreeNode,
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum AstTreeNode {
     #[default]
     Wildcard,

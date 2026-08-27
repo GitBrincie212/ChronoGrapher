@@ -48,19 +48,34 @@ pub fn cron(input: TokenStream) -> TokenStream {
         }
     }
 
+    if matches!(ast[3].kind, AstTreeNode::Unspecified)
+        && matches!(ast[5].kind, AstTreeNode::Unspecified)
+    {
+        let span = tokens[3]
+            .first()
+            .and_then(|t| t.span)
+            .unwrap_or(proc_macro2::Span::call_site());
+        return syn::Error::new(
+            span,
+            "Field 'day_of_month' and 'day_of_week' cannot both be unspecified",
+        )
+        .to_compile_error()
+        .into();
+    }
+
     let fields: Vec<_> = ast.iter().map(ast_node_to_tokens).collect();
     quote! {
-        chronographer::task::schedule::TaskScheduleCron::new([#(#fields),*, chronographer::task::schedule::CronField::Wildcard])
+        ::chronographer::task::schedule::TaskScheduleCron::new([#(#fields),*, ::chronographer::task::schedule::CronField::Wildcard])
     }
     .into()
 }
 
 fn ast_node_to_tokens(node: &AstNode) -> proc_macro2::TokenStream {
     match &node.kind {
-        AstTreeNode::Wildcard => quote! { chronographer::task::schedule::CronField::Wildcard },
-        AstTreeNode::Exact(v) => quote! { chronographer::task::schedule::CronField::Exact(#v) },
+        AstTreeNode::Wildcard => quote! { ::chronographer::task::schedule::CronField::Wildcard },
+        AstTreeNode::Exact(v) => quote! { ::chronographer::task::schedule::CronField::Exact(#v) },
         AstTreeNode::Unspecified => {
-            quote! { chronographer::task::schedule::CronField::Unspecified }
+            quote! { ::chronographer::task::schedule::CronField::Unspecified }
         }
         AstTreeNode::Range(s, e) => {
             let AstTreeNode::Exact(s_val) = &s.kind else {
@@ -69,32 +84,35 @@ fn ast_node_to_tokens(node: &AstNode) -> proc_macro2::TokenStream {
             let AstTreeNode::Exact(e_val) = &e.kind else {
                 unreachable!()
             };
-            quote! { chronographer::task::schedule::CronField::Range(#s_val, #e_val) }
+            quote! { ::chronographer::task::schedule::CronField::Range(#s_val, #e_val) }
         }
 
         AstTreeNode::Step(base, step) => {
             let base_tokens = ast_node_to_tokens(base);
-            quote! { chronographer::task::schedule::CronField::Step(Box::new(#base_tokens), #step) }
+            quote! { ::chronographer::task::schedule::CronField::Step(Box::new(#base_tokens), #step) }
         }
         AstTreeNode::List(items) => {
             let items: Vec<_> = items.iter().map(ast_node_to_tokens).collect();
-            quote! { chronographer::task::schedule::CronField::List(vec![#(#items),*]) }
+            quote! { ::chronographer::task::schedule::CronField::List(vec![#(#items),*]) }
         }
         AstTreeNode::LastOf(None) => {
-            quote! { chronographer::task::schedule::CronField::Last(None) }
+            quote! { ::chronographer::task::schedule::CronField::Last(None) }
         }
         AstTreeNode::LastOf(Some(v)) => {
             let v = *v as i8;
-            quote! { chronographer::task::schedule::CronField::Last(Some(#v)) }
+            quote! { ::chronographer::task::schedule::CronField::Last(Some(#v)) }
         }
-        AstTreeNode::NearestWeekday(inner) => {
-            let AstTreeNode::Exact(v) = &inner.kind else {
-                unreachable!()
-            };
-            quote! { chronographer::task::schedule::CronField::NearestWeekday(#v) }
-        }
+        AstTreeNode::NearestWeekday(inner) => match &inner.kind {
+            AstTreeNode::Exact(v) => {
+                quote! { ::chronographer::task::schedule::CronField::NearestWeekday(#v) }
+            }
+            AstTreeNode::LastOf(None) => {
+                quote! { ::chronographer::task::schedule::CronField::NearestWeekday(0) }
+            }
+            _ => unreachable!(),
+        },
         AstTreeNode::NthWeekday(a, b) => {
-            quote! { chronographer::task::schedule::CronField::NthWeekday(#a, #b) }
+            quote! { ::chronographer::task::schedule::CronField::NthWeekday(#a, #b) }
         }
     }
 }
@@ -171,15 +189,7 @@ pub fn tokenize_from_tokens(
         if is_value && field_pos < 5 {
             let advance = match prev {
                 Prev::None | Prev::Operator => false,
-                Prev::NumLit => match &ident_text {
-                    Some(s) => s != "L" && s != "W",
-                    None => true,
-                },
-                Prev::IdentL => match &ident_text {
-                    Some(s) => s != "W",
-                    None => true,
-                },
-                Prev::Value => true,
+                Prev::NumLit | Prev::IdentL | Prev::Value => true,
             };
             if advance {
                 field_pos += 1;
@@ -198,7 +208,14 @@ pub fn tokenize_from_tokens(
         match tt {
             TokenTree::Literal(lit) => {
                 let s = lit.to_string();
-                let val: u32 = s
+                let (num_str, operator) = if s.ends_with(['L', 'l']) {
+                    (&s[..s.len() - 1], Some(TokenType::Last))
+                } else if s.ends_with(['W', 'w']) {
+                    (&s[..s.len() - 1], Some(TokenType::NearestWeekday))
+                } else {
+                    (s.as_str(), None)
+                };
+                let val: u32 = num_str
                     .parse()
                     .map_err(|_| (CronExpressionLexerErrors::UnknownCharacter, lit.span()))?;
                 tokens[field_pos].push(Token {
@@ -206,8 +223,25 @@ pub fn tokenize_from_tokens(
                     token_type: TokenType::Value(val),
                     span: Some(lit.span()),
                 });
+                if let Some(op) = operator {
+                    tokens[field_pos].push(Token {
+                        start: 0,
+                        token_type: op,
+                        span: Some(lit.span()),
+                    });
+                }
             }
             TokenTree::Ident(ident) => {
+                if ident_upper(&ident) == "LW" {
+                    for token_type in [TokenType::Last, TokenType::NearestWeekday] {
+                        tokens[field_pos].push(Token {
+                            start: 0,
+                            token_type,
+                            span: Some(ident.span()),
+                        });
+                    }
+                    continue;
+                }
                 let token_type = ident_to_token_type(&ident)
                     .ok_or((CronExpressionLexerErrors::UnknownCharacter, ident.span()))?;
                 tokens[field_pos].push(Token {

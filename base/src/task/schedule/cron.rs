@@ -4,114 +4,13 @@ use chronographer_utils::{
     cron_lexer::{Token, tokenize_from_str},
     cron_parser::{AstNode, AstTreeNode, CronParser},
     errors::{CronError, CronErrorTypes, CronExpressionParserErrors},
+    validator::validate_ast_node,
 };
 use std::error::Error;
 use std::fmt::{Debug, Formatter, Write};
-use std::ops::RangeInclusive;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 use time::UtcDateTime;
-
-const RANGES: [RangeInclusive<u32>; 7] =
-    [0..=59, 0..=59, 0..=23, 1..=31, 1..=12, 1..=7, 2026..=2099];
-
-const FIELD_NAMES: [&str; 7] = [
-    "seconds",
-    "minutes",
-    "hours",
-    "day_of_month",
-    "month",
-    "day_of_week",
-    "year",
-];
-
-fn validate_ast_node(node: &AstNode, field_pos: usize) -> Result<(), CronExpressionParserErrors> {
-    let range = &RANGES[field_pos];
-    let field_name = FIELD_NAMES[field_pos];
-
-    match &node.kind {
-        AstTreeNode::Exact(value) => {
-            if !range.contains(value) {
-                return Err(CronExpressionParserErrors::ValueOutOfRange {
-                    value: *value,
-                    field: field_name.to_string(),
-                    min: *range.start(),
-                    max: *range.end(),
-                });
-            }
-        }
-
-        AstTreeNode::Range(start, end) => {
-            let start_val = match &start.kind {
-                AstTreeNode::Exact(val) => *val,
-                _ => return Err(CronExpressionParserErrors::ExpectedNumber),
-            };
-            let end_val = match &end.kind {
-                AstTreeNode::Exact(val) => *val,
-                _ => return Err(CronExpressionParserErrors::ExpectedNumber),
-            };
-
-            if start_val > end_val {
-                return Err(CronExpressionParserErrors::InvalidRange {
-                    start: start_val,
-                    end: end_val,
-                    field: field_name.to_string(),
-                    min: *range.start(),
-                    max: *range.end(),
-                });
-            }
-
-            if !range.contains(&start_val) || !range.contains(&end_val) {
-                return Err(CronExpressionParserErrors::InvalidRange {
-                    start: start_val,
-                    end: end_val,
-                    field: field_name.to_string(),
-                    min: *range.start(),
-                    max: *range.end(),
-                });
-            }
-        }
-
-        AstTreeNode::Step(_, step_value) => {
-            if *step_value == 0 {
-                return Err(CronExpressionParserErrors::InvalidStepValue { step: *step_value });
-            }
-        }
-
-        AstTreeNode::List(items) => {
-            for item in items {
-                validate_ast_node(item, field_pos)?;
-            }
-        }
-
-        AstTreeNode::LastOf(_) => {
-            if field_pos != 3 && field_pos != 5 {
-                return Err(CronExpressionParserErrors::InvalidLastOperator);
-            }
-        }
-
-        AstTreeNode::NearestWeekday(_) => {
-            if field_pos != 3 {
-                return Err(CronExpressionParserErrors::InvalidNearestWeekdayOperator);
-            }
-        }
-
-        AstTreeNode::NthWeekday(_, nth) => {
-            if field_pos != 5 {
-                return Err(CronExpressionParserErrors::InvalidNthWeekdayOperator);
-            }
-            if *nth < 1 || *nth > 5 {
-                return Err(CronExpressionParserErrors::InvalidNthWeekday { nth: *nth });
-            }
-        }
-
-        AstTreeNode::Unspecified => {}
-
-        AstTreeNode::Wildcard => {}
-    }
-
-    Ok(())
-}
 
 fn ast_to_cron_field(node: &AstNode) -> CronField {
     match &node.kind {
@@ -251,6 +150,9 @@ impl CronField {
     }
 
     fn next_valid(&self, current: u32, field_max: u32) -> Option<u32> {
+        if current > field_max {
+            return None;
+        }
         if self.matches(current) {
             return Some(current);
         }
@@ -380,11 +282,11 @@ impl CronField {
 /// # use std::error::Error;
 ///
 /// # fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-/// let expr1 = cron!("* * * * * *"); // Every second
-/// let expr2 = cron!("0 0 12 * * ?"); // Every day at 12:00 PM
-/// let expr3 = cron!("0 0/5 14 * * ?"); // Every 5 minutes from 2:00 PM - 2:55 PM
-/// let expr4 = cron!("0 15 10 ? * MON-FRI"); // Every Monday, Tuesday, Wednesday, Thursday and Friday at 10:15 AM
-/// let expr5 = cron!("0 15 10 ? * 6L"); // Every month at last friday at 10:15 AM
+/// let expr1 = cron!(* * * * * *); // Every second
+/// let expr2 = cron!(0 0 12 * * ?); // Every day at 12:00 PM
+/// let expr3 = cron!(0 0/5 14 * * ?); // Every 5 minutes from 2:00 PM - 2:55 PM
+/// let expr4 = cron!(0 15 10 ? * MON-FRI); // Every Monday, Tuesday, Wednesday, Thursday and Friday at 10:15 AM
+/// let expr5 = cron!(0 15 10 ? * 6L); // Every month at last friday at 10:15 AM
 /// # Ok(())
 /// # }
 /// ```
@@ -444,6 +346,7 @@ impl TaskScheduleCron {
     /// - **Hour Field**
     /// - **Day of Month Field**
     /// - **Month Field**
+    /// - **Day of Week Field**
     /// - **Year Field**
     ///
     /// Unlike the other ways of constructing a [`TaskScheduleCron`], this constructor does require the
@@ -464,12 +367,12 @@ impl TaskScheduleCron {
     ///     CronField::Wildcard,
     ///     CronField::Wildcard,
     ///     CronField::Wildcard,
-    ///     CronField::Unspecified,
     ///     CronField::Wildcard,
+    ///     CronField::Unspecified,
     ///     CronField::Wildcard
     /// ]);
     ///
-    /// assert_eq!(constructed, TaskScheduleCron::from_str("* * * * ? *").unwrap())
+    /// assert_eq!(constructed, TaskScheduleCron::from_str("* * * * * ?").unwrap())
     /// # }
     /// ```
     ///
@@ -502,10 +405,15 @@ impl TaskScheduleCron {
     fn next_time_from(&self, current: SystemTime) -> Option<SystemTime> {
         let current = UtcDateTime::from(current);
         let mut dt = current + Duration::from_secs(1);
+        let mut year_advances: u32 = 0;
 
         loop {
             if !self.matches_year(dt.year() as u32) {
                 let next_year = self.next_valid_year(dt.year() as u32)?;
+                year_advances += 1;
+                if year_advances > 3 {
+                    return None;
+                }
                 dt = UtcDateTime::new(
                     time::Date::from_calendar_date(next_year as i32, time::Month::January, 1)
                         .ok()?,
@@ -530,6 +438,10 @@ impl TaskScheduleCron {
 
                     None => {
                         let next_year = self.next_valid_year(dt.year() as u32 + 1)?;
+                        year_advances += 1;
+                        if year_advances > 3 {
+                            return None;
+                        }
                         UtcDateTime::new(
                             time::Date::from_calendar_date(
                                 next_year as i32,
@@ -544,7 +456,7 @@ impl TaskScheduleCron {
                 continue;
             }
 
-            if !self.matches_day(dt) {
+            if self.matches_day(dt) != Some(true) {
                 dt = (dt.date() + Duration::from_hours(24))
                     .with_hms(0, 0, 0)
                     .ok()?
@@ -634,24 +546,94 @@ impl TaskScheduleCron {
         if current > 2099 {
             return None;
         }
-        self.year.next_valid(current, 99).map(|y| y + 2026)
+        self.year.next_valid(current, 2099)
     }
 
-    fn matches_day(&self, dt: UtcDateTime) -> bool {
-        let day_matches = matches!(self.day_of_month, CronField::Unspecified)
-            || self.day_of_month.matches(dt.day() as u32);
-        let weekday_matches = matches!(self.day_of_week, CronField::Unspecified)
-            || self
-                .day_of_week
-                .matches((dt.weekday().number_days_from_sunday() + 1) as u32);
+    fn matches_day(&self, dt: UtcDateTime) -> Option<bool> {
+        Some(self.day_of_month_matches(dt)? && self.day_of_week_matches(dt)?)
+    }
 
-        let dom_specified = !matches!(self.day_of_month, CronField::Unspecified);
-        let dow_specified = !matches!(self.day_of_week, CronField::Unspecified);
+    fn last_day_of_month(dt: UtcDateTime) -> u32 {
+        let date = dt.date();
+        let (next_year, next_month) = match date.month() {
+            time::Month::December => (date.year() + 1, time::Month::January),
+            month => (date.year(), month.next()),
+        };
+        time::Date::from_calendar_date(next_year, next_month, 1)
+            .ok()
+            .and_then(time::Date::previous_day)
+            .map_or(date.day(), |last| last.day()) as u32
+    }
 
-        if dom_specified && dow_specified {
-            day_matches && weekday_matches
-        } else {
-            day_matches || weekday_matches
+    fn nearest_weekday_day(dt: UtcDateTime, day: u32) -> Option<u32> {
+        let last = Self::last_day_of_month(dt);
+        let dow = dt.date().replace_day(day as u8).ok()?.weekday();
+        Some(match dow.number_days_from_sunday() {
+            0 if day == last => day - 2,
+            0 => day + 1,
+            6 if day == 1 => day + 2,
+            6 => day - 1,
+            _ => day,
+        })
+    }
+
+    fn last_weekday_of_month(dt: UtcDateTime) -> Option<u32> {
+        let last = Self::last_day_of_month(dt);
+        let dow = dt.date().replace_day(last as u8).ok()?.weekday();
+        match dow.number_days_from_sunday() {
+            0 => Some(last - 2),
+            6 => Some(last - 1),
+            _ => Some(last),
+        }
+    }
+
+    fn nth_weekday_day(dt: UtcDateTime, weekday: u32, nth: u32) -> Option<u32> {
+        let first_weekday = (dt
+            .date()
+            .replace_day(1)
+            .ok()?
+            .weekday()
+            .number_days_from_sunday()
+            + 1) as u32;
+        Some(1 + ((weekday + 7 - first_weekday) % 7) + (nth - 1) * 7)
+    }
+
+    fn day_of_month_matches(&self, dt: UtcDateTime) -> Option<bool> {
+        match &self.day_of_month {
+            CronField::Unspecified => Some(true),
+            CronField::Last(None) => Some(dt.day() as u32 == Self::last_day_of_month(dt)),
+            CronField::Last(Some(offset)) => {
+                let last = Self::last_day_of_month(dt) as i64;
+                let target = last - *offset as i64;
+                Some(target >= 1 && dt.day() as u32 == target as u32)
+            }
+            CronField::NearestWeekday(0) => {
+                Some(dt.day() as u32 == Self::last_weekday_of_month(dt)?)
+            }
+            CronField::NearestWeekday(day) => {
+                Some(dt.day() as u32 == Self::nearest_weekday_day(dt, *day)?)
+            }
+            field => Some(field.matches(dt.day() as u32)),
+        }
+    }
+
+    fn day_of_week_matches(&self, dt: UtcDateTime) -> Option<bool> {
+        let weekday = (dt.weekday().number_days_from_sunday() + 1) as u32;
+        match &self.day_of_week {
+            CronField::Unspecified => Some(true),
+            CronField::Last(None) => Some(dt.day() as u32 == Self::last_day_of_month(dt)),
+            CronField::Last(Some(weekday)) => {
+                let last = Self::last_day_of_month(dt);
+                let last_weekday = dt.date().replace_day(last as u8).ok()?.weekday();
+                let back = (last_weekday.number_days_from_sunday() as i32 + 1 + 7
+                    - *weekday as i32)
+                    .rem_euclid(7);
+                Some(dt.day() as u32 == last - back as u32)
+            }
+            CronField::NthWeekday(weekday, nth) => {
+                Some(dt.day() as u32 == Self::nth_weekday_day(dt, *weekday, *nth)?)
+            }
+            field => Some(field.matches(weekday)),
         }
     }
 }
@@ -683,7 +665,9 @@ impl FromStr for TaskScheduleCron {
                 .parse_field()
                 .map_err(|error_type| CronError {
                     field_pos: idx,
-                    position: toks[parser_instance.pos].start,
+                    position: toks
+                        .get(parser_instance.pos.min(toks.len().saturating_sub(1)))
+                        .map_or(0, |t| t.start),
                     error_type: CronErrorTypes::Parser(error_type),
                 })?;
 
