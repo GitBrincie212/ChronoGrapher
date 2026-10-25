@@ -25,12 +25,12 @@
     "fumadocs-mdx": "14.2.4",
     "fumadocs-ui": "16.4.3",
     "lucide-react": "^0.562.0",
-    "next": "16.3.8",
+    "next": "16.4.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-shiki": "^0.9.1",
     "tailwind-merge": "^3.4.0",
-    "zod": "^4.3.6"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
