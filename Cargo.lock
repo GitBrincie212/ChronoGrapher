@@ -152,8 +152,10 @@ dependencies = [
 name = "chronographer_benches"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chronographer",
  "codspeed-divan-compat",
+ "tokio",
 ]
 
 [[package]]
