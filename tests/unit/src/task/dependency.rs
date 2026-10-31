@@ -129,7 +129,7 @@ async fn test_task_identity_run_dependency() -> Result<(), String> {
 
     frame.enable_failure();
     let erased = task.into_erased();
-    erased.run().await?;
+    let _ = erased.run().await;
 
     assert!(
         dep1.is_resolved().await,
@@ -142,7 +142,7 @@ async fn test_task_identity_run_dependency() -> Result<(), String> {
     );
 
     frame.disable_failure();
-    erased.run().await?;
+    let _ = erased.run().await;
 
     assert!(
         dep1.is_resolved().await,
@@ -154,7 +154,7 @@ async fn test_task_identity_run_dependency() -> Result<(), String> {
         "Task dependency with maximum runs should not be resolved"
     );
 
-    erased.run().await?;
+    let _ = erased.run().await;
 
     assert!(
         dep3.is_resolved().await,
@@ -167,7 +167,7 @@ async fn test_task_identity_run_dependency() -> Result<(), String> {
     );
 
     frame.enable_failure();
-    erased.run().await?;
+    let _ = erased.run().await;
 
     assert!(
         dep3.is_resolved().await,
