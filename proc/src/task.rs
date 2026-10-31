@@ -43,7 +43,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
     let where_clause = &generics.where_clause;
     let fn_return = &fn_sig.output;
     let fn_abi = &fn_sig.abi;
-    let fn_unsafe = &fn_sig.unsafety;
+    let fn_unsafe = &fn_sig.safety;
     let fn_vis = &input.vis;
 
     let schedule = args.schedule;

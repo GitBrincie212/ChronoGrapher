@@ -11,10 +11,7 @@ use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{
-    FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference,
-    parenthesized, parse_macro_input,
-};
+use syn::{FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference, parenthesized, parse_macro_input, Safety};
 
 const TASKFRAME_CTX_REQUIRED_ERR: &str =
     "Function is required to have at least one argument of type \"TaskFrameContext\"";
@@ -257,7 +254,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
             .into();
     }
 
-    if fn_sig.unsafety.is_some() {
+    if matches!(fn_sig.safety, Safety::Unsafe(_)) {
         *fn_block = quote! {
             {
                 unsafe { #fn_block }

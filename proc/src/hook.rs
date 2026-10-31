@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use syn::parse::Parse;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{FnArg, Token, parse_macro_input};
+use syn::{FnArg, Token, parse_macro_input, Safety, ReceiverKind};
 
 /*
    Out of all macros, this is by far the worst in terms of readability (in my opinion). I'm sorry in advance,
@@ -110,15 +110,14 @@ fn extract_arguments(
 
     match slf.value() {
         FnArg::Receiver(receiver) => {
-            if receiver.reference.is_none()
-                || receiver.mutability.is_some()
-                || receiver.colon_token.is_some()
+            if let ReceiverKind::Reference(_, _, mutability) = receiver.kind
+                && mutability.is_some()
             {
                 return Err(syn::Error::new_spanned(
                     receiver,
                     EXPECTED_SELF_ARGUMENT_ERR,
                 ));
-            }
+            };
         }
 
         FnArg::Typed(_) => return Err(syn::Error::new_spanned(slf, EXPECTED_SELF_ARGUMENT_ERR)),
@@ -411,7 +410,7 @@ pub fn hook(attrs: TokenStream, item: TokenStream) -> TokenStream {
                 .into();
         }
 
-        if fn_sig.unsafety.is_some() {
+        if matches!(fn_sig.safety, Safety::Unsafe(_)) {
             *fn_block = quote! {
                 unsafe { #fn_block }
             };

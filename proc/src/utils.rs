@@ -375,6 +375,7 @@ impl Parse for TaskFrameConstructor {
                 let ty = syn::TypePath {
                     qself: None,
                     path: type_path,
+                    attrs: vec![],
                 };
 
                 Ok(Self {
@@ -393,6 +394,7 @@ impl Parse for TaskFrameConstructor {
                 let ty = syn::TypePath {
                     qself: None,
                     path: type_path,
+                    attrs: vec![],
                 };
 
                 Ok(Self {
