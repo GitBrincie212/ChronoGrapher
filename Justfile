@@ -33,11 +33,11 @@ check_msrv:
 
 # Run the project's unit test in the recent stable rust version
 utest_stable:
-    cargo nextest run
+    cargo nextest run --workspace --manifest-path tests/unit/Cargo.toml
 
 # Run the project's unit test in the minimum supported rust version
 utest_msrv:
-    cargo +{{ msrv }} nextest run
+    cargo +{{ msrv }} nextest run --workspace --manifest-path tests/unit/Cargo.toml
 
 # Run a project's fuzzy test in the recent stable rust version
 ftest_stable TARGET:
