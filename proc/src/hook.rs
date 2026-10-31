@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use syn::parse::Parse;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{FnArg, Token, parse_macro_input, Safety, ReceiverKind};
+use syn::{FnArg, ReceiverKind, Safety, Token, parse_macro_input};
 
 /*
    Out of all macros, this is by far the worst in terms of readability (in my opinion). I'm sorry in advance,

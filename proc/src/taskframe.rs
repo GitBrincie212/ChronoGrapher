@@ -11,7 +11,10 @@ use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{FnArg, GenericArgument, PathArguments, ReturnType, Token, Type, TypePath, TypeReference, parenthesized, parse_macro_input, Safety};
+use syn::{
+    FnArg, GenericArgument, PathArguments, ReturnType, Safety, Token, Type, TypePath,
+    TypeReference, parenthesized, parse_macro_input,
+};
 
 const TASKFRAME_CTX_REQUIRED_ERR: &str =
     "Function is required to have at least one argument of type \"TaskFrameContext\"";
