@@ -1,6 +1,7 @@
+use crate::scheduler::SchedulerConfig;
 use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
-use crate::scheduler::{SchedulerConfig, SchedulerKey};
+use crate::scheduler::task_store::ErasedTaskHandleAlias;
 use crate::utils::hierarchical_timing_wheel::HierarchicalTimingWheel;
 use crossbeam::queue::SegQueue;
 use std::error::Error;
@@ -9,11 +10,11 @@ use std::time::{Duration, SystemTime};
 use tokio::sync::Notify;
 
 enum WheelCommand<C: SchedulerConfig> {
-    Insert(SchedulerKey<C>, Duration),
+    Insert(ErasedTaskHandleAlias<C>, Duration),
     Clear,
 }
 
-type ResultQueue<C> = (SegQueue<Vec<SchedulerKey<C>>>, Notify);
+type ResultQueue<C> = (SegQueue<Vec<ErasedTaskHandleAlias<C>>>, Notify);
 
 pub struct DefaultSchedulerEngine<C: SchedulerConfig> {
     command_batch: Arc<SegQueue<WheelCommand<C>>>,
@@ -28,7 +29,7 @@ where
     fn default() -> Self {
         let clock = Arc::new(C::SchedulerClock::default());
 
-        let mut hierarchical_wheel = HierarchicalTimingWheel::<SchedulerKey<C>>::default();
+        let mut hierarchical_wheel = HierarchicalTimingWheel::<ErasedTaskHandleAlias<C>>::default();
 
         let command_batch = Arc::new(SegQueue::new());
         let get_result_queue = Arc::new((SegQueue::new(), Notify::new()));
@@ -62,7 +63,7 @@ where
 }
 
 impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
-    async fn retrieve(&self) -> Vec<SchedulerKey<C>> {
+    async fn retrieve(&self) -> Vec<ErasedTaskHandleAlias<C>> {
         loop {
             if let Some(res) = self.get_result_queue.0.pop() {
                 return res;
@@ -77,7 +78,7 @@ impl<C: SchedulerConfig> SchedulerEngine<C> for DefaultSchedulerEngine<C> {
 
     fn schedule(
         &self,
-        id: &SchedulerKey<C>,
+        id: &ErasedTaskHandleAlias<C>,
         time: SystemTime,
     ) -> impl Future<Output = Result<(), Box<dyn Error + Send + Sync>>> + Send {
         let now = self.clock.now();

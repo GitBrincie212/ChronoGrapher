@@ -12,14 +12,10 @@ use crate::scheduler::engine::{DefaultSchedulerEngine, SchedulerEngine};
 use crate::scheduler::task_dispatcher::{DefaultTaskDispatcher, SchedulerTaskDispatcher};
 use crate::scheduler::task_store::{EphemeralSchedulerTaskStore, SchedulerTaskStore};
 use crate::scheduler::utils::SchedulerHandleInstructions;
-use crate::task::{Task, TaskFrame};
+use crate::task::{TaskFrame, TaskSchedule};
 use std::any::Any;
-use std::error::Error;
 use std::marker::PhantomData;
 use std::sync::Arc;
-
-pub type SchedulerKey<C> =
-    <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::Key;
 
 pub(crate) type SchedulerHandlePayload = (Arc<dyn Any + Send + Sync>, SchedulerHandleInstructions);
 
@@ -65,21 +61,24 @@ pub enum FailoverPolicy {
     ShutdownScheduler,
 }
 
-pub trait Scheduler<C: SchedulerConfig>: Sync + Send + 'static {
-    type Handle: Into<SchedulerKey<C>>;
+pub type AllocateResult<C, T1, T2> = Result<
+    <<C as SchedulerConfig>::SchedulerTaskStore as SchedulerTaskStore<C>>::TaskHandle<T1, T2>,
+    Box<dyn TaskError>,
+>;
 
+pub trait Scheduler<C: SchedulerConfig>: Sync + Send + 'static {
     fn start(&self) -> impl Future<Output = ()> + Send;
     fn has_started(&self) -> impl Future<Output = bool> + Send;
     fn abort(&self) -> impl Future<Output = ()> + Send;
 
-    fn exists(&self, key: &Self::Handle) -> impl Future<Output = bool> + Send;
-
-    fn schedule<T: TaskFrame<Args = (), Error = C::TaskError>>(
+    fn allocate<T1, T2>(
         &self,
-        task: Task<T>,
-    ) -> impl Future<Output = Result<Self::Handle, Box<dyn Error + Send + Sync>>>;
-
-    fn remove(&self, key: &Self::Handle) -> impl Future<Output = ()> + Send;
+        frame: T1,
+        schedule: T2,
+    ) -> impl Future<Output = AllocateResult<C, T1, T2>>
+    where
+        T1: TaskFrame<Args = (), Error = C::TaskError>,
+        T2: TaskSchedule;
 
     fn clear(&self) -> impl Future<Output = ()> + Send;
 }

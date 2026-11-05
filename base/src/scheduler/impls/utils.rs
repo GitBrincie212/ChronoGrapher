@@ -5,14 +5,15 @@ pub use main_loop::*;
 pub use scheduler_handle::*;
 
 use crate::scheduler::impls::live::{SchedulerWork, SchedulerWorkerHot};
-use crate::scheduler::{SchedulerConfig, SchedulerKey, SchedulerWorkerCold};
+use crate::scheduler::task_store::ErasedTaskHandleAlias;
+use crate::scheduler::{SchedulerConfig, SchedulerWorkerCold};
 use crossbeam::utils::CachePadded;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 #[inline(always)]
 pub fn assign_to_trigger_worker<C: SchedulerConfig>(
-    key: SchedulerKey<C>,
+    key: ErasedTaskHandleAlias<C>,
     hot_workers: &Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
     cold_workers: &Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
 ) {
@@ -26,7 +27,7 @@ pub fn assign_to_trigger_worker<C: SchedulerConfig>(
 
 #[inline(always)]
 fn spawn_task<C: SchedulerConfig>(
-    key: SchedulerKey<C>,
+    key: ErasedTaskHandleAlias<C>,
     hot_workers: &Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
     cold_workers: &Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
 ) {

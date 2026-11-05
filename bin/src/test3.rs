@@ -11,7 +11,14 @@ impl<E: TaskHookEvent> TaskHook<E> for MyTaskHook {
     }
 }
 
+#[taskframe]
+#[workflow(retry(5), timeout(2s))]
+pub async fn MyTaskFrame2(_ctx: &TaskFrameContext) -> Result<(), String> {
+    todo!()
+}
+
 #[task(schedule = every!(2s))]
+#[workflow(fallback(MyTaskFrame2::workflow()))]
 pub async fn MyTask(_ctx: &TaskFrameContext) -> Result<(), String> {
     todo!()
 }

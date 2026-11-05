@@ -422,24 +422,10 @@ pub trait TaskHookEvent: Send + Sync + Default + 'static {
         Self: 'a;
 }
 
-pub enum NonEmittable {}
-
-impl TaskHookEvent for () {
-    type Payload<'a>
-        = NonEmittable
-    where
-        Self: 'a;
-}
-
 #[async_trait]
-pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
+pub trait TaskHook<E: TaskHookEvent>: Any + Send + Sync {
     async fn on_event(&self, _ctx: &TaskHookContext, _payload: &E::Payload<'_>) {}
 }
-
-pub trait NonObserverTaskHook: Send + Sync + 'static {}
-
-#[async_trait]
-impl<T: NonObserverTaskHook> TaskHook<()> for T {}
 
 #[derive(Clone)]
 struct ErasedTaskHookWrapper<E: TaskHookEvent> {

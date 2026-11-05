@@ -3,16 +3,16 @@ use crate::scheduler::clock::SchedulerClock;
 use crate::scheduler::engine::SchedulerEngine;
 use crate::scheduler::impls::utils::*;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
-use crate::scheduler::task_store::SchedulerTaskStore;
+use crate::scheduler::task_store::{BoundedTaskHandle, ErasedTaskHandleAlias, SchedulerTaskStore};
 use crate::scheduler::{
-    DefaultSchedulerConfig, FailoverPolicy, Scheduler, SchedulerConfig, SchedulerHandlePayload,
-    SchedulerKey,
+    AllocateResult, DefaultSchedulerConfig, FailoverPolicy, Scheduler, SchedulerConfig,
+    SchedulerHandlePayload,
 };
-use crate::task::{Task, TaskFrame};
+use crate::storage::TaskHandle;
+use crate::task::{TaskFrame, TaskSchedule};
 use crossbeam::deque::{Injector, Steal, Stealer, Worker};
 use crossbeam::queue::SegQueue;
 use crossbeam::utils::CachePadded;
-use std::error::Error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::join;
@@ -21,6 +21,8 @@ use tokio::task::JoinHandle;
 use typed_builder::TypedBuilder;
 
 pub type DefaultLiveScheduler<E> = LiveScheduler<DefaultSchedulerConfig<E>>;
+
+pub type BoxedErrorLiveScheduler = LiveScheduler<DefaultSchedulerConfig<Box<dyn TaskError>>>;
 
 #[cfg(feature = "anyhow")]
 pub type DefaultLiveAnyhowScheduler = DefaultLiveScheduler<anyhow::Error>;
@@ -36,11 +38,11 @@ pub enum SchedulerWork {
 }
 
 pub(crate) struct SchedulerWorkerHot<C: SchedulerConfig> {
-    pub ingress: SegQueue<(SchedulerKey<C>, SchedulerWork)>,
-    pub stealer: Stealer<(SchedulerKey<C>, SchedulerWork)>,
+    pub ingress: SegQueue<(ErasedTaskHandleAlias<C>, SchedulerWork)>,
+    pub stealer: Stealer<(ErasedTaskHandleAlias<C>, SchedulerWork)>,
 }
 
-type WorkerQueue<C> = Worker<(SchedulerKey<C>, SchedulerWork)>;
+type WorkerQueue<C> = Worker<(ErasedTaskHandleAlias<C>, SchedulerWork)>;
 pub(crate) struct SchedulerWorkerCold<C: SchedulerConfig> {
     pub queue: parking_lot::Mutex<Option<WorkerQueue<C>>>,
     pub notify: Arc<Notify>,
@@ -132,7 +134,7 @@ pub struct LiveScheduler<C: SchedulerConfig> {
     cold_workers: Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
     worker_len: usize,
 
-    global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
+    global_queue: Arc<Injector<(ErasedTaskHandleAlias<C>, SchedulerWork)>>,
     instruction_queue: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
     failover_policy: FailoverPolicy,
 }
@@ -143,7 +145,6 @@ where
             SchedulerTaskStore: Default,
             SchedulerTaskDispatcher: Default,
             SchedulerEngine: Default,
-            TaskError: TaskError,
         >,
 {
     fn default() -> Self {
@@ -158,20 +159,19 @@ where
 #[inline(always)]
 async fn apply_failover<C: SchedulerConfig>(
     failover_policy: FailoverPolicy,
-    key: &SchedulerKey<C>,
-    global_queue: &Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
+    handle: &ErasedTaskHandleAlias<C>,
+    global_queue: &Arc<Injector<(ErasedTaskHandleAlias<C>, SchedulerWork)>>,
     work: SchedulerWork,
-    store: &C::SchedulerTaskStore,
     process: &Arc<parking_lot::RwLock<Vec<JoinHandle<()>>>>,
 ) {
     match failover_policy {
         FailoverPolicy::Keep => {
-            global_queue.push((key.clone(), work));
+            global_queue.push((handle.clone(), work));
         }
 
         FailoverPolicy::Terminate => {}
 
-        FailoverPolicy::Deallocate => store.remove(key),
+        FailoverPolicy::Deallocate => handle.invalidate().await,
 
         FailoverPolicy::ShutdownScheduler => {
             let mut lock = process.write();
@@ -188,7 +188,7 @@ async fn apply_failover<C: SchedulerConfig>(
 async fn start_worker_process<C: SchedulerConfig>(
     hot_workers: Arc<Vec<CachePadded<SchedulerWorkerHot<C>>>>,
     cold_workers: Arc<Vec<CachePadded<SchedulerWorkerCold<C>>>>,
-    global_queue: Arc<Injector<(SchedulerKey<C>, SchedulerWork)>>,
+    global_queue: Arc<Injector<(ErasedTaskHandleAlias<C>, SchedulerWork)>>,
     idx: usize,
     worker_len: usize,
     components_clone: Arc<LiveSchedulerComponents<C>>,
@@ -205,15 +205,13 @@ async fn start_worker_process<C: SchedulerConfig>(
             local_worker.push(work);
         }
 
-        while let Some((key, work_type)) = local_worker.pop() {
-            let Some(task) = components_clone.store.get(&key) else {
-                continue;
-            };
-
+        while let Some((handle, work_type)) = local_worker.pop() {
             match work_type {
                 SchedulerWork::Trigger => {
-                    let schedule = task.schedule();
                     let now = components_clone.engine.clock().now();
+                    let Some(schedule) = handle.get_schedule() else {
+                        continue;
+                    };
 
                     let time = match schedule.schedule(now).await {
                         Ok(time) => time,
@@ -222,10 +220,9 @@ async fn start_worker_process<C: SchedulerConfig>(
                             eprintln!("Computation error from TaskTrigger: {:?}", err);
                             apply_failover::<C>(
                                 policy,
-                                &key,
+                                &handle,
                                 &global_queue,
                                 work_type,
-                                &components_clone.store,
                                 &processes,
                             )
                             .await;
@@ -233,17 +230,18 @@ async fn start_worker_process<C: SchedulerConfig>(
                         }
                     };
 
-                    match components_clone.engine.schedule(&key, time).await {
+                    drop(schedule);
+
+                    match components_clone.engine.schedule(&handle, time).await {
                         Ok(()) => {}
 
                         Err(err) => {
                             eprintln!("Schedule error from SchedulerEngine: {:?}", err);
                             apply_failover::<C>(
                                 policy,
-                                &key,
+                                &handle,
                                 &global_queue,
                                 work_type,
-                                &components_clone.store,
                                 &processes,
                             )
                             .await;
@@ -252,23 +250,22 @@ async fn start_worker_process<C: SchedulerConfig>(
                 }
 
                 SchedulerWork::Dispatch => {
-                    let result = components_clone.dispatcher.dispatch(&key, task).await;
+                    let result = components_clone.dispatcher.dispatch(&handle).await;
                     match result {
                         Ok(()) => {
-                            local_worker.push((key, SchedulerWork::Trigger));
+                            local_worker.push((handle, SchedulerWork::Trigger));
                         }
 
                         Err(err) => {
                             eprintln!(
-                                "Scheduler engine received an error for Task with identifier ({:?}):\n\t {:?}",
-                                key, err
+                                "Scheduler engine received an error from {:?}:\n\t {:?}",
+                                handle, err
                             );
                             apply_failover::<C>(
                                 policy,
-                                &key,
+                                &handle,
                                 &global_queue,
                                 work_type,
-                                &components_clone.store,
                                 &processes,
                             )
                             .await;
@@ -334,8 +331,6 @@ impl<C: SchedulerConfig> LiveScheduler<C> {
 }
 
 impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
-    type Handle = SchedulerKey<C>;
-
     async fn start(&self) {
         if self.has_started().await {
             return;
@@ -394,25 +389,16 @@ impl<C: SchedulerConfig> Scheduler<C> for LiveScheduler<C> {
         std::future::ready(())
     }
 
-    fn exists(&self, key: &SchedulerKey<C>) -> impl Future<Output = bool> + Send {
-        std::future::ready(self.components.store.exists(key))
-    }
-
-    async fn schedule<T: TaskFrame<Args = (), Error = C::TaskError>>(
-        &self,
-        task: Task<T>,
-    ) -> Result<Self::Handle, Box<dyn Error + Send + Sync>> {
-        let erased = Arc::new(task.into_erased());
-        let key = self.components.store.store(erased.clone())?;
-        append_scheduler_handler::<C>(key.clone(), &erased, self.instruction_queue.clone()).await;
-        assign_to_trigger_worker::<C>(key.clone(), &self.hot_workers, &self.cold_workers);
-
-        Ok(key)
-    }
-
-    fn remove(&self, key: &Self::Handle) -> impl Future<Output = ()> + Send {
-        self.components.store.remove(key);
-        std::future::ready(())
+    async fn allocate<T1, T2>(&self, frame: T1, schedule: T2) -> AllocateResult<C, T1, T2>
+    where
+        T1: TaskFrame<Args = (), Error = C::TaskError>,
+        T2: TaskSchedule,
+    {
+        let handle = self.components.store.allocate(frame, schedule)?;
+        let erased = handle.clone().erase();
+        append_scheduler_handler::<C>(erased.clone(), self.instruction_queue.clone()).await;
+        assign_to_trigger_worker::<C>(erased, &self.hot_workers, &self.cold_workers);
+        Ok(handle)
     }
 
     fn clear(&self) -> impl Future<Output = ()> + Send {

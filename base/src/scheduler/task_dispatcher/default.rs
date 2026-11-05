@@ -1,12 +1,10 @@
+use crate::scheduler::SchedulerConfig;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
-use crate::scheduler::{SchedulerConfig, SchedulerKey};
-use crate::task::ErasedTask;
+use crate::scheduler::task_store::{ErasedTaskHandleAlias, TaskHandleExt};
 use dashmap::DashMap;
-use std::ops::Deref;
-use std::sync::Arc;
 use tokio::sync::Notify;
 
-pub struct DefaultTaskDispatcher<C: SchedulerConfig>(DashMap<SchedulerKey<C>, Arc<Notify>>);
+pub struct DefaultTaskDispatcher<C: SchedulerConfig>(DashMap<ErasedTaskHandleAlias<C>, Notify>);
 
 impl<C: SchedulerConfig> Default for DefaultTaskDispatcher<C> {
     fn default() -> Self {
@@ -17,24 +15,23 @@ impl<C: SchedulerConfig> Default for DefaultTaskDispatcher<C> {
 impl<C: SchedulerConfig> SchedulerTaskDispatcher<C> for DefaultTaskDispatcher<C> {
     fn dispatch(
         &self,
-        key: &SchedulerKey<C>,
-        task: impl Deref<Target = ErasedTask<C::TaskError>> + Send + Sync + 'static,
+        handle: &ErasedTaskHandleAlias<C>,
     ) -> impl Future<Output = Result<(), C::TaskError>> + Send {
         // TODO: Find a way to remove the Notify when a Task is removed
         let notifier = self
             .0
-            .entry(key.clone())
-            .or_insert_with(|| Arc::new(Notify::new()));
+            .entry(handle.clone())
+            .or_insert_with(|| Notify::new());
 
         async move {
             tokio::select! {
-                result = task.run() => result,
+                result = handle.run() => result,
                 _ = notifier.notified() => Ok(()),
             }
         }
     }
 
-    fn cancel(&self, id: &SchedulerKey<C>) -> impl Future<Output = ()> + Send {
+    fn cancel(&self, id: &ErasedTaskHandleAlias<C>) -> impl Future<Output = ()> + Send {
         if let Some((_, tok)) = self.0.remove(id) {
             tok.notify_one()
         }

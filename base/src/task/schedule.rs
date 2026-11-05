@@ -30,6 +30,7 @@ mod immediate;
 mod interval; // skipcq: RS-D1001
 
 use async_trait::async_trait;
+use std::any::Any;
 use std::error::Error;
 use std::time::SystemTime;
 
@@ -118,7 +119,7 @@ pub use interval::*;
 /// - [`Scheduler`](crate::scheduler::Scheduler) - The side in which it manages the scheduling process of Tasks.
 /// - [`SchedulerClock`](crate::scheduler::clock::SchedulerClock) - The mechanism that supplies the "now" argument with the value
 #[async_trait]
-pub trait TaskSchedule: 'static + Send + Sync {
+pub trait TaskSchedule: Any + Send + Sync {
     /// The only required method of [`TaskSchedule`], it hosts the actual logic of waiting,
     /// monitoring and calculation co-exist to return a new future time based on a current.
     ///

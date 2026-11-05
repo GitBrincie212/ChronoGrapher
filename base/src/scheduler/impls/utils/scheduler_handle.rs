@@ -1,12 +1,11 @@
 use crate::scheduler::impls::utils::{assign_to_trigger_worker, spawn_task};
 use crate::scheduler::live::SchedulerWorkerHot;
 use crate::scheduler::task_dispatcher::SchedulerTaskDispatcher;
-use crate::scheduler::task_store::SchedulerTaskStore;
+use crate::scheduler::task_store::{BoundedTaskHandle, ErasedTaskHandleAlias};
 use crate::scheduler::{
-    LiveSchedulerComponents, SchedulerConfig, SchedulerHandlePayload, SchedulerKey,
-    SchedulerWorkerCold,
+    LiveSchedulerComponents, SchedulerConfig, SchedulerHandlePayload, SchedulerWorkerCold,
 };
-use crate::task::{ErasedTask, TaskHook};
+use crate::storage::TaskHandle;
 use crossbeam::queue::SegQueue;
 use crossbeam::utils::CachePadded;
 use std::any::{Any, type_name};
@@ -32,20 +31,19 @@ impl SchedulerHandle {
     }
 }
 
-impl TaskHook<()> for SchedulerHandle {}
-
 #[inline(always)]
 pub fn append_scheduler_handler<C: SchedulerConfig>(
-    key: SchedulerKey<C>,
-    task: &ErasedTask<C::TaskError>,
+    task_handle: ErasedTaskHandleAlias<C>,
     channel: Arc<(SegQueue<SchedulerHandlePayload>, Notify)>,
 ) -> impl Future<Output = ()> + Send {
     let handle = SchedulerHandle {
-        id: Arc::new(key),
+        id: Arc::new(task_handle.clone()),
         channel,
     };
 
-    task.attach_hook::<()>(Arc::new(handle))
+    async move {
+        let _ = task_handle.attach_hook(handle).await;
+    }
 }
 
 #[inline(always)]
@@ -61,29 +59,31 @@ pub fn scheduler_handle_instructions_logic<C: SchedulerConfig>(
     let instruct_queue = instruct_queue.clone();
 
     async move {
-        while let Some((id, instruction)) = instruct_queue.0.pop() {
-            let id = id.downcast_ref::<SchedulerKey<C>>().unwrap_or_else(|| {
-                panic!(
-                    "Cannot downcast to TaskIdentifier of type {:?}",
-                    type_name::<SchedulerKey<C>>()
-                )
-            });
+        while let Some((handle, instruction)) = instruct_queue.0.pop() {
+            let handle = handle
+                .downcast_ref::<ErasedTaskHandleAlias<C>>()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Cannot downcast to TaskIdentifier of type {:?}",
+                        type_name::<ErasedTaskHandleAlias<C>>()
+                    )
+                });
 
             match instruction {
                 SchedulerHandleInstructions::Reschedule => {
-                    assign_to_trigger_worker::<C>(id.clone(), &hot_workers, &cold_workers);
+                    assign_to_trigger_worker::<C>(handle.clone(), &hot_workers, &cold_workers);
                 }
 
                 SchedulerHandleInstructions::Halt => {
-                    components.dispatcher.cancel(id).await;
+                    components.dispatcher.cancel(handle).await;
                 }
 
                 SchedulerHandleInstructions::Block => {
-                    components.store.remove(id);
+                    handle.invalidate().await;
                 }
 
                 SchedulerHandleInstructions::Execute => {
-                    spawn_task::<C>(id.clone(), &hot_workers, &cold_workers);
+                    spawn_task::<C>(handle.clone(), &hot_workers, &cold_workers);
                 }
             }
         }

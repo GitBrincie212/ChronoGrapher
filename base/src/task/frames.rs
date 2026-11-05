@@ -23,13 +23,14 @@ pub use dependencyframe::*;
 pub use fallbackframe::*;
 pub use noopframe::*;
 pub use retryframe::*;
+use std::any::Any;
 pub use thresholdframe::*;
 pub use timeoutframe::*;
 
 use crate::errors::TaskError;
 use crate::scheduler::utils::{SchedulerHandle, SchedulerHandleInstructions};
 use crate::task::{
-    ErasedTask, NonObserverTaskHook, Sealed, TASKHOOK_REGISTRY, TaskHook, TaskHookContext,
+    BoxedDynTaskFrame, ErasedTask, Sealed, TASKHOOK_REGISTRY, TaskHook, TaskHookContext,
     TaskHookEvent, TaskHookLayer,
 };
 use async_trait::async_trait;
@@ -92,26 +93,6 @@ impl RestrictTaskFrameContext {
     pub fn get_hook<EV: TaskHookEvent, TH: TaskHook<EV>>(&self) -> Option<Arc<TH>> {
         TASKHOOK_REGISTRY.get::<EV, TH>(self.0)
     }
-
-    pub async fn shared<H>(&self, creator: impl FnOnce() -> H) -> Arc<H>
-    where
-        H: NonObserverTaskHook + Send + Sync + 'static,
-    {
-        if let Some(hook) = self.get_hook::<(), H>() {
-            hook
-        } else {
-            let hook = Arc::new(creator());
-            self.attach_hook::<()>(hook.clone()).await;
-            hook
-        }
-    }
-
-    pub fn get_shared<H>(&self) -> Option<Arc<H>>
-    where
-        H: NonObserverTaskHook + Send + Sync + 'static,
-    {
-        self.get_hook::<(), H>()
-    }
 }
 
 impl Deref for TaskFrameContext {
@@ -122,7 +103,7 @@ impl Deref for TaskFrameContext {
     }
 }
 
-pub trait TaskFrame: 'static + Send + Sync + Sized {
+pub trait TaskFrame: Any + Send + Sync + Sized {
     type Error: TaskError;
     type Args: Send + Sync + 'static;
     type Workflow: TaskFrame;
@@ -135,18 +116,50 @@ pub trait TaskFrame: 'static + Send + Sync + Sized {
 }
 
 #[async_trait]
-pub trait DynTaskFrame<E: TaskError, Args: Send + Sync + 'static>: 'static + Send + Sync {
-    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &Args) -> Result<(), E>;
-    fn erased(&self) -> &dyn ErasedTaskFrame<Args>;
+pub trait DynTaskFrame: Any + Send + Sync {
+    type Error: TaskError;
+    type Args: Send + Sync + 'static;
+
+    async fn dyn_execute(
+        &self,
+        ctx: &TaskFrameContext,
+        args: &Self::Args,
+    ) -> Result<(), Self::Error>;
+    fn erased(&self) -> &dyn ErasedTaskFrame<Self::Args>;
 }
 
 #[async_trait]
-impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame<T::Error, T::Args> for T {
-    async fn erased_execute(&self, ctx: &TaskFrameContext, args: &T::Args) -> Result<(), T::Error> {
+impl<T: TaskFrame<Error: Into<T::Error>>> DynTaskFrame for T {
+    type Error = T::Error;
+    type Args = T::Args;
+
+    async fn dyn_execute(
+        &self,
+        ctx: &TaskFrameContext,
+        args: &Self::Args,
+    ) -> Result<(), Self::Error> {
         self.execute(ctx, args).await
     }
 
-    fn erased(&self) -> &dyn ErasedTaskFrame<T::Args> {
+    fn erased(&self) -> &dyn ErasedTaskFrame<Self::Args> {
+        self
+    }
+}
+
+#[async_trait]
+impl<E: TaskError> DynTaskFrame for BoxedDynTaskFrame<E> {
+    type Error = E;
+    type Args = ();
+
+    async fn dyn_execute(
+        &self,
+        ctx: &TaskFrameContext,
+        args: &Self::Args,
+    ) -> Result<(), Self::Error> {
+        self.execute(ctx, args).await
+    }
+
+    fn erased(&self) -> &dyn ErasedTaskFrame<Self::Args> {
         self
     }
 }
