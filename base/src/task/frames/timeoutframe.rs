@@ -37,7 +37,7 @@ define_event!(
     /// - [`TimeoutTaskFrame`] - The [`TaskFrame`] responsible for emitting the event.
     /// - [`TaskHookEvent`] - The basis (its trait implementation) for this event.
     /// - [`TaskFrame`] - The basis (its trait implementation) for the [`TimeoutTaskFrame`]
-    OnTimeout, Duration
+    OnTimeout, TimeoutDuration
 );
 
 /// A trait which depends on the subtrait [`TaskError`] which allows the specification of a default timeout error

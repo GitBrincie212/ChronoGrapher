@@ -266,6 +266,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #
     /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Workflow = Self;
     /// #     type Args = ();
     /// #
     /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
@@ -476,6 +477,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #
     /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Workflow = Self;
     /// #     type Args = ();
     /// #
     /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
@@ -485,9 +487,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #
     /// # struct CheckCondition;
     /// #
-    /// # #[async_trait]
     /// # impl ConditionalFramePredicate for CheckCondition {
-    /// #     async fn execute(&self, _ctx: &RestrictTaskFrameContext) -> bool {
+    /// #     fn check(&self) -> bool {
     /// #         false
     /// #     }
     /// # }
@@ -549,6 +550,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #
     /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Workflow = Self;
     /// #     type Args = ();
     /// #
     /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
@@ -560,6 +562,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #
     /// # impl TaskFrame for BackupFrame {
     /// #     type Error = String;
+    /// #     type Workflow = Self;
     /// #     type Args = ();
     /// #
     /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
@@ -569,9 +572,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #
     /// # struct CheckCondition;
     /// #
-    /// # #[async_trait]
     /// # impl ConditionalFramePredicate for CheckCondition {
-    /// #     async fn execute(&self, _ctx: &RestrictTaskFrameContext) -> bool {
+    /// #     fn check(&self) -> bool {
     /// #         false
     /// #     }
     /// # }
@@ -617,8 +619,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// # Examples
     /// ```
-    /// use chronographer::task::{TaskFrameBuilder, DependencyTaskFrame, dependency::FlagDependency};
-    /// use std::sync::atomic::AtomicBool;
+    /// use chronographer::task::{TaskFrameBuilder, DependencyTaskFrame, dependency::FrameDependency};
+    /// use std::sync::atomic::{AtomicBool, Ordering};
     /// use std::sync::Arc;
     ///
     /// # use chronographer::task::{TaskFrame, TaskFrameContext};
@@ -627,6 +629,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #
     /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Workflow = Self;
     /// #     type Args = ();
     /// #
     /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {
@@ -636,7 +639,8 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     ///
     /// // Create a simple flag dependency that can be toggled
     /// let atomic_flag = Arc::new(AtomicBool::new(false));
-    /// let flag_dep = FlagDependency::new(atomic_flag.clone());
+    /// let atomic_flag2 = atomic_flag.clone();
+    /// let flag_dep = FrameDependency::external(move || std::future::ready(atomic_flag2.load(Ordering::Relaxed)));
     ///
     /// let task: DependencyTaskFrame<MyTaskFrame> = TaskFrameBuilder::builder(MyTaskFrame)
     ///     .with_dependency(flag_dep) // MyTaskFrame will only execute when the flag resolves to true
@@ -681,6 +685,7 @@ impl<T: TaskFrame> TaskFrameBuilder<T> {
     /// #
     /// # impl TaskFrame for MyTaskFrame {
     /// #     type Error = String;
+    /// #     type Workflow = Self;
     /// #     type Args = ();
     /// #
     /// #     async fn execute(&self, _ctx: &TaskFrameContext, _args: &Self::Args) -> Result<(), Self::Error> {

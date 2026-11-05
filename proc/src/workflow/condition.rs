@@ -26,7 +26,7 @@ impl WorkflowTransform for ConditionArguments {
         let predicate = &self.predicate;
         let secondary = self.secondary.as_ref().map(|secondary| {
             let output = secondary.to_token_construction();
-            quote! { .fallback(#output) }
+            quote! { .backup(#output) }
         });
 
         quote! {

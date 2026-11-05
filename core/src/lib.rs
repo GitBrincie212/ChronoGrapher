@@ -82,9 +82,14 @@ pub mod prelude {
     // Utils / Misc
     pub use crate::task::TaskFrameBuilder;
     pub use crate::task::conditionframe::ConditionalFramePredicate;
+    pub use crate::task::conditionframe::NoPredicateArguments;
+    pub use crate::task::delayframe::Delay;
     pub use crate::task::dependency::*;
+    pub use crate::task::dependencyframe::{IsResolved, TargetDependency};
+    pub use crate::task::fallbackframe::{DoubleFallback, FallbackError, TripleFallback};
     pub use crate::task::retryframe::{
         ConstantBackoffStrategy, ExponentialBackoffStrategy, JitterBackoffStrategy,
-        LinearBackoffStrategy, RetryBackoffStrategy,
+        LinearBackoffStrategy, RetryBackoffStrategy, RetryCount, RetryError,
     };
+    pub use crate::task::timeoutframe::TimeoutDuration;
 } // skipcq: RS-D1001

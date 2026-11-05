@@ -145,7 +145,7 @@ define_event_group!(
 /// #    Ok(())
 /// # }
 ///
-/// let workflow = DelayTaskFrame::new(MyTaskFrame, Duration::from_secs(2))
+/// let workflow = DelayTaskFrame::new(MyTaskFrame, Duration::from_secs(2));
 /// # let inner: DelayTaskFrame<MyTaskFrame> = workflow;
 /// ```
 ///
@@ -154,6 +154,7 @@ define_event_group!(
 /// When it comes to configuring dynamic-based delays, it's as easy as using a function:
 /// ```rust
 /// use chronographer::prelude::*;
+/// use std::time::Duration;
 ///
 /// #[taskframe]
 /// #[workflow(delay(|x| Duration::from_secs(2)))]
@@ -177,7 +178,7 @@ define_event_group!(
 ///
 /// let workflow = DelayTaskFrame::new_with(
 ///     MyTaskFrame,
-///     |x| Duration::from_secs(2)
+///     || Duration::from_secs(2)
 /// );
 /// # let inner: DelayTaskFrame<MyTaskFrame> = workflow;
 /// ```

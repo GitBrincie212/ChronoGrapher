@@ -31,11 +31,13 @@ use proc_macro::TokenStream;
 /// ```rust
 /// use chronographer::every;
 ///
-/// every!(500ms) // 500 Milliseconds via "ms"
-/// every!(1s) // 1 Second via "s"
-/// every!(2m) // 2 Minutes via "m"
-/// every!(3h) // 3 Hours via "h"
-/// every!(4d) // 4 Days via "d"
+/// # fn main() {
+/// every!(500ms); // 500 Milliseconds via "ms"
+/// every!(1s); // 1 Second via "s"
+/// every!(2m); // 2 Minutes via "m"
+/// every!(3h); // 3 Hours via "h"
+/// every!(4d); // 4 Days via "d"
+/// # }
 /// ```
 ///
 /// The [`every`] macro allows defining more specific times via multiple time literals sorted from most
@@ -52,12 +54,14 @@ use proc_macro::TokenStream;
 /// ```rust
 /// use chronographer::every;
 ///
-/// every!(1s, 500ms) // 1 Second & 500 Milliseconds
-/// every!(3m, 30s) // 3 Minutes & 30 Seconds
-/// every!(4h, 20s) // 4 Hours & 20 Seconds
-/// every!(6h, 20m, 45s) // 4 Hours, 20 Minutes & 45 Seconds
-/// every!(1d, 20ms) // 1 Day & 20 Milliseconds
-/// every!(1d, 1h, 1m, 1s, 1ms) // 1 Day, 1 Hour, 1 Minute, 1 Second & 1 Millisecond
+/// # fn main() {
+/// every!(1s, 500ms); // 1 Second & 500 Milliseconds
+/// every!(3m, 30s); // 3 Minutes & 30 Seconds
+/// every!(4h, 20s); // 4 Hours & 20 Seconds
+/// every!(6h, 20m, 45s); // 4 Hours, 20 Minutes & 45 Seconds
+/// every!(1d, 20ms); // 1 Day & 20 Milliseconds
+/// every!(1d, 1h, 1m, 1s, 1ms); // 1 Day, 1 Hour, 1 Minute, 1 Second & 1 Millisecond
+/// # }
 /// ```
 ///
 /// Finally, the [`every`] macro additionally supports the use of decimals. Though you can only use it in
@@ -67,10 +71,12 @@ use proc_macro::TokenStream;
 /// ```rust
 /// use chronographer::every;
 ///
-/// every!(1.34s) // Stand-alone Decimal For 1.34 Seconds
-/// every!(3.4d) // 3.4 Days = 3 Days, 9 Hours & 36 Minutes
-/// every!(3d, 9.6h) // Same as above but with multiple time literals
-/// every!(3m, 1.5s) // 3 Minutes & 1.5 Seconds
+/// # fn main() {
+/// every!(1.34s); // Stand-alone Decimal For 1.34 Seconds
+/// every!(3.4d); // 3.4 Days = 3 Days, 9 Hours & 36 Minutes
+/// every!(3d, 9.6h); // Same as above but with multiple time literals
+/// every!(3m, 1.5s); // 3 Minutes & 1.5 Seconds
+/// # }
 /// ```
 ///
 /// # Limitations
@@ -79,12 +85,12 @@ use proc_macro::TokenStream;
 ///
 /// The same thing applies with higher-order time units (above days, such as weeks, months, years, decades... etc.) do
 /// NOT include a time literal. Though a workaround of this issue is using higher values for days such as:
-/// ```rust
+/// ```ignore
 /// use chronographer::every;
 ///
-/// every!(7d) // For 1 Week
-/// every!(30d) // For ~1 Month (without counting the edge cases)
-/// every!(365d) // For ~1 Year (again without edge cases)
+/// every!(7d); // For 1 Week
+/// every!(30d); // For ~1 Month (without counting the edge cases)
+/// every!(365d); // For ~1 Year (again without edge cases)
 /// ```
 ///
 /// If these needs are more common, it is suggested to take a look at [`cron`], [`calendar`] or their Base
@@ -109,7 +115,7 @@ pub fn every(input: TokenStream) -> TokenStream {
 /// use chronographer::prelude::*;
 ///
 /// #[task(schedule = every!(1s))]
-/// pub async fn MyCoolThing(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolThing(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 /// ```
@@ -242,7 +248,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// use chronographer::prelude::*;
 ///
 /// #[taskframe]
-/// pub async fn MyCoolThing(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolThing(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 /// ```
@@ -301,9 +307,9 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// type and the extraction logic).
 ///
 /// The [`taskframe`] macro addresses this, letting you write:
-/// ```rust
+/// ```ignore
 /// #[taskframe]
-/// pub async fn MyTaskFrame(_ctx: &TaskFrameContext, arg1: u8, arg2: Vec<u8>, arg3: Option<String>) -> Result<(), [ERROR]> {
+/// pub async fn MyTaskFrame(_ctx: &TaskFrameContext, arg1: u8, arg2: Vec<u8>, arg3: Option<String>) -> Result<(), /* [ERROR] */> {
 ///     println!("{arg1:?} {arg2:?} {arg3:?}"); // Using the arguments in our code
 ///     // ...
 /// }
@@ -316,6 +322,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// Finally, the use of generics is possible in functions including type parameters and constant
 /// parameters (with one certain limitation in the Limitations section below) as seen:
 /// ```rust
+/// use chronographer::prelude::*;
 /// use std::fmt::{Debug, Display};
 ///
 /// #[taskframe]
@@ -329,7 +336,7 @@ pub fn task(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///    T: Send + Sync + 'static,
 ///    E: Debug + Display + Send + Sync + 'static
 /// {
-///     // ...
+///     todo!()
 /// }
 /// ```
 /// We added 3 generics to our example, two of which are type parameters where the former is ``T`` and
@@ -387,7 +394,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     timeout(20s), // Timeout the entire workflow if it lasts >20 seconds
 ///     retry(5) // If the workflow fails, retry it immediately up to 5 times
 /// )]
-/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 /// ```
@@ -470,7 +477,7 @@ pub fn taskframe(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///     retry(1, when = !["C" | "D"]), // ... with an error filter NOT matching either values "C" or "D"
 ///     retry(4, 5s, ["A" | "B" | "C"]), // Retry up to 4 times with a delay of 5 seconds IF matching the errors
 /// )]
-/// pub async fn MyCoolTaskFrame(ctx: TaskFrameContext) -> Result<(), String> {
+/// pub async fn MyCoolTaskFrame(ctx: &TaskFrameContext) -> Result<(), String> {
 ///     todo!()
 /// }
 /// ```
@@ -814,7 +821,8 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// The bare minimal of both implementation and attachment of a TaskHook looks as follows:
 /// ```rust
-/// use chronographer::prelude;
+/// use chronographer::prelude::*;
+/// use chronographer_base::task::{RetryCount, RetryError};
 ///
 /// // ============== [IMPLEMENTATION PHASE (START)] ==============
 ///
@@ -825,7 +833,7 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// impl MyTaskHook {
 ///    async fn OnTaskStart(&self, ctx: &TaskHookContext) { /* ... */ }
 ///    async fn OnTaskEnd(&self, ctx: &TaskHookContext, error: Option<&dyn TaskError>) { /* ... */ }
-///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, _retry: u32, _error: Option<&dyn TaskError>) { /* ... */ }
+///    async fn OnRetryAttemptEnd(&self, ctx: &TaskHookContext, _retry: RetryCount, _error: RetryError<'_>) { /* ... */ }
 /// }
 ///
 /// // ============== [IMPLEMENTATION PHASE (END)] ==============
@@ -898,6 +906,12 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// implementation phase it typically looks something like:
 /// ```rust
 /// use chronographer::prelude::*;
+/// use chronographer::task::TaskHookLayer;
+/// use async_trait::async_trait;
+/// use std::sync::Arc;
+/// use std::ops::Deref;
+///
+/// struct MyTaskHook;
 ///
 /// /* Input:
 /// #[hook]
@@ -955,6 +969,10 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// In our example we have basic names but the macro also allows to listen to generic-based events:
 /// ```rust
+/// use chronographer::prelude::*;
+///
+/// struct MyTaskHook;
+///
 /// #[hook]
 /// impl MyTaskHook {
 ///    async fn OnHookAttach<OnTaskStart>(&self, ctx: &TaskHookContext, hook: &dyn TaskHook<OnTaskStart>) { /* <...> */ }
@@ -986,6 +1004,10 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Rewriting our previous simple code with this mind, it transforms to:
 /// ```rust
+/// use chronographer::prelude::*;
+///
+/// struct MyTaskHook;
+///
 /// #[hook]
 /// impl MyTaskHook {
 ///
@@ -1006,6 +1028,10 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ``OnRetryAttemptEnd``. Currently, our generic-based events (except the first case) disallow auto-attachement,
 /// the ``default`` parameter solves this elegantly via:
 /// ```rust
+/// use chronographer::prelude::*;
+///
+/// struct MyTaskHook;
+///
 /// #[hook]
 /// impl MyTaskHook {
 ///    #[hook(default)]
@@ -1030,6 +1056,10 @@ pub fn workflow(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// Do note, this value denotes the event to listen to and is prioritized over the method's name when it exists,
 /// which allows for better self-documenting code in some cases:
 /// ```rust
+/// use chronographer::prelude::*;
+///
+/// struct MyTaskHook;
+///
 /// #[hook]
 /// impl MyTaskHook {
 ///
@@ -1194,9 +1224,11 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ```rust
 /// use chronographer::cron;
 ///
-/// cron!(0 0 * * * *) // Every hour, on the hour
-/// cron!(0 30 9 * * *) // Every day at 09:30:00
-/// cron!(0 0 12 * JAN MON) // At noon, on Mondays in January
+/// # fn main() {
+/// cron!(0 0 * * * *); // Every hour, on the hour
+/// cron!(0 30 9 * * *); // Every day at 09:30:00
+/// cron!(0 0 12 * JAN MON); // At noon, on Mondays in January
+/// # }
 /// ```
 ///
 /// # Field Expressions
@@ -1216,12 +1248,14 @@ pub fn main(attrs: TokenStream, item: TokenStream) -> TokenStream {
 /// ```rust
 /// use chronographer::cron;
 ///
-/// cron!(0 */15 * * * *) // Every 15 minutes
-/// cron!(0 0 9-17 * * MON-FRI) // Hourly from 09:00 to 17:00 on weekdays
-/// cron!(0 0 0 L * ?) // At midnight on the last day of the month
-/// cron!(0 0 12 ? * 6#3) // At noon on the third Friday of every month
-/// cron!(0 0 8 15W * ?) // At 08:00 on the nearest weekday to the 15th
-/// cron!(0 0,30 * * * *) // On the hour and the half-hour
+/// # fn main() {
+/// cron!(0 */15 * * * *); // Every 15 minutes
+/// cron!(0 0 9-17 * * MON-FRI); // Hourly from 09:00 to 17:00 on weekdays
+/// cron!(0 0 0 L * ?); // At midnight on the last day of the month
+/// cron!(0 0 12 ? * 6#3); // At noon on the third Friday of every month
+/// cron!(0 0 8 15W * ?); // At 08:00 on the nearest weekday to the 15th
+/// cron!(0 0,30 * * * *); // On the hour and the half-hour
+/// # }
 /// ```
 ///
 /// It is highly recommended to read in detail [Quartz's CRON Trigger Documentation](https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html)
@@ -1509,6 +1543,8 @@ pub fn cron(input: TokenStream) -> TokenStream {
 ///
 /// This simply translates to:
 /// ```rust
+/// use chronographer::prelude::*;
+///
 /// pub trait MyTHEG: TaskHookEvent {}
 /// ```
 ///

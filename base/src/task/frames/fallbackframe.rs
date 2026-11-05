@@ -165,7 +165,7 @@ pub type TripleFallback<T1, T2, T3, T4> =
 /// #    Ok(())
 /// # }
 ///
-/// let workflow = FallbackTaskFrame::singular(MyTaskFrame, MyFallbackTaskFrame::workflow())
+/// let workflow = FallbackTaskFrame::singular(MyTaskFrame, MyFallbackTaskFrame::workflow());
 /// # let inner: FallbackTaskFrame<MyTaskFrame, RetriableTaskFrame<MyFallbackTaskFrame>> = workflow;
 /// ```
 ///

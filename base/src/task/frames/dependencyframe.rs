@@ -250,14 +250,28 @@ define_event!(
 /// ```rust
 /// use chronographer::prelude::*;
 ///
-/// #[task(schedule = every!(1s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {
+/// #    ServerError
+/// # }
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// #
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// #[task(schedule = every!(1s), task_name_override = "MyTask1")]
 /// async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!()
 /// }
-/// #[task(schedule = every!(4s)))]
+///
+/// #[task(schedule = every!(4s))]
 /// #[workflow(dependency(MyTask1))]
 /// async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!()
 /// }
 /// ```
 /// Requires ``MyTask1`` to run at least once, regardless of its result before ``MyTask2`` ever runs.
@@ -265,20 +279,40 @@ define_event!(
 /// The same example in Base API:
 /// ```rust
 /// use chronographer::prelude::*;
+/// use std::num::NonZeroU16;
 ///
-/// # #[task(schedule = every!(1s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {
+/// #    ServerError
+/// # }
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// #
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(1s), task_name_override = "MyTask1")]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!()
 /// # }
-/// # #[task(schedule = every!(4s)))]
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask2")]
 /// # async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!()
 /// # }
 ///
+/// # #[tokio::main]
+/// # async fn main() {
 /// let workflow = DependencyTaskFrame::builder()
-///     .frame(MyTask2)
-///     .dependency(FrameDependency::runs(&MyTask1, 1).await)
+///     .frame(MyTask2TaskFrame)
+///     .dependency(FrameDependency::runs(
+///         MyTask1::instance(),
+///         NonZeroU16::new(1).unwrap()
+///     ).await)
 ///     .build();
+/// # }
 /// ```
 ///
 /// ---
@@ -286,12 +320,30 @@ define_event!(
 /// ```rust
 /// use chronographer::prelude::*;
 ///
-/// #[task(schedule = every!(4s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {
+/// #    ServerError
+/// # }
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// #
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(1s), task_name_override = "MyTask1")]
+/// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+/// #
+/// #[task(schedule = every!(4s))]
 /// #[workflow(
 ///     dependency(MyTask1(any = 3))
 /// )]
 /// async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!()
 /// }
 /// ```
 /// Requires `MyTask1` to run at least 3 times regardless of result. Replacing ``any`` in the macro by
@@ -299,22 +351,42 @@ define_event!(
 ///
 /// The same example in Base API:
 /// ```rust
+/// use std::num::NonZeroU16;
 /// use chronographer::prelude::*;
 ///
-/// # #[task(schedule = every!(1s)))]
-/// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// # #[derive(Debug)]
+/// # enum MyErrors {
+/// #    ServerError
 /// # }
-/// # #[task(schedule = every!(4s)))]
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// #
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(1s), task_name_override = "MyTask1")]
+/// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask2")]
 /// # async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!()
 /// # }
 ///
+/// # #[tokio::main]
+/// # async fn main() {
 /// let workflow = DependencyTaskFrame::builder()
-///     .frame(MyTask2)
+///     .frame(MyTask2TaskFrame)
 ///     // you can replace `runs` by `successful_runs` or `failed_runs`
-///     .dependency(FrameDependency::runs(&MyTask1, 3).await)
+///     .dependency(FrameDependency::runs(
+///         MyTask1::instance(),
+///         NonZeroU16::new(3).unwrap()
+///     ).await)
 ///     .build();
+/// # }
 /// ```
 ///
 /// ---
@@ -323,10 +395,14 @@ define_event!(
 ///
 /// ```rust
 /// use chronographer::prelude::*;
+/// use std::sync::atomic::AtomicBool;
 ///
 /// static MY_FLAG: AtomicBool = AtomicBool::new(false);
 ///
-/// #[task(schedule = every!(4s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+///
+/// #[task(schedule = every!(4s))]
 /// #[workflow(
 ///     dependency(
 ///         // You can do more complex than just returning always false
@@ -334,25 +410,36 @@ define_event!(
 ///     )
 /// )]
 /// async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!()
 /// }
 /// ```
 /// Requires `MY_FLAG` to be true or the closure in `dynamic(...)` to return true.
 /// While rewriting same code in Base API will look like:
 /// ```rust
 /// use chronographer::prelude::*;
+/// use std::sync::atomic::{AtomicBool, Ordering};
 ///
 /// # static MY_FLAG: AtomicBool = AtomicBool::new(false);
 /// #
-/// # #[task(schedule = every!(4s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(4s))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!()
 /// # }
 /// let flag_dep = FrameDependency::external(|| MY_FLAG.load(Ordering::Relaxed));
-/// let dynamic_dep = FrameDependency::external(|| false);
+/// let dynamic_dep = FrameDependency::external(|| std::future::ready(false));
 ///
 /// let workflow = DependencyTaskFrame::builder()
-///     .frame(MyTask1)
+///     .frame(MyTask1TaskFrame)
 ///     .dependency(flag_dep | dynamic_dep)
 ///     .build();
 /// ```
@@ -363,7 +450,36 @@ define_event!(
 /// ```rust
 /// use chronographer::prelude::*;
 ///
-/// #[task(schedule = every!(4s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask1")]
+/// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+/// #
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask2")]
+/// # async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+/// #
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask4")]
+/// # async fn MyTask4(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+/// #
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask5")]
+/// # async fn MyTask5(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+///
+/// #[task(schedule = every!(4s))]
 /// #[workflow(
 ///     dependency(
 ///         !MyTask5 && (MyTask1 || MyTask2 ^ MyTask4),
@@ -373,7 +489,7 @@ define_event!(
 ///     )
 /// )]
 /// async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!()
 /// }
 /// ```
 /// Now instead of just skipping this workflow part with success, it errors out.
@@ -382,26 +498,67 @@ define_event!(
 /// The same example in Base API:
 /// ```rust
 /// use chronographer::prelude::*;
+/// use std::marker::PhantomData;
 ///
-/// # #[task(schedule = every!(4s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {
+/// #    ServerError
+/// # }
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// #
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask1")]
+/// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+/// #
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask2")]
+/// # async fn MyTask2(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+/// #
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask3")]
 /// # async fn MyTask3(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!()
+/// # }
+/// #
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask4")]
+/// # async fn MyTask4(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
+/// # }
+/// #
+/// # #[task(schedule = every!(4s), task_name_override = "MyTask5")]
+/// # async fn MyTask5(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
+/// #     todo!()
 /// # }
 ///
 /// pub struct DependencyUnresolveCustom<T: TaskError>(PhantomData<T>);
-/// impl<T: DefaultDependencyError> DependencyUnresolve<T> for DependencyUnresolveFail<T> {
+/// impl<T: DefaultDependencyError> DependencyUnresolve<T> for DependencyUnresolveCustom<T> {
 ///     fn execute(&self) -> Result<(), T> {
 ///         Err(MyErrors::ServerError)
 ///     }
 /// }
 ///
+/// # async fn main() {
 /// let workflow = DependencyTaskFrame::builder()
 ///     .frame(MyTask3)
-///     .dependency(!FrameDependency::runs(&MyTask5, 1).await & (FrameDependency::runs(&MyTask1, 1).await | FrameDependency::runs(&MyTask2, 1).await ^ FrameDependency::runs(&MyTask4, 1).await))
+///     .dependency(
+///         !FrameDependency::runs(MyTask5::instance(), 1).await
+///             & (FrameDependency::runs(MyTask1::instance(), 1).await
+///             | FrameDependency::runs(MyTask2::instance(), 1).await
+///             ^ FrameDependency::runs(MyTask4::instance(), 1).await)
+///     )
 ///     .unresolve(DependencyUnresolveFail::default())
 ///     // or
 ///     // .unresolve(DependencyUnresolveCustom(PhantomData))
 ///     .build();
+/// # }
 /// ```
 ///
 /// # See Also

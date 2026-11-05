@@ -555,10 +555,20 @@ define_event_group!(
 /// ```rust
 /// use chronographer::prelude::*;
 ///
-/// #[task(schedule = every!(3s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// #[task(schedule = every!(3s))]
 /// #[workflow(retry(5))]
 /// async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!()
 /// }
 /// ```
 /// Initially tries ``MyTask1`` and if successful it returns immediately, but if a failure occurs and
@@ -570,13 +580,23 @@ define_event_group!(
 /// use chronographer::prelude::*;
 /// use std::num::NonZeroU32;
 ///
-/// # #[task(schedule = every!(3s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(3s))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!()
 /// # }
 ///
 /// let workflow = RetriableTaskFrame::builder()
-///     .frame(MyTask1)
+///     .frame(MyTask1TaskFrame)
 ///     .retries(NonZeroU32::new(5).unwrap())
 ///     .build();
 /// ```
@@ -589,10 +609,20 @@ define_event_group!(
 /// ```rust
 /// use chronographer::prelude::*;
 ///
-/// #[task(schedule = every!(3s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// #[task(schedule = every!(3s))]
 /// #[workflow( retry(5, delay = 500ms))]
 /// async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!()
 /// }
 /// ```
 /// This is a modified example of the previous example, the main change in behavior is now each retry
@@ -604,13 +634,23 @@ define_event_group!(
 /// use std::num::NonZeroU32;
 /// use chronographer::prelude::*;
 ///
-/// # #[task(schedule = every!(3s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(3s), task_name_override = "MyTask1")]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!()
 /// # }
 ///
 /// let workflow = RetriableTaskFrame::builder()
-///     .frame(MyTask1)
+///     .frame(MyTask1TaskFrame)
 ///     .retries(NonZeroU32::new(5).unwrap())
 ///     .constant(Duration::from_millis(500))
 ///     .build();
@@ -630,7 +670,17 @@ define_event_group!(
 /// ```rust
 /// use chronographer::prelude::*;
 ///
-/// #[task(schedule = every!(3s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+///
+/// #[task(schedule = every!(3s), task_name_override = "MyTask1")]
 /// #[workflow(
 ///     // These retries are permutations (not meant to be applied one after the other)
 ///     retry(5, delay = constant(500ms)) // Identical to without constant(...)
@@ -639,7 +689,7 @@ define_event_group!(
 ///     retry(5, delay = jitter(full, constant(500ms), 2)) // Full-Jitter based (randomized) delay
 /// )]
 /// async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!()
 /// }
 /// ```
 ///
@@ -664,22 +714,32 @@ define_event_group!(
 /// use std::num::NonZeroU32;
 /// use chronographer::prelude::*;
 ///
-/// # #[task(schedule = every!(4s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {}
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(4s))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!();
 /// # }
 ///
 /// // Same as before the builders for backoffs are meant to be viewed isolated
 /// let workflow = RetriableTaskFrame::builder()
-///     .frame(MyTask1)
+///     .frame(MyTask1TaskFrame)
 ///     .retries(NonZeroU32::new(5).unwrap())
 ///     .constant(Duration::from_millis(500))
-///     .linear(Duration::from_millis(50))
-///     .exponential(2.0)
-///     .full_jitter(
-///         ConstantBackoffStrategy::new(Duration::from_millis(500)),
-///         5.0
-///     )
+///     // .linear(Duration::from_millis(50))
+///     // .exponential(2.0)
+///     // .full_jitter(
+///     //     ConstantBackoffStrategy::new(Duration::from_millis(500)),
+///     //     5.0
+///     // )
 ///     .build();
 /// ```
 ///
@@ -690,12 +750,26 @@ define_event_group!(
 /// error. Instead, you can filter these errors:
 ///
 /// ```rust
-/// #[task(schedule = every!(4s)))]
+/// use chronographer::prelude::*;
+///
+/// # #[derive(Debug)]
+/// # enum MyErrors {
+/// #    VariantA,
+/// #    VariantB(u8)
+/// # }
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// #[task(schedule = every!(4s))]
 /// #[workflow(
 ///     retry(5, 500ms, when = [MyErrors::VariantA, MyErrors::VariantB(1)])
 /// )]
 /// async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-///     // ...
+///     todo!();
 /// }
 /// ```
 /// Now every error that follow either patterns of ``MyErrors::VariantA`` and ``MyErrors::VariantB(1)``
@@ -708,9 +782,22 @@ define_event_group!(
 /// use std::num::NonZeroU32;
 /// use chronographer::prelude::*;
 ///
-/// # #[task(schedule = every!(4s)))]
+/// # #[derive(Debug)]
+/// # enum MyErrors {
+/// #    VariantA,
+/// #    VariantB(u8)
+/// # }
+/// #
+/// # use std::fmt::{Display, Formatter, Result as FmtResult};
+/// # impl Display for MyErrors {
+/// #     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+/// #         todo!()
+/// #     }
+/// # }
+/// #
+/// # #[task(schedule = every!(4s))]
 /// # async fn MyTask1(ctx: &TaskFrameContext) -> Result<(), MyErrors> {
-/// #     // ...
+/// #     todo!();
 /// # }
 ///
 /// // Or can be manually implemented via the trait
@@ -720,10 +807,10 @@ define_event_group!(
 /// }
 ///
 /// let workflow = RetriableTaskFrame::builder()
-///     .frame(MyTask1)
+///     .frame(MyTask1TaskFrame)
 ///     .retries(NonZeroU32::new(5).unwrap())
 ///     .constant(Duration::from_millis(500))
-///     .filter(my_error_filter)
+///     .filter(my_error_filter as for<'a> fn(&'a _) -> _)
 ///     .build();
 /// ```
 ///

@@ -175,7 +175,7 @@ impl<E: TaskError, Args: 'static + Send + Sync> NoOperationTaskFrameBound
 /// ```rust
 /// use chronographer::prelude::*;
 ///
-/// /// // Assume we have defined our predicate and MyTaskFrame already like before.
+/// // Assume we have defined our predicate and MyTaskFrame already like before.
 /// # fn my_predicate() -> bool {
 /// #     true
 /// # }

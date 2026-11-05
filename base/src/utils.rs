@@ -56,7 +56,7 @@ pub(crate) mod macros {
         ($(#[$($attrss:tt)*])* $name: ident ($($toks: tt)*)) => {
             $(#[$($attrss)*])*
             #[repr(transparent)]
-            pub struct $name($($toks)+);
+            pub struct $name(pub $($toks)+);
 
             impl From<$name> for $($toks)+ {
                 fn from(value: $name) -> Self {
@@ -76,7 +76,7 @@ pub(crate) mod macros {
         ($(#[$($attrss:tt)*])* $name: ident <$($lt: lifetime),*> ($($toks: tt)*)) => {
             $(#[$($attrss)*])*
             #[repr(transparent)]
-            pub struct $name<$($lt),*>($($toks)+);
+            pub struct $name<$($lt),*>(pub $($toks)+);
 
             impl<$($lt),*> From<$name<$($lt),*>> for $($toks)+ {
                 fn from(value: $name<$($lt),*>) -> Self {
