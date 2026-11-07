@@ -8,3 +8,9 @@ license-file = "../LICENSE"
 [dependencies]
 chronographer = {path = "../core"}
 divan = { version = "4.3.0", package = "codspeed-divan-compat" }
+tokio = { version = "1.47.1", features = ["rt-multi-thread", "time", "macros", "sync"] }
+async-trait = "0.1.89"
+
+[[bench]]
+name = "benchmarks"
+harness = false
