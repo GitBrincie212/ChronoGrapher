@@ -15,10 +15,21 @@ pub use schedule::*;
 
 use crate::errors::TaskError;
 use std::fmt::Debug;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock};
 
 static INSTANCE_ID: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
+
+fn allocate_instance_id(counter: &AtomicUsize) -> Option<usize> {
+    let mut id = counter.load(Ordering::Relaxed);
+    loop {
+        let next = id.checked_add(1)?;
+        match counter.compare_exchange_weak(id, next, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => return Some(id),
+            Err(actual) => id = actual,
+        }
+    }
+}
 
 pub type ErasedTask<E> = Task<Box<dyn DynTaskFrame<E, ()>>>;
 
@@ -26,6 +37,7 @@ pub struct Task<T1> {
     frame: T1,
     schedule: Box<dyn TaskSchedule>,
     instance_id: usize,
+    hook_owner: TaskHookOwner,
 }
 
 impl<T1> Task<T1> {
@@ -78,10 +90,13 @@ impl<E: TaskError> ErasedTask<E> {
 
 impl<T1: TaskFrame<Args = ()>> Task<T1> {
     pub fn new(frame: T1, schedule: impl TaskSchedule) -> Self {
+        // Contexts are copyable and may outlive a task. Never reuse an ID.
+        let instance_id = allocate_instance_id(&INSTANCE_ID).expect("task instance IDs exhausted");
         Self {
             frame,
             schedule: Box::new(schedule),
-            instance_id: INSTANCE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            instance_id,
+            hook_owner: TaskHookOwner::new(instance_id),
         }
     }
 
@@ -94,6 +109,7 @@ impl<T1: TaskFrame<Args = ()>> Task<T1> {
             frame: Box::new(self.frame),
             schedule: self.schedule,
             instance_id: self.instance_id,
+            hook_owner: self.hook_owner,
         }
     }
 }
@@ -135,5 +151,18 @@ impl<TF: TaskFrame> TaskHookLayer for Task<TF> {
 
     fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output = ()> + Send {
         self.detach_hook::<EV, T>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AtomicUsize, allocate_instance_id};
+
+    #[test]
+    fn exhausted_task_ids_never_wrap() {
+        let counter = AtomicUsize::new(usize::MAX - 1);
+        assert_eq!(allocate_instance_id(&counter), Some(usize::MAX - 1));
+        assert_eq!(allocate_instance_id(&counter), None);
+        assert_eq!(allocate_instance_id(&counter), None);
     }
 }
