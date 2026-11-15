@@ -5,10 +5,11 @@ use crate::task::{Sealed, TaskHookLayer};
 use crate::utils::macros::{define_event, define_event_group};
 use async_trait::async_trait;
 use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 
 pub mod events {
     pub use crate::task::OnTaskEnd;
@@ -35,15 +36,6 @@ pub mod events {
     pub use crate::task::hooks::TaskLifecycleEvents;
 } // skipcq: RS-D1001
 
-/*  TODO: Memory leakage is possible when Task is fully dropped (including its erased forms)
-
-    Ensure a mechanism for when there are no references to the Task (including the erased tasks),
-    to notify the registry to drop everything linked to the Task.
-
-    One of the problems will be the (TypeId, usize) pair, while usize is known as its the instance ID,
-    the TypeId isn't.
-*/
-
 pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> =
     LazyLock::new(|| TaskHookContainer(DashMap::new()));
 
@@ -54,95 +46,92 @@ pub(crate) static TASKHOOK_REGISTRY: LazyLock<TaskHookContainer> =
 */
 
 #[derive(Default)]
-pub(crate) enum TaskHookInstances {
+enum HookStack<E: TaskHookEvent> {
     #[default]
     Empty,
-    Single(&'static dyn ErasedTaskHook),
-    Multiple(Vec<&'static dyn ErasedTaskHook>),
+    Single(Arc<RegisteredHook<E>>),
+    Multiple(Vec<Arc<RegisteredHook<E>>>),
 }
 
-impl TaskHookInstances {
+impl<E: TaskHookEvent> HookStack<E> {
     #[inline(always)]
-    fn push(&mut self, hook: &'static dyn ErasedTaskHook) {
+    fn push(&mut self, hook: Arc<RegisteredHook<E>>) {
         match self {
-            TaskHookInstances::Empty => *self = TaskHookInstances::Single(hook),
-            TaskHookInstances::Single(prev_hook) => {
-                *self = TaskHookInstances::Multiple(vec![*prev_hook, hook])
+            HookStack::Empty => *self = HookStack::Single(hook),
+            HookStack::Single(prev_hook) => {
+                *self = HookStack::Multiple(vec![prev_hook.clone(), hook])
             }
 
-            TaskHookInstances::Multiple(hooks) => {
+            HookStack::Multiple(hooks) => {
                 hooks.push(hook);
             }
         }
     }
 
     #[inline(always)]
-    fn get(&self) -> &'static dyn ErasedTaskHook {
+    fn listener(&self) -> Option<Arc<RegisteredHook<E>>> {
         match self {
-            TaskHookInstances::Empty => {
-                unreachable!()
-            }
-            TaskHookInstances::Single(prev_hook) => *prev_hook,
-            TaskHookInstances::Multiple(hooks) => unsafe { *hooks.last().unwrap_unchecked() },
+            Self::Empty => None,
+            Self::Single(hook) => Some(hook.clone()),
+            Self::Multiple(hooks) => hooks.last().cloned(),
         }
     }
 
     #[inline(always)]
-    fn pop(&mut self) -> Option<&'static dyn ErasedTaskHook> {
+    fn pop(&mut self) -> Option<Arc<RegisteredHook<E>>> {
         match std::mem::take(self) {
-            TaskHookInstances::Empty => None,
-            TaskHookInstances::Single(instance) => Some(instance),
+            HookStack::Empty => None,
+            HookStack::Single(instance) => Some(instance),
 
-            TaskHookInstances::Multiple(mut instances) => {
-                let val = unsafe { instances.pop().unwrap_unchecked() };
-                if instances.len() == 1 {
-                    *self =
-                        TaskHookInstances::Single(unsafe { instances.pop().unwrap_unchecked() });
-                } else {
-                    *self = TaskHookInstances::Multiple(instances);
-                }
-                Some(val)
+            HookStack::Multiple(mut instances) => {
+                let value = instances.pop();
+                *self = match instances.len() {
+                    0 => Self::Empty,
+                    1 => Self::Single(instances.remove(0)),
+                    _ => Self::Multiple(instances),
+                };
+                value
             }
         }
     }
 }
 
 #[derive(Default)]
-pub(crate) enum TaskHooksPromotion {
+enum EventHooks<E: TaskHookEvent> {
     #[default]
     Empty,
-    Single(TypeId, TaskHookInstances),
-    Double((TypeId, TaskHookInstances), (TypeId, TaskHookInstances)),
+    Single(TypeId, HookStack<E>),
+    Double((TypeId, HookStack<E>), (TypeId, HookStack<E>)),
     Triplet(
-        (TypeId, TaskHookInstances),
-        (TypeId, TaskHookInstances),
-        (TypeId, TaskHookInstances),
+        (TypeId, HookStack<E>),
+        (TypeId, HookStack<E>),
+        (TypeId, HookStack<E>),
     ),
-    Multiple(HashMap<TypeId, TaskHookInstances>),
+    Multiple(HashMap<TypeId, HookStack<E>>),
 }
 
-impl TaskHooksPromotion {
+impl<E: TaskHookEvent> EventHooks<E> {
     #[inline(always)]
-    fn promote(&mut self, hook_id: TypeId, hook: &'static dyn ErasedTaskHook) {
+    fn promote(&mut self, hook_id: TypeId, hook: Arc<RegisteredHook<E>>) {
         match self {
-            TaskHooksPromotion::Empty => {
-                *self = TaskHooksPromotion::Single(hook_id, TaskHookInstances::Single(hook));
+            EventHooks::Empty => {
+                *self = EventHooks::Single(hook_id, HookStack::Single(hook));
             }
 
-            TaskHooksPromotion::Single(prev_id, prev_hook) => {
+            EventHooks::Single(prev_id, prev_hook) => {
                 if prev_id == &hook_id {
                     prev_hook.push(hook);
                     return;
                 }
                 let prev_instances = std::mem::take(prev_hook);
 
-                *self = TaskHooksPromotion::Double(
+                *self = EventHooks::Double(
                     (*prev_id, prev_instances),
-                    (hook_id, TaskHookInstances::Single(hook)),
+                    (hook_id, HookStack::Single(hook)),
                 );
             }
 
-            TaskHooksPromotion::Double((id1, hooks1), (id2, hooks2)) => {
+            EventHooks::Double((id1, hooks1), (id2, hooks2)) => {
                 if id1 == &hook_id {
                     hooks1.push(hook);
                     return;
@@ -154,14 +143,14 @@ impl TaskHooksPromotion {
                 let prev_instances1 = std::mem::take(hooks1);
                 let prev_instances2 = std::mem::take(hooks2);
 
-                *self = TaskHooksPromotion::Triplet(
+                *self = EventHooks::Triplet(
                     (*id1, prev_instances1),
                     (*id2, prev_instances2),
-                    (hook_id, TaskHookInstances::Single(hook)),
+                    (hook_id, HookStack::Single(hook)),
                 );
             }
 
-            TaskHooksPromotion::Triplet((id1, hooks1), (id2, hooks2), (id3, hooks3)) => {
+            EventHooks::Triplet((id1, hooks1), (id2, hooks2), (id3, hooks3)) => {
                 if id1 == &hook_id {
                     hooks1.push(hook);
                     return;
@@ -181,49 +170,45 @@ impl TaskHooksPromotion {
                 map.insert(*id1, prev_instances1);
                 map.insert(*id2, prev_instances2);
                 map.insert(*id3, prev_instances3);
-                map.insert(hook_id, TaskHookInstances::Single(hook));
-                *self = TaskHooksPromotion::Multiple(map);
+                map.insert(hook_id, HookStack::Single(hook));
+                *self = EventHooks::Multiple(map);
             }
 
-            TaskHooksPromotion::Multiple(map) => {
+            EventHooks::Multiple(map) => {
                 map.entry(hook_id)
-                    .or_insert_with(TaskHookInstances::default)
+                    .or_insert_with(HookStack::default)
                     .push(hook);
             }
         }
     }
 
     #[inline(always)]
-    fn fetch(&self, hook_id: &TypeId) -> Option<&'static dyn ErasedTaskHook> {
+    fn fetch(&self, hook_id: &TypeId) -> Option<&HookStack<E>> {
         match self {
-            TaskHooksPromotion::Single(id, instances) if *id == *hook_id => {
-                return Some(instances.get());
+            EventHooks::Single(id, instances) if *id == *hook_id => {
+                return Some(instances);
             }
-            TaskHooksPromotion::Double((id1, instances1), (id2, instances2)) => {
+            EventHooks::Double((id1, instances1), (id2, instances2)) => {
                 if *id1 == *hook_id {
-                    return Some(instances1.get());
+                    return Some(instances1);
                 }
                 if *id2 == *hook_id {
-                    return Some(instances2.get());
+                    return Some(instances2);
                 }
             }
-            TaskHooksPromotion::Triplet(
-                (id1, instances1),
-                (id2, instances2),
-                (id3, instances3),
-            ) => {
+            EventHooks::Triplet((id1, instances1), (id2, instances2), (id3, instances3)) => {
                 if *id1 == *hook_id {
-                    return Some(instances1.get());
+                    return Some(instances1);
                 }
                 if *id2 == *hook_id {
-                    return Some(instances2.get());
+                    return Some(instances2);
                 }
                 if *id3 == *hook_id {
-                    return Some(instances3.get());
+                    return Some(instances3);
                 }
             }
-            TaskHooksPromotion::Multiple(vals) => {
-                return Some(vals.get(hook_id)?.get());
+            EventHooks::Multiple(vals) => {
+                return vals.get(hook_id);
             }
 
             _ => {}
@@ -233,185 +218,189 @@ impl TaskHooksPromotion {
     }
 
     #[inline(always)]
-    fn remove(&mut self, hook_id: TypeId) -> Option<&'static dyn ErasedTaskHook> {
+    fn remove(&mut self, hook_id: TypeId) -> Option<Arc<RegisteredHook<E>>> {
         match self {
-            TaskHooksPromotion::Double((id1, instances1), (id2, instances2)) => {
+            Self::Single(id, instances) if *id == hook_id => instances.pop(),
+            Self::Double((id1, first), (id2, second)) => {
                 if *id1 == hook_id {
-                    if let Some(instance) = instances1.pop() {
-                        return Some(instance);
-                    }
-
-                    let hook2 = std::mem::take(instances2);
-                    *self = TaskHooksPromotion::Single(*id2, hook2);
+                    first.pop()
                 } else if *id2 == hook_id {
-                    if let Some(instance) = instances2.pop() {
-                        return Some(instance);
-                    }
-
-                    let hook1 = std::mem::take(instances1);
-                    *self = TaskHooksPromotion::Single(*id1, hook1);
+                    second.pop()
+                } else {
+                    None
                 }
-
-                None
             }
-            TaskHooksPromotion::Triplet(
-                (id1, instances1),
-                (id2, instances2),
-                (id3, instances3),
-            ) => {
+            Self::Triplet((id1, first), (id2, second), (id3, third)) => {
                 if *id1 == hook_id {
-                    if let Some(instance) = instances1.pop() {
-                        return Some(instance);
-                    }
-
-                    let hooks2 = std::mem::take(instances2);
-                    let hooks3 = std::mem::take(instances3);
-                    *self = TaskHooksPromotion::Double((*id2, hooks2), (*id3, hooks3));
+                    first.pop()
                 } else if *id2 == hook_id {
-                    if let Some(instance) = instances2.pop() {
-                        return Some(instance);
-                    }
-
-                    let hooks1 = std::mem::take(instances1);
-                    let hooks3 = std::mem::take(instances3);
-                    *self = TaskHooksPromotion::Double((*id1, hooks1), (*id3, hooks3));
+                    second.pop()
                 } else if *id3 == hook_id {
-                    if let Some(instance) = instances3.pop() {
-                        return Some(instance);
-                    }
-
-                    let hooks1 = std::mem::take(instances1);
-                    let hooks2 = std::mem::take(instances2);
-                    *self = TaskHooksPromotion::Double((*id1, hooks1), (*id2, hooks2));
+                    third.pop()
+                } else {
+                    None
                 }
-
-                None
             }
-
-            TaskHooksPromotion::Multiple(map) => {
-                let instance = map.remove(&hook_id)?.pop();
-
-                if map.len() == 3 {
-                    let mut drained = map.drain();
-                    let (id1, hooks1) = unsafe { drained.next().unwrap_unchecked() };
-                    let (id2, hooks2) = unsafe { drained.next().unwrap_unchecked() };
-                    let (id3, hooks3) = unsafe { drained.next().unwrap_unchecked() };
-                    drop(drained);
-                    *self =
-                        TaskHooksPromotion::Triplet((id1, hooks1), (id2, hooks2), (id3, hooks3));
+            Self::Multiple(map) => {
+                let stack = map.get_mut(&hook_id)?;
+                let removed = stack.pop();
+                if matches!(stack, HookStack::Empty) {
+                    map.remove(&hook_id);
                 }
-
-                instance
+                removed
             }
+            _ => None,
+        }
+    }
 
-            _ => {
-                *self = TaskHooksPromotion::Empty;
-                None
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::Empty => true,
+            Self::Single(_, stack) => matches!(stack, HookStack::Empty),
+            Self::Double((_, first), (_, second)) => {
+                matches!((first, second), (HookStack::Empty, HookStack::Empty))
             }
+            Self::Triplet((_, first), (_, second), (_, third)) => matches!(
+                (first, second, third),
+                (HookStack::Empty, HookStack::Empty, HookStack::Empty)
+            ),
+            Self::Multiple(map) => map.is_empty(),
+        }
+    }
+
+    fn snapshot(&self) -> Vec<Arc<RegisteredHook<E>>> {
+        match self {
+            Self::Empty => Vec::new(),
+            Self::Single(_, hook) => hook.listener().into_iter().collect(),
+            Self::Double((_, first), (_, second)) => [first.listener(), second.listener()]
+                .into_iter()
+                .flatten()
+                .collect(),
+            Self::Triplet((_, first), (_, second), (_, third)) => {
+                [first.listener(), second.listener(), third.listener()]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+            }
+            Self::Multiple(map) => map.values().filter_map(HookStack::listener).collect(),
         }
     }
 }
 
-pub(crate) struct TaskHookContainer(pub DashMap<(TypeId, usize), TaskHooksPromotion>);
+// Erase the collection, not the payload. Each bucket stores hooks for exactly one event type.
+type TaskEventHooks = DashMap<TypeId, Box<dyn Any + Send + Sync>>;
+
+pub(crate) struct TaskHookContainer(DashMap<usize, OnceLock<Arc<TaskEventHooks>>>);
+
+// This guard moves with Task::into_erased, so type erasure never unregisters a live task.
+pub(crate) struct TaskHookOwner(usize);
+
+impl TaskHookOwner {
+    pub(crate) fn new(instance_id: usize) -> Self {
+        TASKHOOK_REGISTRY.0.insert(instance_id, OnceLock::new());
+        Self(instance_id)
+    }
+}
+
+impl Drop for TaskHookOwner {
+    fn drop(&mut self) {
+        // remove returns owned data. User hook destructors run after the registry lock is released.
+        let removed = TASKHOOK_REGISTRY.0.remove(&self.0);
+        drop(removed);
+    }
+}
 
 impl TaskHookContainer {
-    pub fn attach<E: TaskHookEvent>(
+    fn events(&self, instance_id: usize) -> Option<Arc<TaskEventHooks>> {
+        self.0.get(&instance_id)?.get().cloned()
+    }
+
+    pub async fn attach<E: TaskHookEvent>(
         &self,
         ctx: &TaskHookContext,
         hook: Arc<impl TaskHook<E>>,
-    ) -> impl Future<Output = ()> + Send {
-        let hook_id = hook.type_id();
-        let erased_hook: &'static dyn ErasedTaskHook =
-            Box::leak(Box::new(ErasedTaskHookWrapper::<E>::new(hook.clone())));
+    ) {
+        let Some(events) = self
+            .0
+            .get(&ctx.0)
+            .map(|entry| entry.get_or_init(|| Arc::new(DashMap::new())).clone())
+        else {
+            return;
+        };
+        let hook_id = hook.as_ref().type_id();
+        let registered = Arc::new(RegisteredHook::<E>::new(hook.clone()));
+        events
+            .entry(TypeId::of::<E>())
+            .or_insert_with(|| Box::new(EventHooks::<E>::Empty))
+            .downcast_mut::<EventHooks<E>>()
+            .expect("event type must match its registry key")
+            .promote(hook_id, registered);
+        drop(events);
 
-        self.0
-            .entry((TypeId::of::<E>(), ctx.0))
-            .or_insert(TaskHooksPromotion::Empty)
-            .promote(hook_id, erased_hook);
-
-        async move {
-            self.emit::<OnHookAttach<E>>(ctx, &(hook.as_ref() as &dyn TaskHook<E>))
-                .await;
-        }
+        self.emit::<OnHookAttach<E>>(ctx, &(hook.as_ref() as &dyn TaskHook<E>))
+            .await;
     }
 
     pub fn get<E: TaskHookEvent, T: TaskHook<E>>(&self, instance_id: usize) -> Option<Arc<T>> {
-        let interested_event_container = self.0.get(&(TypeId::of::<E>(), instance_id))?;
-
-        let entry = interested_event_container.fetch(&TypeId::of::<T>())?;
-
-        entry.as_any().downcast::<T>().ok()
+        let events = self.events(instance_id)?;
+        let category = events.get(&TypeId::of::<E>())?;
+        let concrete = category
+            .downcast_ref::<EventHooks<E>>()?
+            .fetch(&TypeId::of::<T>())?
+            .listener()?
+            .concrete
+            .clone();
+        drop(category);
+        concrete.downcast::<T>().ok()
     }
 
     pub async fn detach<E: TaskHookEvent, T: TaskHook<E>>(&self, ctx: &TaskHookContext) {
-        let Some(mut event_category) = self.0.get_mut(&(TypeId::of::<E>(), ctx.0)) else {
+        let Some(events) = self.events(ctx.0) else {
             return;
         };
-
-        let Some(hook) = event_category.remove(TypeId::of::<T>()) else {
+        let hook = {
+            let Entry::Occupied(mut category) = events.entry(TypeId::of::<E>()) else {
+                return;
+            };
+            let Some(hooks) = category.get_mut().downcast_mut::<EventHooks<E>>() else {
+                return;
+            };
+            let removed = hooks.remove(TypeId::of::<T>());
+            if hooks.is_empty() {
+                category.remove();
+            }
+            removed
+        };
+        drop(events);
+        let Some(hook) = hook else {
             return;
         };
-
-        let typed: Arc<T> = match hook.as_any().downcast::<T>() {
-            Ok(typed) => typed,
-            Err(actual) => panic!(
-                "Failed to downcast stored TaskHook to expected concrete type '{}'. Event ID: '{}'. Expected TypeId: {:?}, actual TypeId: {:?}. \
-                Ensure the hook stored under this event is of the requested type and there are no type mismatches.",
-                std::any::type_name::<T>(),
-                std::any::type_name::<E>(),
-                TypeId::of::<T>(),
-                actual.as_ref().type_id()
-            ),
-        };
-
-        let wrapper_ptr = hook as *const dyn ErasedTaskHook as *const ();
-        let wrapper_ptr = wrapper_ptr as *mut ErasedTaskHookWrapper<E>;
-        let wrapper_box = unsafe { Box::from_raw(wrapper_ptr) };
-        drop(wrapper_box);
-
+        let typed = hook
+            .concrete
+            .clone()
+            .downcast::<T>()
+            .expect("registered hook type must match");
+        drop(hook);
         self.emit::<OnHookDetach<E>>(ctx, &(typed.as_ref() as &dyn TaskHook<E>))
             .await;
     }
 
     pub async fn emit<E: TaskHookEvent>(&self, ctx: &TaskHookContext, payload: &E::Payload<'_>) {
-        if let Some(entry) = self.0.get(&(TypeId::of::<E>(), ctx.0)) {
-            let val = entry.value();
-            match val {
-                TaskHooksPromotion::Empty => {}
-                TaskHooksPromotion::Single(_, hook) => {
-                    let hook = hook.get();
-                    drop(entry);
-                    hook.on_emit(ctx, &payload).await;
-                }
-                TaskHooksPromotion::Double((_, hook1), (_, hook2)) => {
-                    let hook1 = hook1.get();
-                    let hook2 = hook2.get();
-                    drop(entry);
-                    hook1.on_emit(ctx, &payload).await;
-                    hook2.on_emit(ctx, &payload).await;
-                }
-                TaskHooksPromotion::Triplet((_, hook1), (_, hook2), (_, hook3)) => {
-                    let hook1 = hook1.get();
-                    let hook2 = hook2.get();
-                    let hook3 = hook3.get();
-                    drop(entry);
-                    hook1.on_emit(ctx, &payload).await;
-                    hook2.on_emit(ctx, &payload).await;
-                    hook3.on_emit(ctx, &payload).await;
-                }
-                TaskHooksPromotion::Multiple(vals) => {
-                    let mut instances = Vec::with_capacity(vals.len());
-                    for hook in vals.values() {
-                        instances.push(hook.get());
-                    }
-
-                    drop(entry);
-
-                    for hook in instances {
-                        hook.on_emit(ctx, &payload).await;
-                    }
-                }
-            }
+        let Some(events) = self.events(ctx.0) else {
+            return;
+        };
+        let hooks = events
+            .get(&TypeId::of::<E>())
+            .and_then(|entry| {
+                entry
+                    .downcast_ref::<EventHooks<E>>()
+                    .map(EventHooks::snapshot)
+            })
+            .unwrap_or_default();
+        drop(events);
+        // The snapshot owns the live listeners until dispatch completes.
+        for hook in hooks {
+            hook.listener.on_event(ctx, payload).await;
         }
     }
 }
@@ -432,6 +421,8 @@ impl TaskHookEvent for () {
 }
 
 #[async_trait]
+/// The task retains the listener until detachment or task destruction. Use a
+/// `Weak` back-reference to an `Arc<Task<_>>` to avoid a reference cycle.
 pub trait TaskHook<E: TaskHookEvent>: Send + Sync + 'static {
     async fn on_event(&self, _ctx: &TaskHookContext, _payload: &E::Payload<'_>) {}
 }
@@ -441,42 +432,17 @@ pub trait NonObserverTaskHook: Send + Sync + 'static {}
 #[async_trait]
 impl<T: NonObserverTaskHook> TaskHook<()> for T {}
 
-#[derive(Clone)]
-struct ErasedTaskHookWrapper<E: TaskHookEvent> {
-    hook: Arc<dyn TaskHook<E>>,
+struct RegisteredHook<E: TaskHookEvent> {
+    listener: Arc<dyn TaskHook<E>>,
     concrete: Arc<dyn Any + Send + Sync>,
-    _marker: PhantomData<E>,
 }
 
-impl<E: TaskHookEvent> ErasedTaskHookWrapper<E> {
-    pub fn new<T: TaskHook<E>>(hook: Arc<T>) -> Self {
+impl<E: TaskHookEvent> RegisteredHook<E> {
+    fn new<T: TaskHook<E>>(hook: Arc<T>) -> Self {
         Self {
-            hook: hook.clone(),
+            listener: hook.clone(),
             concrete: hook,
-            _marker: PhantomData,
         }
-    }
-}
-
-#[async_trait]
-pub(crate) trait ErasedTaskHook: Send + Sync {
-    async fn on_emit<'a>(&self, ctx: &TaskHookContext, payload: &'a (dyn Send + Sync));
-    fn as_any(&self) -> Arc<dyn Any + Send + Sync>;
-}
-
-#[async_trait]
-impl<E: TaskHookEvent + 'static> ErasedTaskHook for ErasedTaskHookWrapper<E> {
-    async fn on_emit<'a>(&self, ctx: &TaskHookContext, payload: &'a (dyn Send + Sync)) {
-        let payload = unsafe {
-            &*(payload as *const (dyn Send + Sync) as *const &<E as TaskHookEvent>::Payload<'a>)
-        };
-
-        self.hook.on_event(ctx, payload).await;
-    }
-
-    fn as_any(&self) -> Arc<dyn Any + Send + Sync> {
-        // Return the original concrete hook, not the wrapper
-        self.concrete.clone()
     }
 }
 
@@ -516,6 +482,8 @@ pub trait TaskHookLifecycleEvents<E: TaskHookEvent>:
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookAttach<E> {}
 impl<E: TaskHookEvent> TaskHookLifecycleEvents<E> for OnHookDetach<E> {}
 
+/// A task-scoped hook context. Hook operations become inactive after the owning task drops.
+/// An emission that already captured its hooks may finish after removal.
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct TaskHookContext(pub(crate) usize);
@@ -561,5 +529,32 @@ impl TaskHookLayer for TaskHookContext {
 
     fn detach<EV: TaskHookEvent, T: TaskHook<EV>>(&self) -> impl Future<Output = ()> + Send {
         self.detach_hook::<EV, T>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::task::{NoOperationTaskFrame, Task, TaskScheduleImmediate};
+
+    struct TestHook;
+
+    impl TaskHook<OnTaskStart> for TestHook {}
+
+    #[tokio::test]
+    async fn last_detach_releases_the_event_bucket() {
+        let task = Task::new(
+            NoOperationTaskFrame::<String>::default(),
+            TaskScheduleImmediate,
+        );
+        task.attach_hook::<OnTaskStart>(Arc::new(TestHook)).await;
+        task.attach_hook::<OnTaskStart>(Arc::new(TestHook)).await;
+        let events = TASKHOOK_REGISTRY.events(task.instance_id).unwrap();
+        task.detach_hook::<OnTaskStart, TestHook>().await;
+        assert!(events.contains_key(&TypeId::of::<OnTaskStart>()));
+        task.detach_hook::<OnTaskStart, TestHook>().await;
+        assert!(!events.contains_key(&TypeId::of::<OnTaskStart>()));
+        task.attach_hook::<OnTaskStart>(Arc::new(TestHook)).await;
+        assert!(task.get_hook::<OnTaskStart, TestHook>().is_some());
     }
 }
